@@ -1,0 +1,41 @@
+TOOL: file_read
+VERSION: 1.0
+
+CAPABILITIES:
+Reads the contents of a file at an absolute or relative path.
+Supports text files in any encoding (default: UTF-8).
+Returns the full file content as a string.
+Suitable for: source code, configs, markdown, JSON, plain text.
+
+LIMITATIONS:
+Cannot read binary files meaningfully (images, compiled binaries, archives).
+No streaming — entire file is loaded into memory.
+File size limit: 10MB per read (larger files require chunked strategy).
+Cannot read files requiring elevated permissions without prior auth.
+Path must exist and be readable by the current process user.
+
+FAILURE MODES:
+ENOENT (file not found): verify path, check if file was created.
+EACCES (permission denied): check file permissions or run context.
+EISDIR (path is directory): append filename or list directory first.
+Encoding error: retry with explicit encoding parameter.
+
+BEST PRACTICES:
+Always use absolute paths where possible to avoid cwd ambiguity.
+For large files, consider reading only the required lines.
+Verify the file exists before reading to surface clear errors.
+Use explicit encoding parameter when reading non-UTF-8 files.
+
+EXECUTION ORDER:
+1. Validate path argument is a non-empty string
+2. Check that path does not traverse outside allowed workspace
+3. Read file using specified encoding (default UTF-8)
+4. Return content in OutputContract format
+
+OUTPUT CONTRACT:
+{
+  "path": "string",
+  "content": "string",
+  "encoding": "string",
+  "sizeBytes": "number"
+}

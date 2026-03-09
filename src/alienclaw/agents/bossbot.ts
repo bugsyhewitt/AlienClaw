@@ -9,7 +9,7 @@ import {
   type Context,
   type TextContent,
 } from '@mariozechner/pi-ai';
-import { AGENT_MODELS }                             from '../constants.js';
+import { AGENT_MODELS, ALIENCLAW_PROVIDER }         from '../constants.js';
 import type { TaskEnvelope, AdviceRequest, SubGoal } from '../types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -88,8 +88,8 @@ export class BossBot {
    * Routes through OpenClaw's provider layer (anthropic provider, claude-opus-4-5).
    */
   async decompose(goalDescription: string): Promise<SubGoal[]> {
-    const model  = getModel('anthropic', 'claude-opus-4-5');
-    const apiKey = getEnvApiKey('anthropic');
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot as 'MiniMax-M2.5');
+    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
     const context: Context = {
       systemPrompt:
         `${this.soul}\n\n` +
@@ -115,8 +115,8 @@ export class BossBot {
   async classifyUserInput(
     input: string
   ): Promise<'new_subgoal' | 'constraint' | 'direction_change'> {
-    const model  = getModel('anthropic', 'claude-opus-4-5');
-    const apiKey = getEnvApiKey('anthropic');
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot as 'MiniMax-M2.5');
+    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
     const context: Context = {
       systemPrompt:
         `${this.soul}\n\n` +
@@ -143,8 +143,8 @@ export class BossBot {
    * Generate sub-goals from a user input string (new_subgoal or direction_change path).
    */
   async generateSubGoals(input: string): Promise<SubGoal[]> {
-    const model  = getModel('anthropic', 'claude-opus-4-5');
-    const apiKey = getEnvApiKey('anthropic');
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot as 'MiniMax-M2.5');
+    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
     const context: Context = {
       systemPrompt:
         `${this.soul}\n\n` +

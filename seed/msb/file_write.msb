@@ -1,0 +1,43 @@
+TOOL: file_write
+VERSION: 1.0
+
+CAPABILITIES:
+Writes a string to a file at the specified path.
+Creates parent directories automatically if they do not exist.
+Overwrites existing files (not append — full replacement).
+Supports any text encoding (default: UTF-8).
+Suitable for: output files, configs, reports, generated code.
+
+LIMITATIONS:
+Writes entire content atomically — no partial writes exposed to caller.
+Cannot write binary data (use base64 encoding workaround if needed).
+No append mode — full file replacement only.
+Disk space errors are fatal — not retryable without cleanup.
+Path must be within the process's writable scope.
+
+FAILURE MODES:
+EACCES (permission denied): check target directory permissions.
+ENOSPC (no space left): fatal, escalate to BossBot immediately.
+EMFILE (too many open files): retry after brief delay.
+Path traversal attempt: reject and surface to BossBot as security event.
+
+BEST PRACTICES:
+Always confirm parent directory exists or rely on auto-creation.
+Write to a temp path first, then rename for atomic replacement of critical files.
+Validate content is a non-empty string before invoking.
+Use the output directory (~/.alienclaw/workspace/output/) for task deliverables.
+Log the written path and byte count for telemetry.
+
+EXECUTION ORDER:
+1. Validate path and content arguments
+2. Ensure parent directory exists (create recursively if needed)
+3. Write content to file with specified encoding
+4. Confirm write by checking bytesWritten
+5. Return receipt in OutputContract format
+
+OUTPUT CONTRACT:
+{
+  "path": "string",
+  "bytesWritten": "number",
+  "encoding": "string"
+}

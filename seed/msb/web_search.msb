@@ -1,0 +1,50 @@
+TOOL: web_search
+VERSION: 1.0
+
+CAPABILITIES:
+Searches the web for current information using a query string.
+Returns structured results containing titles, URLs, and excerpts.
+Supports natural language queries of arbitrary complexity.
+Best for: research, fact-finding, news, documentation lookup.
+
+LIMITATIONS:
+Cannot access pages behind authentication or paywalls.
+Results are limited to publicly indexed content.
+Not suitable for real-time data (stock prices, live scores) unless the index is current.
+Query length should be under 500 characters for best results.
+Does not execute JavaScript or render dynamic pages.
+
+FAILURE MODES:
+Network timeout: retry with same query after brief delay.
+Empty results: rephrase query with more specific terms.
+Irrelevant results: add context keywords or narrow scope.
+Rate limit: back off exponentially, do not hammer endpoint.
+
+BEST PRACTICES:
+Keep queries specific — 3-8 words yields the best precision.
+Include year or date context for time-sensitive topics.
+Use domain-specific terminology when querying technical subjects.
+For multi-part questions, decompose into separate focused queries.
+Prefer nouns and proper names over generic verbs.
+
+EXECUTION ORDER:
+1. Validate that query is a non-empty string
+2. Trim and normalize whitespace from query
+3. Submit query to web_search tool
+4. Wait for response (do not timeout before 30s)
+5. Parse results array
+6. Return results in OutputContract format
+
+OUTPUT CONTRACT:
+{
+  "results": [
+    {
+      "title": "string",
+      "url": "string",
+      "excerpt": "string",
+      "rank": "number"
+    }
+  ],
+  "query": "string",
+  "totalResults": "number"
+}
