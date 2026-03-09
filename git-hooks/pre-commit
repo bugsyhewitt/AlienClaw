@@ -38,12 +38,38 @@ while IFS= read -r -d '' file; do
   format_files+=("$file")
 done < <(node "$FILTER_FILES" format -- "${files[@]}")
 
+# Probe whether oxlint's native binding loads. On Windows without the
+# @oxlint/binding-win32-x64-msvc optional package the tool crashes on
+# import, not on invocation — so a plain `command -v` check is not enough.
+# Swallow stderr so the probe failure is silent.
+_oxlint_ok=0
 if [ "${#lint_files[@]}" -gt 0 ]; then
-  "$RUN_NODE_TOOL" oxlint --type-aware --fix -- "${lint_files[@]}"
+  if pnpm exec oxlint --version >/dev/null 2>&1; then
+    _oxlint_ok=1
+  fi
+fi
+
+_oxfmt_ok=0
+if [ "${#format_files[@]}" -gt 0 ]; then
+  if pnpm exec oxfmt --version >/dev/null 2>&1; then
+    _oxfmt_ok=1
+  fi
+fi
+
+if [ "${#lint_files[@]}" -gt 0 ]; then
+  if [ "$_oxlint_ok" -eq 1 ]; then
+    "$RUN_NODE_TOOL" oxlint --type-aware --fix -- "${lint_files[@]}"
+  else
+    echo "[pre-commit] oxlint native binding unavailable — skipping lint (Windows)" >&2
+  fi
 fi
 
 if [ "${#format_files[@]}" -gt 0 ]; then
-  "$RUN_NODE_TOOL" oxfmt --write -- "${format_files[@]}"
+  if [ "$_oxfmt_ok" -eq 1 ]; then
+    "$RUN_NODE_TOOL" oxfmt --write -- "${format_files[@]}"
+  else
+    echo "[pre-commit] oxfmt native binding unavailable — skipping format (Windows)" >&2
+  fi
 fi
 
 git add -- "${files[@]}"
