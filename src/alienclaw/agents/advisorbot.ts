@@ -9,7 +9,7 @@ import {
   type Context,
   type TextContent,
 } from '@mariozechner/pi-ai';
-import { AGENT_MODELS }                     from '../constants.js';
+import { AGENT_MODELS, ALIENCLAW_PROVIDER } from '../constants.js';
 import type {
   AdviceRequest, AdviceResponse,
   AdvisorySession, AgentMessage,
@@ -109,8 +109,8 @@ export class AdvisorBot {
    *                (req.requesterId, taskId) is included in the LLM context.
    */
   async advise(req: AdviceRequest, taskId?: string): Promise<AdviceResponse> {
-    const model  = getModel('anthropic', 'claude-opus-4-5');
-    const apiKey = getEnvApiKey('anthropic');
+    const model  = getModel(ALIENCLAW_PROVIDER, 'MiniMax-M2.5');
+    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
 
     // Build user content — include session history when taskId is known
     let userContent: string;

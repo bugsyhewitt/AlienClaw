@@ -1,0 +1,45 @@
+TOOL: url_fetch
+VERSION: 1.0
+
+CAPABILITIES:
+Fetches the full text content of a URL.
+Handles HTML, plain text, and JSON responses.
+Follows redirects automatically (max 5 hops).
+Best for: reading linked articles, API responses, documentation pages.
+
+LIMITATIONS:
+Cannot access pages requiring authentication or login.
+Does not render JavaScript — returns raw HTML source only.
+Maximum response size: 2 MB.
+Timeout: 15 seconds.
+Binary content (images, PDFs) returned as base64.
+
+FAILURE MODES:
+HTTP 4xx: do not retry — report URL as inaccessible.
+HTTP 5xx: retry once after 2s backoff.
+Timeout: retry once with same URL.
+SSL error: return FAILURE — never bypass certificate checks.
+
+BEST PRACTICES:
+Only fetch URLs returned by prior web_search results.
+Do not speculatively construct URLs.
+For large pages, the first 50 KB is usually sufficient for analysis.
+Strip tracking parameters before fetching when possible.
+
+EXECUTION ORDER:
+1. Validate URL format (must start with https://)
+2. Issue url_fetch call with validated URL
+3. Check HTTP response status code
+4. Return content string to caller
+
+OUTPUT CONTRACT:
+{
+  "type": "object",
+  "properties": {
+    "url":         { "type": "string" },
+    "statusCode":  { "type": "integer" },
+    "content":     { "type": "string" },
+    "contentType": { "type": "string" }
+  },
+  "required": ["url", "statusCode", "content"]
+}
