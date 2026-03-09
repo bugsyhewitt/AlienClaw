@@ -28,14 +28,15 @@ const at   = (r, c) => `${ESC}[${r};${c}H`;
 const eraseLine = `${ESC}[2K`;
 
 // AlienClaw palette
-const GREEN   = rgb(0,   255,  90);
-const DKGREEN = rgb(0,   180,  60);
-const CYAN    = rgb(120, 245, 255);
-const GOLD    = rgb(255, 200,   0);
-const RED     = rgb(255,  60,  60);
-const WHITE   = rgb(230, 230, 230);
-const GRAY    = rgb(110, 110, 130);
-const ALIEN   = rgb(80,  255, 120);
+const GREEN     = rgb(0,   255,  90);
+const DKGREEN   = rgb(0,   180,  60);
+const MENUGREEN = rgb(0,   140,  50);  // dim green for unselected menu items
+const CYAN      = rgb(120, 245, 255);
+const GOLD      = rgb(255, 200,   0);
+const RED       = rgb(255,  60,  60);
+const WHITE     = rgb(230, 230, 230);
+const GRAY      = rgb(110, 110, 130);
+const ALIEN     = rgb(80,  255, 120);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const W = () => process.stdout.columns || 80;
@@ -157,7 +158,7 @@ async function selectMenu(prompt, options, startRow) {
       if (i === selected) {
         write(at(row, 1) + eraseLine + GREEN + BOLD + `  ▶  ${options[i]}` + RESET);
       } else {
-        write(at(row, 1) + eraseLine + GRAY + `     ${options[i]}` + RESET);
+        write(at(row, 1) + eraseLine + MENUGREEN + `     ${options[i]}` + RESET);
       }
     }
     write(at(startRow + 2 + n + 1, 1) + eraseLine +
@@ -196,7 +197,7 @@ async function selectMenu(prompt, options, startRow) {
     if (i === selected) {
       write(at(row, 1) + eraseLine + GREEN + BOLD + `  ✔  ${options[i]}` + RESET);
     } else {
-      write(at(row, 1) + eraseLine + GRAY + DIM + `     ${options[i]}` + RESET);
+      write(at(row, 1) + eraseLine + MENUGREEN + DIM + `     ${options[i]}` + RESET);
     }
   }
   write(at(startRow + 2 + n + 1, 1) + eraseLine);
@@ -296,31 +297,22 @@ const BANNER = [
 ];
 
 async function showOnlineBanner(startRow) {
-  const pulseColors = [
-    rgb(0, 80,  30),
-    rgb(0, 140, 55),
-    rgb(0, 210, 80),
-    rgb(0, 255, 90),
-    rgb(60, 255, 120),
-    rgb(0, 255, 90),
-    rgb(0, 210, 80),
-    rgb(0, 140, 55),
-    rgb(0, 80,  30),
-    rgb(0, 140, 55),
-    rgb(0, 210, 80),
-    rgb(0, 255, 90),
-    rgb(60, 255, 120),
-    rgb(0, 255, 90),
-    rgb(0, 255, 90),  // hold green
-    rgb(0, 255, 90),
-    rgb(0, 255, 90),
-  ];
-
-  for (const col of pulseColors) {
+  const STEPS = 28;
+  for (let s = 0; s <= STEPS; s++) {
+    const t    = s / STEPS;
+    const ease = 1 - Math.pow(1 - t, 2.5);   // ease-out curve
+    const g    = Math.round(ease * 255);
+    const b    = Math.round(ease * 90);
+    const col  = rgb(0, g, b);
     for (let i = 0; i < BANNER.length; i++) {
       write(at(startRow + i, 1) + col + BOLD + BANNER[i] + RESET);
     }
-    await sleep(70);
+    await sleep(40);
+  }
+  // Hold at full alien green
+  const finalCol = rgb(0, 255, 90);
+  for (let i = 0; i < BANNER.length; i++) {
+    write(at(startRow + i, 1) + finalCol + BOLD + BANNER[i] + RESET);
   }
 }
 
