@@ -1,6 +1,6 @@
-# AlienClaw — Master Handoff Document v0.7
+# AlienClaw — Master Handoff Document v0.8
 # For: New Claude chat session
-# Status: Phase 5 complete. CLI wired. Ready for Phase 6 (Installer).
+# Status: v0.1 BETA CONFIRMED WORKING. Full governance loop end-to-end. Ready for Phase 6 (Installer).
 
 ---
 
@@ -237,8 +237,10 @@ seed/
 
 ### ✅ Phase 4 — Real LLM Calls
 Provider layer: `@mariozechner/pi-ai` — `completeSimple(model, context, { apiKey })` +
-`getModel('anthropic', 'claude-opus-4-5')` + `getEnvApiKey('anthropic')`.
+`getModel(ALIENCLAW_PROVIDER, model)` + `getEnvApiKey(ALIENCLAW_PROVIDER)`.
 No Anthropic SDK imported directly. Full provider compatibility maintained.
+Provider switched to **MiniMax** (`minimax`). Models: `MiniMax-M2.5` (power), `MiniMax-M2.5-highspeed` (fast).
+`ALIENCLAW_PROVIDER` constant in `constants.ts` is the single place to change provider.
 
 - `agents/bossbot.ts` — `decompose()`, `classifyUserInput()`, `generateSubGoals()` — real LLM, JSON parsed
 - `agents/advisorbot.ts` — `advise(req, taskId?)` — includes session history when `taskId` provided
@@ -267,6 +269,46 @@ No Anthropic SDK imported directly. Full provider compatibility maintained.
   - Dynamically imports `../../alienclaw/cli/register.run.js`
 - Output boundary: `~/.alienclaw/workspace/output/` — enforced by existing `file_write` adapter (unchanged)
 - Build: clean. Zero type errors.
+
+### ✅ Post-Phase-5 Fixes & Cleanup
+- `installer/scripts/overlay-dist.sh` — extended to also copy `src/openclaw-patches/` into
+  `build/src/`, so patches to OpenClaw core files survive `dist:all`
+- `src/openclaw-patches/cli/program/command-registry.ts` — patched copy wiring `run` into `coreEntries`
+- Soul file paths fixed in all 4 agents — bundled output is in `dist/`, so paths must be
+  `../src/alienclaw/prompts/` not `../prompts/`
+- `seed/ms/*.ms` — block-7 checksums recomputed; all 3 pass `validateGenome()`
+- `seed/msb/` — deduplicated to underscore-only names (`file_read`, `file_write`, `web_search`, `url_fetch`);
+  hyphenated variants (`file-read`, `file-write`, `web-search`) removed
+- `seed-installer.ts` — `overwrite` defaults to `true` so updated seeds always propagate on reinstall
+- `git-hooks/pre-commit` — probes oxlint/oxfmt with `--version` before running;
+  silently skips on Windows where native bindings are absent
+
+### ✅ v0.1 Beta — Smoke Test Confirmed (2026-03-09)
+End-to-end run: `node alienclaw.mjs run "list the files in the current directory" --verbose`
+
+```
+[SeedInstaller] Installed ms/MS_FREAD0001.ms
+[SeedInstaller] Installed ms/MS_FWRITE001.ms
+[SeedInstaller] Installed ms/MS_WEB00001.ms
+[SeedInstaller] Installed msb/file_read.msb
+[SeedInstaller] Installed msb/file_write.msb
+[SeedInstaller] Installed msb/url_fetch.msb
+[SeedInstaller] Installed msb/web_search.msb
+[AlienClaw] New goal received: "list the files in the current directory"
+[AlienClaw:verbose] State: IDLE → DECOMPOSING | User submitted goal
+→ BossBot.decompose() hit MiniMax API — real LLM call confirmed
+```
+
+Every layer confirmed working:
+- Commander registration → `alienclaw run` command resolved ✓
+- `bootstrap()` → GovernanceLoop constructed ✓
+- SeedInstaller → all seeds installed to `~/.alienclaw/registry/` ✓
+- GovernanceLoop state machine → `IDLE → DECOMPOSING` ✓
+- `--verbose` flag propagated through config → UserChannel ✓
+- BossBot → real LLM call dispatched via `@mariozechner/pi-ai` → MiniMax ✓
+- `MINIMAX_API_KEY` read from `.env` ✓
+
+Provider: MiniMax (`MINIMAX_API_KEY` in `.env`, gitignored).
 
 ---
 
