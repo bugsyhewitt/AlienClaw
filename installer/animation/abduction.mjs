@@ -58,29 +58,29 @@ const C = {
   sky:        ()    => rgb(5, 4, 18),
 };
 
-// ── Ship art (AlienClaw original — wider saucer design) ───────────────────────
+// ── Ship art — user design, ⡀→space, trimmed blank rows ─────────────────────
 const SHIP = [
-  '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-  '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠛⠉⠙⠲⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-  '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠊⠀⠀⢀⡠⠄⠀⠀⠑⠢⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-  '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡴⠒⠋⠁⠀⠀⢀⡔⠊⠁⠀⠀⠈⠑⢢⡀⠀⠉⠒⠶⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-  '⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠴⠋⠁⠀⠀⠀⠀⠀⢠⡞⠀⠀⠀⢀⡄⠀⠀⠀⢻⣄⠀⠀⠀⠀⠈⠙⠦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-  '⠀⠀⠀⠀⣠⡴⠞⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⣠⡟⠀⠀⠀⠀⠿⣿⠀⠀⠀⠀⢻⣄⠀⠀⠀⠀⠀⠀⠈⠙⠲⢦⣄⠀⠀⠀⠀⠀⠀',
-  '⢀⣤⠶⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⠋⠀⠀⢀⡀⠀⠈⠉⠀⠀⢀⡄⠀⠙⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠶⣤⡀⠀⠀',
-  '⠈⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⠿⢷⣤⡀⠀⠀⠈⠑⠒⠒⠊⠀⠀⠁⢀⣤⡿⠷⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠁⠀',
-  '⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣶⡿⠛⠉⠀⠀⠀⠉⠛⢿⣶⣤⣤⣤⣤⣤⣶⡿⠛⠋⠉⠀⠀⠀⠉⠛⠻⢷⣤⣄⠀⠀⠀⠀⠀⠀⠀⠀',
-  '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣶⣿⡇⠀⠈⠉⠁⠀⠈⠉⠀⠀⢸⣿⣶⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-  '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⠁⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠈⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
-  '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠷⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⠾⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
+  '                ⣠⣴⣶⣤⣄               ',
+  '              ⢀⣿⣿⣿⣿⣿⣿⣿              ',
+  '              ⣿⡏ ⠻⣿⠏ ⢹⣧             ',
+  '              ⢹⣷⣀ ⣿ ⣠⣿⠇             ',
+  '               ⢿⣿⣿⣿⣿⣿⡟              ',
+  '                ⠻⣿⣿⣿⠏               ',
+  '    ⢀⣀⣤⣶⣶⣿⠟⠋⠉⠁ ⣠⣶⣌⢋⣠⣶  ⠉⠉⠛⠿⣷⣶⣤⣤⣀    ',
+  ' ⢀⣶⣿⣿⣿⣿⣿⣿⣙⠶⣤⣄⣀⣰⣿⣿⣿⣿⣿⣿⣿⣄⣀⣤⣴⠾⣡⣿⣿⣿⣿⣿⣷⣤ ',
+  ' ⠻⣿⣿⣿⣿⣙⢿⣿⣿⣿⣷⣶⣤⣭⣭⣉⣉⣉⣉⣉⣭⣭⣴⣶⣿⣿⣿⣿⠿⣩⣿⣿⣿⣿ ',
+  '  ⠈⠛⠿⣿⣿⣿⣶⣬⣍⣛⡛⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠟⣛⣋⣭⣴⣾⣿⣿⡿⠟⠉  ',
+  '        ⠉⠉⠛⣛⣛⠛⠿⠿⠿⠿⠿⠿⠿⠿⠟⢛⣛⣛⠉⠉⠁       ',
+  '            ⠈⠉⠛⠛⠻⠿⠿⠿⠛⠛⠛⠉            ',
 ];
-const SH = SHIP.length;   // 12 rows
-const SW = 48;             // 48 cols
+const SH = 12;
+const SW = 36;
 
 // Ship color gradient (cyan top → teal → green bottom)
 const SHIP_COL = [
   rgb(140,245,255), rgb(120,238,255), rgb(100,228,255),
-  rgb(75, 215,250), rgb(50, 205,240), rgb(20, 210,215),
-  rgb(0,  210,185), rgb(0,  200,160), rgb(0,  195,140),
+  rgb(80, 218,250), rgb(55, 210,240), rgb(30, 212,220),
+  rgb(0,  215,195), rgb(0,  208,170), rgb(0,  202,145),
   rgb(0,  215,120), rgb(0,  240,100), rgb(0,  255,90),
 ];
 
@@ -102,21 +102,30 @@ function drawShip(sr, sc, glow = 0) {
   for (let i = 0; i < SH; i++) {
     const r = sr + i;
     if (r < 1 || r > H - 1) continue;
+    if (sc + SW <= 0 || sc > W) continue;          // fully off-screen
     const col = i === SH-1 && glow > 0
       ? rgb(Math.round(glow*255), Math.round(255-glow*60), Math.round(glow*80))
       : SHIP_COL[i];
-    s += at(r, sc) + col + SHIP[i] + RST;
+    if (sc >= 1) {
+      s += at(r, sc) + col + SHIP[i] + RST;
+    } else {
+      // Partially off-screen left — clip by slicing chars
+      const skip = 1 - sc;
+      if (skip < SW) s += at(r, 1) + col + SHIP[i].slice(skip) + RST;
+    }
   }
   out(s);
 }
 
 function eraseShip(sr, sc) {
   let s = '';
-  const blank = ' '.repeat(SW);
   for (let i = 0; i < SH; i++) {
     const r = sr + i;
     if (r < 1 || r > H - 1) continue;
-    s += at(r, sc) + blank;
+    const lc = Math.max(1, sc);
+    const rc = Math.min(W, sc + SW - 1);
+    if (rc < lc) continue;
+    s += at(r, lc) + ' '.repeat(rc - lc + 1);
   }
   out(s);
 }
@@ -238,7 +247,7 @@ async function run() {
 
   // Computed positions
   const shipCol   = Math.floor((W - SW) / 2) + 1;
-  const shipRow   = Math.max(2, GR1 - SH - 2);   // hovered: bottom just above grass
+  const shipRow   = Math.max(2, GR1 - SH - 7);   // hovered: 7 rows of beam clearance above 🦞
   const beamCtr   = shipCol + Math.floor(SW / 2) - 1;
   const beamTop   = shipRow + SH;
   const beamBot   = GR1 - 1;
@@ -366,18 +375,21 @@ async function run() {
   }
 
   // ── Phase 9: Ship returns from top-left, slower (2s) ──────────────────────
-  const s2Start = { r: -SH, c: 1 - SW };
+  drawGrass();   // ensure grass is clean before ship slides in
+  const s2Start = { r: 1, c: 1 - SW };   // enters from left edge, same sky row
   pSR = null; pSC = null;
-  for (let f = 0; f <= 40; f++) {
-    const t  = easeOut(f / 40);
+  for (let f = 0; f <= 45; f++) {
+    const t  = easeOut(f / 45);
     const nr = Math.round(lerp(s2Start.r, shipRow, t));
     const nc = Math.round(lerp(s2Start.c, shipCol, t));
     if (pSR !== null) eraseShip(pSR, pSC);
+    drawGrass();
     drawStars(frame);
     drawShip(nr, nc);
     pSR = nr; pSC = nc;
-    frame++; await sleep(Math.round(TICK * 1.1));
+    frame++; await sleep(Math.round(TICK * 1.2));
   }
+  eraseShip(pSR, pSC);
   drawShip(shipRow, shipCol);
 
   // ── Phase 10: Beam extends, 👽 descends through beam (2s) ─────────────────
