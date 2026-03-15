@@ -40,4 +40,18 @@ else
     echo "  (no core patches directory found — skipping)"
 fi
 
+# ── 3. AlienClaw installer (wizard, animation, setup) ────────────────────────
+INSTALLER_DST="$REPO_ROOT/build/installer"
+echo "Copying installer → $INSTALLER_DST ..."
+rm -rf "$INSTALLER_DST"
+cp -r "$REPO_ROOT/installer" "$INSTALLER_DST"
+echo "  installer: $(find "$INSTALLER_DST" -type f | wc -l) files"
+
+# ── 4. Custom entry point (first-run gate + correct branding) ─────────────────
+# Overwrites OpenClaw's alienclaw.mjs with our wrapper that checks setup first.
+ENTRY_SRC="$REPO_ROOT/installer/alienclaw-entry.mjs"
+ENTRY_DST="$REPO_ROOT/build/alienclaw.mjs"
+echo "Installing custom entry point → alienclaw.mjs ..."
+cp "$ENTRY_SRC" "$ENTRY_DST"
+
 echo "Done."
