@@ -1,4 +1,4 @@
-import OpenClawKit
+import AlienClawKit
 import Foundation
 import Testing
 
@@ -28,7 +28,7 @@ import Testing
         let url = ShareToAgentDeepLink.buildURL(from: payload)
         let parsed = url.flatMap { DeepLinkParser.parse($0) }
         guard case let .agent(agent)? = parsed else {
-            Issue.record("Expected openclaw://agent deep link")
+            Issue.record("Expected alienclaw://agent deep link")
             return
         }
 

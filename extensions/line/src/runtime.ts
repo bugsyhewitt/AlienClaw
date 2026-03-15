@@ -1,4 +1,4 @@
-import type { PluginRuntime } from "openclaw/plugin-sdk/line";
+import type { PluginRuntime } from "alienclaw/plugin-sdk/line";
 
 let runtime: PluginRuntime | null = null;
 

@@ -1,4 +1,4 @@
-import type { PluginRuntime } from "openclaw/plugin-sdk/irc";
+import type { PluginRuntime } from "alienclaw/plugin-sdk/irc";
 
 let runtime: PluginRuntime | null = null;
 

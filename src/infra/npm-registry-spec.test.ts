@@ -7,18 +7,18 @@ import {
 
 describe("npm registry spec validation", () => {
   it("accepts bare package names, exact versions, and dist-tags", () => {
-    expect(validateRegistryNpmSpec("@openclaw/voice-call")).toBeNull();
-    expect(validateRegistryNpmSpec("@openclaw/voice-call@1.2.3")).toBeNull();
-    expect(validateRegistryNpmSpec("@openclaw/voice-call@1.2.3-beta.4")).toBeNull();
-    expect(validateRegistryNpmSpec("@openclaw/voice-call@latest")).toBeNull();
-    expect(validateRegistryNpmSpec("@openclaw/voice-call@beta")).toBeNull();
+    expect(validateRegistryNpmSpec("@alienclaw/voice-call")).toBeNull();
+    expect(validateRegistryNpmSpec("@alienclaw/voice-call@1.2.3")).toBeNull();
+    expect(validateRegistryNpmSpec("@alienclaw/voice-call@1.2.3-beta.4")).toBeNull();
+    expect(validateRegistryNpmSpec("@alienclaw/voice-call@latest")).toBeNull();
+    expect(validateRegistryNpmSpec("@alienclaw/voice-call@beta")).toBeNull();
   });
 
   it("rejects semver ranges", () => {
-    expect(validateRegistryNpmSpec("@openclaw/voice-call@^1.2.3")).toContain(
+    expect(validateRegistryNpmSpec("@alienclaw/voice-call@^1.2.3")).toContain(
       "exact version or dist-tag",
     );
-    expect(validateRegistryNpmSpec("@openclaw/voice-call@~1.2.3")).toContain(
+    expect(validateRegistryNpmSpec("@alienclaw/voice-call@~1.2.3")).toContain(
       "exact version or dist-tag",
     );
   });
@@ -26,7 +26,7 @@ describe("npm registry spec validation", () => {
 
 describe("npm prerelease resolution policy", () => {
   it("blocks prerelease resolutions for bare specs", () => {
-    const spec = parseRegistryNpmSpec("@openclaw/voice-call");
+    const spec = parseRegistryNpmSpec("@alienclaw/voice-call");
     expect(spec).not.toBeNull();
     expect(
       isPrereleaseResolutionAllowed({
@@ -37,7 +37,7 @@ describe("npm prerelease resolution policy", () => {
   });
 
   it("blocks prerelease resolutions for latest", () => {
-    const spec = parseRegistryNpmSpec("@openclaw/voice-call@latest");
+    const spec = parseRegistryNpmSpec("@alienclaw/voice-call@latest");
     expect(spec).not.toBeNull();
     expect(
       isPrereleaseResolutionAllowed({
@@ -48,8 +48,8 @@ describe("npm prerelease resolution policy", () => {
   });
 
   it("allows prerelease resolutions when the user explicitly opted in", () => {
-    const tagSpec = parseRegistryNpmSpec("@openclaw/voice-call@beta");
-    const versionSpec = parseRegistryNpmSpec("@openclaw/voice-call@1.2.3-beta.1");
+    const tagSpec = parseRegistryNpmSpec("@alienclaw/voice-call@beta");
+    const versionSpec = parseRegistryNpmSpec("@alienclaw/voice-call@1.2.3-beta.1");
 
     expect(tagSpec).not.toBeNull();
     expect(versionSpec).not.toBeNull();

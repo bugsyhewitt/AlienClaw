@@ -1,10 +1,10 @@
-import type { OpenClawConfig } from "openclaw/plugin-sdk/googlechat";
+import type { AlienClawConfig } from "alienclaw/plugin-sdk/googlechat";
 import { describe, expect, it } from "vitest";
 import { resolveGoogleChatAccount } from "./accounts.js";
 
 describe("resolveGoogleChatAccount", () => {
   it("inherits shared defaults from accounts.default for named accounts", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         googlechat: {
           accounts: {
@@ -29,7 +29,7 @@ describe("resolveGoogleChatAccount", () => {
   });
 
   it("prefers top-level and account overrides over accounts.default", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         googlechat: {
           audienceType: "project-number",
@@ -55,7 +55,7 @@ describe("resolveGoogleChatAccount", () => {
   });
 
   it("does not inherit disabled state from accounts.default for named accounts", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         googlechat: {
           accounts: {
@@ -79,7 +79,7 @@ describe("resolveGoogleChatAccount", () => {
   });
 
   it("does not inherit default-account credentials into named accounts", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         googlechat: {
           accounts: {
@@ -107,7 +107,7 @@ describe("resolveGoogleChatAccount", () => {
   });
 
   it("does not inherit dangerous name matching from accounts.default", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         googlechat: {
           accounts: {

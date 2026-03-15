@@ -19,7 +19,7 @@ RUN set -eux; \
   && rm -rf /var/lib/apt/lists/*
 
 COPY install-sh-common/cli-verify.sh /usr/local/install-sh-common/cli-verify.sh
-COPY install-sh-smoke/run.sh /usr/local/bin/openclaw-install-smoke
-RUN chmod +x /usr/local/bin/openclaw-install-smoke
+COPY install-sh-smoke/run.sh /usr/local/bin/alienclaw-install-smoke
+RUN chmod +x /usr/local/bin/alienclaw-install-smoke
 
-ENTRYPOINT ["/usr/local/bin/openclaw-install-smoke"]
+ENTRYPOINT ["/usr/local/bin/alienclaw-install-smoke"]

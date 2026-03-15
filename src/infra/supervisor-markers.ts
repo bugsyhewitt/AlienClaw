@@ -1,24 +1,24 @@
 const LAUNCHD_SUPERVISOR_HINT_ENV_VARS = [
   "LAUNCH_JOB_LABEL",
   "LAUNCH_JOB_NAME",
-  "OPENCLAW_LAUNCHD_LABEL",
+  "ALIENCLAW_LAUNCHD_LABEL",
 ] as const;
 
 const SYSTEMD_SUPERVISOR_HINT_ENV_VARS = [
-  "OPENCLAW_SYSTEMD_UNIT",
+  "ALIENCLAW_SYSTEMD_UNIT",
   "INVOCATION_ID",
   "SYSTEMD_EXEC_PID",
   "JOURNAL_STREAM",
 ] as const;
 
-const WINDOWS_TASK_SUPERVISOR_HINT_ENV_VARS = ["OPENCLAW_WINDOWS_TASK_NAME"] as const;
+const WINDOWS_TASK_SUPERVISOR_HINT_ENV_VARS = ["ALIENCLAW_WINDOWS_TASK_NAME"] as const;
 
 export const SUPERVISOR_HINT_ENV_VARS = [
   ...LAUNCHD_SUPERVISOR_HINT_ENV_VARS,
   ...SYSTEMD_SUPERVISOR_HINT_ENV_VARS,
   ...WINDOWS_TASK_SUPERVISOR_HINT_ENV_VARS,
-  "OPENCLAW_SERVICE_MARKER",
-  "OPENCLAW_SERVICE_KIND",
+  "ALIENCLAW_SERVICE_MARKER",
+  "ALIENCLAW_SERVICE_KIND",
 ] as const;
 
 export type RespawnSupervisor = "launchd" | "systemd" | "schtasks";
@@ -44,8 +44,8 @@ export function detectRespawnSupervisor(
     if (hasAnyHint(env, WINDOWS_TASK_SUPERVISOR_HINT_ENV_VARS)) {
       return "schtasks";
     }
-    const marker = env.OPENCLAW_SERVICE_MARKER?.trim();
-    const serviceKind = env.OPENCLAW_SERVICE_KIND?.trim();
+    const marker = env.ALIENCLAW_SERVICE_MARKER?.trim();
+    const serviceKind = env.ALIENCLAW_SERVICE_KIND?.trim();
     return marker && serviceKind === "gateway" ? "schtasks" : null;
   }
   return null;

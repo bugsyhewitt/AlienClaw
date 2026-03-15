@@ -39,7 +39,7 @@ function formatMs(value) {
 
 const opts = parseArgs(process.argv.slice(2));
 const reportPath =
-  opts.reportPath || path.join(os.tmpdir(), `openclaw-vitest-hotspots-${Date.now()}.json`);
+  opts.reportPath || path.join(os.tmpdir(), `alienclaw-vitest-hotspots-${Date.now()}.json`);
 
 if (!(opts.reportPath && fs.existsSync(reportPath))) {
   const run = spawnSync(

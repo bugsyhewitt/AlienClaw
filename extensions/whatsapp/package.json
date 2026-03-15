@@ -1,10 +1,10 @@
 {
-  "name": "@openclaw/whatsapp",
+  "name": "@alienclaw/whatsapp",
   "version": "2026.3.7",
   "private": true,
-  "description": "OpenClaw WhatsApp channel plugin",
+  "description": "AlienClaw WhatsApp channel plugin",
   "type": "module",
-  "openclaw": {
+  "alienclaw": {
     "extensions": [
       "./index.ts"
     ]

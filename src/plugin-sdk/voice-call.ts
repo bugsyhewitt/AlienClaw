@@ -14,5 +14,5 @@ export {
   requestBodyErrorToText,
 } from "../infra/http-body.js";
 export { fetchWithSsrFGuard } from "../infra/net/fetch-guard.js";
-export type { OpenClawPluginApi } from "../plugins/types.js";
+export type { AlienClawPluginApi } from "../plugins/types.js";
 export { sleep } from "../utils.js";

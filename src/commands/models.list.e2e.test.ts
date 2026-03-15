@@ -10,14 +10,14 @@ const readConfigFileSnapshotForWrite = vi.fn().mockResolvedValue({
   writeOptions: {},
 });
 const setRuntimeConfigSnapshot = vi.fn();
-const ensureOpenClawModelsJson = vi.fn().mockResolvedValue(undefined);
-const resolveOpenClawAgentDir = vi.fn().mockReturnValue("/tmp/openclaw-agent");
+const ensureAlienClawModelsJson = vi.fn().mockResolvedValue(undefined);
+const resolveAlienClawAgentDir = vi.fn().mockReturnValue("/tmp/alienclaw-agent");
 const ensureAuthProfileStore = vi.fn().mockReturnValue({ version: 1, profiles: {} });
 const listProfilesForProvider = vi.fn().mockReturnValue([]);
 const resolveAuthProfileDisplayLabel = vi.fn(({ profileId }: { profileId: string }) => profileId);
 const resolveAuthStorePathForDisplay = vi
   .fn()
-  .mockReturnValue("/tmp/openclaw-agent/auth-profiles.json");
+  .mockReturnValue("/tmp/alienclaw-agent/auth-profiles.json");
 const resolveProfileUnusableUntilForDisplay = vi.fn().mockReturnValue(null);
 const resolveEnvApiKey = vi.fn().mockReturnValue(undefined);
 const resolveAwsSdkEnvVarName = vi.fn().mockReturnValue(undefined);
@@ -31,19 +31,19 @@ const modelRegistryState = {
 let previousExitCode: typeof process.exitCode;
 
 vi.mock("../config/config.js", () => ({
-  CONFIG_PATH: "/tmp/openclaw.json",
-  STATE_DIR: "/tmp/openclaw-state",
+  CONFIG_PATH: "/tmp/alienclaw.json",
+  STATE_DIR: "/tmp/alienclaw-state",
   loadConfig,
   readConfigFileSnapshotForWrite,
   setRuntimeConfigSnapshot,
 }));
 
 vi.mock("../agents/models-config.js", () => ({
-  ensureOpenClawModelsJson,
+  ensureAlienClawModelsJson,
 }));
 
 vi.mock("../agents/agent-paths.js", () => ({
-  resolveOpenClawAgentDir,
+  resolveAlienClawAgentDir,
 }));
 
 vi.mock("../agents/auth-profiles.js", () => ({
@@ -129,7 +129,7 @@ beforeEach(() => {
   modelRegistryState.getAllError = undefined;
   modelRegistryState.getAvailableError = undefined;
   listProfilesForProvider.mockReturnValue([]);
-  ensureOpenClawModelsJson.mockClear();
+  ensureAlienClawModelsJson.mockClear();
   readConfigFileSnapshotForWrite.mockClear();
   readConfigFileSnapshotForWrite.mockResolvedValue({
     snapshot: { valid: false, resolved: {} },
@@ -336,8 +336,8 @@ describe("models list/status", () => {
 
     await loadModelRegistry(resolvedConfig as never, { sourceConfig: sourceConfig as never });
 
-    expect(ensureOpenClawModelsJson).toHaveBeenCalledTimes(1);
-    expect(ensureOpenClawModelsJson).toHaveBeenCalledWith(sourceConfig);
+    expect(ensureAlienClawModelsJson).toHaveBeenCalledTimes(1);
+    expect(ensureAlienClawModelsJson).toHaveBeenCalledWith(sourceConfig);
   });
 
   it("loadModelRegistry uses resolved config when no source snapshot is provided", async () => {
@@ -349,8 +349,8 @@ describe("models list/status", () => {
 
     await loadModelRegistry(resolvedConfig as never);
 
-    expect(ensureOpenClawModelsJson).toHaveBeenCalledTimes(1);
-    expect(ensureOpenClawModelsJson).toHaveBeenCalledWith(resolvedConfig);
+    expect(ensureAlienClawModelsJson).toHaveBeenCalledTimes(1);
+    expect(ensureAlienClawModelsJson).toHaveBeenCalledWith(resolvedConfig);
   });
 
   it("toModelRow does not crash without cfg/authStore when availability is undefined", async () => {

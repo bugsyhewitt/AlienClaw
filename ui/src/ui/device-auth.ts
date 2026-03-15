@@ -6,7 +6,7 @@ import {
 } from "../../../src/shared/device-auth-store.js";
 import type { DeviceAuthStore } from "../../../src/shared/device-auth.js";
 
-const STORAGE_KEY = "openclaw.device.auth.v1";
+const STORAGE_KEY = "alienclaw.device.auth.v1";
 
 function readStore(): DeviceAuthStore | null {
   try {

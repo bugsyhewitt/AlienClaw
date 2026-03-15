@@ -2,7 +2,7 @@ import { listSecretTargetRegistryEntries } from "./target-registry.js";
 
 type CredentialMatrixEntry = {
   id: string;
-  configFile: "openclaw.json" | "auth-profiles.json";
+  configFile: "alienclaw.json" | "auth-profiles.json";
   path: string;
   refPath?: string;
   when?: { type: "api_key" | "token" };
@@ -15,7 +15,7 @@ export type SecretRefCredentialMatrixDocument = {
   version: 1;
   matrixId: "strictly-user-supplied-credentials";
   pathSyntax: 'Dot path with "*" for map keys and "[]" for arrays.';
-  scope: "Credentials that are strictly user-supplied and not minted/rotated by OpenClaw runtime.";
+  scope: "Credentials that are strictly user-supplied and not minted/rotated by AlienClaw runtime.";
   excludedMutableOrRuntimeManaged: string[];
   entries: CredentialMatrixEntry[];
 };
@@ -53,7 +53,7 @@ export function buildSecretRefCredentialMatrix(): SecretRefCredentialMatrixDocum
     matrixId: "strictly-user-supplied-credentials",
     pathSyntax: 'Dot path with "*" for map keys and "[]" for arrays.',
     scope:
-      "Credentials that are strictly user-supplied and not minted/rotated by OpenClaw runtime.",
+      "Credentials that are strictly user-supplied and not minted/rotated by AlienClaw runtime.",
     excludedMutableOrRuntimeManaged: [...EXCLUDED_MUTABLE_OR_RUNTIME_MANAGED],
     entries,
   };

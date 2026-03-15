@@ -43,7 +43,7 @@ describe("provider discovery auth marker guardrails", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
+    const agentDir = mkdtempSync(join(tmpdir(), "alienclaw-test-"));
     await writeFile(
       join(agentDir, "auth-profiles.json"),
       JSON.stringify(
@@ -76,7 +76,7 @@ describe("provider discovery auth marker guardrails", () => {
     const fetchMock = vi.fn();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
+    const agentDir = mkdtempSync(join(tmpdir(), "alienclaw-test-"));
     await writeFile(
       join(agentDir, "auth-profiles.json"),
       JSON.stringify(
@@ -112,7 +112,7 @@ describe("provider discovery auth marker guardrails", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
+    const agentDir = mkdtempSync(join(tmpdir(), "alienclaw-test-"));
     await writeFile(
       join(agentDir, "auth-profiles.json"),
       JSON.stringify(

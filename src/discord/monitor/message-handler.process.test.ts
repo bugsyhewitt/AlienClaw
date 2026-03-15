@@ -58,7 +58,7 @@ const dispatchInboundMessage = vi.fn(async (_params?: DispatchInboundParams) => 
 const recordInboundSession = vi.fn(async () => {});
 const configSessionsMocks = vi.hoisted(() => ({
   readSessionUpdatedAt: vi.fn(() => undefined),
-  resolveStorePath: vi.fn(() => "/tmp/openclaw-discord-process-test-sessions.json"),
+  resolveStorePath: vi.fn(() => "/tmp/alienclaw-discord-process-test-sessions.json"),
 }));
 const readSessionUpdatedAt = configSessionsMocks.readSessionUpdatedAt;
 const resolveStorePath = configSessionsMocks.resolveStorePath;
@@ -159,7 +159,7 @@ beforeEach(() => {
   dispatchInboundMessage.mockResolvedValue(createNoQueuedDispatchResult());
   recordInboundSession.mockResolvedValue(undefined);
   readSessionUpdatedAt.mockReturnValue(undefined);
-  resolveStorePath.mockReturnValue("/tmp/openclaw-discord-process-test-sessions.json");
+  resolveStorePath.mockReturnValue("/tmp/alienclaw-discord-process-test-sessions.json");
   threadBindingTesting.resetThreadBindingsForTests();
 });
 
@@ -334,7 +334,7 @@ describe("processDiscordMessage ack reactions", () => {
             timing: { debounceMs: 0 },
           },
         },
-        session: { store: "/tmp/openclaw-discord-process-test-sessions.json" },
+        session: { store: "/tmp/alienclaw-discord-process-test-sessions.json" },
       },
     });
 
@@ -360,7 +360,7 @@ describe("processDiscordMessage ack reactions", () => {
           ackReaction: "👀",
           removeAckAfterReply: true,
         },
-        session: { store: "/tmp/openclaw-discord-process-test-sessions.json" },
+        session: { store: "/tmp/alienclaw-discord-process-test-sessions.json" },
       },
     });
 
@@ -474,7 +474,7 @@ describe("processDiscordMessage draft streaming", () => {
     return await createBaseContext({
       cfg: {
         messages: { ackReaction: "👀" },
-        session: { store: "/tmp/openclaw-discord-process-test-sessions.json" },
+        session: { store: "/tmp/alienclaw-discord-process-test-sessions.json" },
         channels: {
           discord: {
             draftChunk: { minChars: 1, maxChars: 5, breakPreference: "newline" },

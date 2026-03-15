@@ -255,7 +255,7 @@ describe("runReplyAgent authProfileId fallback scoping", () => {
         skillsSnapshot: {},
         provider: "anthropic",
         model: "claude-opus",
-        authProfileId: "anthropic:openclaw",
+        authProfileId: "anthropic:alienclaw",
         authProfileIdSource: "manual",
         thinkLevel: "low",
         verboseLevel: "off",
@@ -382,7 +382,7 @@ describe("runReplyAgent auto-compaction token update", () => {
   }
 
   it("updates totalTokens after auto-compaction using lastCallUsage", async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-compact-tokens-"));
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-compact-tokens-"));
     const storePath = path.join(tmp, "sessions.json");
     const sessionKey = "main";
     const sessionEntry = {
@@ -456,7 +456,7 @@ describe("runReplyAgent auto-compaction token update", () => {
   });
 
   it("updates totalTokens from lastCallUsage even without compaction", async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-usage-last-"));
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-usage-last-"));
     const storePath = path.join(tmp, "sessions.json");
     const sessionKey = "main";
     const sessionEntry = {
@@ -514,7 +514,7 @@ describe("runReplyAgent auto-compaction token update", () => {
   });
 
   it("does not enqueue legacy post-compaction audit warnings", async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-no-audit-warning-"));
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-no-audit-warning-"));
     const workspaceDir = path.join(tmp, "workspace");
     await fs.mkdir(workspaceDir, { recursive: true });
     const sessionFile = path.join(tmp, "session.jsonl");
@@ -1006,7 +1006,7 @@ describe("runReplyAgent messaging tool suppression", () => {
 
   it("persists usage fields even when replies are suppressed", async () => {
     const storePath = path.join(
-      await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-session-store-")),
+      await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-session-store-")),
       "sessions.json",
     );
     const sessionKey = "main";
@@ -1039,7 +1039,7 @@ describe("runReplyAgent messaging tool suppression", () => {
 
   it("persists totalTokens from promptTokens when snapshot is available", async () => {
     const storePath = path.join(
-      await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-session-store-")),
+      await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-session-store-")),
       "sessions.json",
     );
     const sessionKey = "main";
@@ -1071,7 +1071,7 @@ describe("runReplyAgent messaging tool suppression", () => {
 
   it("persists totalTokens from promptTokens when provider omits usage", async () => {
     const storePath = path.join(
-      await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-session-store-")),
+      await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-session-store-")),
       "sessions.json",
     );
     const sessionKey = "main";

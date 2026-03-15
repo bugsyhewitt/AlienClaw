@@ -33,8 +33,8 @@ apps/android/.kotlin/
 *.bun-build
 apps/macos/.build/
 apps/shared/MoltbotKit/.build/
-apps/shared/OpenClawKit/.build/
-apps/shared/OpenClawKit/Package.resolved
+apps/shared/AlienClawKit/.build/
+apps/shared/AlienClawKit/Package.resolved
 **/ModuleCache/
 bin/
 bin/clawdbot-mac
@@ -42,7 +42,7 @@ bin/docs-list
 apps/macos/.build-local/
 apps/macos/.swiftpm/
 apps/shared/MoltbotKit/.swiftpm/
-apps/shared/OpenClawKit/.swiftpm/
+apps/shared/AlienClawKit/.swiftpm/
 Core/
 apps/ios/*.xcodeproj/
 apps/ios/*.xcworkspace/
@@ -106,7 +106,7 @@ apps/ios/LocalSigning.xcconfig
 
 # Xcode build directories (xcodebuild output)
 apps/ios/build/
-apps/shared/OpenClawKit/build/
+apps/shared/AlienClawKit/build/
 Swabble/build/
 
 # Generated protocol schema (produced via pnpm protocol:gen)
@@ -121,3 +121,7 @@ dist/protocol.schema.json
 
 # Synthing
 **/.stfolder/
+
+# AlienClaw build artifacts
+alienclaw-phase*.zip
+*.podman.env.local

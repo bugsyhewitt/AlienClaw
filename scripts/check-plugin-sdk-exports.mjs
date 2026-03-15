@@ -89,7 +89,7 @@ const requiredSubpathEntries = [
 
 const requiredRuntimeShimEntries = ["root-alias.cjs"];
 
-// Critical functions that channel extension plugins import from openclaw/plugin-sdk.
+// Critical functions that channel extension plugins import from alienclaw/plugin-sdk.
 // If any of these are missing, plugins will fail at runtime with:
 //   TypeError: (0 , _pluginSdk.<name>) is not a function
 const requiredExports = [

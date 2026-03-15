@@ -42,15 +42,15 @@ function setControlUiBasePath(value: string | undefined) {
       "window",
       value == null
         ? ({} as Window & typeof globalThis)
-        : ({ __OPENCLAW_CONTROL_UI_BASE_PATH__: value } as Window & typeof globalThis),
+        : ({ __ALIENCLAW_CONTROL_UI_BASE_PATH__: value } as Window & typeof globalThis),
     );
     return;
   }
   if (value == null) {
-    delete window.__OPENCLAW_CONTROL_UI_BASE_PATH__;
+    delete window.__ALIENCLAW_CONTROL_UI_BASE_PATH__;
     return;
   }
-  Object.defineProperty(window, "__OPENCLAW_CONTROL_UI_BASE_PATH__", {
+  Object.defineProperty(window, "__ALIENCLAW_CONTROL_UI_BASE_PATH__", {
     value,
     writable: true,
     configurable: true,
@@ -83,21 +83,21 @@ describe("loadSettings default gateway URL derivation", () => {
       host: "gateway.example:8443",
       pathname: "/ignored/path",
     });
-    setControlUiBasePath(" /openclaw/ ");
+    setControlUiBasePath(" /alienclaw/ ");
 
     const { loadSettings } = await import("./storage.ts");
-    expect(loadSettings().gatewayUrl).toBe(expectedGatewayUrl("/openclaw"));
+    expect(loadSettings().gatewayUrl).toBe(expectedGatewayUrl("/alienclaw"));
   });
 
   it("infers base path from nested pathname when configured base path is not set", async () => {
     setTestLocation({
       protocol: "http:",
       host: "gateway.example:18789",
-      pathname: "/apps/openclaw/chat",
+      pathname: "/apps/alienclaw/chat",
     });
 
     const { loadSettings } = await import("./storage.ts");
-    expect(loadSettings().gatewayUrl).toBe(expectedGatewayUrl("/apps/openclaw"));
+    expect(loadSettings().gatewayUrl).toBe(expectedGatewayUrl("/apps/alienclaw"));
   });
 
   it("ignores and scrubs legacy persisted tokens", async () => {
@@ -107,9 +107,9 @@ describe("loadSettings default gateway URL derivation", () => {
       pathname: "/",
     });
     localStorage.setItem(
-      "openclaw.control.settings.v1",
+      "alienclaw.control.settings.v1",
       JSON.stringify({
-        gatewayUrl: "wss://gateway.example:8443/openclaw",
+        gatewayUrl: "wss://gateway.example:8443/alienclaw",
         token: "persisted-token",
         sessionKey: "agent",
       }),
@@ -117,12 +117,12 @@ describe("loadSettings default gateway URL derivation", () => {
 
     const { loadSettings } = await import("./storage.ts");
     expect(loadSettings()).toMatchObject({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
+      gatewayUrl: "wss://gateway.example:8443/alienclaw",
       token: "",
       sessionKey: "agent",
     });
-    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toEqual({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
+    expect(JSON.parse(localStorage.getItem("alienclaw.control.settings.v1") ?? "{}")).toEqual({
+      gatewayUrl: "wss://gateway.example:8443/alienclaw",
       sessionKey: "agent",
       lastActiveSessionKey: "agent",
       theme: "system",
@@ -143,7 +143,7 @@ describe("loadSettings default gateway URL derivation", () => {
 
     const { saveSettings } = await import("./storage.ts");
     saveSettings({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
+      gatewayUrl: "wss://gateway.example:8443/alienclaw",
       token: "memory-only-token",
       sessionKey: "main",
       lastActiveSessionKey: "main",
@@ -155,8 +155,8 @@ describe("loadSettings default gateway URL derivation", () => {
       navGroupsCollapsed: {},
     });
 
-    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toEqual({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
+    expect(JSON.parse(localStorage.getItem("alienclaw.control.settings.v1") ?? "{}")).toEqual({
+      gatewayUrl: "wss://gateway.example:8443/alienclaw",
       sessionKey: "main",
       lastActiveSessionKey: "main",
       theme: "system",

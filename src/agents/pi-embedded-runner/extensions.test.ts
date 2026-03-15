@@ -1,7 +1,7 @@
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type { SessionManager } from "@mariozechner/pi-coding-agent";
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import { getCompactionSafeguardRuntime } from "../pi-extensions/compaction-safeguard-runtime.js";
 import compactionSafeguardExtension from "../pi-extensions/compaction-safeguard.js";
 import { buildEmbeddedExtensionFactories } from "./extensions.js";
@@ -21,7 +21,7 @@ describe("buildEmbeddedExtensionFactories", () => {
           },
         },
       },
-    } as OpenClawConfig;
+    } as AlienClawConfig;
 
     const factories = buildEmbeddedExtensionFactories({
       cfg,
@@ -55,7 +55,7 @@ describe("buildEmbeddedExtensionFactories", () => {
           },
         },
       },
-    } as OpenClawConfig;
+    } as AlienClawConfig;
 
     const factories = buildEmbeddedExtensionFactories({
       cfg,

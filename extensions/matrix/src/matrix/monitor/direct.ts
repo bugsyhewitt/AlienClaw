@@ -104,7 +104,7 @@ export function createDirectRoomTracker(client: MatrixClient, opts: DirectRoomTr
       // Explicitly configured group rooms with 2 members (e.g. bot + one user)
       // were being misclassified as DMs, causing messages to be routed through
       // DM policy instead of group policy and silently dropped.
-      // See: https://github.com/openclaw/openclaw/issues/20145
+      // See: https://github.com/alienclaw/alienclaw/issues/20145
       if (!includeMemberCountInLogs) {
         log(`matrix: dm check room=${roomId} result=group`);
         return false;

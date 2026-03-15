@@ -32,7 +32,7 @@ function setupSandboxWorkspace(home: string): {
   sandboxDir: string;
 } {
   const cfg = createSandboxMediaStageConfig(home);
-  const workspaceDir = join(home, "openclaw");
+  const workspaceDir = join(home, "alienclaw");
   const sandboxDir = join(home, "sandboxes", "session");
   vi.mocked(ensureSandboxWorkspaceForSession).mockResolvedValue({
     workspaceDir: sandboxDir,
@@ -46,7 +46,7 @@ async function writeInboundMedia(
   fileName: string,
   payload: string | Buffer,
 ): Promise<string> {
-  const inboundDir = join(home, ".openclaw", "media", "inbound");
+  const inboundDir = join(home, ".alienclaw", "media", "inbound");
   await fs.mkdir(inboundDir, { recursive: true });
   const mediaPath = join(inboundDir, fileName);
   await fs.writeFile(mediaPath, payload);
@@ -55,7 +55,7 @@ async function writeInboundMedia(
 
 describe("stageSandboxMedia", () => {
   it("stages allowed media and blocks unsafe paths", async () => {
-    await withSandboxMediaTempHome("openclaw-triggers-", async (home) => {
+    await withSandboxMediaTempHome("alienclaw-triggers-", async (home) => {
       const { cfg, workspaceDir, sandboxDir } = setupSandboxWorkspace(home);
 
       {
@@ -122,7 +122,7 @@ describe("stageSandboxMedia", () => {
   });
 
   it("blocks destination symlink escapes when staging into sandbox workspace", async () => {
-    await withSandboxMediaTempHome("openclaw-triggers-", async (home) => {
+    await withSandboxMediaTempHome("alienclaw-triggers-", async (home) => {
       const { cfg, workspaceDir, sandboxDir } = setupSandboxWorkspace(home);
 
       const mediaPath = await writeInboundMedia(home, "payload.txt", "PAYLOAD");
@@ -153,7 +153,7 @@ describe("stageSandboxMedia", () => {
   });
 
   it("skips oversized media staging and keeps original media paths", async () => {
-    await withSandboxMediaTempHome("openclaw-triggers-", async (home) => {
+    await withSandboxMediaTempHome("alienclaw-triggers-", async (home) => {
       const { cfg, workspaceDir, sandboxDir } = setupSandboxWorkspace(home);
 
       const mediaPath = await writeInboundMedia(

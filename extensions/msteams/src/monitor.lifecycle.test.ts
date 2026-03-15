@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { OpenClawConfig, RuntimeEnv } from "openclaw/plugin-sdk/msteams";
+import type { AlienClawConfig, RuntimeEnv } from "alienclaw/plugin-sdk/msteams";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MSTeamsConversationStore } from "./conversation-store.js";
 import type { MSTeamsPollStore } from "./polls.js";
@@ -15,7 +15,7 @@ const expressControl = vi.hoisted(() => ({
   mode: { value: "listening" as "listening" | "error" },
 }));
 
-vi.mock("openclaw/plugin-sdk/msteams", () => ({
+vi.mock("alienclaw/plugin-sdk/msteams", () => ({
   DEFAULT_WEBHOOK_MAX_BODY_BYTES: 1024 * 1024,
   normalizeSecretInputString: (value: unknown) =>
     typeof value === "string" && value.trim() ? value.trim() : undefined,
@@ -134,7 +134,7 @@ vi.mock("./runtime.js", () => ({
 
 import { monitorMSTeamsProvider } from "./monitor.js";
 
-function createConfig(port: number): OpenClawConfig {
+function createConfig(port: number): AlienClawConfig {
   return {
     channels: {
       msteams: {
@@ -148,7 +148,7 @@ function createConfig(port: number): OpenClawConfig {
         },
       },
     },
-  } as OpenClawConfig;
+  } as AlienClawConfig;
 }
 
 function createRuntime(): RuntimeEnv {

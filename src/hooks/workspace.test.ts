@@ -26,7 +26,7 @@ function setupHardlinkHookWorkspace(hookName: string): {
   hookDir: string;
   outsideDir: string;
 } {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-hooks-workspace-hardlink-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "alienclaw-hooks-workspace-hardlink-"));
   const hooksRoot = path.join(root, "hooks");
   fs.mkdirSync(hooksRoot, { recursive: true });
 
@@ -51,7 +51,7 @@ function tryCreateHardlinkOrSkip(createLink: () => void): boolean {
 
 describe("hooks workspace", () => {
   it("ignores package.json hook paths that traverse outside package directory", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-hooks-workspace-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "alienclaw-hooks-workspace-"));
     const hooksRoot = path.join(root, "hooks");
     fs.mkdirSync(hooksRoot, { recursive: true });
 
@@ -65,12 +65,12 @@ describe("hooks workspace", () => {
 
     writeHookPackageManifest(pkgDir, ["../outside"]);
 
-    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "openclaw-workspace" });
+    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "alienclaw-workspace" });
     expect(entries.some((e) => e.hook.name === "outside")).toBe(false);
   });
 
   it("accepts package.json hook paths within package directory", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-hooks-workspace-ok-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "alienclaw-hooks-workspace-ok-"));
     const hooksRoot = path.join(root, "hooks");
     fs.mkdirSync(hooksRoot, { recursive: true });
 
@@ -83,12 +83,12 @@ describe("hooks workspace", () => {
 
     writeHookPackageManifest(pkgDir, ["./nested"]);
 
-    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "openclaw-workspace" });
+    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "alienclaw-workspace" });
     expect(entries.some((e) => e.hook.name === "nested")).toBe(true);
   });
 
   it("ignores package.json hook paths that escape via symlink", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-hooks-workspace-link-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "alienclaw-hooks-workspace-link-"));
     const hooksRoot = path.join(root, "hooks");
     fs.mkdirSync(hooksRoot, { recursive: true });
 
@@ -107,7 +107,7 @@ describe("hooks workspace", () => {
 
     writeHookPackageManifest(pkgDir, ["./linked"]);
 
-    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "openclaw-workspace" });
+    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "alienclaw-workspace" });
     expect(entries.some((e) => e.hook.name === "outside")).toBe(false);
   });
 
@@ -127,7 +127,7 @@ describe("hooks workspace", () => {
       return;
     }
 
-    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "openclaw-workspace" });
+    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "alienclaw-workspace" });
     expect(entries.some((e) => e.hook.name === "hardlink-hook")).toBe(false);
     expect(entries.some((e) => e.hook.name === "outside")).toBe(false);
   });
@@ -146,7 +146,7 @@ describe("hooks workspace", () => {
       return;
     }
 
-    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "openclaw-workspace" });
+    const entries = loadHookEntriesFromDir({ dir: hooksRoot, source: "alienclaw-workspace" });
     expect(entries.some((e) => e.hook.name === "hardlink-handler-hook")).toBe(false);
   });
 });

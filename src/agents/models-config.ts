@@ -3,12 +3,12 @@ import path from "node:path";
 import {
   getRuntimeConfigSnapshot,
   getRuntimeConfigSourceSnapshot,
-  type OpenClawConfig,
+  type AlienClawConfig,
   loadConfig,
 } from "../config/config.js";
 import { applyConfigEnvVars } from "../config/env-vars.js";
 import { isRecord } from "../utils.js";
-import { resolveOpenClawAgentDir } from "./agent-paths.js";
+import { resolveAlienClawAgentDir } from "./agent-paths.js";
 import { isNonSecretApiKeyMarker } from "./model-auth-markers.js";
 import {
   normalizeProviders,
@@ -18,7 +18,7 @@ import {
   resolveImplicitProviders,
 } from "./models-config.providers.js";
 
-type ModelsConfig = NonNullable<OpenClawConfig["models"]>;
+type ModelsConfig = NonNullable<AlienClawConfig["models"]>;
 
 const DEFAULT_MODE: NonNullable<ModelsConfig["mode"]> = "merge";
 const MODELS_JSON_WRITE_LOCKS = new Map<string, Promise<void>>();
@@ -119,7 +119,7 @@ async function readJson(pathname: string): Promise<unknown> {
 }
 
 async function resolveProvidersForModelsJson(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   agentDir: string;
 }): Promise<Record<string, ProviderConfig>> {
   const { cfg, agentDir } = params;
@@ -229,7 +229,7 @@ async function ensureModelsFileMode(pathname: string): Promise<void> {
   });
 }
 
-function resolveModelsConfigInput(config?: OpenClawConfig): OpenClawConfig {
+function resolveModelsConfigInput(config?: AlienClawConfig): AlienClawConfig {
   const runtimeSource = getRuntimeConfigSourceSnapshot();
   if (!runtimeSource) {
     return config ?? loadConfig();
@@ -263,12 +263,12 @@ async function withModelsJsonWriteLock<T>(targetPath: string, run: () => Promise
   }
 }
 
-export async function ensureOpenClawModelsJson(
-  config?: OpenClawConfig,
+export async function ensureAlienClawModelsJson(
+  config?: AlienClawConfig,
   agentDirOverride?: string,
 ): Promise<{ agentDir: string; wrote: boolean }> {
   const cfg = resolveModelsConfigInput(config);
-  const agentDir = agentDirOverride?.trim() ? agentDirOverride.trim() : resolveOpenClawAgentDir();
+  const agentDir = agentDirOverride?.trim() ? agentDirOverride.trim() : resolveAlienClawAgentDir();
   const targetPath = path.join(agentDir, "models.json");
 
   return await withModelsJsonWriteLock(targetPath, async () => {

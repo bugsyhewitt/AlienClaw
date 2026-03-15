@@ -1,8 +1,8 @@
 {
-  "name": "@openclaw/diffs",
+  "name": "@alienclaw/diffs",
   "version": "2026.3.7",
   "private": true,
-  "description": "OpenClaw diff viewer plugin",
+  "description": "AlienClaw diff viewer plugin",
   "type": "module",
   "scripts": {
     "build:viewer": "bun build src/viewer-client.ts --target browser --format esm --minify --outfile assets/viewer-runtime.js"
@@ -12,7 +12,7 @@
     "@sinclair/typebox": "0.34.48",
     "playwright-core": "1.58.2"
   },
-  "openclaw": {
+  "alienclaw": {
     "extensions": [
       "./index.ts"
     ]

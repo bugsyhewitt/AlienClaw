@@ -7,7 +7,7 @@ title: "Credits"
 
 ## The name
 
-OpenClaw = CLAW + TARDIS, because every space lobster needs a time and space machine.
+AlienClaw = CLAW + TARDIS, because every space lobster needs a time and space machine.
 
 ## Credits
 

@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   resolveMessageChannelSelection: vi.fn(),
   sendPoll: vi.fn(async () => ({ messageId: "poll-1" })),
   getChannelPlugin: vi.fn(),
-  loadOpenClawPlugins: vi.fn(),
+  loadAlienClawPlugins: vi.fn(),
 }));
 
 vi.mock("../../config/config.js", async () => {
@@ -30,7 +30,7 @@ vi.mock("../../channels/plugins/index.js", () => ({
   normalizeChannelId: (value: string) => (value === "webchat" ? null : value),
 }));
 
-const TEST_AGENT_WORKSPACE = "/tmp/openclaw-test-workspace";
+const TEST_AGENT_WORKSPACE = "/tmp/alienclaw-test-workspace";
 
 function resolveAgentIdFromSessionKeyForTests(params: { sessionKey?: string }): string {
   if (typeof params.sessionKey === "string") {
@@ -63,7 +63,7 @@ vi.mock("../../config/plugin-auto-enable.js", () => ({
 }));
 
 vi.mock("../../plugins/loader.js", () => ({
-  loadOpenClawPlugins: mocks.loadOpenClawPlugins,
+  loadAlienClawPlugins: mocks.loadAlienClawPlugins,
 }));
 
 vi.mock("../../infra/outbound/targets.js", () => ({
@@ -551,7 +551,7 @@ describe("gateway send mirroring", () => {
       idempotencyKey: "idem-cold-telegram-thread",
     });
 
-    expect(mocks.loadOpenClawPlugins).toHaveBeenCalledTimes(1);
+    expect(mocks.loadAlienClawPlugins).toHaveBeenCalledTimes(1);
     expect(mocks.deliverOutboundPayloads).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: "telegram",

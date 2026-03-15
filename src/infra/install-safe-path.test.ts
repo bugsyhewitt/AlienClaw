@@ -26,7 +26,7 @@ describe("safePathSegmentHashed", () => {
 
 describe("assertCanonicalPathWithinBase", () => {
   it("accepts in-base directories", async () => {
-    const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-install-safe-"));
+    const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-install-safe-"));
     try {
       const candidate = path.join(baseDir, "tools");
       await fs.mkdir(candidate, { recursive: true });
@@ -45,8 +45,8 @@ describe("assertCanonicalPathWithinBase", () => {
   it.runIf(process.platform !== "win32")(
     "rejects symlinked candidate directories that escape the base",
     async () => {
-      const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-install-safe-"));
-      const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-install-safe-outside-"));
+      const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-install-safe-"));
+      const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-install-safe-outside-"));
       try {
         const linkDir = path.join(baseDir, "alias");
         await fs.symlink(outsideDir, linkDir);

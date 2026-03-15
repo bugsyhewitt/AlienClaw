@@ -1,4 +1,4 @@
-import type { PluginRuntime } from "openclaw/plugin-sdk/zalouser";
+import type { PluginRuntime } from "alienclaw/plugin-sdk/zalouser";
 
 let runtime: PluginRuntime | null = null;
 

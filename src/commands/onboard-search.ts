@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import {
   DEFAULT_SECRET_PROVIDER_ALIAS,
   type SecretInput,
@@ -68,7 +68,7 @@ export function hasKeyInEnv(entry: SearchProviderEntry): boolean {
   return entry.envKeys.some((k) => Boolean(process.env[k]?.trim()));
 }
 
-function rawKeyValue(config: OpenClawConfig, provider: SearchProvider): unknown {
+function rawKeyValue(config: AlienClawConfig, provider: SearchProvider): unknown {
   const search = config.tools?.web?.search;
   switch (provider) {
     case "brave":
@@ -86,14 +86,14 @@ function rawKeyValue(config: OpenClawConfig, provider: SearchProvider): unknown 
 
 /** Returns the plaintext key string, or undefined for SecretRefs/missing. */
 export function resolveExistingKey(
-  config: OpenClawConfig,
+  config: AlienClawConfig,
   provider: SearchProvider,
 ): string | undefined {
   return normalizeSecretInputString(rawKeyValue(config, provider));
 }
 
 /** Returns true if a key is configured (plaintext string or SecretRef). */
-export function hasExistingKey(config: OpenClawConfig, provider: SearchProvider): boolean {
+export function hasExistingKey(config: AlienClawConfig, provider: SearchProvider): boolean {
   return hasConfiguredSecretInput(rawKeyValue(config, provider));
 }
 
@@ -123,10 +123,10 @@ function resolveSearchSecretInput(
 }
 
 export function applySearchKey(
-  config: OpenClawConfig,
+  config: AlienClawConfig,
   provider: SearchProvider,
   key: SecretInput,
-): OpenClawConfig {
+): AlienClawConfig {
   const search = { ...config.tools?.web?.search, provider, enabled: true };
   switch (provider) {
     case "brave":
@@ -154,7 +154,7 @@ export function applySearchKey(
   };
 }
 
-function applyProviderOnly(config: OpenClawConfig, provider: SearchProvider): OpenClawConfig {
+function applyProviderOnly(config: AlienClawConfig, provider: SearchProvider): AlienClawConfig {
   return {
     ...config,
     tools: {
@@ -171,7 +171,7 @@ function applyProviderOnly(config: OpenClawConfig, provider: SearchProvider): Op
   };
 }
 
-function preserveDisabledState(original: OpenClawConfig, result: OpenClawConfig): OpenClawConfig {
+function preserveDisabledState(original: AlienClawConfig, result: AlienClawConfig): AlienClawConfig {
   if (original.tools?.web?.search?.enabled !== false) {
     return result;
   }
@@ -190,16 +190,16 @@ export type SetupSearchOptions = {
 };
 
 export async function setupSearch(
-  config: OpenClawConfig,
+  config: AlienClawConfig,
   _runtime: RuntimeEnv,
   prompter: WizardPrompter,
   opts?: SetupSearchOptions,
-): Promise<OpenClawConfig> {
+): Promise<AlienClawConfig> {
   await prompter.note(
     [
       "Web search lets your agent look things up online.",
       "Choose a provider and paste your API key.",
-      "Docs: https://docs.openclaw.ai/tools/web",
+      "Docs: https://docs.alienclaw.ai/tools/web",
     ].join("\n"),
     "Web search",
   );
@@ -233,7 +233,7 @@ export async function setupSearch(
       {
         value: "__skip__" as const,
         label: "Skip for now",
-        hint: "Configure later with openclaw configure --section web",
+        hint: "Configure later with alienclaw configure --section web",
       },
     ],
     initialValue: defaultProvider as PickerValue,
@@ -263,10 +263,10 @@ export async function setupSearch(
     const ref = buildSearchEnvRef(choice);
     await prompter.note(
       [
-        "Secret references enabled — OpenClaw will store a reference instead of the API key.",
+        "Secret references enabled — AlienClaw will store a reference instead of the API key.",
         `Env var: ${ref.id}${envAvailable ? " (detected)" : ""}.`,
         ...(envAvailable ? [] : [`Set ${ref.id} in the Gateway environment.`]),
-        "Docs: https://docs.openclaw.ai/tools/web",
+        "Docs: https://docs.alienclaw.ai/tools/web",
       ].join("\n"),
       "Web search",
     );
@@ -300,7 +300,7 @@ export async function setupSearch(
     [
       "No API key stored — web_search won't work until a key is available.",
       `Get your key at: ${entry.signupUrl}`,
-      "Docs: https://docs.openclaw.ai/tools/web",
+      "Docs: https://docs.alienclaw.ai/tools/web",
     ].join("\n"),
     "Web search",
   );

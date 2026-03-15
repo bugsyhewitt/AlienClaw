@@ -1,5 +1,5 @@
 import { readConfigFileSnapshot, resolveGatewayPort } from "../config/config.js";
-import type { OpenClawConfig } from "../config/types.js";
+import type { AlienClawConfig } from "../config/types.js";
 import { readGatewayTokenEnv } from "../gateway/credentials.js";
 import { resolveConfiguredSecretInputWithFallback } from "../gateway/resolve-configured-secret-input-string.js";
 import { copyToClipboard } from "../infra/clipboard.js";
@@ -17,7 +17,7 @@ type DashboardOptions = {
 };
 
 async function resolveDashboardToken(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<{
   token?: string;
@@ -84,7 +84,7 @@ export async function dashboardCommand(
   if (resolvedToken.unresolvedRefReason) {
     runtime.log(`Token auto-auth unavailable: ${resolvedToken.unresolvedRefReason}`);
     runtime.log(
-      "Set OPENCLAW_GATEWAY_TOKEN in this shell or resolve your secret provider, then rerun `openclaw dashboard`.",
+      "Set ALIENCLAW_GATEWAY_TOKEN in this shell or resolve your secret provider, then rerun `alienclaw dashboard`.",
     );
   }
 
@@ -110,7 +110,7 @@ export async function dashboardCommand(
   }
 
   if (opened) {
-    runtime.log("Opened in your browser. Keep that tab to control OpenClaw.");
+    runtime.log("Opened in your browser. Keep that tab to control AlienClaw.");
   } else if (hint) {
     runtime.log(hint);
   }

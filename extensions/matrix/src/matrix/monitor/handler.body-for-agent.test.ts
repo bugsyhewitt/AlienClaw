@@ -1,5 +1,5 @@
 import type { MatrixClient } from "@vector-im/matrix-bot-sdk";
-import type { PluginRuntime, RuntimeEnv, RuntimeLogger } from "openclaw/plugin-sdk/matrix";
+import type { PluginRuntime, RuntimeEnv, RuntimeLogger } from "alienclaw/plugin-sdk/matrix";
 import { describe, expect, it, vi } from "vitest";
 import { createMatrixRoomMessageHandler } from "./handler.js";
 import { EventType, type MatrixRawEvent } from "./types.js";
@@ -28,7 +28,7 @@ describe("createMatrixRoomMessageHandler BodyForAgent sender label", () => {
           }),
         },
         session: {
-          resolveStorePath: vi.fn().mockReturnValue("/tmp/openclaw-test-session.json"),
+          resolveStorePath: vi.fn().mockReturnValue("/tmp/alienclaw-test-session.json"),
           readSessionUpdatedAt: vi.fn().mockReturnValue(123),
           recordInboundSession,
         },

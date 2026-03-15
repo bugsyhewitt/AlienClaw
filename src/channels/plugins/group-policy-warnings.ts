@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import {
   resolveAllowlistProviderRuntimeGroupPolicy,
   resolveDefaultGroupPolicy,
@@ -75,7 +75,7 @@ export function collectOpenGroupPolicyRestrictSendersWarnings(
 
 export function collectAllowlistProviderRestrictSendersWarnings(
   params: {
-    cfg: OpenClawConfig;
+    cfg: AlienClawConfig;
     providerConfigPresent: boolean;
     configuredGroupPolicy?: GroupPolicy | null;
   } & Omit<Parameters<typeof collectOpenGroupPolicyRestrictSendersWarnings>[0], "groupPolicy">,
@@ -97,7 +97,7 @@ export function collectAllowlistProviderRestrictSendersWarnings(
 }
 
 export function collectAllowlistProviderGroupPolicyWarnings(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   providerConfigPresent: boolean;
   configuredGroupPolicy?: GroupPolicy | null;
   collect: GroupPolicyWarningCollector;
@@ -112,7 +112,7 @@ export function collectAllowlistProviderGroupPolicyWarnings(params: {
 }
 
 export function collectOpenProviderGroupPolicyWarnings(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   providerConfigPresent: boolean;
   configuredGroupPolicy?: GroupPolicy | null;
   collect: GroupPolicyWarningCollector;

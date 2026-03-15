@@ -1,12 +1,12 @@
 ---
-summary: "CLI reference for `openclaw cron` (schedule and run background jobs)"
+summary: "CLI reference for `alienclaw cron` (schedule and run background jobs)"
 read_when:
   - You want scheduled jobs and wakeups
   - You’re debugging cron execution and logs
 title: "cron"
 ---
 
-# `openclaw cron`
+# `alienclaw cron`
 
 Manage cron jobs for the Gateway scheduler.
 
@@ -14,7 +14,7 @@ Related:
 
 - Cron jobs: [Cron jobs](/automation/cron-jobs)
 
-Tip: run `openclaw cron --help` for the full command surface.
+Tip: run `alienclaw cron --help` for the full command surface.
 
 Note: isolated `cron add` jobs default to `--announce` delivery. Use `--no-deliver` to keep
 output internal. `--deliver` remains as a deprecated alias for `--announce`.
@@ -26,38 +26,38 @@ Note: recurring jobs now use exponential retry backoff after consecutive errors 
 Note: retention/pruning is controlled in config:
 
 - `cron.sessionRetention` (default `24h`) prunes completed isolated run sessions.
-- `cron.runLog.maxBytes` + `cron.runLog.keepLines` prune `~/.openclaw/cron/runs/<jobId>.jsonl`.
+- `cron.runLog.maxBytes` + `cron.runLog.keepLines` prune `~/.alienclaw/cron/runs/<jobId>.jsonl`.
 
 ## Common edits
 
 Update delivery settings without changing the message:
 
 ```bash
-openclaw cron edit <job-id> --announce --channel telegram --to "123456789"
+alienclaw cron edit <job-id> --announce --channel telegram --to "123456789"
 ```
 
 Disable delivery for an isolated job:
 
 ```bash
-openclaw cron edit <job-id> --no-deliver
+alienclaw cron edit <job-id> --no-deliver
 ```
 
 Enable lightweight bootstrap context for an isolated job:
 
 ```bash
-openclaw cron edit <job-id> --light-context
+alienclaw cron edit <job-id> --light-context
 ```
 
 Announce to a specific channel:
 
 ```bash
-openclaw cron edit <job-id> --announce --channel slack --to "channel:C1234567890"
+alienclaw cron edit <job-id> --announce --channel slack --to "channel:C1234567890"
 ```
 
 Create an isolated job with lightweight bootstrap context:
 
 ```bash
-openclaw cron add \
+alienclaw cron add \
   --name "Lightweight morning brief" \
   --cron "0 7 * * *" \
   --session isolated \

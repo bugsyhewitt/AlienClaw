@@ -5,7 +5,7 @@ import type {
   DmPolicy,
   SecretInput,
   WizardPrompter,
-} from "openclaw/plugin-sdk/feishu";
+} from "alienclaw/plugin-sdk/feishu";
 import {
   buildSingleChannelSecretPromptState,
   DEFAULT_ACCOUNT_ID,
@@ -17,7 +17,7 @@ import {
   setTopLevelChannelDmPolicyWithAllowFrom,
   setTopLevelChannelGroupPolicy,
   splitOnboardingEntries,
-} from "openclaw/plugin-sdk/feishu";
+} from "alienclaw/plugin-sdk/feishu";
 import { resolveFeishuCredentials } from "./accounts.js";
 import { probeFeishu } from "./probe.js";
 import type { FeishuConfig } from "./types.js";

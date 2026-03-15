@@ -1,13 +1,13 @@
 {
-  "name": "@openclaw/zalo",
+  "name": "@alienclaw/zalo",
   "version": "2026.3.7",
-  "description": "OpenClaw Zalo channel plugin",
+  "description": "AlienClaw Zalo channel plugin",
   "type": "module",
   "dependencies": {
     "undici": "7.22.0",
     "zod": "^4.3.6"
   },
-  "openclaw": {
+  "alienclaw": {
     "extensions": [
       "./index.ts"
     ],
@@ -25,7 +25,7 @@
       "quickstartAllowFrom": true
     },
     "install": {
-      "npmSpec": "@openclaw/zalo",
+      "npmSpec": "@alienclaw/zalo",
       "localPath": "extensions/zalo",
       "defaultChoice": "npm"
     }

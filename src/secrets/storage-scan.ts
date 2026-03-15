@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { listAgentIds, resolveAgentDir } from "../agents/agent-scope.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { resolveUserPath } from "../utils.js";
 import { listAuthProfileStorePaths as listAuthProfileStorePathsFromAuthStorePaths } from "./auth-store-paths.js";
 import { parseEnvValue } from "./shared.js";
@@ -10,7 +10,7 @@ export function parseEnvAssignmentValue(raw: string): string {
   return parseEnvValue(raw);
 }
 
-export function listAuthProfileStorePaths(config: OpenClawConfig, stateDir: string): string[] {
+export function listAuthProfileStorePaths(config: AlienClawConfig, stateDir: string): string[] {
   return listAuthProfileStorePathsFromAuthStorePaths(config, stateDir);
 }
 
@@ -32,7 +32,7 @@ export function listLegacyAuthJsonPaths(stateDir: string): string[] {
   return out;
 }
 
-export function listAgentModelsJsonPaths(config: OpenClawConfig, stateDir: string): string[] {
+export function listAgentModelsJsonPaths(config: AlienClawConfig, stateDir: string): string[] {
   const paths = new Set<string>();
   paths.add(path.join(resolveUserPath(stateDir), "agents", "main", "agent", "models.json"));
 

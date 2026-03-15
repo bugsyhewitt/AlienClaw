@@ -67,7 +67,7 @@ let storeSeq = 0;
 
 export function createTestStorePath(): string {
   storeSeq += 1;
-  return path.join(os.tmpdir(), `openclaw-voice-call-test-${Date.now()}-${storeSeq}`);
+  return path.join(os.tmpdir(), `alienclaw-voice-call-test-${Date.now()}-${storeSeq}`);
 }
 
 export async function createManagerHarness(

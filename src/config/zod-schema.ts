@@ -159,7 +159,7 @@ const PluginEntrySchema = z
   })
   .strict();
 
-export const OpenClawSchema = z
+export const AlienClawSchema = z
   .object({
     $schema: z.string().optional(),
     meta: z

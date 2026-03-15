@@ -102,14 +102,14 @@ export async function updateAuthProfileStoreWithLock(params: {
  * Normalise a raw auth-profiles.json credential entry.
  *
  * The official format uses `type` and (for api_key credentials) `key`.
- * A common mistake — caused by the similarity with the `openclaw.json`
+ * A common mistake — caused by the similarity with the `alienclaw.json`
  * `auth.profiles` section which uses `mode` — is to write `mode` instead of
  * `type` and `apiKey` instead of `key`.  Accept both spellings so users don't
  * silently lose their credentials.
  */
 function normalizeRawCredentialEntry(raw: Record<string, unknown>): Partial<AuthProfileCredential> {
   const entry = { ...raw } as Record<string, unknown>;
-  // mode → type alias (openclaw.json uses "mode"; auth-profiles.json uses "type")
+  // mode → type alias (alienclaw.json uses "mode"; auth-profiles.json uses "type")
   if (!("type" in entry) && typeof entry["mode"] === "string") {
     entry["type"] = entry["mode"];
   }
@@ -414,7 +414,7 @@ function loadAuthProfileStoreForAgent(
   const mergedOAuth = mergeOAuthFileIntoStore(store);
   // Keep external CLI credentials visible in runtime even during read-only loads.
   const syncedCli = syncExternalCliCredentials(store);
-  const forceReadOnly = process.env.OPENCLAW_AUTH_STORE_READONLY === "1";
+  const forceReadOnly = process.env.ALIENCLAW_AUTH_STORE_READONLY === "1";
   const shouldWrite = !readOnly && !forceReadOnly && (legacy !== null || mergedOAuth || syncedCli);
   if (shouldWrite) {
     saveJsonFile(authPath, store);

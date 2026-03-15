@@ -4,7 +4,7 @@ import type {
   DmPolicy,
   GroupPolicy,
   SecretInput,
-} from "openclaw/plugin-sdk/nextcloud-talk";
+} from "alienclaw/plugin-sdk/nextcloud-talk";
 
 export type { DmPolicy, GroupPolicy };
 

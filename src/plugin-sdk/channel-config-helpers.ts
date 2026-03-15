@@ -1,6 +1,6 @@
 import { normalizeWhatsAppAllowFromEntries } from "../channels/plugins/normalize/whatsapp.js";
 import type { ChannelConfigAdapter } from "../channels/plugins/types.adapters.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { resolveIMessageAccount } from "../imessage/accounts.js";
 import { normalizeAccountId } from "../routing/session-key.js";
 import { normalizeStringEntries } from "../shared/string-normalization.js";
@@ -27,7 +27,7 @@ export function resolveOptionalConfigString(
 }
 
 export function createScopedAccountConfigAccessors<ResolvedAccount>(params: {
-  resolveAccount: (params: { cfg: OpenClawConfig; accountId?: string | null }) => ResolvedAccount;
+  resolveAccount: (params: { cfg: AlienClawConfig; accountId?: string | null }) => ResolvedAccount;
   resolveAllowFrom: (account: ResolvedAccount) => Array<string | number> | null | undefined;
   formatAllowFrom: (allowFrom: Array<string | number>) => string[];
   resolveDefaultTo?: (account: ResolvedAccount) => string | number | null | undefined;
@@ -36,7 +36,7 @@ export function createScopedAccountConfigAccessors<ResolvedAccount>(params: {
   "resolveAllowFrom" | "formatAllowFrom" | "resolveDefaultTo"
 > {
   const base = {
-    resolveAllowFrom: ({ cfg, accountId }: { cfg: OpenClawConfig; accountId?: string | null }) =>
+    resolveAllowFrom: ({ cfg, accountId }: { cfg: AlienClawConfig; accountId?: string | null }) =>
       mapAllowFromEntries(params.resolveAllowFrom(params.resolveAccount({ cfg, accountId }))),
     formatAllowFrom: ({ allowFrom }: { allowFrom: Array<string | number> }) =>
       params.formatAllowFrom(allowFrom),
@@ -56,7 +56,7 @@ export function createScopedAccountConfigAccessors<ResolvedAccount>(params: {
 }
 
 export function resolveWhatsAppConfigAllowFrom(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
 }): string[] {
   return resolveWhatsAppAccount(params).allowFrom ?? [];
@@ -67,7 +67,7 @@ export function formatWhatsAppConfigAllowFromEntries(allowFrom: Array<string | n
 }
 
 export function resolveWhatsAppConfigDefaultTo(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
 }): string | undefined {
   const root = params.cfg.channels?.whatsapp;
@@ -77,14 +77,14 @@ export function resolveWhatsAppConfigDefaultTo(params: {
 }
 
 export function resolveIMessageConfigAllowFrom(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
 }): string[] {
   return mapAllowFromEntries(resolveIMessageAccount(params).config.allowFrom);
 }
 
 export function resolveIMessageConfigDefaultTo(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
 }): string | undefined {
   return resolveOptionalConfigString(resolveIMessageAccount(params).config.defaultTo);

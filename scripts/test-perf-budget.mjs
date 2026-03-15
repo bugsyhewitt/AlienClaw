@@ -15,9 +15,9 @@ function readEnvNumber(name) {
 function parseArgs(argv) {
   const args = {
     config: "vitest.unit.config.ts",
-    maxWallMs: readEnvNumber("OPENCLAW_TEST_PERF_MAX_WALL_MS"),
-    baselineWallMs: readEnvNumber("OPENCLAW_TEST_PERF_BASELINE_WALL_MS"),
-    maxRegressionPct: readEnvNumber("OPENCLAW_TEST_PERF_MAX_REGRESSION_PCT") ?? 10,
+    maxWallMs: readEnvNumber("ALIENCLAW_TEST_PERF_MAX_WALL_MS"),
+    baselineWallMs: readEnvNumber("ALIENCLAW_TEST_PERF_BASELINE_WALL_MS"),
+    maxRegressionPct: readEnvNumber("ALIENCLAW_TEST_PERF_MAX_REGRESSION_PCT") ?? 10,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -59,7 +59,7 @@ function formatMs(ms) {
 }
 
 const opts = parseArgs(process.argv.slice(2));
-const reportPath = path.join(os.tmpdir(), `openclaw-vitest-perf-${Date.now()}.json`);
+const reportPath = path.join(os.tmpdir(), `alienclaw-vitest-perf-${Date.now()}.json`);
 const cmd = [
   "vitest",
   "run",

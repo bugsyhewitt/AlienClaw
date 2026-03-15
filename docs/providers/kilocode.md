@@ -1,8 +1,8 @@
 ---
-summary: "Use Kilo Gateway's unified API to access many models in OpenClaw"
+summary: "Use Kilo Gateway's unified API to access many models in AlienClaw"
 read_when:
   - You want a single API key for many LLMs
-  - You want to run models via Kilo Gateway in OpenClaw
+  - You want to run models via Kilo Gateway in AlienClaw
 ---
 
 # Kilo Gateway
@@ -19,7 +19,7 @@ endpoint and API key. It is OpenAI-compatible, so most OpenAI SDKs work by switc
 ## CLI setup
 
 ```bash
-openclaw onboard --kilocode-api-key <key>
+alienclaw onboard --kilocode-api-key <key>
 ```
 
 Or set the environment variable:
@@ -51,7 +51,7 @@ the best underlying model based on the task:
 
 ## Available models
 
-OpenClaw dynamically discovers available models from the Kilo Gateway at startup. Use
+AlienClaw dynamically discovers available models from the Kilo Gateway at startup. Use
 `/models kilocode` to see the full list of models available with your account.
 
 Any model available on the gateway can be used with the `kilocode/` prefix:

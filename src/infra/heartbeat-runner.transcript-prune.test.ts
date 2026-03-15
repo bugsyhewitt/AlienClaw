@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { resolveMainSessionKey } from "../config/sessions.js";
 import { runHeartbeatOnce } from "./heartbeat-runner.js";
 import {
@@ -67,7 +67,7 @@ describe("heartbeat transcript pruning", () => {
           agent: { workspace: tmpDir },
           sessionStore: storePath,
           channels: { telegram: {} },
-        } as unknown as OpenClawConfig;
+        } as unknown as AlienClawConfig;
 
         await runHeartbeatOnce({
           agentId: undefined,
@@ -85,7 +85,7 @@ describe("heartbeat transcript pruning", () => {
         }
         expect(finalSize).toBeGreaterThanOrEqual(originalSize);
       },
-      { prefix: "openclaw-hb-prune-" },
+      { prefix: "alienclaw-hb-prune-" },
     );
   }
 

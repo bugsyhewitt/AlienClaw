@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "openclaw/plugin-sdk/feishu";
+import type { AlienClawConfig } from "alienclaw/plugin-sdk/feishu";
 import { describe, expect, it } from "vitest";
 import { feishuOnboardingAdapter } from "./onboarding.js";
 
@@ -16,7 +16,7 @@ describe("feishu onboarding status", () => {
             },
           },
         },
-      } as OpenClawConfig,
+      } as AlienClawConfig,
       accountOverrides: {},
     });
 

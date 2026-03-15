@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import {
   deletePathStrict,
   getPath,
@@ -7,11 +7,11 @@ import {
   setPathExistingStrict,
 } from "./path-utils.js";
 
-function asConfig(value: unknown): OpenClawConfig {
-  return value as OpenClawConfig;
+function asConfig(value: unknown): AlienClawConfig {
+  return value as AlienClawConfig;
 }
 
-function createAgentListConfig(): OpenClawConfig {
+function createAgentListConfig(): AlienClawConfig {
   return asConfig({
     agents: {
       list: [{ id: "a" }],

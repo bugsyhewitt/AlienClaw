@@ -1,6 +1,6 @@
 ---
 name: acp-router
-description: Route plain-language requests for Pi, Claude Code, Codex, OpenCode, Gemini CLI, or ACP harness work into either OpenClaw ACP runtime sessions or direct acpx-driven sessions ("telephone game" flow). For coding-agent thread requests, read this skill first, then use only `sessions_spawn` for thread creation.
+description: Route plain-language requests for Pi, Claude Code, Codex, OpenCode, Gemini CLI, or ACP harness work into either AlienClaw ACP runtime sessions or direct acpx-driven sessions ("telephone game" flow). For coding-agent thread requests, read this skill first, then use only `sessions_spawn` for thread creation.
 user-invocable: false
 ---
 
@@ -10,7 +10,7 @@ When user intent is "run this in Pi/Claude Code/Codex/OpenCode/Gemini/Kimi (ACP 
 
 ## Intent detection
 
-Trigger this skill when the user asks OpenClaw to:
+Trigger this skill when the user asks AlienClaw to:
 
 - run something in Pi / Claude Code / Codex / OpenCode / Gemini
 - continue existing harness work
@@ -20,20 +20,20 @@ Trigger this skill when the user asks OpenClaw to:
 Mandatory preflight for coding-agent thread requests:
 
 - Before creating any thread for Pi/Claude/Codex/OpenCode/Gemini work, read this skill first in the same turn.
-- After reading, follow `OpenClaw ACP runtime path` below; do not use `message(action="thread-create")` for ACP harness thread spawn.
+- After reading, follow `AlienClaw ACP runtime path` below; do not use `message(action="thread-create")` for ACP harness thread spawn.
 
 ## Mode selection
 
 Choose one of these paths:
 
-1. OpenClaw ACP runtime path (default): use `sessions_spawn` / ACP runtime tools.
+1. AlienClaw ACP runtime path (default): use `sessions_spawn` / ACP runtime tools.
 2. Direct `acpx` path (telephone game): use `acpx` CLI through `exec` to drive the harness session directly.
 
 Use direct `acpx` when one of these is true:
 
 - user explicitly asks for direct `acpx` driving
 - ACP runtime/plugin path is unavailable or unhealthy
-- the task is "just relay prompts to harness" and no OpenClaw ACP lifecycle features are needed
+- the task is "just relay prompts to harness" and no AlienClaw ACP lifecycle features are needed
 
 Do not use:
 
@@ -56,7 +56,7 @@ These defaults match current acpx built-in aliases.
 
 If policy rejects the chosen id, report the policy error clearly and ask for the allowed ACP agent id.
 
-## OpenClaw ACP runtime path
+## AlienClaw ACP runtime path
 
 Required behavior:
 
@@ -109,7 +109,7 @@ Do not default to subagent runtime for these requests.
 
 ## ACPX install and version policy (direct acpx path)
 
-For this repo, direct `acpx` calls must follow the same pinned policy as the `@openclaw/acpx` extension.
+For this repo, direct `acpx` calls must follow the same pinned policy as the `@alienclaw/acpx` extension.
 
 1. Prefer plugin-local binary, not global PATH:
    - `./extensions/acpx/node_modules/.bin/acpx`

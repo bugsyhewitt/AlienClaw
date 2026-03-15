@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "openclaw/plugin-sdk/slack";
+import type { AlienClawConfig } from "alienclaw/plugin-sdk/slack";
 import { describe, expect, it, vi } from "vitest";
 
 const handleSlackActionMock = vi.fn();
@@ -139,7 +139,7 @@ describe("slackPlugin outbound", () => {
 
 describe("slackPlugin config", () => {
   it("treats HTTP mode accounts with bot token + signing secret as configured", async () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         slack: {
           mode: "http",
@@ -162,7 +162,7 @@ describe("slackPlugin config", () => {
   });
 
   it("keeps socket mode requiring app token", async () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         slack: {
           mode: "socket",
@@ -196,7 +196,7 @@ describe("slackPlugin config", () => {
         appTokenSource: "none",
         config: {},
       } as never,
-      cfg: {} as OpenClawConfig,
+      cfg: {} as AlienClawConfig,
       runtime: undefined,
     });
 
@@ -223,7 +223,7 @@ describe("slackPlugin config", () => {
           signingSecret: { source: "env", provider: "default", id: "SLACK_SIGNING_SECRET" },
         },
       } as never,
-      cfg: {} as OpenClawConfig,
+      cfg: {} as AlienClawConfig,
       runtime: undefined,
     });
 

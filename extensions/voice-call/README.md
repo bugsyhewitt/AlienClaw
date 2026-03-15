@@ -1,6 +1,6 @@
-# @openclaw/voice-call
+# @alienclaw/voice-call
 
-Official Voice Call plugin for **OpenClaw**.
+Official Voice Call plugin for **AlienClaw**.
 
 Providers:
 
@@ -9,15 +9,15 @@ Providers:
 - **Plivo** (Voice API + XML transfer + GetInput speech)
 - **Mock** (dev/no network)
 
-Docs: `https://docs.openclaw.ai/plugins/voice-call`
-Plugin system: `https://docs.openclaw.ai/plugin`
+Docs: `https://docs.alienclaw.ai/plugins/voice-call`
+Plugin system: `https://docs.alienclaw.ai/plugin`
 
 ## Install (local dev)
 
-### Option A: install via OpenClaw (recommended)
+### Option A: install via AlienClaw (recommended)
 
 ```bash
-openclaw plugins install @openclaw/voice-call
+alienclaw plugins install @alienclaw/voice-call
 ```
 
 Restart the Gateway afterwards.
@@ -25,9 +25,9 @@ Restart the Gateway afterwards.
 ### Option B: copy into your global extensions folder (dev)
 
 ```bash
-mkdir -p ~/.openclaw/extensions
-cp -R extensions/voice-call ~/.openclaw/extensions/voice-call
-cd ~/.openclaw/extensions/voice-call && pnpm install
+mkdir -p ~/.alienclaw/extensions
+cp -R extensions/voice-call ~/.alienclaw/extensions/voice-call
+cd ~/.alienclaw/extensions/voice-call && pnpm install
 ```
 
 ## Config
@@ -143,13 +143,13 @@ Notes:
 ## CLI
 
 ```bash
-openclaw voicecall call --to "+15555550123" --message "Hello from OpenClaw"
-openclaw voicecall continue --call-id <id> --message "Any questions?"
-openclaw voicecall speak --call-id <id> --message "One moment"
-openclaw voicecall end --call-id <id>
-openclaw voicecall status --call-id <id>
-openclaw voicecall tail
-openclaw voicecall expose --mode funnel
+alienclaw voicecall call --to "+15555550123" --message "Hello from AlienClaw"
+alienclaw voicecall continue --call-id <id> --message "Any questions?"
+alienclaw voicecall speak --call-id <id> --message "One moment"
+alienclaw voicecall end --call-id <id>
+alienclaw voicecall status --call-id <id>
+alienclaw voicecall tail
+alienclaw voicecall expose --mode funnel
 ```
 
 ## Tool

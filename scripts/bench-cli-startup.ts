@@ -78,7 +78,7 @@ function runCase(params: {
       cwd: process.cwd(),
       env: {
         ...process.env,
-        OPENCLAW_HIDE_BANNER: "1",
+        ALIENCLAW_HIDE_BANNER: "1",
       },
       stdio: ["ignore", "ignore", "pipe"],
       encoding: "utf8",

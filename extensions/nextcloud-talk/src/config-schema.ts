@@ -7,7 +7,7 @@ import {
   ReplyRuntimeConfigSchemaShape,
   ToolPolicySchema,
   requireOpenAllowFrom,
-} from "openclaw/plugin-sdk/nextcloud-talk";
+} from "alienclaw/plugin-sdk/nextcloud-talk";
 import { z } from "zod";
 import { buildSecretInputSchema } from "./secret-input.js";
 

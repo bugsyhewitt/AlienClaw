@@ -92,7 +92,7 @@ describe("hardenApprovedExecutionPaths", () => {
 
   for (const testCase of cases) {
     it.runIf(process.platform !== "win32")(testCase.name, () => {
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-approval-hardening-"));
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "alienclaw-approval-hardening-"));
       const oldPath = process.env.PATH;
       let pathToken: PathTokenSetup | null = null;
       if (testCase.withPathToken) {
@@ -151,7 +151,7 @@ describe("hardenApprovedExecutionPaths", () => {
   }
 
   it("captures mutable shell script operands in approval plans", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-approval-script-plan-"));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "alienclaw-approval-script-plan-"));
     const fixture = createScriptOperandFixture(tmp);
     fs.writeFileSync(fixture.scriptPath, fixture.initialBody);
     if (process.platform !== "win32") {

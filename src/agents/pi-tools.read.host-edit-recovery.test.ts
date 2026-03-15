@@ -46,7 +46,7 @@ describe("createHostWorkspaceEditTool post-write recovery", () => {
   });
 
   it("returns success when upstream throws but file has newText and no longer has oldText", async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-edit-recovery-"));
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-edit-recovery-"));
     const filePath = path.join(tmpDir, "MEMORY.md");
     const oldText = "# Memory";
     const newText = "Blog Writing";
@@ -64,7 +64,7 @@ describe("createHostWorkspaceEditTool post-write recovery", () => {
   });
 
   it("rethrows when file on disk does not contain newText", async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-edit-recovery-"));
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-edit-recovery-"));
     const filePath = path.join(tmpDir, "other.md");
     await fs.writeFile(filePath, "unchanged content", "utf-8");
 
@@ -75,7 +75,7 @@ describe("createHostWorkspaceEditTool post-write recovery", () => {
   });
 
   it("rethrows when file still contains oldText (pre-write failure; avoid false success)", async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-edit-recovery-"));
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-edit-recovery-"));
     const filePath = path.join(tmpDir, "pre-write-fail.md");
     const oldText = "replace me";
     const newText = "new content";

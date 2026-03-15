@@ -1,0 +1,36 @@
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
+import { PATHS } from '../constants.js';
+import { DEFAULT_CONFIG, DEFAULT_PREFERENCES } from './defaults.js';
+import type { AlienClawConfig, UserPreferences } from '../types.js';
+
+function ensureDir(filePath: string): void {
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+}
+
+function loadOrCreate<T>(path: string, defaults: T): T {
+  if (!existsSync(path)) {
+    ensureDir(path);
+    writeFileSync(path, JSON.stringify(defaults, null, 2), 'utf-8');
+    return defaults;
+  }
+  return { ...defaults, ...JSON.parse(readFileSync(path, 'utf-8')) } as T;
+}
+
+export class AlienClawConfigManager {
+  readonly system:      AlienClawConfig;
+  readonly preferences: UserPreferences;
+
+  constructor() {
+    this.system      = loadOrCreate(PATHS.config,      DEFAULT_CONFIG);
+    this.preferences = loadOrCreate(PATHS.preferences, DEFAULT_PREFERENCES);
+  }
+
+  savePreferences(prefs: Partial<UserPreferences>): void {
+    const updated = { ...this.preferences, ...prefs };
+    writeFileSync(PATHS.preferences, JSON.stringify(updated, null, 2), 'utf-8');
+  }
+}
+
+export const alienClawConfig = new AlienClawConfigManager();

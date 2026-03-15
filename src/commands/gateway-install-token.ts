@@ -1,5 +1,5 @@
 import { formatCliCommand } from "../cli/command-format.js";
-import { readConfigFileSnapshot, writeConfigFile, type OpenClawConfig } from "../config/config.js";
+import { readConfigFileSnapshot, writeConfigFile, type AlienClawConfig } from "../config/config.js";
 import { resolveSecretInputRef } from "../config/types.secrets.js";
 import { shouldRequireGatewayTokenForInstall } from "../gateway/auth-install-policy.js";
 import { hasAmbiguousGatewayAuthModeConfig } from "../gateway/auth-mode-policy.js";
@@ -10,7 +10,7 @@ import { resolveSecretRefValues } from "../secrets/resolve.js";
 import { randomToken } from "./onboard-helpers.js";
 
 type GatewayInstallTokenOptions = {
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   env: NodeJS.ProcessEnv;
   explicitToken?: string;
   autoGenerateWhenMissing?: boolean;
@@ -27,7 +27,7 @@ export type GatewayInstallTokenResolution = {
 function formatAmbiguousGatewayAuthModeReason(): string {
   return [
     "gateway.auth.token and gateway.auth.password are both configured while gateway.auth.mode is unset.",
-    `Set ${formatCliCommand("openclaw config set gateway.auth.mode token")} or ${formatCliCommand("openclaw config set gateway.auth.mode password")}.`,
+    `Set ${formatCliCommand("alienclaw config set gateway.auth.mode token")} or ${formatCliCommand("alienclaw config set gateway.auth.mode password")}.`,
   ].join(" ");
 }
 

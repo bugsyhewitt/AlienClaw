@@ -54,7 +54,7 @@ describe("Ollama auto-discovery", () => {
       throw new Error(`Unexpected fetch: ${url}`);
     }) as unknown as typeof fetch;
 
-    const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
+    const agentDir = mkdtempSync(join(tmpdir(), "alienclaw-test-"));
     const providers = await resolveImplicitProviders({ agentDir });
 
     expect(providers?.ollama).toBeDefined();
@@ -72,7 +72,7 @@ describe("Ollama auto-discovery", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockOllamaUnreachable();
 
-    const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
+    const agentDir = mkdtempSync(join(tmpdir(), "alienclaw-test-"));
     const providers = await resolveImplicitProviders({ agentDir });
 
     expect(providers?.ollama).toBeUndefined();
@@ -88,7 +88,7 @@ describe("Ollama auto-discovery", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockOllamaUnreachable();
 
-    const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
+    const agentDir = mkdtempSync(join(tmpdir(), "alienclaw-test-"));
     await resolveImplicitProviders({
       agentDir,
       explicitProviders: {

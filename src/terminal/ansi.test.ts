@@ -4,7 +4,7 @@ import { sanitizeForLog, stripAnsi } from "./ansi.js";
 describe("terminal ansi helpers", () => {
   it("strips ANSI and OSC8 sequences", () => {
     expect(stripAnsi("\u001B[31mred\u001B[0m")).toBe("red");
-    expect(stripAnsi("\u001B]8;;https://openclaw.ai\u001B\\link\u001B]8;;\u001B\\")).toBe("link");
+    expect(stripAnsi("\u001B]8;;https://alienclaw.ai\u001B\\link\u001B]8;;\u001B\\")).toBe("link");
   });
 
   it("sanitizes control characters for log-safe interpolation", () => {

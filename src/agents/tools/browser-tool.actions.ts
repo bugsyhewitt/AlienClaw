@@ -334,7 +334,7 @@ export async function executeActAction(params: {
         : await browserTabs(baseUrl, { profile }).catch(() => []);
       if (!tabs.length) {
         throw new Error(
-          "No Chrome tabs are attached via the OpenClaw Browser Relay extension. Click the toolbar icon on the tab you want to control (badge ON), then retry.",
+          "No Chrome tabs are attached via the AlienClaw Browser Relay extension. Click the toolbar icon on the tab you want to control (badge ON), then retry.",
           { cause: err },
         );
       }

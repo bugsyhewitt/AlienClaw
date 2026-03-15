@@ -17,13 +17,13 @@ title: 飞书
 安装 Feishu 插件：
 
 ```bash
-openclaw plugins install @openclaw/feishu
+alienclaw plugins install @alienclaw/feishu
 ```
 
 本地 checkout（在 git 仓库内运行）：
 
 ```bash
-openclaw plugins install ./extensions/feishu
+alienclaw plugins install ./extensions/feishu
 ```
 
 ---
@@ -34,10 +34,10 @@ openclaw plugins install ./extensions/feishu
 
 ### 方式一：通过安装向导添加（推荐）
 
-如果您刚安装完 OpenClaw，可以直接运行向导，根据提示添加飞书：
+如果您刚安装完 AlienClaw，可以直接运行向导，根据提示添加飞书：
 
 ```bash
-openclaw onboard
+alienclaw onboard
 ```
 
 向导会引导您完成：
@@ -48,24 +48,24 @@ openclaw onboard
 
 ✅ **完成配置后**，您可以使用以下命令检查网关状态：
 
-- `openclaw gateway status` - 查看网关运行状态
-- `openclaw logs --follow` - 查看实时日志
+- `alienclaw gateway status` - 查看网关运行状态
+- `alienclaw logs --follow` - 查看实时日志
 
 ### 方式二：通过命令行添加
 
 如果您已经完成了初始安装，可以用以下命令添加飞书渠道：
 
 ```bash
-openclaw channels add
+alienclaw channels add
 ```
 
 然后根据交互式提示选择 Feishu，输入 App ID 和 App Secret 即可。
 
 ✅ **完成配置后**，您可以使用以下命令管理网关：
 
-- `openclaw gateway status` - 查看网关运行状态
-- `openclaw gateway restart` - 重启网关以应用新配置
-- `openclaw logs --follow` - 查看实时日志
+- `alienclaw gateway status` - 查看网关运行状态
+- `alienclaw gateway restart` - 重启网关以应用新配置
+- `alienclaw logs --follow` - 查看实时日志
 
 ---
 
@@ -147,8 +147,8 @@ Lark（国际版）请使用 https://open.larksuite.com/app，并在配置中设
 
 ⚠️ **重要提醒**：在配置事件订阅前，请务必确保已完成以下步骤：
 
-1. 运行 `openclaw channels add` 添加了 Feishu 渠道
-2. 网关处于启动状态（可通过 `openclaw gateway status` 检查状态）
+1. 运行 `alienclaw channels add` 添加了 Feishu 渠道
+2. 网关处于启动状态（可通过 `alienclaw gateway status` 检查状态）
 
 在 **事件订阅** 页面：
 
@@ -167,21 +167,21 @@ Lark（国际版）请使用 https://open.larksuite.com/app，并在配置中设
 
 ---
 
-## 第二步：配置 OpenClaw
+## 第二步：配置 AlienClaw
 
 ### 通过向导配置（推荐）
 
 运行以下命令，根据提示粘贴 App ID 和 App Secret：
 
 ```bash
-openclaw channels add
+alienclaw channels add
 ```
 
 选择 **Feishu**，然后输入您在第一步获取的凭证即可。
 
 ### 通过配置文件配置
 
-编辑 `~/.openclaw/openclaw.json`：
+编辑 `~/.alienclaw/alienclaw.json`：
 
 ```json5
 {
@@ -276,7 +276,7 @@ export FEISHU_APP_SECRET="xxx"
 ### 1. 启动网关
 
 ```bash
-openclaw gateway
+alienclaw gateway
 ```
 
 ### 2. 发送测试消息
@@ -288,7 +288,7 @@ openclaw gateway
 默认情况下，机器人会回复一个 **配对码**。您需要批准此代码：
 
 ```bash
-openclaw pairing approve feishu <配对码>
+alienclaw pairing approve feishu <配对码>
 ```
 
 批准后即可正常对话。
@@ -311,8 +311,8 @@ openclaw pairing approve feishu <配对码>
 - **默认**：`dmPolicy: "pairing"`，陌生用户会收到配对码
 - **批准配对**：
   ```bash
-  openclaw pairing list feishu      # 查看待审批列表
-  openclaw pairing approve feishu <CODE>  # 批准
+  alienclaw pairing list feishu      # 查看待审批列表
+  alienclaw pairing approve feishu <CODE>  # 批准
   ```
 - **白名单模式**：通过 `channels.feishu.allowFrom` 配置允许的用户 Open ID
 
@@ -408,7 +408,7 @@ openclaw pairing approve feishu <配对码>
 **方法一**（推荐）：
 
 1. 启动网关并在群组中 @机器人发消息
-2. 运行 `openclaw logs --follow` 查看日志中的 `chat_id`
+2. 运行 `alienclaw logs --follow` 查看日志中的 `chat_id`
 
 **方法二**：
 使用飞书 API 调试工具获取机器人所在群组列表。
@@ -420,13 +420,13 @@ openclaw pairing approve feishu <配对码>
 **方法一**（推荐）：
 
 1. 启动网关并给机器人发消息
-2. 运行 `openclaw logs --follow` 查看日志中的 `open_id`
+2. 运行 `alienclaw logs --follow` 查看日志中的 `open_id`
 
 **方法二**：
 查看配对请求列表，其中包含用户的 Open ID：
 
 ```bash
-openclaw pairing list feishu
+alienclaw pairing list feishu
 ```
 
 ---
@@ -447,11 +447,11 @@ openclaw pairing list feishu
 
 | 命令                       | 说明              |
 | -------------------------- | ----------------- |
-| `openclaw gateway status`  | 查看网关运行状态  |
-| `openclaw gateway install` | 安装/启动网关服务 |
-| `openclaw gateway stop`    | 停止网关服务      |
-| `openclaw gateway restart` | 重启网关服务      |
-| `openclaw logs --follow`   | 实时查看日志输出  |
+| `alienclaw gateway status`  | 查看网关运行状态  |
+| `alienclaw gateway install` | 安装/启动网关服务 |
+| `alienclaw gateway stop`    | 停止网关服务      |
+| `alienclaw gateway restart` | 重启网关服务      |
+| `alienclaw logs --follow`   | 实时查看日志输出  |
 
 ---
 
@@ -462,7 +462,7 @@ openclaw pairing list feishu
 1. 检查机器人是否已添加到群组
 2. 检查是否 @了机器人（默认需要 @提及）
 3. 检查 `groupPolicy` 是否为 `"disabled"`
-4. 查看日志：`openclaw logs --follow`
+4. 查看日志：`alienclaw logs --follow`
 
 ### 机器人收不到消息
 
@@ -470,8 +470,8 @@ openclaw pairing list feishu
 2. 检查事件订阅是否配置正确（`im.message.receive_v1`）
 3. 检查是否选择了 **长连接** 模式
 4. 检查应用权限是否完整
-5. 检查网关是否正在运行：`openclaw gateway status`
-6. 查看实时日志：`openclaw logs --follow`
+5. 检查网关是否正在运行：`alienclaw gateway status`
+6. 查看实时日志：`alienclaw logs --follow`
 
 ### App Secret 泄露怎么办
 
@@ -585,12 +585,12 @@ openclaw pairing list feishu
       {
         id: "clawd-fan",
         workspace: "/home/user/clawd-fan",
-        agentDir: "/home/user/.openclaw/agents/clawd-fan/agent",
+        agentDir: "/home/user/.alienclaw/agents/clawd-fan/agent",
       },
       {
         id: "clawd-xi",
         workspace: "/home/user/clawd-xi",
-        agentDir: "/home/user/.openclaw/agents/clawd-xi/agent",
+        agentDir: "/home/user/.alienclaw/agents/clawd-xi/agent",
       },
     ],
   },

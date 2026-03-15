@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { withEnv } from "../test-utils/env.js";
 import { getChannelDock } from "./dock.js";
 
-function emptyConfig(): OpenClawConfig {
-  return {} as OpenClawConfig;
+function emptyConfig(): AlienClawConfig {
+  return {} as AlienClawConfig;
 }
 
 describe("channels dock", () => {
@@ -70,7 +70,7 @@ describe("channels dock", () => {
           },
         },
       },
-    } as unknown as OpenClawConfig;
+    } as unknown as AlienClawConfig;
 
     const accountDefault = ircDock?.config?.resolveDefaultTo?.({ cfg, accountId: "work" });
     const rootDefault = ircDock?.config?.resolveDefaultTo?.({ cfg, accountId: "missing" });
@@ -118,7 +118,7 @@ describe("channels dock", () => {
             },
           },
         },
-      } as unknown as OpenClawConfig;
+      } as unknown as AlienClawConfig;
 
       expect(telegramDock?.config?.resolveAllowFrom?.({ cfg })).toEqual(["top-owner"]);
       expect(telegramDock?.config?.resolveDefaultTo?.({ cfg })).toBe("@top-target");
@@ -148,7 +148,7 @@ describe("channels dock", () => {
           replyToMode: "all",
         },
       },
-    } as unknown as OpenClawConfig;
+    } as unknown as AlienClawConfig;
 
     expect(slackDock?.config?.resolveAllowFrom?.({ cfg, accountId: "default" })).toEqual(["U123"]);
     expect(slackDock?.config?.resolveDefaultTo?.({ cfg, accountId: "default" })).toBe(
@@ -184,7 +184,7 @@ describe("channels dock", () => {
           defaultTo: 42,
         },
       },
-    } as unknown as OpenClawConfig;
+    } as unknown as AlienClawConfig;
 
     expect(telegramDock?.config?.resolveAllowFrom?.({ cfg })).toEqual(["12345"]);
     expect(telegramDock?.config?.resolveDefaultTo?.({ cfg })).toBe("67890");

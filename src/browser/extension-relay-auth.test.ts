@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  probeAuthenticatedOpenClawRelay,
+  probeAuthenticatedAlienClawRelay,
   resolveRelayAcceptedTokensForPort,
   resolveRelayAuthTokenForPort,
 } from "./extension-relay-auth.js";
@@ -36,9 +36,9 @@ function handleNonVersionRequest(req: IncomingMessage, res: ServerResponse): boo
 }
 
 async function probeRelay(baseUrl: string, relayAuthToken: string): Promise<boolean> {
-  return await probeAuthenticatedOpenClawRelay({
+  return await probeAuthenticatedAlienClawRelay({
     baseUrl,
-    relayAuthHeader: "x-openclaw-relay-token",
+    relayAuthHeader: "x-alienclaw-relay-token",
     relayAuthToken,
   });
 }
@@ -48,15 +48,15 @@ describe("extension-relay-auth", () => {
   let prevGatewayToken: string | undefined;
 
   beforeEach(() => {
-    prevGatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN;
-    process.env.OPENCLAW_GATEWAY_TOKEN = TEST_GATEWAY_TOKEN;
+    prevGatewayToken = process.env.ALIENCLAW_GATEWAY_TOKEN;
+    process.env.ALIENCLAW_GATEWAY_TOKEN = TEST_GATEWAY_TOKEN;
   });
 
   afterEach(() => {
     if (prevGatewayToken === undefined) {
-      delete process.env.OPENCLAW_GATEWAY_TOKEN;
+      delete process.env.ALIENCLAW_GATEWAY_TOKEN;
     } else {
-      process.env.OPENCLAW_GATEWAY_TOKEN = prevGatewayToken;
+      process.env.ALIENCLAW_GATEWAY_TOKEN = prevGatewayToken;
     }
   });
 
@@ -76,17 +76,17 @@ describe("extension-relay-auth", () => {
     expect(tokens[0]).toBe(await resolveRelayAuthTokenForPort(18790));
   });
 
-  it("accepts authenticated openclaw relay probe responses", async () => {
+  it("accepts authenticated alienclaw relay probe responses", async () => {
     let seenToken: string | undefined;
     await withRelayServer(
       (req, res) => {
         if (handleNonVersionRequest(req, res)) {
           return;
         }
-        const header = req.headers["x-openclaw-relay-token"];
+        const header = req.headers["x-alienclaw-relay-token"];
         seenToken = Array.isArray(header) ? header[0] : header;
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ Browser: "OpenClaw/extension-relay" }));
+        res.end(JSON.stringify({ Browser: "AlienClaw/extension-relay" }));
       },
       async ({ port }) => {
         const token = await resolveRelayAuthTokenForPort(port);

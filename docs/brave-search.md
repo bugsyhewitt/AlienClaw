@@ -8,7 +8,7 @@ title: "Brave Search"
 
 # Brave Search API
 
-OpenClaw supports Brave Search as a web search provider for `web_search`.
+AlienClaw supports Brave Search as a web search provider for `web_search`.
 
 ## Get an API key
 
