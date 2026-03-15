@@ -61,6 +61,8 @@ vendor/a2ui/renderers/lit/dist/
 src/canvas-host/a2ui/*.bundle.js
 src/canvas-host/a2ui/*.map
 .bundle.hash
+# Exception: a2ui prebuilt bundle vendored in openclaw/ (not in GitHub tarball — submodule)
+!openclaw/src/canvas-host/a2ui/a2ui.bundle.js
 
 # fastlane (iOS)
 apps/ios/fastlane/README.md
