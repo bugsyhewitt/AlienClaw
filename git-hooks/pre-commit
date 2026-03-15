@@ -31,12 +31,12 @@ fi
 lint_files=()
 while IFS= read -r -d '' file; do
   lint_files+=("$file")
-done < <(node "$FILTER_FILES" lint -- "${files[@]}")
+done < <(printf '%s\0' "${files[@]}" | node "$FILTER_FILES" lint)
 
 format_files=()
 while IFS= read -r -d '' file; do
   format_files+=("$file")
-done < <(node "$FILTER_FILES" format -- "${files[@]}")
+done < <(printf '%s\0' "${files[@]}" | node "$FILTER_FILES" format)
 
 # Probe whether oxlint's native binding loads. On Windows without the
 # @oxlint/binding-win32-x64-msvc optional package the tool crashes on
@@ -72,4 +72,4 @@ if [ "${#format_files[@]}" -gt 0 ]; then
   fi
 fi
 
-git add -- "${files[@]}"
+printf '%s\0' "${files[@]}" | xargs -0 git add --
