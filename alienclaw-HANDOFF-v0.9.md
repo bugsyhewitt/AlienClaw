@@ -1,6 +1,6 @@
-# AlienClaw — Master Handoff Document v0.8
+# AlienClaw — Master Handoff Document v0.9
 # For: New Claude chat session
-# Status: v0.1 BETA CONFIRMED WORKING. Full governance loop end-to-end. Ready for Phase 6 (Installer).
+# Status: v0.1.0 RELEASE CANDIDATE — feature complete, tree clean, tagged.
 
 ---
 
@@ -18,7 +18,7 @@ layer, genome-based evolution system, and community leaderboard at alienclaw.gg.
 - **OpenClaw upstream:** https://github.com/openclaw/openclaw
 - **Mission Control (dashboard):** https://github.com/builderz-labs/mission-control
 - **Repo location:** `C:\alienclaw` on Windows / `/mnt/c/alienclaw` in WSL2
-- **Use WSL2 for all build commands**
+- **Current tag:** `v0.1.0`
 
 ---
 
@@ -27,7 +27,7 @@ layer, genome-based evolution system, and community leaderboard at alienclaw.gg.
 AlienClaw is an **overlay distribution**, not a fork and not a plugin.
 
 ```
-vendor/openclaw/    ← clean, unmodified OpenClaw snapshot (never touch directly)
+openclaw/           ← clean, unmodified OpenClaw snapshot (never touch directly)
 src/alienclaw/      ← AlienClaw agent hierarchy (our technology)
 installer/          ← reskin script, verify script, install sequence
 build/              ← assembled output (gitignored): copy + reskin + overlay + compile
@@ -36,12 +36,13 @@ build/              ← assembled output (gitignored): copy + reskin + overlay +
 ### Assembly pipeline — `pnpm dist:all`
 
 ```
-dist:copy     copies vendor/openclaw/ → build/
+dist:copy     copies openclaw/ → build/
 dist:reskin   applies openclaw→alienclaw text replacements + renames to build/
               (3,948 text changes across 7,930 files, 80 renames)
 dist:overlay  copies src/alienclaw/ → build/src/alienclaw/
+              also copies src/openclaw-patches/ → build/src/ (core patches)
 pnpm build    TypeScript compile of everything together
-dist:verify   confirms zero residual openclaw refs (9/9 checks pass)
+dist:verify   confirms zero residual openclaw refs (10/10 checks pass)
 ```
 
 All dist scripts delegate to explicit bash scripts in `installer/scripts/` to avoid
@@ -49,19 +50,20 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
 
 ### Absorbing a new OpenClaw version
 
-1. Swap `vendor/openclaw/` with new snapshot
+1. Swap `openclaw/` with new snapshot
 2. Run `pnpm dist:all`
-3. Fix anything broken
+3. Fix anything broken (check `src/openclaw-patches/` against new upstream)
 4. Update `ALIENCLAW_VERSION`
+5. Commit: `chore: update vendor/openclaw to <version>`
 
 ### Key files
 
-- `ALIENCLAW_VERSION` — currently `2026.3.8` (pinned OpenClaw version)
+- `ALIENCLAW_VERSION` — currently `2026.3.13` (pinned OpenClaw version)
 - `package.json` — `name: alienclaw`, `version: 2026.3.7`, `bin: { alienclaw: alienclaw.mjs }`
-  Contains `alienclaw` metadata block: `{ "vendored-openclaw": "2026.3.8", "vendor-dir": "openclaw", "dist-dir": "build" }`
 - `installer/scripts/reskin.sh` — canonical record of every change made to OpenClaw
-- `installer/scripts/verify.sh` — 9-check post-build validation
+- `installer/scripts/verify.sh` — 10-check post-build validation
 - `installer/scripts/copy-dist.sh` + `overlay-dist.sh` — explicit bash wrappers
+- `src/openclaw-patches/cli/program/command-registry.ts` — only patched file (adds `run` command)
 
 ---
 
@@ -73,8 +75,8 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
   wizard, iOS/Android apps, every extension, every provider
 - **Reskin only at install time** via reskin.sh — never in committed source
 - **Add on top:** the AlienClaw agent hierarchy + Meeseeks layer
-- Future OpenClaw updates flow in by swapping the vendor snapshot
-- `--ignore-openclaw-updates` flag planned for installer to lock version
+- Future OpenClaw updates flow in by swapping `openclaw/` vendor snapshot
+- `--ignore-openclaw-updates` flag planned for a future installer release
 
 ---
 
@@ -83,10 +85,11 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
 - User is on Windows with WSL2 Ubuntu (username: skynet, machine: SKYNET)
 - GitHub account: AlienTool (alientool@proton.me)
 - Repo is private at https://github.com/AlienTool/AlienClaw
-- Use WSL2 for all build commands (`cd /mnt/c/alienclaw` first)
-- PowerShell does not support `&&` — use WSL2 bash for chained commands
+- PowerShell does not support `&&` — use WSL2 bash or Git Bash for chained commands
 - Claude Code is available and preferred for implementation work
 - GitHub MCP connector not available in claude.ai
+- Pre-commit hook skips oxlint/oxfmt gracefully on Windows (native bindings absent)
+- Pre-commit hook uses stdin + xargs for file passing — safe for large vendor commits
 
 ---
 
@@ -94,7 +97,7 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
 
 ### TIER A — GOVERNANCE
 
-**BossBot** (`claude-opus-4-5`)
+**BossBot** (`MiniMax-M2.5`)
 - Event-driven goal-pursuit engine, not a sequential task processor
 - Receives goals conversationally, starts immediately without user approval gate
 - Decomposes goals into sub-goals with AdvisorBot before any work starts
@@ -105,7 +108,7 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
 - NEVER shares what AdvisorBot told him with CreatorBot, or vice versa
 - Does NOT build agents or write genomes
 
-**AdvisorBot** (`claude-opus-4-5`)
+**AdvisorBot** (`MiniMax-M2.5`)
 - Stateful within a task per caller — separate session objects for BossBot and CreatorBot
 - Sessions keyed `${callerId}::${taskId}` — structurally impossible to cross-contaminate
 - Sessions destroyed on task completion
@@ -113,7 +116,7 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
 - DECIDES NOTHING. Wisdom on tap only.
 - Persistence configurable: `off` / `per_task` (default) / `full`
 
-**CreatorBot** (`claude-sonnet-4-5`)
+**CreatorBot** (`MiniMax-M2.5-highspeed`)
 - Silent. Janitorial. Works without narrating.
 - Briefs himself from failure context BossBot provides
 - Maintains two-lane queue: URGENT (interrupt BossBot immediately) / NOTABLE (flush at completion)
@@ -121,7 +124,7 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
 
 ### TIER B — EXECUTION
 
-**Employees**
+**Employees** (`MiniMax-M2.5-highspeed`)
 - Autonomous reasoners, purpose-built per domain
 - Built by CreatorBot to BossBot's spec
 - Select Meeseeks from registry by tool_tags / fitness / compatibility
@@ -144,7 +147,7 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
 - reskin.sh is idempotent, portable (bash 3.2+ / macOS, Linux, WSL2)
 - Substitution map: OpenClaw→AlienClaw, OPENCLAW→ALIENCLAW, openclaw→alienclaw
 - 3,948 text changes, 80 file renames, workspace ref normalization, mixed-case dirs
-- `pnpm dist:all` verified clean: 9/9 checks pass, zero residual openclaw refs
+- `pnpm dist:all` verified clean: 10/10 checks pass, zero residual openclaw refs
 
 ### ✅ Phase 2A — Agent Identity Layer
 21 files in `src/alienclaw/`. Zero type errors.
@@ -231,7 +234,7 @@ seed/
 
 ### ✅ Architecture Restructure
 - Moved from hard fork to overlay distribution
-- vendor/openclaw/ = clean pinned snapshot, never modified
+- openclaw/ = clean pinned snapshot, never modified
 - pnpm dist:all pipeline confirmed working end-to-end
 - build/ = assembled output, gitignored
 
@@ -239,7 +242,7 @@ seed/
 Provider layer: `@mariozechner/pi-ai` — `completeSimple(model, context, { apiKey })` +
 `getModel(ALIENCLAW_PROVIDER, model)` + `getEnvApiKey(ALIENCLAW_PROVIDER)`.
 No Anthropic SDK imported directly. Full provider compatibility maintained.
-Provider switched to **MiniMax** (`minimax`). Models: `MiniMax-M2.5` (power), `MiniMax-M2.5-highspeed` (fast).
+Provider: **MiniMax** (`minimax`). Models: `MiniMax-M2.5` (power), `MiniMax-M2.5-highspeed` (fast).
 `ALIENCLAW_PROVIDER` constant in `constants.ts` is the single place to change provider.
 
 - `agents/bossbot.ts` — `decompose()`, `classifyUserInput()`, `generateSubGoals()` — real LLM, JSON parsed
@@ -264,7 +267,7 @@ Provider switched to **MiniMax** (`minimax`). Models: `MiniMax-M2.5` (power), `M
   - `registerRunCommand(program)` — follows `register.agent.ts` pattern exactly
   - `alienclaw run "<goal>" [--verbose | --silent]`
   - Lazy-imports `cli.ts` inside `.action()` handler
-- `src/cli/program/command-registry.ts` — wired into `coreEntries` array
+- `src/openclaw-patches/cli/program/command-registry.ts` — wired into `coreEntries` array
   - `{ name: "run", description: "Run the AlienClaw agent hierarchy toward a goal" }`
   - Dynamically imports `../../alienclaw/cli/register.run.js`
 - Output boundary: `~/.alienclaw/workspace/output/` — enforced by existing `file_write` adapter (unchanged)
@@ -273,15 +276,44 @@ Provider switched to **MiniMax** (`minimax`). Models: `MiniMax-M2.5` (power), `M
 ### ✅ Post-Phase-5 Fixes & Cleanup
 - `installer/scripts/overlay-dist.sh` — extended to also copy `src/openclaw-patches/` into
   `build/src/`, so patches to OpenClaw core files survive `dist:all`
-- `src/openclaw-patches/cli/program/command-registry.ts` — patched copy wiring `run` into `coreEntries`
 - Soul file paths fixed in all 4 agents — bundled output is in `dist/`, so paths must be
   `../src/alienclaw/prompts/` not `../prompts/`
 - `seed/ms/*.ms` — block-7 checksums recomputed; all 3 pass `validateGenome()`
-- `seed/msb/` — deduplicated to underscore-only names (`file_read`, `file_write`, `web_search`, `url_fetch`);
-  hyphenated variants (`file-read`, `file-write`, `web-search`) removed
+- `seed/msb/` — deduplicated to underscore-only names (`file_read`, `file_write`, `web_search`, `url_fetch`)
 - `seed-installer.ts` — `overwrite` defaults to `true` so updated seeds always propagate on reinstall
-- `git-hooks/pre-commit` — probes oxlint/oxfmt with `--version` before running;
-  silently skips on Windows where native bindings are absent
+- `git-hooks/pre-commit` — probes oxlint/oxfmt; skips silently on Windows (no native bindings)
+  - Now uses stdin + xargs for file passing — safe for large vendor commits (ARG_MAX fix)
+- `installer/setup/first-run.mjs` — fixed: `provider`/`verbosity` write to `preferences.json` not
+  `alienclaw.json`; `verbosityMap[0]` corrected from `'quiet'` → `'silent'`
+
+### ✅ Phase 6 — Installer (completed 2026-03-14)
+- **`installer/animation/abduction.mjs`** — alien abduction ASCII art install sequence
+  - Full braille + ANSI starfield animation, pulsing ship, tractor beam, phase labels
+  - Confirmed working on Windows (exit 0, 1.5MB ANSI output)
+  - WSL2 test requires Node installed in WSL2 (`nvm install --lts`)
+- **`installer/setup/first-run.mjs`** — 4-step interactive first-run wizard
+  - Step 1: Mission directories (creates all `~/.alienclaw/` subdirs with animated ticks)
+  - Step 2: AI provider selection (Anthropic / MiniMax / OpenAI / Ollama / Other)
+  - Step 3: Verbosity preference (silent / normal / verbose)
+  - Step 4: Evolution Network opt-in — anonymous genome fitness sharing with alienclaw.gg
+    - Named opt-in: full leaderboard access, community genome upgrades, cross-swarm boosts
+    - Anonymous opt-in: contribute fitness data without linking to identity
+    - Opt-out: stay fully local, no data leaves machine
+  - Writes provider + verbosity to `~/.alienclaw/preferences.json` (not alienclaw.json)
+  - Writes evolutionOptIn, setupComplete, setupCompletedAt to preferences.json
+  - API key written to `~/.alienclaw/.env` (mode 0600, never to repo .env)
+  - Displays ALIENCLAW ONLINE banner on completion
+
+### ✅ Vendor Update — OpenClaw 2026.3.8 → 2026.3.13 (2026-03-14)
+- Replaced `openclaw/` with v2026.3.13-1 (tagged 2026-03-14)
+- **SECURITY: absorbed GHSA-5wcw-8jjv-m286** — WebSocket cross-site hijacking fix (2026.3.11)
+  - Gateway/WebSocket: enforce browser origin validation for all browser-originated connections
+    regardless of proxy headers in `trusted-proxy` mode
+- Dashboard v2 with modular overview/chat/config/agent/session views (2026.3.12)
+- Control UI fast-mode toggles, OpenAI/GPT-5.4 request shaping (2026.3.12)
+- Android Play distribution cleanup, iOS first-run welcome pager (2026.3.13)
+- No changes to `src/openclaw-patches/` required — all 5 patch dependencies unchanged
+- `pnpm dist:all` 10/10 PASS after update
 
 ### ✅ v0.1 Beta — Smoke Test Confirmed (2026-03-09)
 End-to-end run: `node alienclaw.mjs run "list the files in the current directory" --verbose`
@@ -312,21 +344,55 @@ Provider: MiniMax (`MINIMAX_API_KEY` in `.env`, gitignored).
 
 ---
 
-## CURRENT STUBS (all in src/alienclaw/)
+## CURRENT STUBS
 
-No active stubs remaining. All LLM calls are real.
+None. All LLM calls are real. All phases complete.
 
 ---
 
 ## REMAINING BUILD PHASES
 
-### Phase 6 — Installer
-- Alien abduction ASCII art install sequence (the cool part)
-- Platform detection: Mac / Linux / WSL2 (follow OpenClaw's platform support)
-- First-run setup: ~/.alienclaw/ directories, seed files, config defaults
-- Optional telemetry/community data opt-in prompt
-- `--ignore-openclaw-updates` flag to lock vendor version
-- Single user-facing install command that does everything
+**None.** v0.1.0 is feature complete and tagged.
+
+---
+
+## NEXT — Post v0.1.0
+
+These are the priorities for v0.2.0 and beyond, in rough order:
+
+### alienclaw.gg Leaderboard
+- Server-side genome fitness aggregation
+- Named and anonymous participation tiers (opt-in captured at install time)
+- Cross-swarm intelligence: top-performing genomes propagate to opted-in installs
+- Web dashboard at alienclaw.gg
+
+### Mission Control Reskin
+- WebSocket dashboard on port 18789
+- AlienClaw color scheme (replace OpenClaw defaults)
+- `onTransition` hooks already in place in governance-loop.ts
+- Integration with live sub-goal/Meeseeks status
+
+### Employee Genomes
+- Extend genome system to Employee layer (currently Meeseeks-only)
+- Employee genome encodes domain specialization, tool preference, escalation tolerance
+- CreatorBot writes both Employee and Meeseeks genomes
+
+### Report Codes
+- Structured telemetry codes for Meeseeks outcomes (currently raw JSON)
+- Format: `MS_<TYPE>_<CODE>` — e.g. `MS_EXEC_001`, `MS_FAIL_404`
+- Feed into leaderboard + community fitness sharing
+
+### Windows Native Installer
+- Single `.exe` wrapping Node + AlienClaw — no Node pre-install required
+- Bundles the alien abduction animation as part of install sequence
+- NSIS or WiX toolchain
+- Code-signed for SmartScreen bypass
+
+### Mobile Companion App
+- Lightweight iOS/Android app for monitoring and approving BossBot escalations
+- Push notification for Strike 3 / user sign-off requests
+- Built on existing OpenClaw iOS/Android infrastructure (already in repo)
+- No full agent capability on mobile — desktop is the brain
 
 ---
 
@@ -334,8 +400,9 @@ No active stubs remaining. All LLM calls are real.
 
 ```
 ~/.alienclaw/
-├── alienclaw.json               ← system config (auto-created)
-├── preferences.json             ← user preferences (auto-created)
+├── alienclaw.json               ← system config (auto-created by OpenClaw)
+├── preferences.json             ← user preferences (auto-created by first-run wizard)
+├── .env                         ← API keys (mode 0600, written by first-run wizard)
 ├── workspace/
 │   ├── goals.json               ← BossBot working memory, atomic writes
 │   └── output/                  ← task outputs land here
@@ -357,13 +424,19 @@ No active stubs remaining. All LLM calls are real.
 
 ```json
 {
+  "provider": "minimax",
   "verbosity": "normal",
-  "advisorPersistence": "per_task"
+  "advisorPersistence": "per_task",
+  "evolutionOptIn": true,
+  "setupComplete": true,
+  "setupCompletedAt": "<ISO timestamp>"
 }
 ```
 
+- `provider`: provider ID selected at first-run (`anthropic` / `minimax` / `openai` / `ollama` / `other`)
 - `verbosity`: `silent` / `normal` / `verbose`
 - `advisorPersistence`: `off` / `per_task` (default) / `full`
+- `evolutionOptIn`: `true` / `false` — genome fitness sharing with alienclaw.gg
 
 ---
 
@@ -442,11 +515,15 @@ MSB is conditioning text only — never control logic (hard invariant).
 
 ## MODEL ASSIGNMENTS
 
-- BossBot: `claude-opus-4-5`
-- AdvisorBot: `claude-opus-4-5`
-- CreatorBot: `claude-sonnet-4-5`
-- Employees: configurable, default Sonnet
-- Meeseeks: no LLM — execution bots only
+| Agent | Model | Tier |
+|---|---|---|
+| BossBot | `MiniMax-M2.5` | A |
+| AdvisorBot | `MiniMax-M2.5` | A |
+| CreatorBot | `MiniMax-M2.5-highspeed` | A |
+| Employees | `MiniMax-M2.5-highspeed` (configurable) | B |
+| Meeseeks | none — execution bots only | B |
+
+To change provider: update `ALIENCLAW_PROVIDER` in `src/alienclaw/constants.ts`. One place.
 
 ---
 
@@ -470,6 +547,8 @@ MSB is conditioning text only — never control logic (hard invariant).
 16. Invalid state machine transitions throw — they are bugs, not recoverable errors
 17. goals.json is always written atomically (tmp → lock → rename → release)
 18. All LLM calls route through OpenClaw's provider abstraction — never SDK directly
+19. `provider` and `verbosity` are AlienClaw preferences — write to `preferences.json`,
+    never to `alienclaw.json` (OpenClaw's config file rejects unknown keys)
 
 ---
 
@@ -493,7 +572,7 @@ Key facts:
 - Build: `pnpm install` + `pnpm build` (run inside build/ after dist:overlay)
 - Full build from scratch: `pnpm dist:all` from repo root
 - Config home: `~/.alienclaw` (env: `ALIENCLAW_HOME`)
-- Binary: `alienclaw.mjs`
+- Binary: `alienclaw.mjs` (root shim) or `build/alienclaw.mjs` (full built dist)
 - Gateway port: 18789 (keep)
 - Version format: `YYYY.M.D`
 
@@ -533,29 +612,17 @@ BossBot summarizes the direction. CreatorBot decides the spec himself.
 
 ---
 
-## WHAT v0.1 BETA MUST DO
+## WHAT v0.1.0 SHIPS
 
 - All 5 agents running (BossBot, AdvisorBot, CreatorBot, Employees, Meeseeks)
-- Full Tier A governance loop active with real LLM calls
+- Full Tier A governance loop active with real LLM calls (MiniMax)
 - `web_search` + `file_read` + `file_write` Meeseeks with real .ms and .msb files
 - Genome codec + .ms registry + graveyard working
-- Evolution/fitness tracking (JSON telemetry, no report codes yet)
-- CLI entry: `alienclaw run "do this task"`
+- Evolution/fitness tracking (JSON telemetry)
+- CLI entry: `alienclaw run "<goal>" [--verbose | --silent]`
 - Output to `~/.alienclaw/workspace/output/`
-- **NOT in v0.1:** report codes, leaderboard website, Mission Control reskin,
-  alien abduction installer sequence
-
----
-
-## FUTURE / PARKED IDEAS
-
-- **Alien abduction ASCII installer** — Phase 6. The cool part. OpenClaw install
-  sequence transitions into alien abduction art, then AlienClaw completes setup.
-- **Mission Control reskin** — after v0.1. WebSocket on port 18789.
-  Color scheme already discussed. `onTransition` hooks in place.
-- **Majel Barrett TTS voice** — custom TTS for "TNG Computer" feel.
-  OpenClaw already has TTS infrastructure. Parked.
-- **alienclaw.gg leaderboard** — v0.2+
-- **Report codes** — v0.2. JSON telemetry only in v0.1.
-- **Logo/asset reskin** — cosmetic, parked.
-- **`--ignore-openclaw-updates` flag** — Phase 6 installer.
+- Alien abduction installer animation + 4-step first-run wizard
+- Evolution Network opt-in (named / anonymous / local)
+- OpenClaw 2026.3.13 vendor — includes GHSA-5wcw-8jjv-m286 security patch
+- **NOT in v0.1.0:** report codes, leaderboard website, Mission Control reskin,
+  Windows native installer, Employee genomes, mobile companion app
