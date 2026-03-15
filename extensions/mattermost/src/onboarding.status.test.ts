@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "openclaw/plugin-sdk/mattermost";
+import type { AlienClawConfig } from "alienclaw/plugin-sdk/mattermost";
 import { describe, expect, it } from "vitest";
 import { mattermostOnboardingAdapter } from "./onboarding.js";
 
@@ -16,7 +16,7 @@ describe("mattermost onboarding status", () => {
             },
           },
         },
-      } as OpenClawConfig,
+      } as AlienClawConfig,
       accountOverrides: {},
     });
 

@@ -209,14 +209,14 @@ function auditGatewayToken(
   issues: ServiceConfigIssue[],
   expectedGatewayToken?: string,
 ) {
-  const serviceToken = command?.environment?.OPENCLAW_GATEWAY_TOKEN?.trim();
+  const serviceToken = command?.environment?.ALIENCLAW_GATEWAY_TOKEN?.trim();
   if (!serviceToken) {
     return;
   }
   issues.push({
     code: SERVICE_AUDIT_CODES.gatewayTokenEmbedded,
-    message: "Gateway service embeds OPENCLAW_GATEWAY_TOKEN and should be reinstalled.",
-    detail: "Run `openclaw gateway install --force` to remove embedded service token.",
+    message: "Gateway service embeds ALIENCLAW_GATEWAY_TOKEN and should be reinstalled.",
+    detail: "Run `alienclaw gateway install --force` to remove embedded service token.",
     level: "recommended",
   });
   const expectedToken = expectedGatewayToken?.trim();
@@ -226,7 +226,7 @@ function auditGatewayToken(
   issues.push({
     code: SERVICE_AUDIT_CODES.gatewayTokenMismatch,
     message:
-      "Gateway service OPENCLAW_GATEWAY_TOKEN does not match gateway.auth.token in openclaw.json",
+      "Gateway service ALIENCLAW_GATEWAY_TOKEN does not match gateway.auth.token in alienclaw.json",
     detail: "service token is stale",
     level: "recommended",
   });
@@ -380,7 +380,7 @@ export function checkTokenDrift(params: {
       code: SERVICE_AUDIT_CODES.gatewayTokenDrift,
       message:
         "Config token differs from service token. The daemon will use the old token after restart.",
-      detail: "Run `openclaw gateway install --force` to sync the token.",
+      detail: "Run `alienclaw gateway install --force` to sync the token.",
       level: "recommended",
     };
   }

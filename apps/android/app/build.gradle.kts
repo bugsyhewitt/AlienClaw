@@ -1,9 +1,9 @@
 import com.android.build.api.variant.impl.VariantOutputImpl
 
-val androidStoreFile = providers.gradleProperty("OPENCLAW_ANDROID_STORE_FILE").orNull?.takeIf { it.isNotBlank() }
-val androidStorePassword = providers.gradleProperty("OPENCLAW_ANDROID_STORE_PASSWORD").orNull?.takeIf { it.isNotBlank() }
-val androidKeyAlias = providers.gradleProperty("OPENCLAW_ANDROID_KEY_ALIAS").orNull?.takeIf { it.isNotBlank() }
-val androidKeyPassword = providers.gradleProperty("OPENCLAW_ANDROID_KEY_PASSWORD").orNull?.takeIf { it.isNotBlank() }
+val androidStoreFile = providers.gradleProperty("ALIENCLAW_ANDROID_STORE_FILE").orNull?.takeIf { it.isNotBlank() }
+val androidStorePassword = providers.gradleProperty("ALIENCLAW_ANDROID_STORE_PASSWORD").orNull?.takeIf { it.isNotBlank() }
+val androidKeyAlias = providers.gradleProperty("ALIENCLAW_ANDROID_KEY_ALIAS").orNull?.takeIf { it.isNotBlank() }
+val androidKeyPassword = providers.gradleProperty("ALIENCLAW_ANDROID_KEY_PASSWORD").orNull?.takeIf { it.isNotBlank() }
 val resolvedAndroidStoreFile =
     androidStoreFile?.let { storeFilePath ->
         if (storeFilePath.startsWith("~/")) {
@@ -24,9 +24,9 @@ val wantsAndroidReleaseBuild =
 
 if (wantsAndroidReleaseBuild && !hasAndroidReleaseSigning) {
     error(
-        "Missing Android release signing properties. Set OPENCLAW_ANDROID_STORE_FILE, " +
-            "OPENCLAW_ANDROID_STORE_PASSWORD, OPENCLAW_ANDROID_KEY_ALIAS, and " +
-            "OPENCLAW_ANDROID_KEY_PASSWORD in ~/.gradle/gradle.properties.",
+        "Missing Android release signing properties. Set ALIENCLAW_ANDROID_STORE_FILE, " +
+            "ALIENCLAW_ANDROID_STORE_PASSWORD, ALIENCLAW_ANDROID_KEY_ALIAS, and " +
+            "ALIENCLAW_ANDROID_KEY_PASSWORD in ~/.gradle/gradle.properties.",
     )
 }
 
@@ -38,7 +38,7 @@ plugins {
 }
 
 android {
-    namespace = "ai.openclaw.app"
+    namespace = "ai.alienclaw.app"
     compileSdk = 36
 
     // Release signing is local-only; keep the keystore path and passwords out of the repo.
@@ -55,12 +55,12 @@ android {
 
     sourceSets {
         getByName("main") {
-            assets.directories.add("../../shared/OpenClawKit/Sources/OpenClawKit/Resources")
+            assets.directories.add("../../shared/AlienClawKit/Sources/AlienClawKit/Resources")
         }
     }
 
     defaultConfig {
-        applicationId = "ai.openclaw.app"
+        applicationId = "ai.alienclaw.app"
         minSdk = 31
         targetSdk = 36
         versionCode = 202603070
@@ -132,7 +132,7 @@ androidComponents {
                 val versionName = output.versionName.orNull ?: "0"
                 val buildType = variant.buildType
 
-                val outputFileName = "openclaw-$versionName-$buildType.apk"
+                val outputFileName = "alienclaw-$versionName-$buildType.apk"
                 output.outputFileName = outputFileName
             }
     }

@@ -1,4 +1,4 @@
-import type { LineChannelData, OpenClawPluginApi, ReplyPayload } from "openclaw/plugin-sdk/line";
+import type { LineChannelData, AlienClawPluginApi, ReplyPayload } from "alienclaw/plugin-sdk/line";
 import {
   createActionCard,
   createImageCard,
@@ -7,7 +7,7 @@ import {
   createReceiptCard,
   type CardAction,
   type ListItem,
-} from "openclaw/plugin-sdk/line";
+} from "alienclaw/plugin-sdk/line";
 
 const CARD_USAGE = `Usage: /card <type> "title" "body" [options]
 
@@ -154,7 +154,7 @@ function parseCardArgs(argsStr: string): {
   return result;
 }
 
-export function registerLineCardCommand(api: OpenClawPluginApi): void {
+export function registerLineCardCommand(api: AlienClawPluginApi): void {
   api.registerCommand({
     name: "card",
     description: "Send a rich card message (LINE).",

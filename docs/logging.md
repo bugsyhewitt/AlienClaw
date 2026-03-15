@@ -9,7 +9,7 @@ title: "Logging"
 
 # Logging
 
-OpenClaw logs in two places:
+AlienClaw logs in two places:
 
 - **File logs** (JSON lines) written by the Gateway.
 - **Console output** shown in terminals and the Control UI.
@@ -21,16 +21,16 @@ levels and formats.
 
 By default, the Gateway writes a rolling log file under:
 
-`/tmp/openclaw/openclaw-YYYY-MM-DD.log`
+`/tmp/alienclaw/alienclaw-YYYY-MM-DD.log`
 
 The date uses the gateway host's local timezone.
 
-You can override this in `~/.openclaw/openclaw.json`:
+You can override this in `~/.alienclaw/alienclaw.json`:
 
 ```json
 {
   "logging": {
-    "file": "/path/to/openclaw.log"
+    "file": "/path/to/alienclaw.log"
   }
 }
 ```
@@ -42,7 +42,7 @@ You can override this in `~/.openclaw/openclaw.json`:
 Use the CLI to tail the gateway log file via RPC:
 
 ```bash
-openclaw logs --follow
+alienclaw logs --follow
 ```
 
 Output modes:
@@ -63,7 +63,7 @@ In JSON mode, the CLI emits `type`-tagged objects:
 If the Gateway is unreachable, the CLI prints a short hint to run:
 
 ```bash
-openclaw doctor
+alienclaw doctor
 ```
 
 ### Control UI (web)
@@ -76,7 +76,7 @@ See [/web/control-ui](/web/control-ui) for how to open it.
 To filter channel activity (WhatsApp/Telegram/etc), use:
 
 ```bash
-openclaw channels logs --channel whatsapp
+alienclaw channels logs --channel whatsapp
 ```
 
 ## Log formats
@@ -98,13 +98,13 @@ Console formatting is controlled by `logging.consoleStyle`.
 
 ## Configuring logging
 
-All logging configuration lives under `logging` in `~/.openclaw/openclaw.json`.
+All logging configuration lives under `logging` in `~/.alienclaw/alienclaw.json`.
 
 ```json
 {
   "logging": {
     "level": "info",
-    "file": "/tmp/openclaw/openclaw-YYYY-MM-DD.log",
+    "file": "/tmp/alienclaw/alienclaw-YYYY-MM-DD.log",
     "consoleLevel": "info",
     "consoleStyle": "pretty",
     "redactSensitive": "tools",
@@ -118,7 +118,7 @@ All logging configuration lives under `logging` in `~/.openclaw/openclaw.json`.
 - `logging.level`: **file logs** (JSONL) level.
 - `logging.consoleLevel`: **console** verbosity level.
 
-You can override both via the **`OPENCLAW_LOG_LEVEL`** environment variable (e.g. `OPENCLAW_LOG_LEVEL=debug`). The env var takes precedence over the config file, so you can raise verbosity for a single run without editing `openclaw.json`. You can also pass the global CLI option **`--log-level <level>`** (for example, `openclaw --log-level debug gateway run`), which overrides the environment variable for that command.
+You can override both via the **`ALIENCLAW_LOG_LEVEL`** environment variable (e.g. `ALIENCLAW_LOG_LEVEL=debug`). The env var takes precedence over the config file, so you can raise verbosity for a single run without editing `alienclaw.json`. You can also pass the global CLI option **`--log-level <level>`** (for example, `alienclaw --log-level debug gateway run`), which overrides the environment variable for that command.
 
 `--verbose` only affects console output; it does not change file log levels.
 
@@ -152,7 +152,7 @@ diagnostics + the exporter plugin are enabled.
 
 - **OpenTelemetry (OTel)**: the data model + SDKs for traces, metrics, and logs.
 - **OTLP**: the wire protocol used to export OTel data to a collector/backend.
-- OpenClaw exports via **OTLP/HTTP (protobuf)** today.
+- AlienClaw exports via **OTLP/HTTP (protobuf)** today.
 
 ### Signals exported
 
@@ -212,7 +212,7 @@ Flags are case-insensitive and support wildcards (e.g. `telegram.*` or `*`).
 Env override (one-off):
 
 ```
-OPENCLAW_DIAGNOSTICS=telegram.http,telegram.payload
+ALIENCLAW_DIAGNOSTICS=telegram.http,telegram.payload
 ```
 
 Notes:
@@ -242,7 +242,7 @@ works with any OpenTelemetry collector/backend that accepts OTLP/HTTP.
       "enabled": true,
       "endpoint": "http://otel-collector:4318",
       "protocol": "http/protobuf",
-      "serviceName": "openclaw-gateway",
+      "serviceName": "alienclaw-gateway",
       "traces": true,
       "metrics": true,
       "logs": true,
@@ -255,7 +255,7 @@ works with any OpenTelemetry collector/backend that accepts OTLP/HTTP.
 
 Notes:
 
-- You can also enable the plugin with `openclaw plugins enable diagnostics-otel`.
+- You can also enable the plugin with `alienclaw plugins enable diagnostics-otel`.
 - `protocol` currently supports `http/protobuf` only. `grpc` is ignored.
 - Metrics include token usage, cost, context size, run duration, and message-flow
   counters/histograms (webhooks, queueing, session state, queue depth/wait).
@@ -269,60 +269,60 @@ Notes:
 
 Model usage:
 
-- `openclaw.tokens` (counter, attrs: `openclaw.token`, `openclaw.channel`,
-  `openclaw.provider`, `openclaw.model`)
-- `openclaw.cost.usd` (counter, attrs: `openclaw.channel`, `openclaw.provider`,
-  `openclaw.model`)
-- `openclaw.run.duration_ms` (histogram, attrs: `openclaw.channel`,
-  `openclaw.provider`, `openclaw.model`)
-- `openclaw.context.tokens` (histogram, attrs: `openclaw.context`,
-  `openclaw.channel`, `openclaw.provider`, `openclaw.model`)
+- `alienclaw.tokens` (counter, attrs: `alienclaw.token`, `alienclaw.channel`,
+  `alienclaw.provider`, `alienclaw.model`)
+- `alienclaw.cost.usd` (counter, attrs: `alienclaw.channel`, `alienclaw.provider`,
+  `alienclaw.model`)
+- `alienclaw.run.duration_ms` (histogram, attrs: `alienclaw.channel`,
+  `alienclaw.provider`, `alienclaw.model`)
+- `alienclaw.context.tokens` (histogram, attrs: `alienclaw.context`,
+  `alienclaw.channel`, `alienclaw.provider`, `alienclaw.model`)
 
 Message flow:
 
-- `openclaw.webhook.received` (counter, attrs: `openclaw.channel`,
-  `openclaw.webhook`)
-- `openclaw.webhook.error` (counter, attrs: `openclaw.channel`,
-  `openclaw.webhook`)
-- `openclaw.webhook.duration_ms` (histogram, attrs: `openclaw.channel`,
-  `openclaw.webhook`)
-- `openclaw.message.queued` (counter, attrs: `openclaw.channel`,
-  `openclaw.source`)
-- `openclaw.message.processed` (counter, attrs: `openclaw.channel`,
-  `openclaw.outcome`)
-- `openclaw.message.duration_ms` (histogram, attrs: `openclaw.channel`,
-  `openclaw.outcome`)
+- `alienclaw.webhook.received` (counter, attrs: `alienclaw.channel`,
+  `alienclaw.webhook`)
+- `alienclaw.webhook.error` (counter, attrs: `alienclaw.channel`,
+  `alienclaw.webhook`)
+- `alienclaw.webhook.duration_ms` (histogram, attrs: `alienclaw.channel`,
+  `alienclaw.webhook`)
+- `alienclaw.message.queued` (counter, attrs: `alienclaw.channel`,
+  `alienclaw.source`)
+- `alienclaw.message.processed` (counter, attrs: `alienclaw.channel`,
+  `alienclaw.outcome`)
+- `alienclaw.message.duration_ms` (histogram, attrs: `alienclaw.channel`,
+  `alienclaw.outcome`)
 
 Queues + sessions:
 
-- `openclaw.queue.lane.enqueue` (counter, attrs: `openclaw.lane`)
-- `openclaw.queue.lane.dequeue` (counter, attrs: `openclaw.lane`)
-- `openclaw.queue.depth` (histogram, attrs: `openclaw.lane` or
-  `openclaw.channel=heartbeat`)
-- `openclaw.queue.wait_ms` (histogram, attrs: `openclaw.lane`)
-- `openclaw.session.state` (counter, attrs: `openclaw.state`, `openclaw.reason`)
-- `openclaw.session.stuck` (counter, attrs: `openclaw.state`)
-- `openclaw.session.stuck_age_ms` (histogram, attrs: `openclaw.state`)
-- `openclaw.run.attempt` (counter, attrs: `openclaw.attempt`)
+- `alienclaw.queue.lane.enqueue` (counter, attrs: `alienclaw.lane`)
+- `alienclaw.queue.lane.dequeue` (counter, attrs: `alienclaw.lane`)
+- `alienclaw.queue.depth` (histogram, attrs: `alienclaw.lane` or
+  `alienclaw.channel=heartbeat`)
+- `alienclaw.queue.wait_ms` (histogram, attrs: `alienclaw.lane`)
+- `alienclaw.session.state` (counter, attrs: `alienclaw.state`, `alienclaw.reason`)
+- `alienclaw.session.stuck` (counter, attrs: `alienclaw.state`)
+- `alienclaw.session.stuck_age_ms` (histogram, attrs: `alienclaw.state`)
+- `alienclaw.run.attempt` (counter, attrs: `alienclaw.attempt`)
 
 ### Exported spans (names + key attributes)
 
-- `openclaw.model.usage`
-  - `openclaw.channel`, `openclaw.provider`, `openclaw.model`
-  - `openclaw.sessionKey`, `openclaw.sessionId`
-  - `openclaw.tokens.*` (input/output/cache_read/cache_write/total)
-- `openclaw.webhook.processed`
-  - `openclaw.channel`, `openclaw.webhook`, `openclaw.chatId`
-- `openclaw.webhook.error`
-  - `openclaw.channel`, `openclaw.webhook`, `openclaw.chatId`,
-    `openclaw.error`
-- `openclaw.message.processed`
-  - `openclaw.channel`, `openclaw.outcome`, `openclaw.chatId`,
-    `openclaw.messageId`, `openclaw.sessionKey`, `openclaw.sessionId`,
-    `openclaw.reason`
-- `openclaw.session.stuck`
-  - `openclaw.state`, `openclaw.ageMs`, `openclaw.queueDepth`,
-    `openclaw.sessionKey`, `openclaw.sessionId`
+- `alienclaw.model.usage`
+  - `alienclaw.channel`, `alienclaw.provider`, `alienclaw.model`
+  - `alienclaw.sessionKey`, `alienclaw.sessionId`
+  - `alienclaw.tokens.*` (input/output/cache_read/cache_write/total)
+- `alienclaw.webhook.processed`
+  - `alienclaw.channel`, `alienclaw.webhook`, `alienclaw.chatId`
+- `alienclaw.webhook.error`
+  - `alienclaw.channel`, `alienclaw.webhook`, `alienclaw.chatId`,
+    `alienclaw.error`
+- `alienclaw.message.processed`
+  - `alienclaw.channel`, `alienclaw.outcome`, `alienclaw.chatId`,
+    `alienclaw.messageId`, `alienclaw.sessionKey`, `alienclaw.sessionId`,
+    `alienclaw.reason`
+- `alienclaw.session.stuck`
+  - `alienclaw.state`, `alienclaw.ageMs`, `alienclaw.queueDepth`,
+    `alienclaw.sessionKey`, `alienclaw.sessionId`
 
 ### Sampling + flushing
 
@@ -346,7 +346,7 @@ Queues + sessions:
 
 ## Troubleshooting tips
 
-- **Gateway not reachable?** Run `openclaw doctor` first.
+- **Gateway not reachable?** Run `alienclaw doctor` first.
 - **Logs empty?** Check that the Gateway is running and writing to the file path
   in `logging.file`.
 - **Need more detail?** Set `logging.level` to `debug` or `trace` and retry.

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
-import { resolvePreferredOpenClawTmpDir } from "../infra/tmp-openclaw-dir.js";
+import { resolvePreferredAlienClawTmpDir } from "../infra/tmp-alienclaw-dir.js";
 
 function sanitizePrefix(prefix: string): string {
   const normalized = prefix.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -28,7 +28,7 @@ function sanitizeFileName(fileName: string): string {
 }
 
 function resolveTempRoot(tmpDir?: string): string {
-  return tmpDir ?? resolvePreferredOpenClawTmpDir();
+  return tmpDir ?? resolvePreferredAlienClawTmpDir();
 }
 
 function isNodeErrorWithCode(err: unknown, code: string): boolean {

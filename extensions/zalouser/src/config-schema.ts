@@ -1,4 +1,4 @@
-import { MarkdownConfigSchema, ToolPolicySchema } from "openclaw/plugin-sdk/zalouser";
+import { MarkdownConfigSchema, ToolPolicySchema } from "alienclaw/plugin-sdk/zalouser";
 import { z } from "zod";
 
 const allowFromEntry = z.union([z.string(), z.number()]);

@@ -3,8 +3,8 @@ export type BrowserProfileConfig = {
   cdpPort?: number;
   /** CDP URL for this profile (use for remote Chrome). */
   cdpUrl?: string;
-  /** Profile driver (default: openclaw). */
-  driver?: "openclaw" | "extension";
+  /** Profile driver (default: alienclaw). */
+  driver?: "alienclaw" | "extension";
   /** If true, never launch a browser for this profile; only attach. Falls back to browser.attachOnly. */
   attachOnly?: boolean;
   /** Profile color (hex). Auto-assigned at creation. */
@@ -40,7 +40,7 @@ export type BrowserConfig = {
   remoteCdpTimeoutMs?: number;
   /** Remote CDP WebSocket handshake timeout (ms). Default: max(remoteCdpTimeoutMs * 2, 2000). */
   remoteCdpHandshakeTimeoutMs?: number;
-  /** Accent color for the openclaw browser profile (hex). Default: #FF4500 */
+  /** Accent color for the alienclaw browser profile (hex). Default: #FF4500 */
   color?: string;
   /** Override the browser executable path (all platforms). */
   executablePath?: string;

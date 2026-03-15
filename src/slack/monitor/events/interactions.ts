@@ -10,8 +10,8 @@ import {
   type RegisterSlackModalHandler,
 } from "./interactions.modal.js";
 
-// Prefix for OpenClaw-generated action IDs to scope our handler
-const OPENCLAW_ACTION_PREFIX = "openclaw:";
+// Prefix for AlienClaw-generated action IDs to scope our handler
+const ALIENCLAW_ACTION_PREFIX = "alienclaw:";
 const SLACK_INTERACTION_EVENT_PREFIX = "Slack interaction: ";
 const REDACTED_INTERACTION_VALUE = "[redacted]";
 const SLACK_INTERACTION_EVENT_MAX_CHARS = 2400;
@@ -457,11 +457,11 @@ export function registerSlackInteractionEvents(params: { ctx: SlackMonitorContex
     return;
   }
 
-  // Handle Block Kit button clicks from OpenClaw-generated messages
+  // Handle Block Kit button clicks from AlienClaw-generated messages
   // Only matches action_ids that start with our prefix to avoid interfering
   // with other Slack integrations or future features
   ctx.app.action(
-    new RegExp(`^${OPENCLAW_ACTION_PREFIX}`),
+    new RegExp(`^${ALIENCLAW_ACTION_PREFIX}`),
     async (args: SlackActionMiddlewareArgs) => {
       const { ack, body, action, respond } = args;
       const typedBody = body as unknown as {
@@ -640,9 +640,9 @@ export function registerSlackInteractionEvents(params: { ctx: SlackMonitorContex
   if (typeof ctx.app.view !== "function") {
     return;
   }
-  const modalMatcher = new RegExp(`^${OPENCLAW_ACTION_PREFIX}`);
+  const modalMatcher = new RegExp(`^${ALIENCLAW_ACTION_PREFIX}`);
 
-  // Handle OpenClaw modal submissions with callback_ids scoped by our prefix.
+  // Handle AlienClaw modal submissions with callback_ids scoped by our prefix.
   registerModalLifecycleHandler({
     register: (matcher, handler) => ctx.app.view(matcher, handler),
     matcher: modalMatcher,

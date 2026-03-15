@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { withEnvAsync } from "../test-utils/env.js";
 
 const mocks = vi.hoisted(() => ({
@@ -88,13 +88,13 @@ function makeDoctorPrompts() {
   };
 }
 
-async function runRepair(cfg: OpenClawConfig) {
+async function runRepair(cfg: AlienClawConfig) {
   await maybeRepairGatewayServiceConfig(cfg, "local", makeDoctorIo(), makeDoctorPrompts());
 }
 
 const gatewayProgramArguments = [
   "/usr/bin/node",
-  "/usr/local/bin/openclaw",
+  "/usr/local/bin/alienclaw",
   "gateway",
   "--port",
   "18789",
@@ -104,7 +104,7 @@ function setupGatewayTokenRepairScenario() {
   mocks.readCommand.mockResolvedValue({
     programArguments: gatewayProgramArguments,
     environment: {
-      OPENCLAW_GATEWAY_TOKEN: "stale-token",
+      ALIENCLAW_GATEWAY_TOKEN: "stale-token",
     },
   });
   mocks.auditGatewayServiceConfig.mockResolvedValue({
@@ -112,7 +112,7 @@ function setupGatewayTokenRepairScenario() {
     issues: [
       {
         code: "gateway-token-mismatch",
-        message: "Gateway service OPENCLAW_GATEWAY_TOKEN does not match gateway.auth.token",
+        message: "Gateway service ALIENCLAW_GATEWAY_TOKEN does not match gateway.auth.token",
         level: "recommended",
       },
     ],
@@ -128,10 +128,10 @@ function setupGatewayTokenRepairScenario() {
 describe("maybeRepairGatewayServiceConfig", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.resolveGatewayAuthTokenForService.mockImplementation(async (cfg: OpenClawConfig, env) => {
+    mocks.resolveGatewayAuthTokenForService.mockImplementation(async (cfg: AlienClawConfig, env) => {
       const configToken =
         typeof cfg.gateway?.auth?.token === "string" ? cfg.gateway.auth.token.trim() : undefined;
-      const envToken = env.OPENCLAW_GATEWAY_TOKEN?.trim() || undefined;
+      const envToken = env.ALIENCLAW_GATEWAY_TOKEN?.trim() || undefined;
       return { token: configToken || envToken };
     });
   });
@@ -139,7 +139,7 @@ describe("maybeRepairGatewayServiceConfig", () => {
   it("treats gateway.auth.token as source of truth for service token repairs", async () => {
     setupGatewayTokenRepairScenario();
 
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       gateway: {
         auth: {
           mode: "token",
@@ -170,11 +170,11 @@ describe("maybeRepairGatewayServiceConfig", () => {
     expect(mocks.install).toHaveBeenCalledTimes(1);
   });
 
-  it("uses OPENCLAW_GATEWAY_TOKEN when config token is missing", async () => {
-    await withEnvAsync({ OPENCLAW_GATEWAY_TOKEN: "env-token" }, async () => {
+  it("uses ALIENCLAW_GATEWAY_TOKEN when config token is missing", async () => {
+    await withEnvAsync({ ALIENCLAW_GATEWAY_TOKEN: "env-token" }, async () => {
       setupGatewayTokenRepairScenario();
 
-      const cfg: OpenClawConfig = {
+      const cfg: AlienClawConfig = {
         gateway: {},
       };
 
@@ -213,7 +213,7 @@ describe("maybeRepairGatewayServiceConfig", () => {
     mocks.readCommand.mockResolvedValue({
       programArguments: gatewayProgramArguments,
       environment: {
-        OPENCLAW_GATEWAY_TOKEN: "stale-token",
+        ALIENCLAW_GATEWAY_TOKEN: "stale-token",
       },
     });
     mocks.auditGatewayServiceConfig.mockResolvedValue({
@@ -227,14 +227,14 @@ describe("maybeRepairGatewayServiceConfig", () => {
     });
     mocks.install.mockResolvedValue(undefined);
 
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       gateway: {
         auth: {
           mode: "token",
           token: {
             source: "env",
             provider: "default",
-            id: "OPENCLAW_GATEWAY_TOKEN",
+            id: "ALIENCLAW_GATEWAY_TOKEN",
           },
         },
       },
@@ -258,13 +258,13 @@ describe("maybeRepairGatewayServiceConfig", () => {
   it("falls back to embedded service token when config and env tokens are missing", async () => {
     await withEnvAsync(
       {
-        OPENCLAW_GATEWAY_TOKEN: undefined,
+        ALIENCLAW_GATEWAY_TOKEN: undefined,
         CLAWDBOT_GATEWAY_TOKEN: undefined,
       },
       async () => {
         setupGatewayTokenRepairScenario();
 
-        const cfg: OpenClawConfig = {
+        const cfg: AlienClawConfig = {
           gateway: {},
         };
 
@@ -351,7 +351,7 @@ describe("maybeScanExtraGatewayServices", () => {
       "Legacy gateway removed",
     );
     expect(runtime.log).toHaveBeenCalledWith(
-      "Legacy gateway services removed. Installing OpenClaw gateway next.",
+      "Legacy gateway services removed. Installing AlienClaw gateway next.",
     );
   });
 });

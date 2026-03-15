@@ -2,9 +2,9 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-struct OpenClawLiveActivity: Widget {
+struct AlienClawLiveActivity: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: OpenClawActivityAttributes.self) { context in
+        ActivityConfiguration(for: AlienClawActivityAttributes.self) { context in
             lockScreenView(context: context)
         } dynamicIsland: { context in
             DynamicIsland {
@@ -33,12 +33,12 @@ struct OpenClawLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func lockScreenView(context: ActivityViewContext<OpenClawActivityAttributes>) -> some View {
+    private func lockScreenView(context: ActivityViewContext<AlienClawActivityAttributes>) -> some View {
         HStack(spacing: 8) {
             statusDot(state: context.state)
                 .frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 2) {
-                Text("OpenClaw")
+                Text("AlienClaw")
                     .font(.subheadline.bold())
                 Text(context.state.statusText)
                     .font(.caption)
@@ -51,7 +51,7 @@ struct OpenClawLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func trailingView(state: OpenClawActivityAttributes.ContentState) -> some View {
+    private func trailingView(state: AlienClawActivityAttributes.ContentState) -> some View {
         if state.isConnecting {
             ProgressView().controlSize(.small)
         } else if state.isDisconnected {
@@ -69,13 +69,13 @@ struct OpenClawLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func statusDot(state: OpenClawActivityAttributes.ContentState) -> some View {
+    private func statusDot(state: AlienClawActivityAttributes.ContentState) -> some View {
         Circle()
             .fill(dotColor(state: state))
             .frame(width: 6, height: 6)
     }
 
-    private func dotColor(state: OpenClawActivityAttributes.ContentState) -> Color {
+    private func dotColor(state: AlienClawActivityAttributes.ContentState) -> Color {
         if state.isDisconnected { return .red }
         if state.isConnecting { return .gray }
         if state.isIdle { return .green }

@@ -6,7 +6,7 @@ describe("resolveSkillsPromptForRun", () => {
   it("prefers snapshot prompt when available", () => {
     const prompt = resolveSkillsPromptForRun({
       skillsSnapshot: { prompt: "SNAPSHOT", skills: [] },
-      workspaceDir: "/tmp/openclaw",
+      workspaceDir: "/tmp/alienclaw",
     });
     expect(prompt).toBe("SNAPSHOT");
   });
@@ -17,14 +17,14 @@ describe("resolveSkillsPromptForRun", () => {
         description: "Demo",
         filePath: "/app/skills/demo-skill/SKILL.md",
         baseDir: "/app/skills/demo-skill",
-        source: "openclaw-bundled",
+        source: "alienclaw-bundled",
         disableModelInvocation: false,
       },
       frontmatter: {},
     };
     const prompt = resolveSkillsPromptForRun({
       entries: [entry],
-      workspaceDir: "/tmp/openclaw",
+      workspaceDir: "/tmp/alienclaw",
     });
     expect(prompt).toContain("<available_skills>");
     expect(prompt).toContain("/app/skills/demo-skill/SKILL.md");

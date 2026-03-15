@@ -249,21 +249,21 @@ describe("commands registry", () => {
   });
 
   it("normalizes telegram-style command mentions for the current bot", () => {
-    expect(normalizeCommandBody("/help@openclaw", { botUsername: "openclaw" })).toBe("/help");
+    expect(normalizeCommandBody("/help@alienclaw", { botUsername: "alienclaw" })).toBe("/help");
     expect(
-      normalizeCommandBody("/help@openclaw args", {
-        botUsername: "openclaw",
+      normalizeCommandBody("/help@alienclaw args", {
+        botUsername: "alienclaw",
       }),
     ).toBe("/help args");
     expect(
-      normalizeCommandBody("/help@openclaw: args", {
-        botUsername: "openclaw",
+      normalizeCommandBody("/help@alienclaw: args", {
+        botUsername: "alienclaw",
       }),
     ).toBe("/help args");
   });
 
   it("keeps telegram-style command mentions for other bots", () => {
-    expect(normalizeCommandBody("/help@otherbot", { botUsername: "openclaw" })).toBe(
+    expect(normalizeCommandBody("/help@otherbot", { botUsername: "alienclaw" })).toBe(
       "/help@otherbot",
     );
   });

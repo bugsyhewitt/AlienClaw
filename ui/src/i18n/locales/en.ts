@@ -48,7 +48,7 @@ export const en: TranslationMap = {
     skills: "Manage skill availability and API key injection.",
     nodes: "Paired devices, capabilities, and command exposure.",
     chat: "Direct gateway chat session for quick interventions.",
-    config: "Edit ~/.openclaw/openclaw.json safely.",
+    config: "Edit ~/.alienclaw/alienclaw.json safely.",
     debug: "Gateway snapshots, events, and manual RPC calls.",
     logs: "Live tail of the gateway file logs.",
   },
@@ -99,7 +99,7 @@ export const en: TranslationMap = {
     pairing: {
       hint: "This device needs pairing approval from the gateway host.",
       mobileHint:
-        "On mobile? Copy the full URL (including #token=...) from openclaw dashboard --no-open on your desktop.",
+        "On mobile? Copy the full URL (including #token=...) from alienclaw dashboard --no-open on your desktop.",
     },
     insecure: {
       hint: "This page is HTTP, so the browser blocks device identity. Use HTTPS (Tailscale Serve) or open {url} on the gateway host.",

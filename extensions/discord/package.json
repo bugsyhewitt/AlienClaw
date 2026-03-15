@@ -1,9 +1,9 @@
 {
-  "name": "@openclaw/discord",
+  "name": "@alienclaw/discord",
   "version": "2026.3.7",
-  "description": "OpenClaw Discord channel plugin",
+  "description": "AlienClaw Discord channel plugin",
   "type": "module",
-  "openclaw": {
+  "alienclaw": {
     "extensions": [
       "./index.ts"
     ]

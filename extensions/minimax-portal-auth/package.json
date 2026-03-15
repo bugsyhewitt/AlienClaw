@@ -1,10 +1,10 @@
 {
-  "name": "@openclaw/minimax-portal-auth",
+  "name": "@alienclaw/minimax-portal-auth",
   "version": "2026.3.7",
   "private": true,
-  "description": "OpenClaw MiniMax Portal OAuth provider plugin",
+  "description": "AlienClaw MiniMax Portal OAuth provider plugin",
   "type": "module",
-  "openclaw": {
+  "alienclaw": {
     "extensions": [
       "./index.ts"
     ]

@@ -1,4 +1,4 @@
-import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/line";
+import type { AlienClawConfig, PluginRuntime } from "alienclaw/plugin-sdk/line";
 import { describe, expect, it, vi } from "vitest";
 import { linePlugin } from "./channel.js";
 import { setLineRuntime } from "./runtime.js";
@@ -34,7 +34,7 @@ function createRuntime(): { runtime: PluginRuntime; mocks: LineRuntimeMocks } {
   const chunkMarkdownText = vi.fn((text: string) => [text]);
   const resolveTextChunkLimit = vi.fn(() => 123);
   const resolveLineAccount = vi.fn(
-    ({ cfg, accountId }: { cfg: OpenClawConfig; accountId?: string }) => {
+    ({ cfg, accountId }: { cfg: AlienClawConfig; accountId?: string }) => {
       const resolved = accountId ?? "default";
       const lineConfig = (cfg.channels?.line ?? {}) as {
         accounts?: Record<string, Record<string, unknown>>;
@@ -91,7 +91,7 @@ describe("linePlugin outbound.sendPayload", () => {
   it("sends flex message without dropping text", async () => {
     const { runtime, mocks } = createRuntime();
     setLineRuntime(runtime);
-    const cfg = { channels: { line: {} } } as OpenClawConfig;
+    const cfg = { channels: { line: {} } } as AlienClawConfig;
 
     const payload = {
       text: "Now playing:",
@@ -124,7 +124,7 @@ describe("linePlugin outbound.sendPayload", () => {
   it("sends template message without dropping text", async () => {
     const { runtime, mocks } = createRuntime();
     setLineRuntime(runtime);
-    const cfg = { channels: { line: {} } } as OpenClawConfig;
+    const cfg = { channels: { line: {} } } as AlienClawConfig;
 
     const payload = {
       text: "Choose one:",
@@ -162,7 +162,7 @@ describe("linePlugin outbound.sendPayload", () => {
   it("attaches quick replies when no text chunks are present", async () => {
     const { runtime, mocks } = createRuntime();
     setLineRuntime(runtime);
-    const cfg = { channels: { line: {} } } as OpenClawConfig;
+    const cfg = { channels: { line: {} } } as AlienClawConfig;
 
     const payload = {
       channelData: {
@@ -203,7 +203,7 @@ describe("linePlugin outbound.sendPayload", () => {
   it("sends media before quick-reply text so buttons stay visible", async () => {
     const { runtime, mocks } = createRuntime();
     setLineRuntime(runtime);
-    const cfg = { channels: { line: {} } } as OpenClawConfig;
+    const cfg = { channels: { line: {} } } as AlienClawConfig;
 
     const payload = {
       text: "Hello",
@@ -243,7 +243,7 @@ describe("linePlugin outbound.sendPayload", () => {
   it("uses configured text chunk limit for payloads", async () => {
     const { runtime, mocks } = createRuntime();
     setLineRuntime(runtime);
-    const cfg = { channels: { line: { textChunkLimit: 123 } } } as OpenClawConfig;
+    const cfg = { channels: { line: { textChunkLimit: 123 } } } as AlienClawConfig;
 
     const payload = {
       text: "Hello world",
@@ -275,7 +275,7 @@ describe("linePlugin outbound.sendPayload", () => {
 describe("linePlugin config.formatAllowFrom", () => {
   it("strips line:user: prefixes without lowercasing", () => {
     const formatted = linePlugin.config.formatAllowFrom!({
-      cfg: {} as OpenClawConfig,
+      cfg: {} as AlienClawConfig,
       allowFrom: ["line:user:UABC", "line:UDEF"],
     });
     expect(formatted).toEqual(["UABC", "UDEF"]);
@@ -302,7 +302,7 @@ describe("linePlugin groups.resolveRequireMention", () => {
           },
         },
       },
-    } as OpenClawConfig;
+    } as AlienClawConfig;
 
     const requireMention = linePlugin.groups!.resolveRequireMention!({
       cfg,

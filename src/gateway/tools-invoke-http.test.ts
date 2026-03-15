@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 const TEST_GATEWAY_TOKEN = "test-gateway-token-1234567890";
 
 let cfg: Record<string, unknown> = {};
-let lastCreateOpenClawToolsContext: Record<string, unknown> | undefined;
+let lastCreateAlienClawToolsContext: Record<string, unknown> | undefined;
 
 // Perf: keep this suite pure unit. Mock heavyweight config/session modules.
 vi.mock("../config/config.js", () => ({
@@ -52,7 +52,7 @@ vi.mock("../plugins/tools.js", () => ({
 
 // Perf: the real tool factory instantiates many tools per request; for these HTTP
 // routing/policy tests we only need a small set of tool names.
-vi.mock("../agents/openclaw-tools.js", () => {
+vi.mock("../agents/alienclaw-tools.js", () => {
   const toolInputError = (message: string) => {
     const err = new Error(message);
     err.name = "ToolInputError";
@@ -82,8 +82,8 @@ vi.mock("../agents/openclaw-tools.js", () => {
       execute: async () => ({
         ok: true,
         route: {
-          agentTo: lastCreateOpenClawToolsContext?.agentTo,
-          agentThreadId: lastCreateOpenClawToolsContext?.agentThreadId,
+          agentTo: lastCreateAlienClawToolsContext?.agentTo,
+          agentThreadId: lastCreateAlienClawToolsContext?.agentThreadId,
         },
       }),
     },
@@ -145,8 +145,8 @@ vi.mock("../agents/openclaw-tools.js", () => {
   ];
 
   return {
-    createOpenClawTools: (ctx: Record<string, unknown>) => {
-      lastCreateOpenClawToolsContext = ctx;
+    createAlienClawTools: (ctx: Record<string, unknown>) => {
+      lastCreateAlienClawToolsContext = ctx;
       return tools;
     },
   };
@@ -201,11 +201,11 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  delete process.env.OPENCLAW_GATEWAY_TOKEN;
-  delete process.env.OPENCLAW_GATEWAY_PASSWORD;
+  delete process.env.ALIENCLAW_GATEWAY_TOKEN;
+  delete process.env.ALIENCLAW_GATEWAY_PASSWORD;
   pluginHttpHandlers = [];
   cfg = {};
-  lastCreateOpenClawToolsContext = undefined;
+  lastCreateAlienClawToolsContext = undefined;
 });
 
 const resolveGatewayToken = (): string => TEST_GATEWAY_TOKEN;
@@ -335,7 +335,7 @@ describe("POST /tools/invoke", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body).toHaveProperty("result");
-    expect(lastCreateOpenClawToolsContext?.allowMediaInvokeCommands).toBe(true);
+    expect(lastCreateAlienClawToolsContext?.allowMediaInvokeCommands).toBe(true);
   });
 
   it("supports tools.alsoAllow in profile and implicit modes", async () => {
@@ -444,8 +444,8 @@ describe("POST /tools/invoke", () => {
       port: sharedPort,
       headers: {
         ...gatewayAuthHeaders(),
-        "x-openclaw-message-to": "channel:24514",
-        "x-openclaw-thread-id": "thread-24514",
+        "x-alienclaw-message-to": "channel:24514",
+        "x-alienclaw-thread-id": "thread-24514",
       },
       tool: "sessions_spawn",
       sessionKey: "main",

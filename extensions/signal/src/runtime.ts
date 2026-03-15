@@ -1,4 +1,4 @@
-import type { PluginRuntime } from "openclaw/plugin-sdk/signal";
+import type { PluginRuntime } from "alienclaw/plugin-sdk/signal";
 
 let runtime: PluginRuntime | null = null;
 

@@ -4,7 +4,7 @@
  * Used by channel.ts to access dispatch functions.
  */
 
-import type { PluginRuntime } from "openclaw/plugin-sdk/synology-chat";
+import type { PluginRuntime } from "alienclaw/plugin-sdk/synology-chat";
 
 let runtime: PluginRuntime | null = null;
 

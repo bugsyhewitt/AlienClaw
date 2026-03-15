@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthProfileStore } from "../../agents/auth-profiles.js";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 
 let mockStore: AuthProfileStore;
 let mockOrder: string[];
@@ -60,7 +60,7 @@ describe("resolveAuthLabel ref-aware labels", () => {
 
     const result = await resolveAuthLabel(
       "openai",
-      {} as OpenClawConfig,
+      {} as AlienClawConfig,
       "/tmp/models.json",
       undefined,
       "compact",
@@ -81,7 +81,7 @@ describe("resolveAuthLabel ref-aware labels", () => {
 
     const result = await resolveAuthLabel(
       "github-copilot",
-      {} as OpenClawConfig,
+      {} as AlienClawConfig,
       "/tmp/models.json",
       undefined,
       "compact",
@@ -102,7 +102,7 @@ describe("resolveAuthLabel ref-aware labels", () => {
 
     const result = await resolveAuthLabel(
       "github-copilot",
-      {} as OpenClawConfig,
+      {} as AlienClawConfig,
       "/tmp/models.json",
       undefined,
       "verbose",

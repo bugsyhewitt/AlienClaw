@@ -3,7 +3,7 @@ import {
   addSubagentRunForTests,
   resetSubagentRegistryForTests,
 } from "../../agents/subagent-registry.js";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import type { SessionBindingRecord } from "../../infra/outbound/session-binding-service.js";
 import { installSubagentsCommandCoreMocks } from "./commands-subagents.test-mocks.js";
 
@@ -75,7 +75,7 @@ const { buildCommandTestParams } = await import("./commands-spawn.test-harness.j
 
 const baseCfg = {
   session: { mainKey: "main", scope: "per-sender" },
-} satisfies OpenClawConfig;
+} satisfies AlienClawConfig;
 
 function createDiscordCommandParams(commandBody: string) {
   const params = buildCommandTestParams(commandBody, baseCfg, {

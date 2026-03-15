@@ -1,6 +1,6 @@
 import SwiftUI
 import Foundation
-import OpenClawKit
+import AlienClawKit
 import os
 import UIKit
 import BackgroundTasks
@@ -14,10 +14,10 @@ private struct PendingWatchPromptAction {
 }
 
 @MainActor
-final class OpenClawAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
-    private let logger = Logger(subsystem: "ai.openclaw.ios", category: "Push")
-    private let backgroundWakeLogger = Logger(subsystem: "ai.openclaw.ios", category: "BackgroundWake")
-    private static let wakeRefreshTaskIdentifier = "ai.openclaw.ios.bgrefresh"
+final class AlienClawAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
+    private let logger = Logger(subsystem: "ai.alienclaw.ios", category: "Push")
+    private let backgroundWakeLogger = Logger(subsystem: "ai.alienclaw.ios", category: "BackgroundWake")
+    private static let wakeRefreshTaskIdentifier = "ai.alienclaw.ios.bgrefresh"
     private var backgroundWakeTask: Task<Bool, Never>?
     private var pendingAPNsDeviceToken: Data?
     private var pendingWatchPromptActions: [PendingWatchPromptAction] = []
@@ -263,25 +263,25 @@ final class OpenClawAppDelegate: NSObject, UIApplicationDelegate, @preconcurrenc
 }
 
 enum WatchPromptNotificationBridge {
-    static let typeKey = "openclaw.type"
+    static let typeKey = "alienclaw.type"
     static let typeValue = "watch.prompt"
-    static let promptIDKey = "openclaw.watch.promptId"
-    static let sessionKeyKey = "openclaw.watch.sessionKey"
-    static let actionPrimaryIDKey = "openclaw.watch.action.primary.id"
-    static let actionPrimaryLabelKey = "openclaw.watch.action.primary.label"
-    static let actionSecondaryIDKey = "openclaw.watch.action.secondary.id"
-    static let actionSecondaryLabelKey = "openclaw.watch.action.secondary.label"
-    static let actionPrimaryIdentifier = "openclaw.watch.action.primary"
-    static let actionSecondaryIdentifier = "openclaw.watch.action.secondary"
-    static let actionIdentifierPrefix = "openclaw.watch.action."
-    static let actionIDKeyPrefix = "openclaw.watch.action.id."
-    static let actionLabelKeyPrefix = "openclaw.watch.action.label."
-    static let categoryPrefix = "openclaw.watch.prompt.category."
+    static let promptIDKey = "alienclaw.watch.promptId"
+    static let sessionKeyKey = "alienclaw.watch.sessionKey"
+    static let actionPrimaryIDKey = "alienclaw.watch.action.primary.id"
+    static let actionPrimaryLabelKey = "alienclaw.watch.action.primary.label"
+    static let actionSecondaryIDKey = "alienclaw.watch.action.secondary.id"
+    static let actionSecondaryLabelKey = "alienclaw.watch.action.secondary.label"
+    static let actionPrimaryIdentifier = "alienclaw.watch.action.primary"
+    static let actionSecondaryIdentifier = "alienclaw.watch.action.secondary"
+    static let actionIdentifierPrefix = "alienclaw.watch.action."
+    static let actionIDKeyPrefix = "alienclaw.watch.action.id."
+    static let actionLabelKeyPrefix = "alienclaw.watch.action.label."
+    static let categoryPrefix = "alienclaw.watch.prompt.category."
 
     @MainActor
     static func scheduleMirroredWatchPromptNotificationIfNeeded(
         invokeID: String,
-        params: OpenClawWatchNotifyParams,
+        params: AlienClawWatchNotifyParams,
         sendResult: WatchNotificationSendResult) async
     {
         guard sendResult.queuedForDelivery || !sendResult.deliveredImmediately else { return }
@@ -291,11 +291,11 @@ enum WatchPromptNotificationBridge {
         guard !title.isEmpty || !body.isEmpty else { return }
         guard await self.requestNotificationAuthorizationIfNeeded() else { return }
 
-        let normalizedActions = (params.actions ?? []).compactMap { action -> OpenClawWatchAction? in
+        let normalizedActions = (params.actions ?? []).compactMap { action -> AlienClawWatchAction? in
             let id = action.id.trimmingCharacters(in: .whitespacesAndNewlines)
             let label = action.label.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !id.isEmpty, !label.isEmpty else { return nil }
-            return OpenClawWatchAction(id: id, label: label, style: action.style)
+            return AlienClawWatchAction(id: id, label: label, style: action.style)
         }
         let displayedActions = Array(normalizedActions.prefix(4))
 
@@ -334,7 +334,7 @@ enum WatchPromptNotificationBridge {
         }
 
         let content = UNMutableNotificationContent()
-        content.title = title.isEmpty ? "OpenClaw" : title
+        content.title = title.isEmpty ? "AlienClaw" : title
         content.body = body
         content.sound = .default
         content.userInfo = userInfo
@@ -367,7 +367,7 @@ enum WatchPromptNotificationBridge {
         "\(self.actionLabelKeyPrefix)\(index)"
     }
 
-    private static func categoryActions(_ actions: [OpenClawWatchAction]) -> [UNNotificationAction] {
+    private static func categoryActions(_ actions: [AlienClawWatchAction]) -> [UNNotificationAction] {
         actions.enumerated().map { index, action in
             let identifier: String
             switch index {
@@ -490,10 +490,10 @@ extension NodeAppModel {
 }
 
 @main
-struct OpenClawApp: App {
+struct AlienClawApp: App {
     @State private var appModel: NodeAppModel
     @State private var gatewayController: GatewayConnectionController
-    @UIApplicationDelegateAdaptor(OpenClawAppDelegate.self) private var appDelegate
+    @UIApplicationDelegateAdaptor(AlienClawAppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -525,9 +525,9 @@ struct OpenClawApp: App {
     }
 }
 
-extension OpenClawApp {
+extension AlienClawApp {
     private static func installUncaughtExceptionLogger() {
-        NSLog("OpenClaw: installing uncaught exception handler")
+        NSLog("AlienClaw: installing uncaught exception handler")
         NSSetUncaughtExceptionHandler { exception in
             // Useful when the app hits NSExceptions from SwiftUI/WebKit internals; these do not
             // produce a normal Swift error backtrace.

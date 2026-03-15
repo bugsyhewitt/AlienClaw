@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Configuration
-SUBSYSTEM="ai.openclaw"
+SUBSYSTEM="ai.alienclaw"
 DEFAULT_LEVEL="info"
 
 # Colors for output
@@ -49,17 +49,17 @@ STYLE_JSON=false
 # Function to show usage
 show_usage() {
     cat << EOF
-clawlog - OpenClaw Logging Utility
+clawlog - AlienClaw Logging Utility
 
 USAGE:
     clawlog [OPTIONS]
 
 DESCRIPTION:
-    View OpenClaw logs with full details (bypasses Apple's privacy redaction).
+    View AlienClaw logs with full details (bypasses Apple's privacy redaction).
     Requires sudo access configured for /usr/bin/log command.
 
 LOG FLOW ARCHITECTURE:
-    OpenClaw logs flow through the macOS unified log (subsystem: ai.openclaw).
+    AlienClaw logs flow through the macOS unified log (subsystem: ai.alienclaw).
 
 LOG CATEGORIES (examples):
     • voicewake           - Voice wake detection/test harness

@@ -1,5 +1,5 @@
 ---
-summary: "How OpenClaw sandboxing works: modes, scopes, workspace access, and images"
+summary: "How AlienClaw sandboxing works: modes, scopes, workspace access, and images"
 title: Sandboxing
 read_when: "You want a dedicated explanation of sandboxing or need to tune agents.defaults.sandbox."
 status: active
@@ -7,7 +7,7 @@ status: active
 
 # Sandboxing
 
-OpenClaw can run **tools inside Docker containers** to reduce blast radius.
+AlienClaw can run **tools inside Docker containers** to reduce blast radius.
 This is **optional** and controlled by configuration (`agents.defaults.sandbox` or
 `agents.list[].sandbox`). If sandboxing is off, tools run on the host.
 The Gateway stays on the host; tool execution runs in an isolated sandbox
@@ -22,10 +22,10 @@ and process access when the model does something dumb.
 - Optional sandboxed browser (`agents.defaults.sandbox.browser`).
   - By default, the sandbox browser auto-starts (ensures CDP is reachable) when the browser tool needs it.
     Configure via `agents.defaults.sandbox.browser.autoStart` and `agents.defaults.sandbox.browser.autoStartTimeoutMs`.
-  - By default, sandbox browser containers use a dedicated Docker network (`openclaw-sandbox-browser`) instead of the global `bridge` network.
+  - By default, sandbox browser containers use a dedicated Docker network (`alienclaw-sandbox-browser`) instead of the global `bridge` network.
     Configure with `agents.defaults.sandbox.browser.network`.
   - Optional `agents.defaults.sandbox.browser.cdpSourceRange` restricts container-edge CDP ingress with a CIDR allowlist (for example `172.21.0.1/32`).
-  - noVNC observer access is password-protected by default; OpenClaw emits a short-lived token URL that serves a local bootstrap page and opens noVNC with password in URL fragment (not query/header logs).
+  - noVNC observer access is password-protected by default; AlienClaw emits a short-lived token URL that serves a local bootstrap page and opens noVNC with password in URL fragment (not query/header logs).
   - `agents.defaults.sandbox.browser.allowHostControl` lets sandboxed sessions target the host browser explicitly.
   - Optional allowlists gate `target: "custom"`: `allowedControlUrls`, `allowedControlHosts`, `allowedControlPorts`.
 
@@ -58,13 +58,13 @@ Not sandboxed:
 
 `agents.defaults.sandbox.workspaceAccess` controls **what the sandbox can see**:
 
-- `"none"` (default): tools see a sandbox workspace under `~/.openclaw/sandboxes`.
+- `"none"` (default): tools see a sandbox workspace under `~/.alienclaw/sandboxes`.
 - `"ro"`: mounts the agent workspace read-only at `/agent` (disables `write`/`edit`/`apply_patch`).
 - `"rw"`: mounts the agent workspace read/write at `/workspace`.
 
 Inbound media is copied into the active sandbox workspace (`media/inbound/*`).
 Skills note: the `read` tool is sandbox-rooted. With `workspaceAccess: "none"`,
-OpenClaw mirrors eligible skills into the sandbox workspace (`.../skills`) so
+AlienClaw mirrors eligible skills into the sandbox workspace (`.../skills`) so
 they can be read. With `"rw"`, workspace skills are readable from
 `/workspace/skills`.
 
@@ -109,14 +109,14 @@ Example (read-only source + an extra data directory):
 Security notes:
 
 - Binds bypass the sandbox filesystem: they expose host paths with whatever mode you set (`:ro` or `:rw`).
-- OpenClaw blocks dangerous bind sources (for example: `docker.sock`, `/etc`, `/proc`, `/sys`, `/dev`, and parent mounts that would expose them).
+- AlienClaw blocks dangerous bind sources (for example: `docker.sock`, `/etc`, `/proc`, `/sys`, `/dev`, and parent mounts that would expose them).
 - Sensitive mounts (secrets, SSH keys, service credentials) should be `:ro` unless absolutely required.
 - Combine with `workspaceAccess: "ro"` if you only need read access to the workspace; bind modes stay independent.
 - See [Sandbox vs Tool Policy vs Elevated](/gateway/sandbox-vs-tool-policy-vs-elevated) for how binds interact with tool policy and elevated exec.
 
 ## Images + setup
 
-Default image: `openclaw-sandbox:bookworm-slim`
+Default image: `alienclaw-sandbox:bookworm-slim`
 
 Build it once:
 
@@ -137,7 +137,7 @@ scripts/sandbox-common-setup.sh
 ```
 
 Then set `agents.defaults.sandbox.docker.image` to
-`openclaw-sandbox-common:bookworm-slim`.
+`alienclaw-sandbox-common:bookworm-slim`.
 
 Sandboxed browser image:
 
@@ -152,7 +152,7 @@ The bundled sandbox browser image also applies conservative Chromium startup def
 for containerized workloads. Current container defaults include:
 
 - `--remote-debugging-address=127.0.0.1`
-- `--remote-debugging-port=<derived from OPENCLAW_BROWSER_CDP_PORT>`
+- `--remote-debugging-port=<derived from ALIENCLAW_BROWSER_CDP_PORT>`
 - `--user-data-dir=${HOME}/.chrome`
 - `--no-first-run`
 - `--no-default-browser-check`
@@ -171,12 +171,12 @@ for containerized workloads. Current container defaults include:
 - `--no-sandbox` and `--disable-setuid-sandbox` when `noSandbox` is enabled.
 - The three graphics hardening flags (`--disable-3d-apis`,
   `--disable-software-rasterizer`, `--disable-gpu`) are optional and are useful
-  when containers lack GPU support. Set `OPENCLAW_BROWSER_DISABLE_GRAPHICS_FLAGS=0`
+  when containers lack GPU support. Set `ALIENCLAW_BROWSER_DISABLE_GRAPHICS_FLAGS=0`
   if your workload requires WebGL or other 3D/browser features.
 - `--disable-extensions` is enabled by default and can be disabled with
-  `OPENCLAW_BROWSER_DISABLE_EXTENSIONS=0` for extension-reliant flows.
+  `ALIENCLAW_BROWSER_DISABLE_EXTENSIONS=0` for extension-reliant flows.
 - `--renderer-process-limit=2` is controlled by
-  `OPENCLAW_BROWSER_RENDERER_PROCESS_LIMIT=<N>`, where `0` keeps Chromium's default.
+  `ALIENCLAW_BROWSER_RENDERER_PROCESS_LIMIT=<N>`, where `0` keeps Chromium's default.
 
 If you need a different runtime profile, use a custom browser image and provide
 your own entrypoint. For local (non-container) Chromium profiles, use
@@ -192,8 +192,8 @@ Docker installs and the containerized gateway live here:
 [Docker](/install/docker)
 
 For Docker gateway deployments, `docker-setup.sh` can bootstrap sandbox config.
-Set `OPENCLAW_SANDBOX=1` (or `true`/`yes`/`on`) to enable that path. You can
-override socket location with `OPENCLAW_DOCKER_SOCKET`. Full setup and env
+Set `ALIENCLAW_SANDBOX=1` (or `true`/`yes`/`on`) to enable that path. You can
+override socket location with `ALIENCLAW_DOCKER_SOCKET`. Full setup and env
 reference: [Docker](/install/docker#enable-agent-sandbox-for-docker-gateway-opt-in).
 
 ## setupCommand (one-time container setup)
@@ -226,7 +226,7 @@ globally or per-agent, sandboxing doesn’t bring it back.
 
 Debugging:
 
-- Use `openclaw sandbox explain` to inspect effective sandbox mode, tool policy, and fix-it config keys.
+- Use `alienclaw sandbox explain` to inspect effective sandbox mode, tool policy, and fix-it config keys.
 - See [Sandbox vs Tool Policy vs Elevated](/gateway/sandbox-vs-tool-policy-vs-elevated) for the “why is this blocked?” mental model.
   Keep it locked down.
 

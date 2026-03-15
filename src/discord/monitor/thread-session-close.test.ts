@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => {
   const updateSessionStore = vi.fn();
-  const resolveStorePath = vi.fn(() => "/tmp/openclaw-sessions.json");
+  const resolveStorePath = vi.fn(() => "/tmp/alienclaw-sessions.json");
   return { updateSessionStore, resolveStorePath };
 });
 
@@ -29,7 +29,7 @@ describe("closeDiscordThreadSessions", () => {
   beforeEach(() => {
     hoisted.updateSessionStore.mockClear();
     hoisted.resolveStorePath.mockClear();
-    hoisted.resolveStorePath.mockReturnValue("/tmp/openclaw-sessions.json");
+    hoisted.resolveStorePath.mockReturnValue("/tmp/alienclaw-sessions.json");
   });
 
   it("resets updatedAt to 0 for sessions whose key contains the threadId", async () => {

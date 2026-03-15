@@ -47,7 +47,7 @@ jobs:
                 label: "r: support",
                 close: true,
                 message:
-                  "Please use [our support server](https://discord.gg/clawd) and ask in #help or #users-helping-users to resolve this, or follow the stuck FAQ at https://docs.openclaw.ai/help/faq#im-stuck-whats-the-fastest-way-to-get-unstuck.",
+                  "Please use [our support server](https://discord.gg/clawd) and ask in #help or #users-helping-users to resolve this, or follow the stuck FAQ at https://docs.alienclaw.ai/help/faq#im-stuck-whats-the-fastest-way-to-get-unstuck.",
               },
               {
                 label: "r: no-ci-pr",
@@ -73,7 +73,7 @@ jobs:
                 label: "r: third-party-extension",
                 close: true,
                 message:
-                  "Please make this as a third-party plugin that you maintain yourself in your own repo. Docs: https://docs.openclaw.ai/plugin. Feel free to open a PR after to add it to our community plugins page: https://docs.openclaw.ai/plugins/community",
+                  "Please make this as a third-party plugin that you maintain yourself in your own repo. Docs: https://docs.alienclaw.ai/plugin. Feel free to open a PR after to add it to our community plugins page: https://docs.alienclaw.ai/plugins/community",
               },
               {
                 label: "r: moltbook",
@@ -82,7 +82,7 @@ jobs:
                 lockReason: "off-topic",
                 commentTriggers: ["moltbook"],
                 message:
-                  "OpenClaw is not affiliated with Moltbook, and issues related to Moltbook should not be submitted here.",
+                  "AlienClaw is not affiliated with Moltbook, and issues related to Moltbook should not be submitted here.",
               },
             ];
 

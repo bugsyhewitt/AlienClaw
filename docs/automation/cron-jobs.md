@@ -22,7 +22,7 @@ Troubleshooting: [/automation/troubleshooting](/automation/troubleshooting)
 ## TL;DR
 
 - Cron runs **inside the Gateway** (not inside the model).
-- Jobs persist under `~/.openclaw/cron/` so restarts don’t lose schedules.
+- Jobs persist under `~/.alienclaw/cron/` so restarts don’t lose schedules.
 - Two execution styles:
   - **Main session**: enqueue a system event, then run on the next heartbeat.
   - **Isolated**: run a dedicated agent turn in `cron:<jobId>`, with delivery (announce by default or none).
@@ -35,7 +35,7 @@ Troubleshooting: [/automation/troubleshooting](/automation/troubleshooting)
 Create a one-shot reminder, verify it exists, and run it immediately:
 
 ```bash
-openclaw cron add \
+alienclaw cron add \
   --name "Reminder" \
   --at "2026-02-01T16:00:00Z" \
   --session main \
@@ -43,15 +43,15 @@ openclaw cron add \
   --wake now \
   --delete-after-run
 
-openclaw cron list
-openclaw cron run <job-id>
-openclaw cron runs --id <job-id>
+alienclaw cron list
+alienclaw cron run <job-id>
+alienclaw cron runs --id <job-id>
 ```
 
 Schedule a recurring isolated job with delivery:
 
 ```bash
-openclaw cron add \
+alienclaw cron add \
   --name "Morning brief" \
   --cron "0 7 * * *" \
   --tz "America/Los_Angeles" \
@@ -68,9 +68,9 @@ For the canonical JSON shapes and examples, see [JSON schema for tool calls](/au
 
 ## Where cron jobs are stored
 
-Cron jobs are persisted on the Gateway host at `~/.openclaw/cron/jobs.json` by default.
+Cron jobs are persisted on the Gateway host at `~/.alienclaw/cron/jobs.json` by default.
 The Gateway loads the file into memory and writes it back on changes, so manual edits
-are only safe when the Gateway is stopped. Prefer `openclaw cron add/edit` or the cron
+are only safe when the Gateway is stopped. Prefer `alienclaw cron add/edit` or the cron
 tool call API for changes.
 
 ## Beginner-friendly overview
@@ -120,7 +120,7 @@ Cron supports three schedule kinds:
 Cron expressions use `croner`. If a timezone is omitted, the Gateway host’s
 local timezone is used.
 
-To reduce top-of-hour load spikes across many gateways, OpenClaw applies a
+To reduce top-of-hour load spikes across many gateways, AlienClaw applies a
 deterministic per-job stagger window of up to 5 minutes for recurring
 top-of-hour expressions (for example `0 * * * *`, `0 */2 * * *`). Fixed-hour
 expressions such as `0 7 * * *` remain exact.
@@ -188,7 +188,7 @@ Delivery config:
 Announce delivery suppresses messaging tool sends for the run; use `delivery.channel`/`delivery.to`
 to target the chat instead. When `delivery.mode = "none"`, no summary is posted to the main session.
 
-If `delivery` is omitted for isolated jobs, OpenClaw defaults to `announce`.
+If `delivery` is omitted for isolated jobs, AlienClaw defaults to `announce`.
 
 #### Announce delivery flow
 
@@ -242,7 +242,7 @@ Isolated jobs (`agentTurn`) can set `lightContext: true` to run with lightweight
 
 - Use this for scheduled chores that do not need workspace bootstrap file injection.
 - In practice, the embedded runtime runs with `bootstrapContextMode: "lightweight"`, which keeps cron bootstrap context empty on purpose.
-- CLI equivalents: `openclaw cron add --light-context ...` and `openclaw cron edit --light-context`.
+- CLI equivalents: `alienclaw cron add --light-context ...` and `alienclaw cron edit --light-context`.
 
 ### Delivery (channel + target)
 
@@ -358,14 +358,14 @@ Notes:
 
 ## Storage & history
 
-- Job store: `~/.openclaw/cron/jobs.json` (Gateway-managed JSON).
-- Run history: `~/.openclaw/cron/runs/<jobId>.jsonl` (JSONL, auto-pruned by size and line count).
+- Job store: `~/.alienclaw/cron/jobs.json` (Gateway-managed JSON).
+- Run history: `~/.alienclaw/cron/runs/<jobId>.jsonl` (JSONL, auto-pruned by size and line count).
 - Isolated cron run sessions in `sessions.json` are pruned by `cron.sessionRetention` (default `24h`; set `false` to disable).
 - Override store path: `cron.store` in config.
 
 ## Retry policy
 
-When a job fails, OpenClaw classifies errors as **transient** (retryable) or **permanent** (disable immediately).
+When a job fails, AlienClaw classifies errors as **transient** (retryable) or **permanent** (disable immediately).
 
 ### Transient errors (retried)
 
@@ -402,7 +402,7 @@ Configure `cron.retry` to override these defaults (see [Configuration](/automati
 {
   cron: {
     enabled: true, // default true
-    store: "~/.openclaw/cron/jobs.json",
+    store: "~/.alienclaw/cron/jobs.json",
     maxConcurrentRuns: 1, // default 1
     // Optional: override retry policy for one-shot jobs
     retry: {
@@ -439,7 +439,7 @@ Webhook behavior:
 Disable cron entirely:
 
 - `cron.enabled: false` (config)
-- `OPENCLAW_SKIP_CRON=1` (env)
+- `ALIENCLAW_SKIP_CRON=1` (env)
 
 ## Maintenance
 
@@ -455,7 +455,7 @@ Cron has two built-in maintenance paths: isolated run-session retention and run-
 
 - Isolated runs create session entries (`...:cron:<jobId>:run:<uuid>`) and transcript files.
 - The reaper removes expired run-session entries older than `cron.sessionRetention`.
-- For removed run sessions no longer referenced by the session store, OpenClaw archives transcript files and purges old deleted archives on the same retention window.
+- For removed run sessions no longer referenced by the session store, AlienClaw archives transcript files and purges old deleted archives on the same retention window.
 - After each run append, `cron/runs/<jobId>.jsonl` is size-checked:
   - if file size exceeds `runLog.maxBytes`, it is trimmed to the newest `runLog.keepLines` lines.
 
@@ -474,7 +474,7 @@ What to do:
 - keep `cron.sessionRetention` as short as your debugging/audit needs allow
 - keep run logs bounded with moderate `runLog.maxBytes` and `runLog.keepLines`
 - move noisy background jobs to isolated mode with delivery rules that avoid unnecessary chatter
-- review growth periodically with `openclaw cron runs` and adjust retention before logs become large
+- review growth periodically with `alienclaw cron runs` and adjust retention before logs become large
 
 ### Customize examples
 
@@ -525,7 +525,7 @@ Tune for high-volume cron usage (example):
 One-shot reminder (UTC ISO, auto-delete after success):
 
 ```bash
-openclaw cron add \
+alienclaw cron add \
   --name "Send reminder" \
   --at "2026-01-12T18:00:00Z" \
   --session main \
@@ -537,7 +537,7 @@ openclaw cron add \
 One-shot reminder (main session, wake immediately):
 
 ```bash
-openclaw cron add \
+alienclaw cron add \
   --name "Calendar check" \
   --at "20m" \
   --session main \
@@ -548,7 +548,7 @@ openclaw cron add \
 Recurring isolated job (announce to WhatsApp):
 
 ```bash
-openclaw cron add \
+alienclaw cron add \
   --name "Morning status" \
   --cron "0 7 * * *" \
   --tz "America/Los_Angeles" \
@@ -562,7 +562,7 @@ openclaw cron add \
 Recurring cron job with explicit 30-second stagger:
 
 ```bash
-openclaw cron add \
+alienclaw cron add \
   --name "Minute watcher" \
   --cron "0 * * * * *" \
   --tz "UTC" \
@@ -575,7 +575,7 @@ openclaw cron add \
 Recurring isolated job (deliver to a Telegram topic):
 
 ```bash
-openclaw cron add \
+alienclaw cron add \
   --name "Nightly summary (topic)" \
   --cron "0 22 * * *" \
   --tz "America/Los_Angeles" \
@@ -589,7 +589,7 @@ openclaw cron add \
 Isolated job with model and thinking override:
 
 ```bash
-openclaw cron add \
+alienclaw cron add \
   --name "Deep analysis" \
   --cron "0 6 * * 1" \
   --tz "America/Los_Angeles" \
@@ -606,24 +606,24 @@ Agent selection (multi-agent setups):
 
 ```bash
 # Pin a job to agent "ops" (falls back to default if that agent is missing)
-openclaw cron add --name "Ops sweep" --cron "0 6 * * *" --session isolated --message "Check ops queue" --agent ops
+alienclaw cron add --name "Ops sweep" --cron "0 6 * * *" --session isolated --message "Check ops queue" --agent ops
 
 # Switch or clear the agent on an existing job
-openclaw cron edit <jobId> --agent ops
-openclaw cron edit <jobId> --clear-agent
+alienclaw cron edit <jobId> --agent ops
+alienclaw cron edit <jobId> --clear-agent
 ```
 
 Manual run (force is the default, use `--due` to only run when due):
 
 ```bash
-openclaw cron run <jobId>
-openclaw cron run <jobId> --due
+alienclaw cron run <jobId>
+alienclaw cron run <jobId> --due
 ```
 
 Edit an existing job (patch fields):
 
 ```bash
-openclaw cron edit <jobId> \
+alienclaw cron edit <jobId> \
   --message "Updated prompt" \
   --model "opus" \
   --thinking low
@@ -632,38 +632,38 @@ openclaw cron edit <jobId> \
 Force an existing cron job to run exactly on schedule (no stagger):
 
 ```bash
-openclaw cron edit <jobId> --exact
+alienclaw cron edit <jobId> --exact
 ```
 
 Run history:
 
 ```bash
-openclaw cron runs --id <jobId> --limit 50
+alienclaw cron runs --id <jobId> --limit 50
 ```
 
 Immediate system event without creating a job:
 
 ```bash
-openclaw system event --mode now --text "Next heartbeat: check battery."
+alienclaw system event --mode now --text "Next heartbeat: check battery."
 ```
 
 ## Gateway API surface
 
 - `cron.list`, `cron.status`, `cron.add`, `cron.update`, `cron.remove`
 - `cron.run` (force or due), `cron.runs`
-  For immediate system events without a job, use [`openclaw system event`](/cli/system).
+  For immediate system events without a job, use [`alienclaw system event`](/cli/system).
 
 ## Troubleshooting
 
 ### “Nothing runs”
 
-- Check cron is enabled: `cron.enabled` and `OPENCLAW_SKIP_CRON`.
+- Check cron is enabled: `cron.enabled` and `ALIENCLAW_SKIP_CRON`.
 - Check the Gateway is running continuously (cron runs inside the Gateway process).
 - For `cron` schedules: confirm timezone (`--tz`) vs the host timezone.
 
 ### A recurring job keeps delaying after failures
 
-- OpenClaw applies exponential retry backoff for recurring jobs after consecutive errors:
+- AlienClaw applies exponential retry backoff for recurring jobs after consecutive errors:
   30s, 1m, 5m, 15m, then 60m between retries.
 - Backoff resets automatically after the next successful run.
 - One-shot (`at`) jobs retry transient errors (rate limit, overloaded, network, server_error) up to 3 times with backoff; permanent errors disable immediately. See [Retry policy](/automation/cron-jobs#retry-policy).

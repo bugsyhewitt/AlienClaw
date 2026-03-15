@@ -3,7 +3,7 @@ import {
   TtsConfigSchema,
   TtsModeSchema,
   TtsProviderSchema,
-} from "openclaw/plugin-sdk/voice-call";
+} from "alienclaw/plugin-sdk/voice-call";
 import { z } from "zod";
 
 // -----------------------------------------------------------------------------

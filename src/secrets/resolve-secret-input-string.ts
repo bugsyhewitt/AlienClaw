@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import {
   normalizeSecretInputString,
   resolveSecretInputRef,
@@ -6,10 +6,10 @@ import {
 } from "../config/types.secrets.js";
 import { resolveSecretRefString } from "./resolve.js";
 
-type SecretDefaults = NonNullable<OpenClawConfig["secrets"]>["defaults"];
+type SecretDefaults = NonNullable<AlienClawConfig["secrets"]>["defaults"];
 
 export async function resolveSecretInputString(params: {
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   value: unknown;
   env: NodeJS.ProcessEnv;
   defaults?: SecretDefaults;

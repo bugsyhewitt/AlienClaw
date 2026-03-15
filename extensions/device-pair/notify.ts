@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk/device-pair";
-import { listDevicePairing } from "openclaw/plugin-sdk/device-pair";
+import type { AlienClawPluginApi } from "alienclaw/plugin-sdk/device-pair";
+import { listDevicePairing } from "alienclaw/plugin-sdk/device-pair";
 
 const NOTIFY_STATE_FILE = "device-pair-notify.json";
 const NOTIFY_POLL_INTERVAL_MS = 10_000;
@@ -219,7 +219,7 @@ function shouldNotifySubscriberForRequest(
 }
 
 async function notifySubscriber(params: {
-  api: OpenClawPluginApi;
+  api: AlienClawPluginApi;
   subscriber: NotifySubscription;
   text: string;
 }): Promise<boolean> {
@@ -248,7 +248,7 @@ async function notifySubscriber(params: {
 }
 
 async function notifyPendingPairingRequests(params: {
-  api: OpenClawPluginApi;
+  api: AlienClawPluginApi;
   statePath: string;
 }): Promise<void> {
   const state = await readNotifyState(params.statePath);
@@ -311,7 +311,7 @@ async function notifyPendingPairingRequests(params: {
 }
 
 export async function armPairNotifyOnce(params: {
-  api: OpenClawPluginApi;
+  api: AlienClawPluginApi;
   ctx: {
     channel: string;
     senderId?: string;
@@ -345,7 +345,7 @@ export async function armPairNotifyOnce(params: {
 }
 
 export async function handleNotifyCommand(params: {
-  api: OpenClawPluginApi;
+  api: AlienClawPluginApi;
   ctx: {
     channel: string;
     senderId?: string;
@@ -424,7 +424,7 @@ export async function handleNotifyCommand(params: {
   return { text: "Usage: /pair notify on|off|once|status" };
 }
 
-export function registerPairingNotifierService(api: OpenClawPluginApi): void {
+export function registerPairingNotifierService(api: AlienClawPluginApi): void {
   let notifyInterval: ReturnType<typeof setInterval> | null = null;
 
   api.registerService({

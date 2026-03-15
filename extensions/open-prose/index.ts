@@ -1,5 +1,5 @@
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk/open-prose";
+import type { AlienClawPluginApi } from "alienclaw/plugin-sdk/open-prose";
 
-export default function register(_api: OpenClawPluginApi) {
+export default function register(_api: AlienClawPluginApi) {
   // OpenProse is delivered via plugin-shipped skills.
 }

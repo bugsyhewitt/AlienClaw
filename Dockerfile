@@ -1,5 +1,5 @@
 # Opt-in extension dependencies at build time (space-separated directory names).
-# Example: docker build --build-arg OPENCLAW_EXTENSIONS="diagnostics-otel matrix" .
+# Example: docker build --build-arg ALIENCLAW_EXTENSIONS="diagnostics-otel matrix" .
 #
 # Multi-stage build produces a minimal runtime image without build tools,
 # source code, or Bun. Works with Docker, Buildx, and Podman.
@@ -9,9 +9,9 @@
 #
 # Two runtime variants:
 #   Default (bookworm):      docker build .
-#   Slim (bookworm-slim):    docker build --build-arg OPENCLAW_VARIANT=slim .
-ARG OPENCLAW_EXTENSIONS=""
-ARG OPENCLAW_VARIANT=default
+#   Slim (bookworm-slim):    docker build --build-arg ALIENCLAW_VARIANT=slim .
+ARG ALIENCLAW_EXTENSIONS=""
+ARG ALIENCLAW_VARIANT=default
 
 # Base images are pinned to SHA256 digests for reproducible builds.
 # Trade-off: digests must be updated manually when upstream tags move.
@@ -19,11 +19,11 @@ ARG OPENCLAW_VARIANT=default
 # and replace the digest below with the current amd64 entry.
 
 FROM node:22-bookworm@sha256:6d735b4d33660225271fda0a412802746658c3a1b975507b2803ed299609760a AS ext-deps
-ARG OPENCLAW_EXTENSIONS
+ARG ALIENCLAW_EXTENSIONS
 COPY extensions /tmp/extensions
 # Copy package.json for opted-in extensions so pnpm resolves their deps.
 RUN mkdir -p /out && \
-    for ext in $OPENCLAW_EXTENSIONS; do \
+    for ext in $ALIENCLAW_EXTENSIONS; do \
       if [ -f "/tmp/extensions/$ext/package.json" ]; then \
         mkdir -p "/out/$ext" && \
         cp "/tmp/extensions/$ext/package.json" "/out/$ext/package.json"; \
@@ -62,10 +62,10 @@ RUN pnpm canvas:a2ui:bundle || \
      mkdir -p src/canvas-host/a2ui && \
      echo "/* A2UI bundle unavailable in this build */" > src/canvas-host/a2ui/a2ui.bundle.js && \
      echo "stub" > src/canvas-host/a2ui/.bundle.hash && \
-     rm -rf vendor/a2ui apps/shared/OpenClawKit/Tools/CanvasA2UI)
+     rm -rf vendor/a2ui apps/shared/AlienClawKit/Tools/CanvasA2UI)
 RUN pnpm build
 # Force pnpm for UI build (Bun may fail on ARM/Synology architectures)
-ENV OPENCLAW_PREFER_PNPM=1
+ENV ALIENCLAW_PREFER_PNPM=1
 RUN pnpm ui:build
 
 # ── Runtime base images ─────────────────────────────────────────
@@ -78,19 +78,19 @@ LABEL org.opencontainers.image.base.name="docker.io/library/node:22-bookworm-sli
   org.opencontainers.image.base.digest="sha256:b41c15b715b5d6e3f305e9c6480a2396dd5f130b63add98d3d45760376f20823"
 
 # ── Stage 3: Runtime ────────────────────────────────────────────
-FROM base-${OPENCLAW_VARIANT}
-ARG OPENCLAW_VARIANT
+FROM base-${ALIENCLAW_VARIANT}
+ARG ALIENCLAW_VARIANT
 
 # OCI base-image metadata for downstream image consumers.
 # If you change these annotations, also update:
 # - docs/install/docker.md ("Base image metadata" section)
-# - https://docs.openclaw.ai/install/docker
-LABEL org.opencontainers.image.source="https://github.com/openclaw/openclaw" \
-  org.opencontainers.image.url="https://openclaw.ai" \
-  org.opencontainers.image.documentation="https://docs.openclaw.ai/install/docker" \
+# - https://docs.alienclaw.ai/install/docker
+LABEL org.opencontainers.image.source="https://github.com/alienclaw/alienclaw" \
+  org.opencontainers.image.url="https://alienclaw.ai" \
+  org.opencontainers.image.documentation="https://docs.alienclaw.ai/install/docker" \
   org.opencontainers.image.licenses="MIT" \
-  org.opencontainers.image.title="OpenClaw" \
-  org.opencontainers.image.description="OpenClaw gateway and CLI runtime container image"
+  org.opencontainers.image.title="AlienClaw" \
+  org.opencontainers.image.description="AlienClaw gateway and CLI runtime container image"
 
 WORKDIR /app
 
@@ -107,27 +107,27 @@ RUN chown node:node /app
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json .
-COPY --from=build --chown=node:node /app/openclaw.mjs .
+COPY --from=build --chown=node:node /app/alienclaw.mjs .
 COPY --from=build --chown=node:node /app/extensions ./extensions
 COPY --from=build --chown=node:node /app/skills ./skills
 COPY --from=build --chown=node:node /app/docs ./docs
 
 # Install additional system packages needed by your skills or extensions.
-# Example: docker build --build-arg OPENCLAW_DOCKER_APT_PACKAGES="python3 wget" .
-ARG OPENCLAW_DOCKER_APT_PACKAGES=""
-RUN if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then \
+# Example: docker build --build-arg ALIENCLAW_DOCKER_APT_PACKAGES="python3 wget" .
+ARG ALIENCLAW_DOCKER_APT_PACKAGES=""
+RUN if [ -n "$ALIENCLAW_DOCKER_APT_PACKAGES" ]; then \
       apt-get update && \
-      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $OPENCLAW_DOCKER_APT_PACKAGES && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $ALIENCLAW_DOCKER_APT_PACKAGES && \
       apt-get clean && \
       rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
     fi
 
 # Optionally install Chromium and Xvfb for browser automation.
-# Build with: docker build --build-arg OPENCLAW_INSTALL_BROWSER=1 ...
+# Build with: docker build --build-arg ALIENCLAW_INSTALL_BROWSER=1 ...
 # Adds ~300MB but eliminates the 60-90s Playwright install on every container start.
 # Must run after node_modules COPY so playwright-core is available.
-ARG OPENCLAW_INSTALL_BROWSER=""
-RUN if [ -n "$OPENCLAW_INSTALL_BROWSER" ]; then \
+ARG ALIENCLAW_INSTALL_BROWSER=""
+RUN if [ -n "$ALIENCLAW_INSTALL_BROWSER" ]; then \
       apt-get update && \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb && \
       mkdir -p /home/node/.cache/ms-playwright && \
@@ -139,20 +139,20 @@ RUN if [ -n "$OPENCLAW_INSTALL_BROWSER" ]; then \
     fi
 
 # Optionally install Docker CLI for sandbox container management.
-# Build with: docker build --build-arg OPENCLAW_INSTALL_DOCKER_CLI=1 ...
+# Build with: docker build --build-arg ALIENCLAW_INSTALL_DOCKER_CLI=1 ...
 # Adds ~50MB. Only the CLI is installed — no Docker daemon.
 # Required for agents.defaults.sandbox to function in Docker deployments.
-ARG OPENCLAW_INSTALL_DOCKER_CLI=""
-ARG OPENCLAW_DOCKER_GPG_FINGERPRINT="9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
-RUN if [ -n "$OPENCLAW_INSTALL_DOCKER_CLI" ]; then \
+ARG ALIENCLAW_INSTALL_DOCKER_CLI=""
+ARG ALIENCLAW_DOCKER_GPG_FINGERPRINT="9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
+RUN if [ -n "$ALIENCLAW_INSTALL_DOCKER_CLI" ]; then \
       apt-get update && \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates curl gnupg && \
       install -m 0755 -d /etc/apt/keyrings && \
       # Verify Docker apt signing key fingerprint before trusting it as a root key.
-      # Update OPENCLAW_DOCKER_GPG_FINGERPRINT when Docker rotates release keys.
+      # Update ALIENCLAW_DOCKER_GPG_FINGERPRINT when Docker rotates release keys.
       curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.gpg.asc && \
-      expected_fingerprint="$(printf '%s' "$OPENCLAW_DOCKER_GPG_FINGERPRINT" | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')" && \
+      expected_fingerprint="$(printf '%s' "$ALIENCLAW_DOCKER_GPG_FINGERPRINT" | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')" && \
       actual_fingerprint="$(gpg --batch --show-keys --with-colons /tmp/docker.gpg.asc | awk -F: '$1 == "fpr" { print toupper($10); exit }')" && \
       if [ -z "$actual_fingerprint" ] || [ "$actual_fingerprint" != "$expected_fingerprint" ]; then \
         echo "ERROR: Docker apt key fingerprint mismatch (expected $expected_fingerprint, got ${actual_fingerprint:-<empty>})" >&2; \
@@ -180,8 +180,8 @@ RUN for dir in /app/extensions /app/.agent /app/.agents; do \
     done
 
 # Expose the CLI binary without requiring npm global writes as non-root.
-RUN ln -sf /app/openclaw.mjs /usr/local/bin/openclaw \
- && chmod 755 /app/openclaw.mjs
+RUN ln -sf /app/alienclaw.mjs /usr/local/bin/alienclaw \
+ && chmod 755 /app/alienclaw.mjs
 
 ENV NODE_ENV=production
 
@@ -204,4 +204,4 @@ USER node
 # For external access from host/ingress, override bind to "lan" and set auth.
 HEALTHCHECK --interval=3m --timeout=10s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "openclaw.mjs", "gateway", "--allow-unconfigured"]
+CMD ["node", "alienclaw.mjs", "gateway", "--allow-unconfigured"]

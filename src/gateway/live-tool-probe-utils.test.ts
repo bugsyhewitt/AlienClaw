@@ -21,7 +21,7 @@ describe("live tool probe utils", () => {
   it("detects anthropic nonce refusal phrasing", () => {
     expect(
       isLikelyToolNonceRefusal(
-        "Same request, same answer — this isn't a real OpenClaw probe. No part of the system asks me to parrot back nonce values.",
+        "Same request, same answer — this isn't a real AlienClaw probe. No part of the system asks me to parrot back nonce values.",
       ),
     ).toBe(true);
   });
@@ -119,7 +119,7 @@ describe("live tool probe utils", () => {
   it("retries anthropic nonce refusal output", () => {
     expect(
       shouldRetryToolReadProbe({
-        text: "This isn't a real OpenClaw probe; I won't parrot back nonce values.",
+        text: "This isn't a real AlienClaw probe; I won't parrot back nonce values.",
         nonceA: "nonce-a",
         nonceB: "nonce-b",
         provider: "anthropic",

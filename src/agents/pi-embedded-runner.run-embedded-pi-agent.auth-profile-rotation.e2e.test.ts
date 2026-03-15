@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import type { AuthProfileFailureReason } from "./auth-profiles.js";
 import type { EmbeddedRunAttemptResult } from "./pi-embedded-runner/run/types.js";
 
@@ -46,7 +46,7 @@ vi.mock("./models-config.js", async (importOriginal) => {
   const mod = await importOriginal<typeof import("./models-config.js")>();
   return {
     ...mod,
-    ensureOpenClawModelsJson: vi.fn(async () => ({ wrote: false })),
+    ensureAlienClawModelsJson: vi.fn(async () => ({ wrote: false })),
   };
 });
 
@@ -104,7 +104,7 @@ const makeAttempt = (overrides: Partial<EmbeddedRunAttemptResult>): EmbeddedRunA
   ...overrides,
 });
 
-const makeConfig = (opts?: { fallbacks?: string[]; apiKey?: string }): OpenClawConfig =>
+const makeConfig = (opts?: { fallbacks?: string[]; apiKey?: string }): AlienClawConfig =>
   ({
     agents: {
       defaults: {
@@ -133,9 +133,9 @@ const makeConfig = (opts?: { fallbacks?: string[]; apiKey?: string }): OpenClawC
         },
       },
     },
-  }) satisfies OpenClawConfig;
+  }) satisfies AlienClawConfig;
 
-const makeAgentOverrideOnlyFallbackConfig = (agentId: string): OpenClawConfig =>
+const makeAgentOverrideOnlyFallbackConfig = (agentId: string): AlienClawConfig =>
   ({
     agents: {
       defaults: {
@@ -172,11 +172,11 @@ const makeAgentOverrideOnlyFallbackConfig = (agentId: string): OpenClawConfig =>
         },
       },
     },
-  }) satisfies OpenClawConfig;
+  }) satisfies AlienClawConfig;
 
 const copilotModelId = "gpt-4o";
 
-const makeCopilotConfig = (): OpenClawConfig =>
+const makeCopilotConfig = (): AlienClawConfig =>
   ({
     models: {
       providers: {
@@ -197,7 +197,7 @@ const makeCopilotConfig = (): OpenClawConfig =>
         },
       },
     },
-  }) satisfies OpenClawConfig;
+  }) satisfies AlienClawConfig;
 
 const writeAuthStore = async (
   agentDir: string,
@@ -414,8 +414,8 @@ async function withTimedAgentWorkspace<T>(
 ) {
   vi.useFakeTimers();
   try {
-    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-agent-"));
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-workspace-"));
+    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-agent-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-workspace-"));
     const now = Date.now();
     vi.setSystemTime(now);
 
@@ -433,8 +433,8 @@ async function withTimedAgentWorkspace<T>(
 async function withAgentWorkspace<T>(
   run: (ctx: { agentDir: string; workspaceDir: string }) => Promise<T>,
 ) {
-  const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-agent-"));
-  const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-workspace-"));
+  const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-agent-"));
+  const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-workspace-"));
   try {
     return await run({ agentDir, workspaceDir });
   } finally {
@@ -481,8 +481,8 @@ async function runTurnWithCooldownSeed(params: {
 
 describe("runEmbeddedPiAgent auth profile rotation", () => {
   it("refreshes copilot token after auth error and retries once", async () => {
-    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-agent-"));
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-workspace-"));
+    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-agent-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-workspace-"));
     vi.useFakeTimers();
     try {
       await writeCopilotAuthStore(agentDir);
@@ -548,8 +548,8 @@ describe("runEmbeddedPiAgent auth profile rotation", () => {
   });
 
   it("allows another auth refresh after a successful retry", async () => {
-    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-agent-"));
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-workspace-"));
+    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-agent-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-workspace-"));
     vi.useFakeTimers();
     try {
       await writeCopilotAuthStore(agentDir);
@@ -635,8 +635,8 @@ describe("runEmbeddedPiAgent auth profile rotation", () => {
   });
 
   it("does not reschedule copilot refresh after shutdown", async () => {
-    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-agent-"));
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-workspace-"));
+    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-agent-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-workspace-"));
     vi.useFakeTimers();
     try {
       await writeCopilotAuthStore(agentDir);

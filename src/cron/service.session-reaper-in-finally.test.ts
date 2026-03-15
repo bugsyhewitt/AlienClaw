@@ -9,7 +9,7 @@ import type { CronJob } from "./types.js";
 
 const noopLogger = createNoopLogger();
 const { makeStorePath } = createCronStoreHarness({
-  prefix: "openclaw-cron-reaper-finally-",
+  prefix: "alienclaw-cron-reaper-finally-",
 });
 
 function createDueIsolatedJob(params: { id: string; nowMs: number }): CronJob {

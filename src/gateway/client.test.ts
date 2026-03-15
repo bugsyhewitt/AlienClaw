@@ -143,14 +143,14 @@ function expectSecurityConnectError(
     }),
   );
   const error = onConnectError.mock.calls[0]?.[0] as Error;
-  expect(error.message).toContain("openclaw doctor --fix");
+  expect(error.message).toContain("alienclaw doctor --fix");
   if (params?.expectTailscaleHint) {
     expect(error.message).toContain("Tailscale Serve/Funnel");
   }
 }
 
 describe("GatewayClient security checks", () => {
-  const envSnapshot = captureEnv(["OPENCLAW_ALLOW_INSECURE_PRIVATE_WS"]);
+  const envSnapshot = captureEnv(["ALIENCLAW_ALLOW_INSECURE_PRIVATE_WS"]);
 
   beforeEach(() => {
     envSnapshot.restore();
@@ -214,8 +214,8 @@ describe("GatewayClient security checks", () => {
     client.stop();
   });
 
-  it("allows ws:// to private addresses only with OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1", () => {
-    process.env.OPENCLAW_ALLOW_INSECURE_PRIVATE_WS = "1";
+  it("allows ws:// to private addresses only with ALIENCLAW_ALLOW_INSECURE_PRIVATE_WS=1", () => {
+    process.env.ALIENCLAW_ALLOW_INSECURE_PRIVATE_WS = "1";
     const onConnectError = vi.fn();
     const client = new GatewayClient({
       url: "ws://192.168.1.100:18789",
@@ -229,11 +229,11 @@ describe("GatewayClient security checks", () => {
     client.stop();
   });
 
-  it("allows ws:// hostnames with OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1", () => {
-    process.env.OPENCLAW_ALLOW_INSECURE_PRIVATE_WS = "1";
+  it("allows ws:// hostnames with ALIENCLAW_ALLOW_INSECURE_PRIVATE_WS=1", () => {
+    process.env.ALIENCLAW_ALLOW_INSECURE_PRIVATE_WS = "1";
     const onConnectError = vi.fn();
     const client = new GatewayClient({
-      url: "ws://openclaw-gateway.ai:18789",
+      url: "ws://alienclaw-gateway.ai:18789",
       onConnectError,
     });
 

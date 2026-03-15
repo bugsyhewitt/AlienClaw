@@ -11,7 +11,7 @@ import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import type { PluginHookBeforeAgentStartResult } from "../../plugins/types.js";
 import { enqueueCommandInLane } from "../../process/command-queue.js";
 import { isMarkdownCapableMessageChannel } from "../../utils/message-channel.js";
-import { resolveOpenClawAgentDir } from "../agent-paths.js";
+import { resolveAlienClawAgentDir } from "../agent-paths.js";
 import { hasConfiguredModelFallbacks } from "../agent-scope.js";
 import {
   isProfileInCooldown,
@@ -36,7 +36,7 @@ import {
   type ResolvedProviderAuth,
 } from "../model-auth.js";
 import { normalizeProviderId } from "../model-selection.js";
-import { ensureOpenClawModelsJson } from "../models-config.js";
+import { ensureAlienClawModelsJson } from "../models-config.js";
 import {
   formatBillingErrorMessage,
   classifyFailoverReason,
@@ -188,7 +188,7 @@ const toNormalizedUsage = (usage: UsageAccumulator) => {
   // The accumulated cacheRead/cacheWrite inflate context size because each tool-call
   // round-trip reports cacheRead ≈ current_context_size, and summing N calls gives
   // N × context_size which gets clamped to contextWindow (e.g. 200k).
-  // See: https://github.com/openclaw/openclaw/issues/13698
+  // See: https://github.com/alienclaw/alienclaw/issues/13698
   //
   // We use lastInput/lastCacheRead/lastCacheWrite (from the most recent API call) for
   // cache-related fields, but keep accumulated output (total generated text this turn).
@@ -291,13 +291,13 @@ export async function runEmbeddedPiAgent(
 
       let provider = (params.provider ?? DEFAULT_PROVIDER).trim() || DEFAULT_PROVIDER;
       let modelId = (params.model ?? DEFAULT_MODEL).trim() || DEFAULT_MODEL;
-      const agentDir = params.agentDir ?? resolveOpenClawAgentDir();
+      const agentDir = params.agentDir ?? resolveAlienClawAgentDir();
       const fallbackConfigured = hasConfiguredModelFallbacks({
         cfg: params.config,
         agentId: params.agentId,
         sessionKey: params.sessionKey,
       });
-      await ensureOpenClawModelsJson(params.config, agentDir);
+      await ensureAlienClawModelsJson(params.config, agentDir);
 
       // Run before_model_resolve hooks early so plugins can override the
       // provider/model before resolveModel().

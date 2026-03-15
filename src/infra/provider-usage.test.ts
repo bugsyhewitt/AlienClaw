@@ -237,7 +237,7 @@ describe("provider usage loading", () => {
     await withTempHome(
       async (tempHome) => {
         const agentDir = path.join(
-          process.env.OPENCLAW_STATE_DIR ?? path.join(tempHome, ".openclaw"),
+          process.env.ALIENCLAW_STATE_DIR ?? path.join(tempHome, ".alienclaw"),
           "agents",
           "main",
           "agent",
@@ -295,9 +295,9 @@ describe("provider usage loading", () => {
       },
       {
         env: {
-          OPENCLAW_STATE_DIR: (home) => path.join(home, ".openclaw"),
+          ALIENCLAW_STATE_DIR: (home) => path.join(home, ".alienclaw"),
         },
-        prefix: "openclaw-provider-usage-",
+        prefix: "alienclaw-provider-usage-",
       },
     );
   });

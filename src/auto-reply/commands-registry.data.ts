@@ -498,7 +498,7 @@ function buildChatCommands(): ChatCommandDefinition[] {
     defineChatCommand({
       key: "restart",
       nativeName: "restart",
-      description: "Restart OpenClaw.",
+      description: "Restart AlienClaw.",
       textAlias: "/restart",
       category: "tools",
     }),

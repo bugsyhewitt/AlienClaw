@@ -60,13 +60,13 @@ describe("runServiceRestart token drift", () => {
     service.restart.mockClear();
     service.isLoaded.mockResolvedValue(true);
     service.readCommand.mockResolvedValue({
-      environment: { OPENCLAW_GATEWAY_TOKEN: "service-token" },
+      environment: { ALIENCLAW_GATEWAY_TOKEN: "service-token" },
     });
     service.restart.mockResolvedValue(undefined);
     vi.unstubAllEnvs();
-    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "");
+    vi.stubEnv("ALIENCLAW_GATEWAY_TOKEN", "");
     vi.stubEnv("CLAWDBOT_GATEWAY_TOKEN", "");
-    vi.stubEnv("OPENCLAW_GATEWAY_URL", "");
+    vi.stubEnv("ALIENCLAW_GATEWAY_URL", "");
     vi.stubEnv("CLAWDBOT_GATEWAY_URL", "");
   });
 
@@ -96,9 +96,9 @@ describe("runServiceRestart token drift", () => {
       },
     });
     service.readCommand.mockResolvedValue({
-      environment: { OPENCLAW_GATEWAY_TOKEN: "env-token" },
+      environment: { ALIENCLAW_GATEWAY_TOKEN: "env-token" },
     });
-    vi.stubEnv("OPENCLAW_GATEWAY_TOKEN", "env-token");
+    vi.stubEnv("ALIENCLAW_GATEWAY_TOKEN", "env-token");
 
     await runServiceRestart({
       serviceNoun: "Gateway",

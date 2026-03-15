@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { CURRENT_SESSION_VERSION, SessionManager } from "@mariozechner/pi-coding-agent";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import { resolveSessionFilePath, type SessionEntry } from "../../config/sessions.js";
 
 /**
@@ -12,7 +12,7 @@ import { resolveSessionFilePath, type SessionEntry } from "../../config/sessions
  */
 const DEFAULT_PARENT_FORK_MAX_TOKENS = 100_000;
 
-export function resolveParentForkMaxTokens(cfg: OpenClawConfig): number {
+export function resolveParentForkMaxTokens(cfg: AlienClawConfig): number {
   const configured = cfg.session?.parentForkMaxTokens;
   if (typeof configured === "number" && Number.isFinite(configured) && configured >= 0) {
     return Math.floor(configured);

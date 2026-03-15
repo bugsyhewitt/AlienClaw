@@ -5,7 +5,7 @@ describe("device-auth payload vectors", () => {
   it("builds canonical v3 payload", () => {
     const payload = buildDeviceAuthPayloadV3({
       deviceId: "dev-1",
-      clientId: "openclaw-macos",
+      clientId: "alienclaw-macos",
       clientMode: "ui",
       role: "operator",
       scopes: ["operator.admin", "operator.read"],
@@ -17,7 +17,7 @@ describe("device-auth payload vectors", () => {
     });
 
     expect(payload).toBe(
-      "v3|dev-1|openclaw-macos|ui|operator|operator.admin,operator.read|1700000000000|tok-123|nonce-abc|ios|iphone",
+      "v3|dev-1|alienclaw-macos|ui|operator|operator.admin,operator.read|1700000000000|tok-123|nonce-abc|ios|iphone",
     );
   });
 

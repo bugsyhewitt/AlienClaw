@@ -219,7 +219,7 @@ def main():
         if image_saved:
             full_path = output_path.resolve()
             print(f"\nImage saved: {full_path}")
-            # OpenClaw parses MEDIA: tokens and will attach the file on
+            # AlienClaw parses MEDIA: tokens and will attach the file on
             # supported chat providers. Emit the canonical MEDIA:<path> form.
             print(f"MEDIA:{full_path}")
         else:

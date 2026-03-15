@@ -1,4 +1,4 @@
-import type { MSTeamsConfig } from "openclaw/plugin-sdk/msteams";
+import type { MSTeamsConfig } from "alienclaw/plugin-sdk/msteams";
 import {
   hasConfiguredSecretInput,
   normalizeResolvedSecretInputString,

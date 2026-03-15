@@ -1,4 +1,4 @@
-import type { PluginRuntime } from "openclaw/plugin-sdk/feishu";
+import type { PluginRuntime } from "alienclaw/plugin-sdk/feishu";
 
 let runtime: PluginRuntime | null = null;
 

@@ -193,13 +193,27 @@ const coreEntries: CoreCliEntry[] = [
     commands: [
       {
         name: "browser",
-        description: "Manage OpenClaw's dedicated browser (Chrome/Chromium)",
+        description: "Manage AlienClaw's dedicated browser (Chrome/Chromium)",
         hasSubcommands: true,
       },
     ],
     register: async ({ program }) => {
       const mod = await import("../browser-cli.js");
       mod.registerBrowserCli(program);
+    },
+  },
+  // ── AlienClaw overlay commands ───────────────────────────────────────────────
+  {
+    commands: [
+      {
+        name: "run",
+        description: "Run the AlienClaw agent hierarchy toward a goal",
+        hasSubcommands: false,
+      },
+    ],
+    register: async ({ program }) => {
+      const mod = await import("../../alienclaw/cli/register.run.js");
+      mod.registerRunCommand(program);
     },
   },
 ];

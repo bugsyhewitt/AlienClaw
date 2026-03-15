@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/feishu";
+import type { AlienClawConfig, PluginRuntime } from "alienclaw/plugin-sdk/feishu";
 import type { DynamicAgentCreationConfig } from "./types.js";
 
 export type MaybeCreateDynamicAgentResult = {
   created: boolean;
-  updatedCfg: OpenClawConfig;
+  updatedCfg: AlienClawConfig;
   agentId?: string;
 };
 
@@ -15,7 +15,7 @@ export type MaybeCreateDynamicAgentResult = {
  * This creates a unique agent instance with its own workspace for each DM user.
  */
 export async function maybeCreateDynamicAgent(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   runtime: PluginRuntime;
   senderOpenId: string;
   dynamicCfg: DynamicAgentCreationConfig;
@@ -58,7 +58,7 @@ export async function maybeCreateDynamicAgent(params: {
     // Agent exists but binding doesn't - just add the binding
     log(`feishu: agent "${agentId}" exists, adding missing binding for ${senderOpenId}`);
 
-    const updatedCfg: OpenClawConfig = {
+    const updatedCfg: AlienClawConfig = {
       ...cfg,
       bindings: [
         ...existingBindings,
@@ -77,8 +77,8 @@ export async function maybeCreateDynamicAgent(params: {
   }
 
   // Resolve path templates with substitutions
-  const workspaceTemplate = dynamicCfg.workspaceTemplate ?? "~/.openclaw/workspace-{agentId}";
-  const agentDirTemplate = dynamicCfg.agentDirTemplate ?? "~/.openclaw/agents/{agentId}/agent";
+  const workspaceTemplate = dynamicCfg.workspaceTemplate ?? "~/.alienclaw/workspace-{agentId}";
+  const agentDirTemplate = dynamicCfg.agentDirTemplate ?? "~/.alienclaw/agents/{agentId}/agent";
 
   const workspace = resolveUserPath(
     workspaceTemplate.replace("{userId}", senderOpenId).replace("{agentId}", agentId),
@@ -96,7 +96,7 @@ export async function maybeCreateDynamicAgent(params: {
   await fs.promises.mkdir(agentDir, { recursive: true });
 
   // Update configuration with new agent and binding
-  const updatedCfg: OpenClawConfig = {
+  const updatedCfg: AlienClawConfig = {
     ...cfg,
     agents: {
       ...cfg.agents,

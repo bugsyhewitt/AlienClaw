@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { inspectDiscordAccount, type InspectedDiscordAccount } from "../discord/account-inspect.js";
 import { inspectSlackAccount, type InspectedSlackAccount } from "../slack/account-inspect.js";
 import {
@@ -14,7 +14,7 @@ export type ReadOnlyInspectedAccount =
 
 export function inspectReadOnlyChannelAccount(params: {
   channelId: ChannelId;
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
 }): ReadOnlyInspectedAccount | null {
   if (params.channelId === "discord") {

@@ -1,10 +1,10 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { runAudioTranscription } from "./audio-transcription-runner.js";
 
 /**
  * Transcribe an audio file using the configured media-understanding provider.
  *
- * Reads provider/model/apiKey from `tools.media.audio` in the openclaw config,
+ * Reads provider/model/apiKey from `tools.media.audio` in the alienclaw config,
  * falling back through configured models until one succeeds.
  *
  * This is the runtime-exposed entry point for external plugins (e.g. marmot)
@@ -12,7 +12,7 @@ import { runAudioTranscription } from "./audio-transcription-runner.js";
  */
 export async function transcribeAudioFile(params: {
   filePath: string;
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   agentDir?: string;
   mime?: string;
 }): Promise<{ text: string | undefined }> {

@@ -1,4 +1,4 @@
-import type { OpenClawConfig, HookConfig } from "../config/config.js";
+import type { AlienClawConfig, HookConfig } from "../config/config.js";
 import {
   evaluateRuntimeEligibility,
   hasBinary,
@@ -17,12 +17,12 @@ const DEFAULT_CONFIG_VALUES: Record<string, boolean> = {
 
 export { hasBinary, resolveConfigPath, resolveRuntimePlatform };
 
-export function isConfigPathTruthy(config: OpenClawConfig | undefined, pathStr: string): boolean {
+export function isConfigPathTruthy(config: AlienClawConfig | undefined, pathStr: string): boolean {
   return isConfigPathTruthyWithDefaults(config, pathStr, DEFAULT_CONFIG_VALUES);
 }
 
 export function resolveHookConfig(
-  config: OpenClawConfig | undefined,
+  config: AlienClawConfig | undefined,
   hookKey: string,
 ): HookConfig | undefined {
   const hooks = config?.hooks?.internal?.entries;
@@ -38,7 +38,7 @@ export function resolveHookConfig(
 
 function evaluateHookRuntimeEligibility(params: {
   entry: HookEntry;
-  config?: OpenClawConfig;
+  config?: AlienClawConfig;
   hookConfig?: HookConfig;
   eligibility?: HookEligibilityContext;
 }): boolean {
@@ -62,13 +62,13 @@ function evaluateHookRuntimeEligibility(params: {
 
 export function shouldIncludeHook(params: {
   entry: HookEntry;
-  config?: OpenClawConfig;
+  config?: AlienClawConfig;
   eligibility?: HookEligibilityContext;
 }): boolean {
   const { entry, config, eligibility } = params;
   const hookKey = resolveHookKey(entry.hook.name, entry);
   const hookConfig = resolveHookConfig(config, hookKey);
-  const pluginManaged = entry.hook.source === "openclaw-plugin";
+  const pluginManaged = entry.hook.source === "alienclaw-plugin";
 
   // Check if explicitly disabled
   if (!pluginManaged && hookConfig?.enabled === false) {

@@ -8,7 +8,7 @@ title: "Background Exec and Process Tool"
 
 # Background Exec + Process Tool
 
-OpenClaw runs shell commands through the `exec` tool and keeps long‑running tasks in memory. The `process` tool manages those background sessions.
+AlienClaw runs shell commands through the `exec` tool and keeps long‑running tasks in memory. The `process` tool manages those background sessions.
 
 ## exec tool
 
@@ -28,7 +28,7 @@ Behavior:
 - When backgrounded (explicit or timeout), the tool returns `status: "running"` + `sessionId` and a short tail.
 - Output is kept in memory until the session is polled or cleared.
 - If the `process` tool is disallowed, `exec` runs synchronously and ignores `yieldMs`/`background`.
-- Spawned exec commands receive `OPENCLAW_SHELL=exec` for context-aware shell/profile rules.
+- Spawned exec commands receive `ALIENCLAW_SHELL=exec` for context-aware shell/profile rules.
 
 ## Child process bridging
 
@@ -38,7 +38,7 @@ Environment overrides:
 
 - `PI_BASH_YIELD_MS`: default yield (ms)
 - `PI_BASH_MAX_OUTPUT_CHARS`: in‑memory output cap (chars)
-- `OPENCLAW_BASH_PENDING_MAX_OUTPUT_CHARS`: pending stdout/stderr cap per stream (chars)
+- `ALIENCLAW_BASH_PENDING_MAX_OUTPUT_CHARS`: pending stdout/stderr cap per stream (chars)
 - `PI_BASH_JOB_TTL_MS`: TTL for finished sessions (ms, bounded to 1m–3h)
 
 Config (preferred):

@@ -9,7 +9,7 @@ import {
   type ChannelOnboardingDmPolicy,
   type DmPolicy,
   type WizardPrompter,
-} from "openclaw/plugin-sdk/irc";
+} from "alienclaw/plugin-sdk/irc";
 import { listIrcAccountIds, resolveDefaultIrcAccountId, resolveIrcAccount } from "./accounts.js";
 import {
   isChannelTarget,
@@ -364,7 +364,7 @@ export const ircOnboardingAdapter: ChannelOnboardingAdapter = {
       const username = String(
         await prompter.text({
           message: "IRC username",
-          initialValue: resolved.config.username || nick || "openclaw",
+          initialValue: resolved.config.username || nick || "alienclaw",
           validate: (value) => (String(value ?? "").trim() ? undefined : "Required"),
         }),
       ).trim();
@@ -372,14 +372,14 @@ export const ircOnboardingAdapter: ChannelOnboardingAdapter = {
       const realname = String(
         await prompter.text({
           message: "IRC real name",
-          initialValue: resolved.config.realname || "OpenClaw",
+          initialValue: resolved.config.realname || "AlienClaw",
           validate: (value) => (String(value ?? "").trim() ? undefined : "Required"),
         }),
       ).trim();
 
       const channelsRaw = await prompter.text({
         message: "Auto-join IRC channels (optional, comma-separated)",
-        placeholder: "#openclaw, #ops",
+        placeholder: "#alienclaw, #ops",
         initialValue: (resolved.config.channels ?? []).join(", "),
       });
       const channels = [
@@ -409,7 +409,7 @@ export const ircOnboardingAdapter: ChannelOnboardingAdapter = {
       label: "IRC channels",
       currentPolicy: afterConfig.config.groupPolicy ?? "allowlist",
       currentEntries: Object.keys(afterConfig.config.groups ?? {}),
-      placeholder: "#openclaw, #ops, *",
+      placeholder: "#alienclaw, #ops, *",
       updatePrompt: Boolean(afterConfig.config.groups),
     });
     if (accessConfig) {
@@ -442,7 +442,7 @@ export const ircOnboardingAdapter: ChannelOnboardingAdapter = {
     await prompter.note(
       [
         "Next: restart gateway and verify status.",
-        "Command: openclaw channels status --probe",
+        "Command: alienclaw channels status --probe",
         `Docs: ${formatDocsLink("/channels/irc", "channels/irc")}`,
       ].join("\n"),
       "IRC next steps",

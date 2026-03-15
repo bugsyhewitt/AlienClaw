@@ -42,7 +42,7 @@ export function expectSingleNpmInstallIgnoreScriptsCall(params: {
   expect(canonicalizeComparableDir(path.dirname(cwd))).toBe(
     canonicalizeComparableDir(path.dirname(expectedTargetDir)),
   );
-  expect(path.basename(cwd)).toMatch(/^\.openclaw-install-stage-/);
+  expect(path.basename(cwd)).toMatch(/^\.alienclaw-install-stage-/);
 }
 
 export function expectSingleNpmPackIgnoreScriptsCall(params: {

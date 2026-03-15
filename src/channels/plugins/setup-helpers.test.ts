@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import { DEFAULT_ACCOUNT_ID } from "../../routing/session-key.js";
 import { applySetupAccountConfigPatch } from "./setup-helpers.js";
 
-function asConfig(value: unknown): OpenClawConfig {
-  return value as OpenClawConfig;
+function asConfig(value: unknown): AlienClawConfig {
+  return value as AlienClawConfig;
 }
 
 describe("applySetupAccountConfigPatch", () => {

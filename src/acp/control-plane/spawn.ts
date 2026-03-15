@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import { callGateway } from "../../gateway/call.js";
 import { logVerbose } from "../../globals.js";
 import { getSessionBindingService } from "../../infra/outbound/session-binding-service.js";
@@ -15,7 +15,7 @@ export type AcpSpawnRuntimeCloseHandle = {
 };
 
 export async function cleanupFailedAcpSpawn(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   sessionKey: string;
   shouldDeleteSession: boolean;
   deleteTranscript: boolean;

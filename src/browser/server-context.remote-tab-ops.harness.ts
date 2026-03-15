@@ -6,7 +6,7 @@ import { createBrowserRouteContext } from "./server-context.js";
 export const originalFetch = globalThis.fetch;
 
 export function makeState(
-  profile: "remote" | "openclaw",
+  profile: "remote" | "alienclaw",
 ): BrowserServerState & { profiles: Map<string, { lastTargetId?: string | null }> } {
   return {
     // oxlint-disable-next-line typescript/no-explicit-any
@@ -36,7 +36,7 @@ export function makeState(
           cdpPort: 443,
           color: "#00AA00",
         },
-        openclaw: { cdpPort: 18800, color: "#FF4500" },
+        alienclaw: { cdpPort: 18800, color: "#FF4500" },
       },
     },
     profiles: new Map(),

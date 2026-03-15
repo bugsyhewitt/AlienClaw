@@ -14,7 +14,7 @@ import {
 } from "./skills.js";
 import { getActiveSkillEnvKeys } from "./skills/env-overrides.js";
 
-const fixtureSuite = createFixtureSuite("openclaw-skills-suite-");
+const fixtureSuite = createFixtureSuite("alienclaw-skills-suite-");
 let tempHome: TempHomeEnv | null = null;
 
 const resolveTestSkillDirs = (workspaceDir: string) => ({
@@ -51,8 +51,8 @@ const withClearedEnv = <T>(
 
 beforeAll(async () => {
   await fixtureSuite.setup();
-  tempHome = await createTempHomeEnv("openclaw-skills-home-");
-  await fs.mkdir(path.join(tempHome.home, ".openclaw", "agents", "main", "sessions"), {
+  tempHome = await createTempHomeEnv("alienclaw-skills-home-");
+  await fs.mkdir(path.join(tempHome.home, ".alienclaw", "agents", "main", "sessions"), {
     recursive: true,
   });
 });
@@ -245,7 +245,7 @@ describe("applySkillEnvOverrides", () => {
       dir: skillDir,
       name: "env-skill",
       description: "Needs env",
-      metadata: '{"openclaw":{"requires":{"env":["ENV_KEY"]},"primaryEnv":"ENV_KEY"}}',
+      metadata: '{"alienclaw":{"requires":{"env":["ENV_KEY"]},"primaryEnv":"ENV_KEY"}}',
     });
 
     const entries = loadWorkspaceSkillEntries(workspaceDir, resolveTestSkillDirs(workspaceDir));
@@ -274,7 +274,7 @@ describe("applySkillEnvOverrides", () => {
       dir: skillDir,
       name: "env-skill",
       description: "Needs env",
-      metadata: '{"openclaw":{"requires":{"env":["ENV_KEY"]},"primaryEnv":"ENV_KEY"}}',
+      metadata: '{"alienclaw":{"requires":{"env":["ENV_KEY"]},"primaryEnv":"ENV_KEY"}}',
     });
 
     const entries = loadWorkspaceSkillEntries(workspaceDir, resolveTestSkillDirs(workspaceDir));
@@ -306,7 +306,7 @@ describe("applySkillEnvOverrides", () => {
       dir: skillDir,
       name: "env-skill",
       description: "Needs env",
-      metadata: '{"openclaw":{"requires":{"env":["ENV_KEY"]},"primaryEnv":"ENV_KEY"}}',
+      metadata: '{"alienclaw":{"requires":{"env":["ENV_KEY"]},"primaryEnv":"ENV_KEY"}}',
     });
 
     const snapshot = buildWorkspaceSkillSnapshot(workspaceDir, {
@@ -337,7 +337,7 @@ describe("applySkillEnvOverrides", () => {
       name: "unsafe-env-skill",
       description: "Needs env",
       metadata:
-        '{"openclaw":{"requires":{"env":["OPENAI_API_KEY","NODE_OPTIONS"]},"primaryEnv":"OPENAI_API_KEY"}}',
+        '{"alienclaw":{"requires":{"env":["OPENAI_API_KEY","NODE_OPTIONS"]},"primaryEnv":"OPENAI_API_KEY"}}',
     });
 
     const entries = loadWorkspaceSkillEntries(workspaceDir, resolveTestSkillDirs(workspaceDir));
@@ -377,7 +377,7 @@ describe("applySkillEnvOverrides", () => {
       dir: skillDir,
       name: "dangerous-env-skill",
       description: "Needs env",
-      metadata: '{"openclaw":{"requires":{"env":["BASH_ENV","SHELL"]}}}',
+      metadata: '{"alienclaw":{"requires":{"env":["BASH_ENV","SHELL"]}}}',
     });
 
     const entries = loadWorkspaceSkillEntries(workspaceDir, resolveTestSkillDirs(workspaceDir));
@@ -417,7 +417,7 @@ describe("applySkillEnvOverrides", () => {
       dir: skillDir,
       name: "snapshot-env-skill",
       description: "Needs env",
-      metadata: '{"openclaw":{"requires":{"env":["OPENAI_API_KEY"]}}}',
+      metadata: '{"alienclaw":{"requires":{"env":["OPENAI_API_KEY"]}}}',
     });
 
     const config = {

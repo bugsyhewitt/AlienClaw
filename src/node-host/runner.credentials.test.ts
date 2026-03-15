@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import { resolveNodeHostGatewayCredentials } from "./runner.js";
 
-function createRemoteGatewayTokenRefConfig(tokenId: string): OpenClawConfig {
+function createRemoteGatewayTokenRefConfig(tokenId: string): AlienClawConfig {
   return {
     secrets: {
       providers: {
@@ -16,7 +16,7 @@ function createRemoteGatewayTokenRefConfig(tokenId: string): OpenClawConfig {
         token: { source: "env", provider: "default", id: tokenId },
       },
     },
-  } as OpenClawConfig;
+  } as AlienClawConfig;
 }
 
 describe("resolveNodeHostGatewayCredentials", () => {
@@ -26,12 +26,12 @@ describe("resolveNodeHostGatewayCredentials", () => {
         mode: "local",
         remote: { token: "remote-only-token" },
       },
-    } as OpenClawConfig;
+    } as AlienClawConfig;
 
     await withEnvAsync(
       {
-        OPENCLAW_GATEWAY_TOKEN: undefined,
-        OPENCLAW_GATEWAY_PASSWORD: undefined,
+        ALIENCLAW_GATEWAY_TOKEN: undefined,
+        ALIENCLAW_GATEWAY_PASSWORD: undefined,
       },
       async () => {
         const credentials = await resolveNodeHostGatewayCredentials({ config });
@@ -54,12 +54,12 @@ describe("resolveNodeHostGatewayCredentials", () => {
           token: { source: "env", provider: "default", id: "MISSING_REMOTE_GATEWAY_TOKEN" },
         },
       },
-    } as OpenClawConfig;
+    } as AlienClawConfig;
 
     await withEnvAsync(
       {
-        OPENCLAW_GATEWAY_TOKEN: undefined,
-        OPENCLAW_GATEWAY_PASSWORD: undefined,
+        ALIENCLAW_GATEWAY_TOKEN: undefined,
+        ALIENCLAW_GATEWAY_PASSWORD: undefined,
         MISSING_REMOTE_GATEWAY_TOKEN: undefined,
       },
       async () => {
@@ -75,7 +75,7 @@ describe("resolveNodeHostGatewayCredentials", () => {
 
     await withEnvAsync(
       {
-        OPENCLAW_GATEWAY_TOKEN: undefined,
+        ALIENCLAW_GATEWAY_TOKEN: undefined,
         REMOTE_GATEWAY_TOKEN: "token-from-ref",
       },
       async () => {
@@ -85,12 +85,12 @@ describe("resolveNodeHostGatewayCredentials", () => {
     );
   });
 
-  it("prefers OPENCLAW_GATEWAY_TOKEN over configured refs", async () => {
+  it("prefers ALIENCLAW_GATEWAY_TOKEN over configured refs", async () => {
     const config = createRemoteGatewayTokenRefConfig("REMOTE_GATEWAY_TOKEN");
 
     await withEnvAsync(
       {
-        OPENCLAW_GATEWAY_TOKEN: "token-from-env",
+        ALIENCLAW_GATEWAY_TOKEN: "token-from-env",
         REMOTE_GATEWAY_TOKEN: "token-from-ref",
       },
       async () => {
@@ -105,7 +105,7 @@ describe("resolveNodeHostGatewayCredentials", () => {
 
     await withEnvAsync(
       {
-        OPENCLAW_GATEWAY_TOKEN: undefined,
+        ALIENCLAW_GATEWAY_TOKEN: undefined,
         MISSING_REMOTE_GATEWAY_TOKEN: undefined,
       },
       async () => {
@@ -130,12 +130,12 @@ describe("resolveNodeHostGatewayCredentials", () => {
           password: { source: "env", provider: "default", id: "MISSING_REMOTE_GATEWAY_PASSWORD" },
         },
       },
-    } as OpenClawConfig;
+    } as AlienClawConfig;
 
     await withEnvAsync(
       {
-        OPENCLAW_GATEWAY_TOKEN: undefined,
-        OPENCLAW_GATEWAY_PASSWORD: undefined,
+        ALIENCLAW_GATEWAY_TOKEN: undefined,
+        ALIENCLAW_GATEWAY_PASSWORD: undefined,
         REMOTE_GATEWAY_TOKEN: "token-from-ref",
         MISSING_REMOTE_GATEWAY_PASSWORD: undefined,
       },

@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import type { InboundDebounceByProvider } from "../config/types.messages.js";
 
 const resolveMs = (value: unknown): number | undefined => {
@@ -19,7 +19,7 @@ const resolveChannelOverride = (params: {
 };
 
 export function resolveInboundDebounceMs(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   channel: string;
   overrideMs?: number;
 }): number {

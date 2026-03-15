@@ -20,7 +20,7 @@ function acpMeta() {
 
 describe("updateSessionStoreAfterAgentRun", () => {
   it("preserves ACP metadata when caller has a stale session snapshot", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-session-store-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-session-store-"));
     const storePath = path.join(dir, "sessions.json");
     const sessionKey = `agent:codex:acp:${randomUUID()}`;
     const sessionId = randomUUID();
@@ -65,7 +65,7 @@ describe("updateSessionStoreAfterAgentRun", () => {
   });
 
   it("persists latest systemPromptReport for downstream warning dedupe", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-session-store-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-session-store-"));
     const storePath = path.join(dir, "sessions.json");
     const sessionKey = `agent:codex:report:${randomUUID()}`;
     const sessionId = randomUUID();

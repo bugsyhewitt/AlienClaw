@@ -5,15 +5,15 @@ import { createTempHomeEnv } from "../test-utils/temp-home.js";
 
 export function setTempStateDir(workspaceDir: string): string {
   const stateDir = path.join(workspaceDir, "state");
-  process.env.OPENCLAW_STATE_DIR = stateDir;
+  process.env.ALIENCLAW_STATE_DIR = stateDir;
   return stateDir;
 }
 
 export async function withTempWorkspace(
   run: (params: { workspaceDir: string; stateDir: string }) => Promise<void>,
 ) {
-  const tempHome = await createTempHomeEnv("openclaw-skills-install-home-");
-  const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-skills-install-"));
+  const tempHome = await createTempHomeEnv("alienclaw-skills-install-home-");
+  const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-skills-install-"));
   try {
     const stateDir = setTempStateDir(workspaceDir);
     await run({ workspaceDir, stateDir });
@@ -35,7 +35,7 @@ export async function writeDownloadSkill(params: {
   const skillDir = path.join(params.workspaceDir, "skills", params.name);
   await fs.mkdir(skillDir, { recursive: true });
   const meta = {
-    openclaw: {
+    alienclaw: {
       install: [
         {
           id: params.installId,

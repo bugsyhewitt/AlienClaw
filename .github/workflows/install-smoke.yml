@@ -48,7 +48,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          tags: openclaw-dockerfile-smoke:local
+          tags: alienclaw-dockerfile-smoke:local
           load: true
           push: false
           provenance: false
@@ -57,7 +57,7 @@ jobs:
 
       - name: Run root Dockerfile CLI smoke
         run: |
-          docker run --rm --entrypoint sh openclaw-dockerfile-smoke:local -lc 'which openclaw && openclaw --version'
+          docker run --rm --entrypoint sh alienclaw-dockerfile-smoke:local -lc 'which alienclaw && alienclaw --version'
 
       # This smoke only validates that the build-arg path preinstalls selected
       # extension deps without breaking image build or basic CLI startup. It
@@ -68,8 +68,8 @@ jobs:
           context: .
           file: ./Dockerfile
           build-args: |
-            OPENCLAW_EXTENSIONS=diagnostics-otel
-          tags: openclaw-ext-smoke:local
+            ALIENCLAW_EXTENSIONS=diagnostics-otel
+          tags: alienclaw-ext-smoke:local
           load: true
           push: false
           provenance: false
@@ -78,14 +78,14 @@ jobs:
 
       - name: Smoke test Dockerfile with extension build arg
         run: |
-          docker run --rm --entrypoint sh openclaw-ext-smoke:local -lc 'which openclaw && openclaw --version'
+          docker run --rm --entrypoint sh alienclaw-ext-smoke:local -lc 'which alienclaw && alienclaw --version'
 
       - name: Build installer smoke image
         uses: useblacksmith/build-push-action@v2
         with:
           context: ./scripts/docker
           file: ./scripts/docker/install-sh-smoke/Dockerfile
-          tags: openclaw-install-smoke:local
+          tags: alienclaw-install-smoke:local
           load: true
           push: false
           provenance: false
@@ -98,7 +98,7 @@ jobs:
         with:
           context: ./scripts/docker
           file: ./scripts/docker/install-sh-nonroot/Dockerfile
-          tags: openclaw-install-nonroot:local
+          tags: alienclaw-install-nonroot:local
           load: true
           push: false
           provenance: false
@@ -107,8 +107,8 @@ jobs:
 
       - name: Run installer docker tests
         env:
-          CLAWDBOT_INSTALL_URL: https://openclaw.ai/install.sh
-          CLAWDBOT_INSTALL_CLI_URL: https://openclaw.ai/install-cli.sh
+          CLAWDBOT_INSTALL_URL: https://alienclaw.ai/install.sh
+          CLAWDBOT_INSTALL_CLI_URL: https://alienclaw.ai/install-cli.sh
           CLAWDBOT_NO_ONBOARD: "1"
           CLAWDBOT_INSTALL_SMOKE_SKIP_CLI: "1"
           CLAWDBOT_INSTALL_SMOKE_SKIP_IMAGE_BUILD: "1"

@@ -1,13 +1,13 @@
 {
-  "name": "@openclaw/nostr",
+  "name": "@alienclaw/nostr",
   "version": "2026.3.7",
-  "description": "OpenClaw Nostr channel plugin for NIP-04 encrypted DMs",
+  "description": "AlienClaw Nostr channel plugin for NIP-04 encrypted DMs",
   "type": "module",
   "dependencies": {
     "nostr-tools": "^2.23.3",
     "zod": "^4.3.6"
   },
-  "openclaw": {
+  "alienclaw": {
     "extensions": [
       "./index.ts"
     ],
@@ -22,7 +22,7 @@
       "quickstartAllowFrom": true
     },
     "install": {
-      "npmSpec": "@openclaw/nostr",
+      "npmSpec": "@alienclaw/nostr",
       "localPath": "extensions/nostr",
       "defaultChoice": "npm"
     }

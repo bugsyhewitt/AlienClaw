@@ -1,4 +1,4 @@
-import type { PluginRuntime } from "openclaw/plugin-sdk/whatsapp";
+import type { PluginRuntime } from "alienclaw/plugin-sdk/whatsapp";
 
 let runtime: PluginRuntime | null = null;
 

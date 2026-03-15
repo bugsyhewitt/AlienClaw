@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import {
   applyOnboardingLocalWorkspaceConfig,
   ONBOARDING_DEFAULT_DM_SCOPE,
@@ -12,7 +12,7 @@ describe("applyOnboardingLocalWorkspaceConfig", () => {
   });
 
   it("sets secure dmScope default when unset", () => {
-    const baseConfig: OpenClawConfig = {};
+    const baseConfig: AlienClawConfig = {};
     const result = applyOnboardingLocalWorkspaceConfig(baseConfig, "/tmp/workspace");
 
     expect(result.session?.dmScope).toBe(ONBOARDING_DEFAULT_DM_SCOPE);
@@ -22,7 +22,7 @@ describe("applyOnboardingLocalWorkspaceConfig", () => {
   });
 
   it("preserves existing dmScope when already configured", () => {
-    const baseConfig: OpenClawConfig = {
+    const baseConfig: AlienClawConfig = {
       session: {
         dmScope: "main",
       },
@@ -33,7 +33,7 @@ describe("applyOnboardingLocalWorkspaceConfig", () => {
   });
 
   it("preserves explicit non-main dmScope values", () => {
-    const baseConfig: OpenClawConfig = {
+    const baseConfig: AlienClawConfig = {
       session: {
         dmScope: "per-account-channel-peer",
       },
@@ -44,7 +44,7 @@ describe("applyOnboardingLocalWorkspaceConfig", () => {
   });
 
   it("preserves an explicit tools.profile when already configured", () => {
-    const baseConfig: OpenClawConfig = {
+    const baseConfig: AlienClawConfig = {
       tools: {
         profile: "full",
       },

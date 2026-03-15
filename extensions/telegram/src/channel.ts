@@ -4,7 +4,7 @@ import {
   collectOpenGroupPolicyRouteAllowlistWarnings,
   createScopedAccountConfigAccessors,
   formatAllowFromLowercase,
-} from "openclaw/plugin-sdk/compat";
+} from "alienclaw/plugin-sdk/compat";
 import {
   applyAccountNameToChannelSection,
   buildChannelConfigSchema,
@@ -36,16 +36,16 @@ import {
   TelegramConfigSchema,
   type ChannelMessageActionAdapter,
   type ChannelPlugin,
-  type OpenClawConfig,
+  type AlienClawConfig,
   type ResolvedTelegramAccount,
   type TelegramProbe,
-} from "openclaw/plugin-sdk/telegram";
+} from "alienclaw/plugin-sdk/telegram";
 import { getTelegramRuntime } from "./runtime.js";
 
 const meta = getChatChannelMeta("telegram");
 
 function findTelegramTokenOwnerAccountId(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId: string;
 }): string | null {
   const normalizedAccountId = normalizeAccountId(params.accountId);
@@ -512,7 +512,7 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount, TelegramProb
     },
     logoutAccount: async ({ accountId, cfg }) => {
       const envToken = process.env.TELEGRAM_BOT_TOKEN?.trim() ?? "";
-      const nextCfg = { ...cfg } as OpenClawConfig;
+      const nextCfg = { ...cfg } as AlienClawConfig;
       const nextTelegram = cfg.channels?.telegram ? { ...cfg.channels.telegram } : undefined;
       let cleared = false;
       let changed = false;

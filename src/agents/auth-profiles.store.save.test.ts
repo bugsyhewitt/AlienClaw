@@ -8,7 +8,7 @@ import type { AuthProfileStore } from "./auth-profiles/types.js";
 
 describe("saveAuthProfileStore", () => {
   it("strips plaintext when keyRef/tokenRef are present", async () => {
-    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-auth-save-"));
+    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-auth-save-"));
     try {
       const store: AuthProfileStore = {
         version: 1,

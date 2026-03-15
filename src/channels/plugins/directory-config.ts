@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../../config/types.js";
+import type { AlienClawConfig } from "../../config/types.js";
 import { inspectDiscordAccount } from "../../discord/account-inspect.js";
 import { mapAllowFromEntries } from "../../plugin-sdk/channel-config-helpers.js";
 import { inspectSlackAccount } from "../../slack/account-inspect.js";
@@ -9,7 +9,7 @@ import { normalizeSlackMessagingTarget } from "./normalize/slack.js";
 import type { ChannelDirectoryEntry } from "./types.js";
 
 export type DirectoryConfigParams = {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
   query?: string | null;
   limit?: number | null;

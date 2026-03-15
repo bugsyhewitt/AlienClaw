@@ -1,5 +1,5 @@
 import type { AgentToolResult } from "@mariozechner/pi-agent-core";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import { readBooleanParam } from "../../plugin-sdk/boolean-param.js";
 import { resolvePollMaxSelections } from "../../polls.js";
 import {
@@ -91,7 +91,7 @@ export function readTelegramButtons(
 
 export async function handleTelegramAction(
   params: Record<string, unknown>,
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   options?: {
     mediaLocalRoots?: readonly string[];
   },

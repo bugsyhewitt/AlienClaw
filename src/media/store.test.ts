@@ -12,7 +12,7 @@ describe("media store", () => {
   let tempHome: TempHomeEnv;
 
   beforeAll(async () => {
-    tempHome = await createTempHomeEnv("openclaw-test-home-");
+    tempHome = await createTempHomeEnv("alienclaw-test-home-");
     home = tempHome.home;
     store = await import("./store.js");
   });
@@ -39,7 +39,7 @@ describe("media store", () => {
     await withTempStore(async (store, home) => {
       const dir = await store.ensureMediaDir();
       expect(isPathWithinBase(home, dir)).toBe(true);
-      expect(path.normalize(dir)).toContain(`${path.sep}.openclaw${path.sep}media`);
+      expect(path.normalize(dir)).toContain(`${path.sep}.alienclaw${path.sep}media`);
       const stat = await fs.stat(dir);
       expect(stat.isDirectory()).toBe(true);
     });

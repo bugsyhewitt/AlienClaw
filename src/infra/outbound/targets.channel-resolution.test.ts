@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getChannelPlugin: vi.fn(),
-  loadOpenClawPlugins: vi.fn(),
+  loadAlienClawPlugins: vi.fn(),
 }));
 
-const TEST_WORKSPACE_ROOT = "/tmp/openclaw-test-workspace";
+const TEST_WORKSPACE_ROOT = "/tmp/alienclaw-test-workspace";
 
 function normalizeChannel(value?: string) {
   return value?.trim().toLowerCase() ?? undefined;
@@ -37,7 +37,7 @@ vi.mock("../../agents/agent-scope.js", () => ({
 }));
 
 vi.mock("../../plugins/loader.js", () => ({
-  loadOpenClawPlugins: mocks.loadOpenClawPlugins,
+  loadAlienClawPlugins: mocks.loadAlienClawPlugins,
 }));
 
 vi.mock("../../config/plugin-auto-enable.js", () => ({
@@ -64,7 +64,7 @@ describe("resolveOutboundTarget channel resolution", () => {
     registrySeq += 1;
     setActivePluginRegistry(createTestRegistry([]), `targets-test-${registrySeq}`);
     mocks.getChannelPlugin.mockReset();
-    mocks.loadOpenClawPlugins.mockReset();
+    mocks.loadAlienClawPlugins.mockReset();
   });
 
   it("recovers telegram plugin resolution so announce delivery does not fail with Unsupported channel: telegram", () => {
@@ -77,7 +77,7 @@ describe("resolveOutboundTarget channel resolution", () => {
     const result = resolveTelegramTarget();
 
     expect(result).toEqual({ ok: true, to: "123456" });
-    expect(mocks.loadOpenClawPlugins).toHaveBeenCalledTimes(1);
+    expect(mocks.loadAlienClawPlugins).toHaveBeenCalledTimes(1);
   });
 
   it("retries bootstrap on subsequent resolve when the first bootstrap attempt fails", () => {
@@ -88,7 +88,7 @@ describe("resolveOutboundTarget channel resolution", () => {
       .mockReturnValueOnce(undefined)
       .mockReturnValueOnce(telegramPlugin)
       .mockReturnValue(telegramPlugin);
-    mocks.loadOpenClawPlugins
+    mocks.loadAlienClawPlugins
       .mockImplementationOnce(() => {
         throw new Error("bootstrap failed");
       })
@@ -99,6 +99,6 @@ describe("resolveOutboundTarget channel resolution", () => {
 
     expect(first.ok).toBe(false);
     expect(second).toEqual({ ok: true, to: "123456" });
-    expect(mocks.loadOpenClawPlugins).toHaveBeenCalledTimes(2);
+    expect(mocks.loadAlienClawPlugins).toHaveBeenCalledTimes(2);
   });
 });

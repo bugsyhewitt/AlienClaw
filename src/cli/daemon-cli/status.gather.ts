@@ -5,7 +5,7 @@ import {
   resolveStateDir,
 } from "../../config/config.js";
 import type {
-  OpenClawConfig,
+  AlienClawConfig,
   GatewayBindMode,
   GatewayControlUiConfig,
 } from "../../config/types.js";
@@ -110,7 +110,7 @@ function shouldReportPortUsage(status: PortUsageStatus | undefined, rpcOk?: bool
 }
 
 async function resolveDaemonProbeToken(params: {
-  daemonCfg: OpenClawConfig;
+  daemonCfg: AlienClawConfig;
   mergedDaemonEnv: Record<string, string | undefined>;
   explicitToken?: string;
   explicitPassword?: string;
@@ -153,7 +153,7 @@ async function resolveDaemonProbeToken(params: {
 }
 
 async function resolveDaemonProbePassword(params: {
-  daemonCfg: OpenClawConfig;
+  daemonCfg: AlienClawConfig;
   mergedDaemonEnv: Record<string, string | undefined>;
   explicitToken?: string;
   explicitPassword?: string;

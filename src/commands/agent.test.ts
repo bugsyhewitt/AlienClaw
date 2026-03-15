@@ -9,7 +9,7 @@ import { loadModelCatalog } from "../agents/model-catalog.js";
 import * as modelSelectionModule from "../agents/model-selection.js";
 import { runEmbeddedPiAgent } from "../agents/pi-embedded.js";
 import * as commandSecretGatewayModule from "../cli/command-secret-gateway.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import * as configModule from "../config/config.js";
 import * as sessionsModule from "../config/sessions.js";
 import { emitAgentEvent, onAgentEvent } from "../infra/agent-events.js";
@@ -58,14 +58,14 @@ const runCliAgentSpy = vi.spyOn(cliRunnerModule, "runCliAgent");
 const deliverAgentCommandResultSpy = vi.spyOn(agentDeliveryModule, "deliverAgentCommandResult");
 
 async function withTempHome<T>(fn: (home: string) => Promise<T>): Promise<T> {
-  return withTempHomeBase(fn, { prefix: "openclaw-agent-" });
+  return withTempHomeBase(fn, { prefix: "alienclaw-agent-" });
 }
 
 function mockConfig(
   home: string,
   storePath: string,
-  agentOverrides?: Partial<NonNullable<NonNullable<OpenClawConfig["agents"]>["defaults"]>>,
-  telegramOverrides?: Partial<NonNullable<NonNullable<OpenClawConfig["channels"]>["telegram"]>>,
+  agentOverrides?: Partial<NonNullable<NonNullable<AlienClawConfig["agents"]>["defaults"]>>,
+  telegramOverrides?: Partial<NonNullable<NonNullable<AlienClawConfig["channels"]>["telegram"]>>,
   agentsList?: Array<{ id: string; default?: boolean }>,
 ) {
   configSpy.mockReturnValue({
@@ -73,7 +73,7 @@ function mockConfig(
       defaults: {
         model: { primary: "anthropic/claude-opus-4-5" },
         models: { "anthropic/claude-opus-4-5": {} },
-        workspace: path.join(home, "openclaw"),
+        workspace: path.join(home, "alienclaw"),
         ...agentOverrides,
       },
       list: agentsList,
@@ -98,8 +98,8 @@ async function runWithDefaultAgentConfig(params: {
 
 async function runEmbeddedWithTempConfig(params: {
   args: Parameters<typeof agentCommand>[0];
-  agentOverrides?: Partial<NonNullable<NonNullable<OpenClawConfig["agents"]>["defaults"]>>;
-  telegramOverrides?: Partial<NonNullable<NonNullable<OpenClawConfig["channels"]>["telegram"]>>;
+  agentOverrides?: Partial<NonNullable<NonNullable<AlienClawConfig["agents"]>["defaults"]>>;
+  telegramOverrides?: Partial<NonNullable<NonNullable<AlienClawConfig["channels"]>["telegram"]>>;
   agentsList?: Array<{ id: string; default?: boolean }>;
 }) {
   return withTempHome(async (home) => {
@@ -202,7 +202,7 @@ async function runAgentWithSessionKey(sessionKey: string): Promise<void> {
 }
 
 async function expectDefaultThinkLevel(params: {
-  agentOverrides?: Partial<NonNullable<NonNullable<OpenClawConfig["agents"]>["defaults"]>>;
+  agentOverrides?: Partial<NonNullable<NonNullable<AlienClawConfig["agents"]>["defaults"]>>;
   catalogEntry: Record<string, unknown>;
   expected: string;
 }) {
@@ -265,7 +265,7 @@ beforeEach(() => {
   vi.mocked(loadModelCatalog).mockResolvedValue([]);
   vi.mocked(modelSelectionModule.isCliProvider).mockImplementation(() => false);
   readConfigFileSnapshotForWriteSpy.mockResolvedValue({
-    snapshot: { valid: false, resolved: {} as OpenClawConfig },
+    snapshot: { valid: false, resolved: {} as AlienClawConfig },
     writeOptions: {},
   } as Awaited<ReturnType<typeof configModule.readConfigFileSnapshotForWrite>>);
 });
@@ -279,7 +279,7 @@ describe("agentCommand", () => {
           defaults: {
             model: { primary: "anthropic/claude-opus-4-5" },
             models: { "anthropic/claude-opus-4-5": {} },
-            workspace: path.join(home, "openclaw"),
+            workspace: path.join(home, "alienclaw"),
           },
         },
         session: { store, mainKey: "main" },
@@ -292,7 +292,7 @@ describe("agentCommand", () => {
             },
           },
         },
-      } as unknown as OpenClawConfig;
+      } as unknown as AlienClawConfig;
       const sourceConfig = {
         ...loadedConfig,
         models: {
@@ -304,7 +304,7 @@ describe("agentCommand", () => {
             },
           },
         },
-      } as unknown as OpenClawConfig;
+      } as unknown as AlienClawConfig;
       const resolvedConfig = {
         ...loadedConfig,
         models: {
@@ -316,7 +316,7 @@ describe("agentCommand", () => {
             },
           },
         },
-      } as unknown as OpenClawConfig;
+      } as unknown as AlienClawConfig;
 
       configSpy.mockReturnValue(loadedConfig);
       readConfigFileSnapshotForWriteSpy.mockResolvedValue({

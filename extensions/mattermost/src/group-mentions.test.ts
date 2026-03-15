@@ -1,10 +1,10 @@
-import type { OpenClawConfig } from "openclaw/plugin-sdk/mattermost";
+import type { AlienClawConfig } from "alienclaw/plugin-sdk/mattermost";
 import { describe, expect, it } from "vitest";
 import { resolveMattermostGroupRequireMention } from "./group-mentions.js";
 
 describe("resolveMattermostGroupRequireMention", () => {
   it("defaults to requiring mention when no override is configured", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         mattermost: {},
       },
@@ -15,7 +15,7 @@ describe("resolveMattermostGroupRequireMention", () => {
   });
 
   it("respects chatmode-derived account override", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         mattermost: {
           chatmode: "onmessage",
@@ -28,7 +28,7 @@ describe("resolveMattermostGroupRequireMention", () => {
   });
 
   it("prefers an explicit runtime override when provided", () => {
-    const cfg: OpenClawConfig = {
+    const cfg: AlienClawConfig = {
       channels: {
         mattermost: {
           chatmode: "oncall",

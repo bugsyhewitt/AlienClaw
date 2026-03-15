@@ -108,14 +108,14 @@ describe("validateBindMounts", () => {
       // SeCreateSymbolicLinkPrivilege on Windows.  The Windows branch of this
       // test does not need a real symlink — it only asserts that Windows source
       // paths are rejected as non-POSIX.
-      const dir = mkdtempSync(join(tmpdir(), "openclaw-sbx-"));
+      const dir = mkdtempSync(join(tmpdir(), "alienclaw-sbx-"));
       const fakePath = join(dir, "etc-link", "passwd");
       const run = () => validateBindMounts([`${fakePath}:/mnt/passwd:ro`]);
       expect(run).toThrow(/non-absolute source path/);
       return;
     }
 
-    const dir = mkdtempSync(join(tmpdir(), "openclaw-sbx-"));
+    const dir = mkdtempSync(join(tmpdir(), "alienclaw-sbx-"));
     const link = join(dir, "etc-link");
     symlinkSync("/etc", link);
     const run = () => validateBindMounts([`${link}/passwd:/mnt/passwd:ro`]);
@@ -127,7 +127,7 @@ describe("validateBindMounts", () => {
       // Windows source paths (e.g. C:\\...) are intentionally rejected as non-POSIX.
       return;
     }
-    const dir = mkdtempSync(join(tmpdir(), "openclaw-sbx-"));
+    const dir = mkdtempSync(join(tmpdir(), "alienclaw-sbx-"));
     const workspace = join(dir, "workspace");
     const outside = join(dir, "outside");
     mkdirSync(workspace, { recursive: true });
@@ -147,12 +147,12 @@ describe("validateBindMounts", () => {
       // Windows source paths (e.g. C:\\...) are intentionally rejected as non-POSIX.
       return;
     }
-    const dir = mkdtempSync(join(tmpdir(), "openclaw-sbx-"));
+    const dir = mkdtempSync(join(tmpdir(), "alienclaw-sbx-"));
     const workspace = join(dir, "workspace");
     mkdirSync(workspace, { recursive: true });
     const link = join(workspace, "run-link");
     symlinkSync("/var/run", link);
-    const missingLeaf = join(link, "openclaw-not-created");
+    const missingLeaf = join(link, "alienclaw-not-created");
     expect(() =>
       validateBindMounts([`${missingLeaf}:/mnt/run:ro`], {
         allowedSourceRoots: [workspace],
@@ -262,7 +262,7 @@ describe("validateSeccompProfile", () => {
 
 describe("validateApparmorProfile", () => {
   it("allows named profile/undefined", () => {
-    expect(() => validateApparmorProfile("openclaw-sandbox")).not.toThrow();
+    expect(() => validateApparmorProfile("alienclaw-sandbox")).not.toThrow();
     expect(() => validateApparmorProfile(undefined)).not.toThrow();
   });
 });
@@ -292,7 +292,7 @@ describe("validateSandboxSecurity", () => {
         binds: ["/home/user/src:/src:rw"],
         network: "none",
         seccompProfile: "/tmp/seccomp.json",
-        apparmorProfile: "openclaw-sandbox",
+        apparmorProfile: "alienclaw-sandbox",
       }),
     ).not.toThrow();
   });

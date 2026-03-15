@@ -23,16 +23,16 @@ import { HEARTBEAT_TOKEN } from "./tokens.js";
 let getReplyFromConfig: typeof import("./reply.js").getReplyFromConfig;
 let previousFastTestEnv: string | undefined;
 beforeAll(async () => {
-  previousFastTestEnv = process.env.OPENCLAW_TEST_FAST;
-  process.env.OPENCLAW_TEST_FAST = "1";
+  previousFastTestEnv = process.env.ALIENCLAW_TEST_FAST;
+  process.env.ALIENCLAW_TEST_FAST = "1";
   ({ getReplyFromConfig } = await import("./reply.js"));
 });
 afterAll(() => {
   if (previousFastTestEnv === undefined) {
-    delete process.env.OPENCLAW_TEST_FAST;
+    delete process.env.ALIENCLAW_TEST_FAST;
     return;
   }
-  process.env.OPENCLAW_TEST_FAST = previousFastTestEnv;
+  process.env.ALIENCLAW_TEST_FAST = previousFastTestEnv;
 });
 
 installTriggerHandlingE2eTestHooks();
@@ -154,7 +154,7 @@ describe("trigger handling", () => {
         {
           error: "sandbox is not defined.",
           expected:
-            "⚠️ Agent failed before reply: sandbox is not defined.\nLogs: openclaw logs --follow",
+            "⚠️ Agent failed before reply: sandbox is not defined.\nLogs: alienclaw logs --follow",
         },
         {
           error: "Context window exceeded",

@@ -1,10 +1,10 @@
 {
-  "name": "@openclaw/imessage",
+  "name": "@alienclaw/imessage",
   "version": "2026.3.7",
   "private": true,
-  "description": "OpenClaw iMessage channel plugin",
+  "description": "AlienClaw iMessage channel plugin",
   "type": "module",
-  "openclaw": {
+  "alienclaw": {
     "extensions": [
       "./index.ts"
     ]

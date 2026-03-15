@@ -83,10 +83,10 @@ function createBasePreflightParams(overrides?: Record<string, unknown>) {
         mainKey: "main",
         scope: "per-sender",
       },
-    } as import("../../config/config.js").OpenClawConfig,
+    } as import("../../config/config.js").AlienClawConfig,
     discordConfig: {
       allowBots: true,
-    } as NonNullable<import("../../config/config.js").OpenClawConfig["channels"]>["discord"],
+    } as NonNullable<import("../../config/config.js").AlienClawConfig["channels"]>["discord"],
     accountId: "default",
     token: "token",
     runtime: {} as import("../../runtime.js").RuntimeEnv,

@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { escapeRegExp, formatEnvelopeTimestamp } from "../../test/helpers/envelope-timestamp.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { setLoggerOverride } from "../logging.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import {
@@ -341,11 +341,11 @@ describe("web auto-reply connection", () => {
         const firstPattern = escapeRegExp(firstTimestamp);
         const secondPattern = escapeRegExp(secondTimestamp);
         expect(firstArgs.Body).toMatch(
-          new RegExp(`\\[WhatsApp \\+1 (\\+\\d+[smhd] )?${firstPattern}\\] \\[openclaw\\] first`),
+          new RegExp(`\\[WhatsApp \\+1 (\\+\\d+[smhd] )?${firstPattern}\\] \\[alienclaw\\] first`),
         );
         expect(firstArgs.Body).not.toContain("second");
         expect(secondArgs.Body).toMatch(
-          new RegExp(`\\[WhatsApp \\+1 (\\+\\d+[smhd] )?${secondPattern}\\] \\[openclaw\\] second`),
+          new RegExp(`\\[WhatsApp \\+1 (\\+\\d+[smhd] )?${secondPattern}\\] \\[alienclaw\\] second`),
         );
         expect(secondArgs.Body).not.toContain("first");
         expect(process.getMaxListeners?.()).toBeGreaterThanOrEqual(50);
@@ -359,7 +359,7 @@ describe("web auto-reply connection", () => {
 
   it("emits heartbeat logs with connection metadata", async () => {
     vi.useFakeTimers();
-    const logPath = `/tmp/openclaw-heartbeat-${crypto.randomUUID()}.log`;
+    const logPath = `/tmp/alienclaw-heartbeat-${crypto.randomUUID()}.log`;
     setLoggerOverride({ level: "trace", file: logPath });
 
     const runtime = {
@@ -401,7 +401,7 @@ describe("web auto-reply connection", () => {
   });
 
   it("logs outbound replies to file", async () => {
-    const logPath = `/tmp/openclaw-log-test-${crypto.randomUUID()}.log`;
+    const logPath = `/tmp/alienclaw-log-test-${crypto.randomUUID()}.log`;
     setLoggerOverride({ level: "trace", file: logPath });
 
     const capture = createWebListenerFactoryCapture();
@@ -451,7 +451,7 @@ describe("web auto-reply connection", () => {
       return { text: "final reply" };
     });
 
-    const mockConfig: OpenClawConfig = {
+    const mockConfig: AlienClawConfig = {
       channels: { whatsapp: { allowFrom: ["*"] } },
     };
 

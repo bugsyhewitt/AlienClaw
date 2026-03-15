@@ -13,7 +13,7 @@ import {
   normalizeUsage,
   type UsageLike,
 } from "../../agents/usage.js";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import {
   resolveAgentIdFromSessionKey,
   resolveSessionFilePath,
@@ -248,7 +248,7 @@ export async function readPromptTokensFromSessionLog(
 }
 
 export async function runMemoryFlushIfNeeded(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   followupRun: FollowupRun;
   promptForEstimate?: string;
   sessionCtx: TemplateContext;

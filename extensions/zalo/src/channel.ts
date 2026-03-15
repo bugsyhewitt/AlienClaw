@@ -4,13 +4,13 @@ import {
   buildOpenGroupPolicyRestrictSendersWarning,
   buildOpenGroupPolicyWarning,
   mapAllowFromEntries,
-} from "openclaw/plugin-sdk/compat";
+} from "alienclaw/plugin-sdk/compat";
 import type {
   ChannelAccountSnapshot,
   ChannelDock,
   ChannelPlugin,
-  OpenClawConfig,
-} from "openclaw/plugin-sdk/zalo";
+  AlienClawConfig,
+} from "alienclaw/plugin-sdk/zalo";
 import {
   applyAccountNameToChannelSection,
   applySetupAccountConfigPatch,
@@ -30,7 +30,7 @@ import {
   resolveOutboundMediaUrls,
   sendPayloadWithChunkedTextAndMedia,
   setAccountEnabledInConfigSection,
-} from "openclaw/plugin-sdk/zalo";
+} from "alienclaw/plugin-sdk/zalo";
 import {
   listZaloAccountIds,
   resolveDefaultZaloAccountId,

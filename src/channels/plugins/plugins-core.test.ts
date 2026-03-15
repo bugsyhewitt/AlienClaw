@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from "vitest";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import type { DiscordProbe } from "../../discord/probe.js";
 import type { DiscordTokenResolution } from "../../discord/token.js";
 import type { IMessageProbe } from "../../imessage/probe.js";
@@ -104,7 +104,7 @@ describe("channel plugin registry", () => {
 describe("channel plugin catalog", () => {
   it("includes Microsoft Teams", () => {
     const entry = getChannelPluginCatalogEntry("msteams");
-    expect(entry?.install.npmSpec).toBe("@openclaw/msteams");
+    expect(entry?.install.npmSpec).toBe("@alienclaw/msteams");
     expect(entry?.meta.aliases).toContain("teams");
   });
 
@@ -114,15 +114,15 @@ describe("channel plugin catalog", () => {
   });
 
   it("includes external catalog entries", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-catalog-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "alienclaw-catalog-"));
     const catalogPath = path.join(dir, "catalog.json");
     fs.writeFileSync(
       catalogPath,
       JSON.stringify({
         entries: [
           {
-            name: "@openclaw/demo-channel",
-            openclaw: {
+            name: "@alienclaw/demo-channel",
+            alienclaw: {
               channel: {
                 id: "demo-channel",
                 label: "Demo Channel",
@@ -132,7 +132,7 @@ describe("channel plugin catalog", () => {
                 order: 999,
               },
               install: {
-                npmSpec: "@openclaw/demo-channel",
+                npmSpec: "@alienclaw/demo-channel",
               },
             },
           },
@@ -203,13 +203,13 @@ function makeSlackConfigWritesCfg(accountIdKey: string) {
 }
 
 type DirectoryListFn = (params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
   query?: string | null;
   limit?: number | null;
 }) => Promise<ChannelDirectoryEntry[]>;
 
-async function listDirectoryEntriesWithDefaults(listFn: DirectoryListFn, cfg: OpenClawConfig) {
+async function listDirectoryEntriesWithDefaults(listFn: DirectoryListFn, cfg: AlienClawConfig) {
   return await listFn({
     cfg,
     accountId: "default",
@@ -220,7 +220,7 @@ async function listDirectoryEntriesWithDefaults(listFn: DirectoryListFn, cfg: Op
 
 async function expectDirectoryIds(
   listFn: DirectoryListFn,
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   expected: string[],
   options?: { sorted?: boolean },
 ) {

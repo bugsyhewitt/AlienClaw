@@ -58,7 +58,7 @@ function buildEntry(name: string): SkillEntry {
     skill: {
       name,
       description: `${name} test skill`,
-      source: "openclaw-workspace",
+      source: "alienclaw-workspace",
       filePath: path.join(skillDir, "SKILL.md"),
       baseDir: skillDir,
       disableModelInvocation: false,
@@ -146,7 +146,7 @@ let workspaceDir = "";
 let stateDir = "";
 
 beforeAll(async () => {
-  workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-skills-install-"));
+  workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-skills-install-"));
   stateDir = setTempStateDir(workspaceDir);
 });
 

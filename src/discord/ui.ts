@@ -1,5 +1,5 @@
 import { Container } from "@buape/carbon";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { inspectDiscordAccount } from "./account-inspect.js";
 
 const DEFAULT_DISCORD_ACCENT_COLOR = "#5865F2";
@@ -7,7 +7,7 @@ const DEFAULT_DISCORD_ACCENT_COLOR = "#5865F2";
 type DiscordContainerComponents = ConstructorParameters<typeof Container>[0];
 
 type ResolveDiscordAccentColorParams = {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
 };
 
@@ -31,7 +31,7 @@ export function resolveDiscordAccentColor(params: ResolveDiscordAccentColorParam
 
 export class DiscordUiContainer extends Container {
   constructor(params: {
-    cfg: OpenClawConfig;
+    cfg: AlienClawConfig;
     accountId?: string | null;
     components?: DiscordContainerComponents;
     accentColor?: string;

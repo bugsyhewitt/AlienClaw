@@ -17,7 +17,7 @@ import {
 import { buildMentionRegexes, matchesMentionPatterns } from "../auto-reply/reply/mentions.js";
 import { resolveControlCommandGate } from "../channels/command-gating.js";
 import { resolveMentionGatingWithBypass } from "../channels/mention-gating.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import {
   resolveAllowlistProviderRuntimeGroupPolicy,
   resolveDefaultGroupPolicy,
@@ -70,7 +70,7 @@ function isDownloadableLineMessageType(
 }
 
 export interface LineHandlerContext {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   account: ResolvedLineAccount;
   runtime: RuntimeEnv;
   mediaMaxBytes: number;
@@ -461,7 +461,7 @@ function resolveEventRawText(event: MessageEvent | PostbackEvent): string {
 }
 
 function resolveLineCommandAuthorized(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   event: MessageEvent | PostbackEvent;
   senderId?: string;
   allow: NormalizedAllowFrom;

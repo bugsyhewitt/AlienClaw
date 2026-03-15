@@ -13,7 +13,7 @@ type AuthProfileStore = ReturnType<typeof ensureAuthProfileStore>;
 async function withAuthProfileStore(
   fn: (ctx: { agentDir: string; store: AuthProfileStore }) => Promise<void>,
 ): Promise<void> {
-  const agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-auth-"));
+  const agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "alienclaw-auth-"));
   try {
     const authPath = path.join(agentDir, "auth-profiles.json");
     fs.writeFileSync(
@@ -147,7 +147,7 @@ describe("markAuthProfileFailure", () => {
     });
   });
   it("resets backoff counters outside the failure window", async () => {
-    const agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-auth-"));
+    const agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "alienclaw-auth-"));
     try {
       const authPath = path.join(agentDir, "auth-profiles.json");
       const now = Date.now();

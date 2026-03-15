@@ -4,7 +4,7 @@ import {
   normalizeChannelId as normalizePluginChannelId,
 } from "../../channels/plugins/index.js";
 import type { ChannelId } from "../../channels/plugins/types.js";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import { resolveChannelGroupRequireMention } from "../../config/group-policy.js";
 import type { GroupKeyResolution, SessionEntry } from "../../config/sessions.js";
 import { isInternalMessageChannel } from "../../utils/message-channel.js";
@@ -53,7 +53,7 @@ function resolveDockChannelId(raw?: string | null): ChannelId | null {
 }
 
 export function resolveGroupRequireMention(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   ctx: TemplateContext;
   groupResolution?: GroupKeyResolution;
 }): boolean {
@@ -139,7 +139,7 @@ export function buildGroupChatContext(params: { sessionCtx: TemplateContext }): 
 }
 
 export function buildGroupIntro(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   sessionCtx: TemplateContext;
   sessionEntry?: SessionEntry;
   defaultActivation: "always" | "mention";
@@ -168,7 +168,7 @@ export function buildGroupIntro(params: {
     : undefined;
   const silenceLine =
     activation === "always"
-      ? `If no response is needed, reply with exactly "${params.silentToken}" (and nothing else) so OpenClaw stays silent. Do not add any other words, punctuation, tags, markdown/code blocks, or explanations.`
+      ? `If no response is needed, reply with exactly "${params.silentToken}" (and nothing else) so AlienClaw stays silent. Do not add any other words, punctuation, tags, markdown/code blocks, or explanations.`
       : undefined;
   const cautionLine =
     activation === "always"

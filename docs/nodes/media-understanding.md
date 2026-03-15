@@ -8,7 +8,7 @@ title: "Media Understanding"
 
 # Media Understanding (Inbound) — 2026-01-17
 
-OpenClaw can **summarize inbound media** (image/audio/video) before the reply pipeline runs. It auto‑detects when local tools or provider keys are available, and can be disabled or customized. If understanding is off, models still receive the original files/URLs as usual.
+AlienClaw can **summarize inbound media** (image/audio/video) before the reply pipeline runs. It auto‑detects when local tools or provider keys are available, and can be disabled or customized. If understanding is off, models still receive the original files/URLs as usual.
 
 ## Goals
 
@@ -129,13 +129,13 @@ Rules:
 - Audio files smaller than **1024 bytes** are treated as empty/corrupt and skipped before provider/CLI transcription.
 - If the model returns more than `maxChars`, output is trimmed.
 - `prompt` defaults to simple “Describe the {media}.” plus the `maxChars` guidance (image/video only).
-- If `<capability>.enabled: true` but no models are configured, OpenClaw tries the
+- If `<capability>.enabled: true` but no models are configured, AlienClaw tries the
   **active reply model** when its provider supports the capability.
 
 ### Auto-detect media understanding (default)
 
 If `tools.media.<capability>.enabled` is **not** set to `false` and you haven’t
-configured models, OpenClaw auto-detects in this order and **stops at the first
+configured models, AlienClaw auto-detects in this order and **stops at the first
 working option**:
 
 1. **Local CLIs** (audio only; if installed)
@@ -166,7 +166,7 @@ Note: Binary detection is best-effort across macOS/Linux/Windows; ensure the CLI
 
 ### Proxy environment support (provider models)
 
-When provider-based **audio** and **video** media understanding is enabled, OpenClaw
+When provider-based **audio** and **video** media understanding is enabled, AlienClaw
 honors standard outbound proxy environment variables for provider HTTP calls:
 
 - `HTTPS_PROXY`
@@ -175,13 +175,13 @@ honors standard outbound proxy environment variables for provider HTTP calls:
 - `http_proxy`
 
 If no proxy env vars are set, media understanding uses direct egress.
-If the proxy value is malformed, OpenClaw logs a warning and falls back to direct
+If the proxy value is malformed, AlienClaw logs a warning and falls back to direct
 fetch.
 
 ## Capabilities (optional)
 
 If you set `capabilities`, the entry only runs for those media types. For shared
-lists, OpenClaw can infer defaults:
+lists, AlienClaw can infer defaults:
 
 - `openai`, `anthropic`, `minimax`: **image**
 - `google` (Gemini API): **image + audio + video**
@@ -191,7 +191,7 @@ lists, OpenClaw can infer defaults:
 For CLI entries, **set `capabilities` explicitly** to avoid surprising matches.
 If you omit `capabilities`, the entry is eligible for the list it appears in.
 
-## Provider support matrix (OpenClaw integrations)
+## Provider support matrix (AlienClaw integrations)
 
 | Capability | Provider integration                             | Notes                                                     |
 | ---------- | ------------------------------------------------ | --------------------------------------------------------- |
@@ -205,7 +205,7 @@ If you omit `capabilities`, the entry is eligible for the list it appears in.
 - For tool-enabled agents handling untrusted inputs, avoid older/weaker media models.
 - Keep at least one fallback per capability for availability (quality model + faster/cheaper model).
 - CLI fallbacks (`whisper-cli`, `whisper`, `gemini`) are useful when provider APIs are unavailable.
-- `parakeet-mlx` note: with `--output-dir`, OpenClaw reads `<output-dir>/<media-basename>.txt` when output format is `txt` (or unspecified); non-`txt` formats fall back to stdout.
+- `parakeet-mlx` note: with `--output-dir`, AlienClaw reads `<output-dir>/<media-basename>.txt` when output format is `txt` (or unspecified); non-`txt` formats fall back to stdout.
 
 ## Attachment policy
 

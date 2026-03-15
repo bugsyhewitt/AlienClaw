@@ -118,7 +118,7 @@ describe("AcpxRuntime", () => {
     const prompt = logs.find((entry) => entry.kind === "prompt");
     expect(ensure).toBeDefined();
     expect(prompt).toBeDefined();
-    expect(prompt?.openclawShell).toBe("acp");
+    expect(prompt?.alienclawShell).toBe("acp");
     expect(Array.isArray(prompt?.args)).toBe(true);
     const promptArgs = (prompt?.args as string[]) ?? [];
     expect(promptArgs).toContain("--ttl");
@@ -350,7 +350,7 @@ describe("AcpxRuntime", () => {
 
   it("does not mark backend unhealthy when a per-session cwd is missing", async () => {
     const { runtime } = await createMockRuntimeFixture();
-    const missingCwd = path.join(os.tmpdir(), "openclaw-acpx-runtime-test-missing-cwd");
+    const missingCwd = path.join(os.tmpdir(), "alienclaw-acpx-runtime-test-missing-cwd");
 
     await runtime.probeAvailability();
     expect(runtime.isHealthy()).toBe(true);

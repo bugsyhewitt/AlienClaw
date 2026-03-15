@@ -1,5 +1,5 @@
-import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "openclaw/plugin-sdk/account-id";
-import { createAccountListHelpers, type OpenClawConfig } from "openclaw/plugin-sdk/bluebubbles";
+import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "alienclaw/plugin-sdk/account-id";
+import { createAccountListHelpers, type AlienClawConfig } from "alienclaw/plugin-sdk/bluebubbles";
 import { hasConfiguredSecretInput, normalizeSecretInputString } from "./secret-input.js";
 import { normalizeBlueBubblesServerUrl, type BlueBubblesAccountConfig } from "./types.js";
 
@@ -19,7 +19,7 @@ const {
 export { listBlueBubblesAccountIds, resolveDefaultBlueBubblesAccountId };
 
 function resolveAccountConfig(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   accountId: string,
 ): BlueBubblesAccountConfig | undefined {
   const accounts = cfg.channels?.bluebubbles?.accounts;
@@ -30,7 +30,7 @@ function resolveAccountConfig(
 }
 
 function mergeBlueBubblesAccountConfig(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   accountId: string,
 ): BlueBubblesAccountConfig {
   const base = (cfg.channels?.bluebubbles ?? {}) as BlueBubblesAccountConfig & {
@@ -44,7 +44,7 @@ function mergeBlueBubblesAccountConfig(
 }
 
 export function resolveBlueBubblesAccount(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
 }): ResolvedBlueBubblesAccount {
   const accountId = normalizeAccountId(params.accountId);
@@ -65,7 +65,7 @@ export function resolveBlueBubblesAccount(params: {
   };
 }
 
-export function listEnabledBlueBubblesAccounts(cfg: OpenClawConfig): ResolvedBlueBubblesAccount[] {
+export function listEnabledBlueBubblesAccounts(cfg: AlienClawConfig): ResolvedBlueBubblesAccount[] {
   return listBlueBubblesAccountIds(cfg)
     .map((accountId) => resolveBlueBubblesAccount({ cfg, accountId }))
     .filter((account) => account.enabled);

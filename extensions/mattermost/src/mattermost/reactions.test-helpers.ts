@@ -1,7 +1,7 @@
-import type { OpenClawConfig } from "openclaw/plugin-sdk/mattermost";
+import type { AlienClawConfig } from "alienclaw/plugin-sdk/mattermost";
 import { expect, vi } from "vitest";
 
-export function createMattermostTestConfig(): OpenClawConfig {
+export function createMattermostTestConfig(): AlienClawConfig {
   return {
     channels: {
       mattermost: {

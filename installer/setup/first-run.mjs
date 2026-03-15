@@ -381,7 +381,7 @@ export async function runFirstRun() {
   let row = 2;
 
   // Header
-  write(at(row, 1) + center(CYAN + BOLD + '━━━  ALIENCLAW MISSION SETUP  ━━━' + RESET, cols));
+  write(at(row, 1) + center(GREEN + BOLD + '━━━   A L I E N C L A W   S E T U P   ━━━' + RESET, cols));
   write(at(row + 1, 1) + center(GRAY + DIM + 'Configure your command center' + RESET, cols));
   row += 4;
 
@@ -429,7 +429,7 @@ export async function runFirstRun() {
 
   const VERBOSITY = ['Quiet  — summary only', 'Normal — standard output', 'Verbose — full agent stream'];
   const verbIdx = await selectMenu('How much output do you want?', VERBOSITY, row);
-  const verbosityMap = ['quiet', 'normal', 'verbose'];
+  const verbosityMap = ['silent', 'normal', 'verbose'];
 
   row += 2 + VERBOSITY.length + 3;
 
@@ -464,11 +464,11 @@ export async function runFirstRun() {
   row += 5;
 
   // ── Save config ───────────────────────────────────────────────────────────
-  saveConfig({
-    provider:  PROVIDER_IDS[providerLabel],
-    verbosity: verbosityMap[verbIdx],
-  });
+  // provider and verbosity are AlienClaw preferences — write to preferences.json
+  // NOT to alienclaw.json (OpenClaw's config file, which rejects unknown keys)
   savePrefs({
+    provider:         PROVIDER_IDS[providerLabel],
+    verbosity:        verbosityMap[verbIdx],
     evolutionOptIn:   evolveOptIn,
     setupComplete:    true,
     setupCompletedAt: new Date().toISOString(),

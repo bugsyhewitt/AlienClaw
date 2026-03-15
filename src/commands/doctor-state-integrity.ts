@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { resolveDefaultAgentId } from "../agents/agent-scope.js";
 import { formatCliCommand } from "../cli/command-format.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { resolveOAuthDir, resolveStateDir } from "../config/paths.js";
 import {
   formatSessionArchiveTimestamp,
@@ -123,7 +123,7 @@ function findOtherStateDirs(stateDir: string): string[] {
       if (entry.name.startsWith(".")) {
         continue;
       }
-      const candidates = [".openclaw"].map((dir) => path.resolve(root, entry.name, dir));
+      const candidates = [".alienclaw"].map((dir) => path.resolve(root, entry.name, dir));
       for (const candidate of candidates) {
         if (candidate === resolvedState) {
           continue;
@@ -356,7 +356,7 @@ export function formatLinuxSdBackedStateDirWarning(
   return [
     `- State directory appears to be on SD/eMMC storage (${displayStateDir}; device ${safeSource}, fs ${safeFsType}, mount ${safeMountPoint}).`,
     "- SD/eMMC media can be slower for random I/O and wear faster under session/log churn.",
-    "- For better startup and state durability, prefer SSD/NVMe (or USB SSD on Raspberry Pi) for OPENCLAW_STATE_DIR.",
+    "- For better startup and state durability, prefer SSD/NVMe (or USB SSD on Raspberry Pi) for ALIENCLAW_STATE_DIR.",
   ].join("\n");
 }
 
@@ -377,7 +377,7 @@ export function detectMacCloudSyncedStateDir(
   }
 
   // Cloud-sync roots should always be anchored to the OS account home on macOS.
-  // OPENCLAW_HOME can relocate app data defaults, but iCloud/CloudStorage remain under the OS home.
+  // ALIENCLAW_HOME can relocate app data defaults, but iCloud/CloudStorage remain under the OS home.
   const homedir = deps?.homedir ?? os.homedir();
   const roots = [
     {
@@ -443,8 +443,8 @@ function isSlashRoutingSessionKey(sessionKey: string): boolean {
   return /^[^:]+:slash:[^:]+(?:$|:)/.test(scoped);
 }
 
-function shouldRequireOAuthDir(cfg: OpenClawConfig, env: NodeJS.ProcessEnv): boolean {
-  if (env.OPENCLAW_OAUTH_DIR?.trim()) {
+function shouldRequireOAuthDir(cfg: AlienClawConfig, env: NodeJS.ProcessEnv): boolean {
+  if (env.ALIENCLAW_OAUTH_DIR?.trim()) {
     return true;
   }
   const channels = cfg.channels;
@@ -468,7 +468,7 @@ function shouldRequireOAuthDir(cfg: OpenClawConfig, env: NodeJS.ProcessEnv): boo
 }
 
 export async function noteStateIntegrity(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   prompter: DoctorPrompterLike,
   configPath?: string,
 ) {
@@ -477,7 +477,7 @@ export async function noteStateIntegrity(
   const env = process.env;
   const homedir = () => resolveRequiredHomeDir(env, os.homedir);
   const stateDir = resolveStateDir(env, homedir);
-  const defaultStateDir = path.join(homedir(), ".openclaw");
+  const defaultStateDir = path.join(homedir(), ".alienclaw");
   const oauthDir = resolveOAuthDir(env, stateDir);
   const agentId = resolveDefaultAgentId(cfg);
   const sessionsDir = resolveSessionTranscriptsDirForAgent(agentId, env, homedir);
@@ -498,8 +498,8 @@ export async function noteStateIntegrity(
       [
         `- State directory is under macOS cloud-synced storage (${displayStateDir}; ${cloudSyncedStateDir.storage}).`,
         "- This can cause slow I/O and sync/lock races for sessions and credentials.",
-        "- Prefer a local non-synced state dir (for example: ~/.openclaw).",
-        `  Set locally: OPENCLAW_STATE_DIR=~/.openclaw ${formatCliCommand("openclaw doctor")}`,
+        "- Prefer a local non-synced state dir (for example: ~/.alienclaw).",
+        `  Set locally: ALIENCLAW_STATE_DIR=~/.alienclaw ${formatCliCommand("alienclaw doctor")}`,
       ].join("\n"),
     );
   }
@@ -720,9 +720,9 @@ export async function noteStateIntegrity(
       warnings.push(
         [
           `- ${missing.length}/${recentTranscriptCandidates.length} recent sessions are missing transcripts.`,
-          `  Verify sessions in store: ${formatCliCommand(`openclaw sessions --store "${absoluteStorePath}"`)}`,
-          `  Preview cleanup impact: ${formatCliCommand(`openclaw sessions cleanup --store "${absoluteStorePath}" --dry-run`)}`,
-          `  Prune missing entries: ${formatCliCommand(`openclaw sessions cleanup --store "${absoluteStorePath}" --enforce --fix-missing`)}`,
+          `  Verify sessions in store: ${formatCliCommand(`alienclaw sessions --store "${absoluteStorePath}"`)}`,
+          `  Preview cleanup impact: ${formatCliCommand(`alienclaw sessions cleanup --store "${absoluteStorePath}" --dry-run`)}`,
+          `  Prune missing entries: ${formatCliCommand(`alienclaw sessions cleanup --store "${absoluteStorePath}" --enforce --fix-missing`)}`,
         ].join("\n"),
       );
     }
@@ -817,7 +817,7 @@ export function noteWorkspaceBackupTip(workspaceDir: string) {
   note(
     [
       "- Tip: back up the workspace in a private git repo (GitHub or GitLab).",
-      "- Keep ~/.openclaw out of git; it contains credentials and session history.",
+      "- Keep ~/.alienclaw out of git; it contains credentials and session history.",
       "- Details: /concepts/agent-workspace#git-backup-recommended",
     ].join("\n"),
     "Workspace",

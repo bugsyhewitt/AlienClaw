@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import {
   resolveBlockStreamingChunking,
   resolveEffectiveBlockStreamingConfig,
@@ -7,7 +7,7 @@ import {
 
 describe("resolveEffectiveBlockStreamingConfig", () => {
   it("applies ACP-style overrides while preserving chunk/coalescer bounds", () => {
-    const cfg = {} as OpenClawConfig;
+    const cfg = {} as AlienClawConfig;
     const baseChunking = resolveBlockStreamingChunking(cfg, "discord");
     const resolved = resolveEffectiveBlockStreamingConfig({
       cfg,
@@ -51,7 +51,7 @@ describe("resolveEffectiveBlockStreamingConfig", () => {
           textChunkLimit: 4096,
         },
       },
-    } as OpenClawConfig;
+    } as AlienClawConfig;
 
     const baseChunking = resolveBlockStreamingChunking(cfg, "discord");
     expect(baseChunking.maxChars).toBeLessThan(1800);

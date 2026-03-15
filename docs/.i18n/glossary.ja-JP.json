@@ -1,5 +1,5 @@
 [
-  { "source": "OpenClaw", "target": "OpenClaw" },
+  { "source": "AlienClaw", "target": "AlienClaw" },
   { "source": "Gateway", "target": "Gateway" },
   { "source": "Pi", "target": "Pi" },
   { "source": "Skills", "target": "Skills" },

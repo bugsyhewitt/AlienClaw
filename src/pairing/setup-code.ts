@@ -1,6 +1,6 @@
 import os from "node:os";
 import { resolveGatewayPort } from "../config/paths.js";
-import type { OpenClawConfig } from "../config/types.js";
+import type { AlienClawConfig } from "../config/types.js";
 import {
   hasConfiguredSecretInput,
   normalizeSecretInputString,
@@ -96,7 +96,7 @@ function normalizeUrl(raw: string, schemeFallback: "ws" | "wss"): string | null 
 }
 
 function resolveScheme(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   opts?: {
     forceSecure?: boolean;
   },
@@ -155,16 +155,16 @@ function pickTailnetIPv4(
 }
 
 function resolveGatewayTokenFromEnv(env: NodeJS.ProcessEnv): string | undefined {
-  return env.OPENCLAW_GATEWAY_TOKEN?.trim() || env.CLAWDBOT_GATEWAY_TOKEN?.trim() || undefined;
+  return env.ALIENCLAW_GATEWAY_TOKEN?.trim() || env.CLAWDBOT_GATEWAY_TOKEN?.trim() || undefined;
 }
 
 function resolveGatewayPasswordFromEnv(env: NodeJS.ProcessEnv): string | undefined {
   return (
-    env.OPENCLAW_GATEWAY_PASSWORD?.trim() || env.CLAWDBOT_GATEWAY_PASSWORD?.trim() || undefined
+    env.ALIENCLAW_GATEWAY_PASSWORD?.trim() || env.CLAWDBOT_GATEWAY_PASSWORD?.trim() || undefined
   );
 }
 
-function resolveAuth(cfg: OpenClawConfig, env: NodeJS.ProcessEnv): ResolveAuthResult {
+function resolveAuth(cfg: AlienClawConfig, env: NodeJS.ProcessEnv): ResolveAuthResult {
   const mode = cfg.gateway?.auth?.mode;
   const defaults = cfg.secrets?.defaults;
   const tokenRef = resolveSecretInputRef({
@@ -205,9 +205,9 @@ function resolveAuth(cfg: OpenClawConfig, env: NodeJS.ProcessEnv): ResolveAuthRe
 }
 
 async function resolveGatewayTokenSecretRef(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   env: NodeJS.ProcessEnv,
-): Promise<OpenClawConfig> {
+): Promise<AlienClawConfig> {
   const hasTokenEnvCandidate = Boolean(resolveGatewayTokenFromEnv(env));
   if (hasTokenEnvCandidate) {
     return cfg;
@@ -218,7 +218,7 @@ async function resolveGatewayTokenSecretRef(
   }
   if (mode !== "token") {
     const hasPasswordEnvCandidate = Boolean(
-      env.OPENCLAW_GATEWAY_PASSWORD?.trim() || env.CLAWDBOT_GATEWAY_PASSWORD?.trim(),
+      env.ALIENCLAW_GATEWAY_PASSWORD?.trim() || env.CLAWDBOT_GATEWAY_PASSWORD?.trim(),
     );
     if (hasPasswordEnvCandidate) {
       return cfg;
@@ -246,9 +246,9 @@ async function resolveGatewayTokenSecretRef(
 }
 
 async function resolveGatewayPasswordSecretRef(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   env: NodeJS.ProcessEnv,
-): Promise<OpenClawConfig> {
+): Promise<AlienClawConfig> {
   const hasPasswordEnvCandidate = Boolean(resolveGatewayPasswordFromEnv(env));
   if (hasPasswordEnvCandidate) {
     return cfg;
@@ -287,7 +287,7 @@ async function resolveGatewayPasswordSecretRef(
 }
 
 async function resolveGatewayUrl(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   opts: {
     env: NodeJS.ProcessEnv;
     publicUrl?: string;
@@ -355,7 +355,7 @@ export function encodePairingSetupCode(payload: PairingSetupPayload): string {
 }
 
 export async function resolvePairingSetupFromConfig(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   options: ResolvePairingSetupOptions = {},
 ): Promise<PairingSetupResolution> {
   assertExplicitGatewayAuthModeWhenBothConfigured(cfg);

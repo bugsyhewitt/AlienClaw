@@ -6,7 +6,7 @@ import * as crypto from "node:crypto";
 import {
   createFixedWindowRateLimiter,
   type FixedWindowRateLimiter,
-} from "openclaw/plugin-sdk/synology-chat";
+} from "alienclaw/plugin-sdk/synology-chat";
 
 export type DmAuthorizationResult =
   | { allowed: true }
@@ -21,7 +21,7 @@ export function validateToken(received: string, expected: string): boolean {
 
   // Use HMAC to normalize lengths before comparison,
   // preventing timing side-channel on token length.
-  const key = "openclaw-token-cmp";
+  const key = "alienclaw-token-cmp";
   const a = crypto.createHmac("sha256", key).update(received).digest();
   const b = crypto.createHmac("sha256", key).update(expected).digest();
 

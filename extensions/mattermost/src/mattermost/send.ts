@@ -1,4 +1,4 @@
-import { loadOutboundMediaFromUrl, type OpenClawConfig } from "openclaw/plugin-sdk/mattermost";
+import { loadOutboundMediaFromUrl, type AlienClawConfig } from "alienclaw/plugin-sdk/mattermost";
 import { getMattermostRuntime } from "../runtime.js";
 import { resolveMattermostAccount } from "./accounts.js";
 import {
@@ -21,7 +21,7 @@ import {
 } from "./interactions.js";
 
 export type MattermostSendOpts = {
-  cfg?: OpenClawConfig;
+  cfg?: AlienClawConfig;
   botToken?: string;
   baseUrl?: string;
   accountId?: string;
@@ -218,7 +218,7 @@ async function resolveTargetChannelId(params: {
 }
 
 type MattermostSendContext = {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId: string;
   token: string;
   baseUrl: string;

@@ -44,9 +44,9 @@ const connectNodeClient = async (params: {
   displayName?: string;
   onEvent?: (evt: { event?: string; payload?: unknown }) => void;
 }) => {
-  const token = process.env.OPENCLAW_GATEWAY_TOKEN;
+  const token = process.env.ALIENCLAW_GATEWAY_TOKEN;
   if (!token) {
-    throw new Error("OPENCLAW_GATEWAY_TOKEN is required for node test clients");
+    throw new Error("ALIENCLAW_GATEWAY_TOKEN is required for node test clients");
   }
   return await connectGatewayClient({
     url: `ws://127.0.0.1:${params.port}`,
@@ -151,7 +151,7 @@ describe("gateway update.run", () => {
       }, FAST_WAIT_OPTS);
       expect(sigusr1).toHaveBeenCalled();
 
-      const sentinelPath = path.join(os.homedir(), ".openclaw", "restart-sentinel.json");
+      const sentinelPath = path.join(os.homedir(), ".alienclaw", "restart-sentinel.json");
       const raw = await fs.readFile(sentinelPath, "utf-8");
       const parsed = JSON.parse(raw) as {
         payload?: { kind?: string; stats?: { mode?: string } };
@@ -324,7 +324,7 @@ describe("gateway node command allowlist", () => {
     const { loadOrCreateDeviceIdentity } = await import("../infra/device-identity.js");
     const deviceIdentityPath = path.join(
       os.tmpdir(),
-      `openclaw-spoof-test-device-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,
+      `alienclaw-spoof-test-device-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,
     );
     const deviceIdentity = loadOrCreateDeviceIdentity(deviceIdentityPath);
 
@@ -385,7 +385,7 @@ describe("gateway node command allowlist", () => {
     for (const testCase of cases) {
       const deviceIdentityPath = path.join(
         os.tmpdir(),
-        `openclaw-confusable-node-${testCase.label}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,
+        `alienclaw-confusable-node-${testCase.label}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,
       );
       const deviceIdentity = loadOrCreateDeviceIdentity(deviceIdentityPath);
       const displayName = `node-${testCase.label}`;

@@ -7,7 +7,7 @@ const dotenvState = vi.hoisted(() => {
   return {
     state,
     loadDotEnv: vi.fn(() => {
-      state.profileAtDotenvLoad = process.env.OPENCLAW_PROFILE;
+      state.profileAtDotenvLoad = process.env.ALIENCLAW_PROFILE;
     }),
   };
 });
@@ -25,7 +25,7 @@ vi.mock("../infra/runtime-guard.js", () => ({
 }));
 
 vi.mock("../infra/path-env.js", () => ({
-  ensureOpenClawCliOnPath: vi.fn(),
+  ensureAlienClawCliOnPath: vi.fn(),
 }));
 
 vi.mock("./route.js", () => ({
@@ -39,41 +39,41 @@ vi.mock("./windows-argv.js", () => ({
 import { runCli } from "./run-main.js";
 
 describe("runCli profile env bootstrap", () => {
-  const originalProfile = process.env.OPENCLAW_PROFILE;
-  const originalStateDir = process.env.OPENCLAW_STATE_DIR;
-  const originalConfigPath = process.env.OPENCLAW_CONFIG_PATH;
+  const originalProfile = process.env.ALIENCLAW_PROFILE;
+  const originalStateDir = process.env.ALIENCLAW_STATE_DIR;
+  const originalConfigPath = process.env.ALIENCLAW_CONFIG_PATH;
 
   beforeEach(() => {
-    delete process.env.OPENCLAW_PROFILE;
-    delete process.env.OPENCLAW_STATE_DIR;
-    delete process.env.OPENCLAW_CONFIG_PATH;
+    delete process.env.ALIENCLAW_PROFILE;
+    delete process.env.ALIENCLAW_STATE_DIR;
+    delete process.env.ALIENCLAW_CONFIG_PATH;
     dotenvState.state.profileAtDotenvLoad = undefined;
     dotenvState.loadDotEnv.mockClear();
   });
 
   afterEach(() => {
     if (originalProfile === undefined) {
-      delete process.env.OPENCLAW_PROFILE;
+      delete process.env.ALIENCLAW_PROFILE;
     } else {
-      process.env.OPENCLAW_PROFILE = originalProfile;
+      process.env.ALIENCLAW_PROFILE = originalProfile;
     }
     if (originalStateDir === undefined) {
-      delete process.env.OPENCLAW_STATE_DIR;
+      delete process.env.ALIENCLAW_STATE_DIR;
     } else {
-      process.env.OPENCLAW_STATE_DIR = originalStateDir;
+      process.env.ALIENCLAW_STATE_DIR = originalStateDir;
     }
     if (originalConfigPath === undefined) {
-      delete process.env.OPENCLAW_CONFIG_PATH;
+      delete process.env.ALIENCLAW_CONFIG_PATH;
     } else {
-      process.env.OPENCLAW_CONFIG_PATH = originalConfigPath;
+      process.env.ALIENCLAW_CONFIG_PATH = originalConfigPath;
     }
   });
 
   it("applies --profile before dotenv loading", async () => {
-    await runCli(["node", "openclaw", "--profile", "rawdog", "status"]);
+    await runCli(["node", "alienclaw", "--profile", "rawdog", "status"]);
 
     expect(dotenvState.loadDotEnv).toHaveBeenCalledOnce();
     expect(dotenvState.state.profileAtDotenvLoad).toBe("rawdog");
-    expect(process.env.OPENCLAW_PROFILE).toBe("rawdog");
+    expect(process.env.ALIENCLAW_PROFILE).toBe("rawdog");
   });
 });

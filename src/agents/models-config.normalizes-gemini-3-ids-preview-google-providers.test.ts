@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { installModelsConfigTestHooks, withModelsTempHome } from "./models-config.e2e-harness.js";
-import { ensureOpenClawModelsJson } from "./models-config.js";
+import { ensureAlienClawModelsJson } from "./models-config.js";
 import { readGeneratedModelsJson } from "./models-config.test-utils.js";
 
 describe("models-config", () => {
@@ -9,7 +9,7 @@ describe("models-config", () => {
 
   it("normalizes gemini 3 ids to preview for google providers", async () => {
     await withModelsTempHome(async () => {
-      const cfg: OpenClawConfig = {
+      const cfg: AlienClawConfig = {
         models: {
           providers: {
             google: {
@@ -43,7 +43,7 @@ describe("models-config", () => {
         },
       };
 
-      await ensureOpenClawModelsJson(cfg);
+      await ensureAlienClawModelsJson(cfg);
 
       const parsed = await readGeneratedModelsJson<{
         providers: Record<string, { models: Array<{ id: string }> }>;

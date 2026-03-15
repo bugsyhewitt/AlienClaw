@@ -10,7 +10,7 @@ const describeNonWin = isWin ? describe.skip : describe;
 
 describeNonWin("exec script preflight", () => {
   it("blocks shell env var injection tokens in python scripts before execution", async () => {
-    await withTempDir("openclaw-exec-preflight-", async (tmp) => {
+    await withTempDir("alienclaw-exec-preflight-", async (tmp) => {
       const pyPath = path.join(tmp, "bad.py");
 
       await fs.writeFile(
@@ -36,7 +36,7 @@ describeNonWin("exec script preflight", () => {
   });
 
   it("blocks obvious shell-as-js output before node execution", async () => {
-    await withTempDir("openclaw-exec-preflight-", async (tmp) => {
+    await withTempDir("alienclaw-exec-preflight-", async (tmp) => {
       const jsPath = path.join(tmp, "bad.js");
 
       await fs.writeFile(
@@ -59,7 +59,7 @@ describeNonWin("exec script preflight", () => {
   });
 
   it("skips preflight when script token is quoted and unresolved by fast parser", async () => {
-    await withTempDir("openclaw-exec-preflight-", async (tmp) => {
+    await withTempDir("alienclaw-exec-preflight-", async (tmp) => {
       const jsPath = path.join(tmp, "bad.js");
       await fs.writeFile(jsPath, "const value = $DM_JSON;", "utf-8");
 
@@ -74,7 +74,7 @@ describeNonWin("exec script preflight", () => {
   });
 
   it("skips preflight file reads for script paths outside the workdir", async () => {
-    await withTempDir("openclaw-exec-preflight-parent-", async (parent) => {
+    await withTempDir("alienclaw-exec-preflight-parent-", async (parent) => {
       const outsidePath = path.join(parent, "outside.js");
       const workdir = path.join(parent, "workdir");
       await fs.mkdir(workdir, { recursive: true });

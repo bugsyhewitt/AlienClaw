@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { containsEnvVarReference } from "../config/env-substitution.js";
 import { resolveSecretInputRef } from "../config/types.secrets.js";
 
@@ -27,7 +27,7 @@ export class GatewaySecretRefUnavailableError extends Error {
     super(
       [
         `${path} is configured as a secret reference but is unavailable in this command path.`,
-        "Fix: set OPENCLAW_GATEWAY_TOKEN/OPENCLAW_GATEWAY_PASSWORD, pass explicit --token/--password,",
+        "Fix: set ALIENCLAW_GATEWAY_TOKEN/ALIENCLAW_GATEWAY_PASSWORD, pass explicit --token/--password,",
         "or run a gateway command path that resolves secret references before credential selection.",
       ].join("\n"),
     );
@@ -59,7 +59,7 @@ export function trimToUndefined(value: unknown): string | undefined {
 
 /**
  * Like trimToUndefined but also rejects unresolved env var placeholders (e.g. `${VAR}`).
- * This prevents literal placeholder strings like `${OPENCLAW_GATEWAY_TOKEN}` from being
+ * This prevents literal placeholder strings like `${ALIENCLAW_GATEWAY_TOKEN}` from being
  * accepted as valid credentials when the referenced env var is missing.
  * Note: legitimate credential values containing literal `${UPPER_CASE}` patterns will
  * also be rejected, but this is an extremely unlikely edge case.
@@ -89,7 +89,7 @@ export function readGatewayTokenEnv(
   env: NodeJS.ProcessEnv = process.env,
   includeLegacyEnv = true,
 ): string | undefined {
-  const primary = trimToUndefined(env.OPENCLAW_GATEWAY_TOKEN);
+  const primary = trimToUndefined(env.ALIENCLAW_GATEWAY_TOKEN);
   if (primary) {
     return primary;
   }
@@ -103,7 +103,7 @@ export function readGatewayPasswordEnv(
   env: NodeJS.ProcessEnv = process.env,
   includeLegacyEnv = true,
 ): string | undefined {
-  const primary = trimToUndefined(env.OPENCLAW_GATEWAY_PASSWORD);
+  const primary = trimToUndefined(env.ALIENCLAW_GATEWAY_PASSWORD);
   if (primary) {
     return primary;
   }
@@ -157,7 +157,7 @@ export function resolveGatewayCredentialsFromValues(params: {
 }
 
 export function resolveGatewayCredentialsFromConfig(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   env?: NodeJS.ProcessEnv;
   explicitAuth?: ExplicitGatewayAuth;
   urlOverride?: string;
@@ -225,7 +225,7 @@ export function resolveGatewayCredentialsFromConfig(params: {
 
   const localTokenPrecedence =
     params.localTokenPrecedence ??
-    (env.OPENCLAW_SERVICE_KIND === "gateway" ? "config-first" : "env-first");
+    (env.ALIENCLAW_SERVICE_KIND === "gateway" ? "config-first" : "env-first");
   const localPasswordPrecedence = params.localPasswordPrecedence ?? "env-first";
 
   if (mode === "local") {

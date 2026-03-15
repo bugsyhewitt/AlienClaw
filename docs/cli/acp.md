@@ -8,7 +8,7 @@ title: "acp"
 
 # acp
 
-Run the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) bridge that talks to a OpenClaw Gateway.
+Run the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) bridge that talks to a AlienClaw Gateway.
 
 This command speaks ACP over stdio for IDEs and forwards prompts to the Gateway
 over WebSocket. It keeps ACP sessions mapped to Gateway session keys.
@@ -16,22 +16,22 @@ over WebSocket. It keeps ACP sessions mapped to Gateway session keys.
 ## Usage
 
 ```bash
-openclaw acp
+alienclaw acp
 
 # Remote Gateway
-openclaw acp --url wss://gateway-host:18789 --token <token>
+alienclaw acp --url wss://gateway-host:18789 --token <token>
 
 # Remote Gateway (token from file)
-openclaw acp --url wss://gateway-host:18789 --token-file ~/.openclaw/gateway.token
+alienclaw acp --url wss://gateway-host:18789 --token-file ~/.alienclaw/gateway.token
 
 # Attach to an existing session key
-openclaw acp --session agent:main:main
+alienclaw acp --session agent:main:main
 
 # Attach by label (must already exist)
-openclaw acp --session-label "support inbox"
+alienclaw acp --session-label "support inbox"
 
 # Reset the session key before the first prompt
-openclaw acp --session agent:main:main --reset-session
+alienclaw acp --session agent:main:main --reset-session
 ```
 
 ## ACP client (debug)
@@ -40,13 +40,13 @@ Use the built-in ACP client to sanity-check the bridge without an IDE.
 It spawns the ACP bridge and lets you type prompts interactively.
 
 ```bash
-openclaw acp client
+alienclaw acp client
 
 # Point the spawned bridge at a remote Gateway
-openclaw acp client --server-args --url wss://gateway-host:18789 --token-file ~/.openclaw/gateway.token
+alienclaw acp client --server-args --url wss://gateway-host:18789 --token-file ~/.alienclaw/gateway.token
 
-# Override the server command (default: openclaw)
-openclaw acp client --server "node" --server-args openclaw.mjs acp --url ws://127.0.0.1:19001
+# Override the server command (default: alienclaw)
+alienclaw acp client --server "node" --server-args alienclaw.mjs acp --url ws://127.0.0.1:19001
 ```
 
 Permission model (client debug mode):
@@ -59,25 +59,25 @@ Permission model (client debug mode):
 ## How to use this
 
 Use ACP when an IDE (or other client) speaks Agent Client Protocol and you want
-it to drive a OpenClaw Gateway session.
+it to drive a AlienClaw Gateway session.
 
 1. Ensure the Gateway is running (local or remote).
 2. Configure the Gateway target (config or flags).
-3. Point your IDE to run `openclaw acp` over stdio.
+3. Point your IDE to run `alienclaw acp` over stdio.
 
 Example config (persisted):
 
 ```bash
-openclaw config set gateway.remote.url wss://gateway-host:18789
-openclaw config set gateway.remote.token <token>
+alienclaw config set gateway.remote.url wss://gateway-host:18789
+alienclaw config set gateway.remote.token <token>
 ```
 
 Example direct run (no config write):
 
 ```bash
-openclaw acp --url wss://gateway-host:18789 --token <token>
+alienclaw acp --url wss://gateway-host:18789 --token <token>
 # preferred for local process safety
-openclaw acp --url wss://gateway-host:18789 --token-file ~/.openclaw/gateway.token
+alienclaw acp --url wss://gateway-host:18789 --token-file ~/.alienclaw/gateway.token
 ```
 
 ## Selecting agents
@@ -87,9 +87,9 @@ ACP does not pick agents directly. It routes by the Gateway session key.
 Use agent-scoped session keys to target a specific agent:
 
 ```bash
-openclaw acp --session agent:main:main
-openclaw acp --session agent:design:main
-openclaw acp --session agent:qa:bug-123
+alienclaw acp --session agent:main:main
+alienclaw acp --session agent:design:main
+alienclaw acp --session agent:qa:bug-123
 ```
 
 Each ACP session maps to a single Gateway session key. One agent can have many
@@ -103,9 +103,9 @@ Add a custom ACP agent in `~/.config/zed/settings.json` (or use Zed’s Settings
 ```json
 {
   "agent_servers": {
-    "OpenClaw ACP": {
+    "AlienClaw ACP": {
       "type": "custom",
-      "command": "openclaw",
+      "command": "alienclaw",
       "args": ["acp"],
       "env": {}
     }
@@ -118,9 +118,9 @@ To target a specific Gateway or agent:
 ```json
 {
   "agent_servers": {
-    "OpenClaw ACP": {
+    "AlienClaw ACP": {
       "type": "custom",
-      "command": "openclaw",
+      "command": "alienclaw",
       "args": [
         "acp",
         "--url",
@@ -136,7 +136,7 @@ To target a specific Gateway or agent:
 }
 ```
 
-In Zed, open the Agent panel and select “OpenClaw ACP” to start a thread.
+In Zed, open the Agent panel and select “AlienClaw ACP” to start a thread.
 
 ## Session mapping
 
@@ -178,18 +178,18 @@ Learn more about session keys at [/concepts/session](/concepts/session).
 Security note:
 
 - `--token` and `--password` can be visible in local process listings on some systems.
-- Prefer `--token-file`/`--password-file` or environment variables (`OPENCLAW_GATEWAY_TOKEN`, `OPENCLAW_GATEWAY_PASSWORD`).
+- Prefer `--token-file`/`--password-file` or environment variables (`ALIENCLAW_GATEWAY_TOKEN`, `ALIENCLAW_GATEWAY_PASSWORD`).
 - Gateway auth resolution follows the shared contract used by other Gateway clients:
-  - local mode: env (`OPENCLAW_GATEWAY_*`) -> `gateway.auth.*` -> `gateway.remote.*` fallback when `gateway.auth.*` is unset
+  - local mode: env (`ALIENCLAW_GATEWAY_*`) -> `gateway.auth.*` -> `gateway.remote.*` fallback when `gateway.auth.*` is unset
   - remote mode: `gateway.remote.*` with env/config fallback per remote precedence rules
   - `--url` is override-safe and does not reuse implicit config/env credentials; pass explicit `--token`/`--password` (or file variants)
-- ACP runtime backend child processes receive `OPENCLAW_SHELL=acp`, which can be used for context-specific shell/profile rules.
-- `openclaw acp client` sets `OPENCLAW_SHELL=acp-client` on the spawned bridge process.
+- ACP runtime backend child processes receive `ALIENCLAW_SHELL=acp`, which can be used for context-specific shell/profile rules.
+- `alienclaw acp client` sets `ALIENCLAW_SHELL=acp-client` on the spawned bridge process.
 
 ### `acp client` options
 
 - `--cwd <dir>`: working directory for the ACP session.
-- `--server <command>`: ACP server command (default: `openclaw`).
+- `--server <command>`: ACP server command (default: `alienclaw`).
 - `--server-args <args...>`: extra arguments passed to the ACP server.
 - `--server-verbose`: enable verbose logging on the ACP server.
 - `--verbose, -v`: verbose client logging.

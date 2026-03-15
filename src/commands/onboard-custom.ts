@@ -1,7 +1,7 @@
 import { CONTEXT_WINDOW_HARD_MIN_TOKENS } from "../agents/context-window-guard.js";
 import { DEFAULT_PROVIDER } from "../agents/defaults.js";
 import { buildModelAliasIndex, modelKey } from "../agents/model-selection.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import type { ModelProviderConfig } from "../config/types.models.js";
 import { isSecretRef, type SecretInput } from "../config/types.secrets.js";
 import type { RuntimeEnv } from "../runtime.js";
@@ -64,14 +64,14 @@ function transformAzureUrl(baseUrl: string, modelId: string): string {
 export type CustomApiCompatibility = "openai" | "anthropic";
 type CustomApiCompatibilityChoice = CustomApiCompatibility | "unknown";
 export type CustomApiResult = {
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   providerId?: string;
   modelId?: string;
   providerIdRenamedFrom?: string;
 };
 
 export type ApplyCustomApiConfigParams = {
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   baseUrl: string;
   modelId: string;
   compatibility: CustomApiCompatibility;
@@ -115,7 +115,7 @@ export class CustomApiError extends Error {
 }
 
 export type ResolveCustomProviderIdParams = {
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   baseUrl: string;
   providerId?: string;
 };
@@ -188,7 +188,7 @@ function resolveUniqueEndpointId(params: {
 
 function resolveAliasError(params: {
   raw: string;
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   modelRef: string;
 }): string | undefined {
   const trimmed = params.raw.trim();
@@ -383,7 +383,7 @@ async function requestAnthropicVerification(params: {
 
 async function promptBaseUrlAndKey(params: {
   prompter: WizardPrompter;
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   secretInputMode?: SecretInputMode;
   initialBaseUrl?: string;
 }): Promise<{ baseUrl: string; apiKey?: SecretInput; resolvedApiKey: string }> {
@@ -448,7 +448,7 @@ async function promptCustomApiModelId(prompter: WizardPrompter): Promise<string>
 
 async function applyCustomApiRetryChoice(params: {
   prompter: WizardPrompter;
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   secretInputMode?: SecretInputMode;
   retryChoice: CustomApiRetryChoice;
   current: { baseUrl: string; apiKey?: SecretInput; resolvedApiKey: string; modelId: string };
@@ -621,7 +621,7 @@ export function applyCustomApiConfig(params: ApplyCustomApiConfigParams): Custom
     normalizeOptionalProviderApiKey(params.apiKey) ??
     normalizeOptionalProviderApiKey(existingApiKey);
 
-  let config: OpenClawConfig = {
+  let config: AlienClawConfig = {
     ...params.config,
     models: {
       ...params.config.models,
@@ -672,7 +672,7 @@ export function applyCustomApiConfig(params: ApplyCustomApiConfigParams): Custom
 export async function promptCustomApiConfig(params: {
   prompter: WizardPrompter;
   runtime: RuntimeEnv;
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   secretInputMode?: SecretInputMode;
 }): Promise<CustomApiResult> {
   const { prompter, runtime, config } = params;

@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { hasConfiguredSecretInput, normalizeSecretInputString } from "../config/types.secrets.js";
 import type { SlackAccountConfig } from "../config/types.slack.js";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "../routing/session-key.js";
@@ -58,7 +58,7 @@ function inspectSlackToken(value: unknown): {
 }
 
 export function inspectSlackAccount(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
   envBotToken?: string | null;
   envAppToken?: string | null;

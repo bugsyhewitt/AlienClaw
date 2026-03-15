@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import type {
   SessionAcpIdentity,
   AcpSessionRuntimeOptions,
@@ -39,7 +39,7 @@ export type AcpSessionResolution =
     };
 
 export type AcpInitializeSessionInput = {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   sessionKey: string;
   agent: string;
   mode: AcpRuntimeSessionMode;
@@ -48,7 +48,7 @@ export type AcpInitializeSessionInput = {
 };
 
 export type AcpRunTurnInput = {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   sessionKey: string;
   text: string;
   mode: AcpRuntimePromptMode;
@@ -58,7 +58,7 @@ export type AcpRunTurnInput = {
 };
 
 export type AcpCloseSessionInput = {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   sessionKey: string;
   reason: string;
   clearMeta?: boolean;

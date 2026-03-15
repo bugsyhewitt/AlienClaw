@@ -4,7 +4,7 @@ description: Batch-generate images via OpenAI Images API. Random prompt sampler 
 homepage: https://platform.openai.com/docs/api-reference/images
 metadata:
   {
-    "openclaw":
+    "alienclaw":
       {
         "emoji": "🖼️",
         "requires": { "bins": ["python3"], "env": ["OPENAI_API_KEY"] },
@@ -30,7 +30,7 @@ Generate a handful of “random but structured” prompts and render them via th
 ## Run
 
 Note: Image generation can take longer than common exec timeouts (for example 30 seconds).
-When invoking this skill via OpenClaw’s exec tool, set a higher timeout to avoid premature termination/retries (e.g., exec timeout=300).
+When invoking this skill via AlienClaw’s exec tool, set a higher timeout to avoid premature termination/retries (e.g., exec timeout=300).
 
 ```bash
 python3 {baseDir}/scripts/gen.py

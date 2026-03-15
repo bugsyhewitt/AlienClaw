@@ -9,7 +9,7 @@ describe("DiffArtifactStore", () => {
   let store: DiffArtifactStore;
 
   beforeEach(async () => {
-    rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-diffs-store-"));
+    rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-diffs-store-"));
     store = new DiffArtifactStore({ rootDir });
   });
 

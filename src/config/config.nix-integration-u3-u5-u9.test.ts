@@ -18,7 +18,7 @@ function envWith(overrides: Record<string, string | undefined>): NodeJS.ProcessE
 
 function loadConfigForHome(home: string) {
   return createConfigIO({
-    env: envWith({ OPENCLAW_HOME: home }),
+    env: envWith({ ALIENCLAW_HOME: home }),
     homedir: () => home,
   }).loadConfig();
 }
@@ -35,84 +35,84 @@ async function withLoadedConfigForHome(
 
 describe("Nix integration (U3, U5, U9)", () => {
   describe("U3: isNixMode env var detection", () => {
-    it("isNixMode is false when OPENCLAW_NIX_MODE is not set", () => {
-      expect(resolveIsNixMode(envWith({ OPENCLAW_NIX_MODE: undefined }))).toBe(false);
+    it("isNixMode is false when ALIENCLAW_NIX_MODE is not set", () => {
+      expect(resolveIsNixMode(envWith({ ALIENCLAW_NIX_MODE: undefined }))).toBe(false);
     });
 
-    it("isNixMode is false when OPENCLAW_NIX_MODE is empty", () => {
-      expect(resolveIsNixMode(envWith({ OPENCLAW_NIX_MODE: "" }))).toBe(false);
+    it("isNixMode is false when ALIENCLAW_NIX_MODE is empty", () => {
+      expect(resolveIsNixMode(envWith({ ALIENCLAW_NIX_MODE: "" }))).toBe(false);
     });
 
-    it("isNixMode is false when OPENCLAW_NIX_MODE is not '1'", () => {
-      expect(resolveIsNixMode(envWith({ OPENCLAW_NIX_MODE: "true" }))).toBe(false);
+    it("isNixMode is false when ALIENCLAW_NIX_MODE is not '1'", () => {
+      expect(resolveIsNixMode(envWith({ ALIENCLAW_NIX_MODE: "true" }))).toBe(false);
     });
 
-    it("isNixMode is true when OPENCLAW_NIX_MODE=1", () => {
-      expect(resolveIsNixMode(envWith({ OPENCLAW_NIX_MODE: "1" }))).toBe(true);
+    it("isNixMode is true when ALIENCLAW_NIX_MODE=1", () => {
+      expect(resolveIsNixMode(envWith({ ALIENCLAW_NIX_MODE: "1" }))).toBe(true);
     });
   });
 
   describe("U5: CONFIG_PATH and STATE_DIR env var overrides", () => {
-    it("STATE_DIR defaults to ~/.openclaw when env not set", () => {
-      expect(resolveStateDir(envWith({ OPENCLAW_STATE_DIR: undefined }))).toMatch(/\.openclaw$/);
+    it("STATE_DIR defaults to ~/.alienclaw when env not set", () => {
+      expect(resolveStateDir(envWith({ ALIENCLAW_STATE_DIR: undefined }))).toMatch(/\.alienclaw$/);
     });
 
-    it("STATE_DIR respects OPENCLAW_STATE_DIR override", () => {
-      expect(resolveStateDir(envWith({ OPENCLAW_STATE_DIR: "/custom/state/dir" }))).toBe(
+    it("STATE_DIR respects ALIENCLAW_STATE_DIR override", () => {
+      expect(resolveStateDir(envWith({ ALIENCLAW_STATE_DIR: "/custom/state/dir" }))).toBe(
         path.resolve("/custom/state/dir"),
       );
     });
 
-    it("STATE_DIR respects OPENCLAW_HOME when state override is unset", () => {
+    it("STATE_DIR respects ALIENCLAW_HOME when state override is unset", () => {
       const customHome = path.join(path.sep, "custom", "home");
       expect(
-        resolveStateDir(envWith({ OPENCLAW_HOME: customHome, OPENCLAW_STATE_DIR: undefined })),
-      ).toBe(path.join(path.resolve(customHome), ".openclaw"));
+        resolveStateDir(envWith({ ALIENCLAW_HOME: customHome, ALIENCLAW_STATE_DIR: undefined })),
+      ).toBe(path.join(path.resolve(customHome), ".alienclaw"));
     });
 
-    it("CONFIG_PATH defaults to OPENCLAW_HOME/.openclaw/openclaw.json", () => {
+    it("CONFIG_PATH defaults to ALIENCLAW_HOME/.alienclaw/alienclaw.json", () => {
       const customHome = path.join(path.sep, "custom", "home");
       expect(
         resolveConfigPathCandidate(
           envWith({
-            OPENCLAW_HOME: customHome,
-            OPENCLAW_CONFIG_PATH: undefined,
-            OPENCLAW_STATE_DIR: undefined,
+            ALIENCLAW_HOME: customHome,
+            ALIENCLAW_CONFIG_PATH: undefined,
+            ALIENCLAW_STATE_DIR: undefined,
           }),
         ),
-      ).toBe(path.join(path.resolve(customHome), ".openclaw", "openclaw.json"));
+      ).toBe(path.join(path.resolve(customHome), ".alienclaw", "alienclaw.json"));
     });
 
-    it("CONFIG_PATH defaults to ~/.openclaw/openclaw.json when env not set", () => {
+    it("CONFIG_PATH defaults to ~/.alienclaw/alienclaw.json when env not set", () => {
       expect(
         resolveConfigPathCandidate(
-          envWith({ OPENCLAW_CONFIG_PATH: undefined, OPENCLAW_STATE_DIR: undefined }),
+          envWith({ ALIENCLAW_CONFIG_PATH: undefined, ALIENCLAW_STATE_DIR: undefined }),
         ),
-      ).toMatch(/\.openclaw[\\/]openclaw\.json$/);
+      ).toMatch(/\.alienclaw[\\/]alienclaw\.json$/);
     });
 
-    it("CONFIG_PATH respects OPENCLAW_CONFIG_PATH override", () => {
+    it("CONFIG_PATH respects ALIENCLAW_CONFIG_PATH override", () => {
       expect(
         resolveConfigPathCandidate(
-          envWith({ OPENCLAW_CONFIG_PATH: "/nix/store/abc/openclaw.json" }),
+          envWith({ ALIENCLAW_CONFIG_PATH: "/nix/store/abc/alienclaw.json" }),
         ),
-      ).toBe(path.resolve("/nix/store/abc/openclaw.json"));
+      ).toBe(path.resolve("/nix/store/abc/alienclaw.json"));
     });
 
-    it("CONFIG_PATH expands ~ in OPENCLAW_CONFIG_PATH override", async () => {
+    it("CONFIG_PATH expands ~ in ALIENCLAW_CONFIG_PATH override", async () => {
       await withTempHome(async (home) => {
         expect(
           resolveConfigPathCandidate(
-            envWith({ OPENCLAW_HOME: home, OPENCLAW_CONFIG_PATH: "~/.openclaw/custom.json" }),
+            envWith({ ALIENCLAW_HOME: home, ALIENCLAW_CONFIG_PATH: "~/.alienclaw/custom.json" }),
             () => home,
           ),
-        ).toBe(path.join(home, ".openclaw", "custom.json"));
+        ).toBe(path.join(home, ".alienclaw", "custom.json"));
       });
     });
 
     it("CONFIG_PATH uses STATE_DIR when only state dir is overridden", () => {
-      expect(resolveConfigPathCandidate(envWith({ OPENCLAW_STATE_DIR: "/custom/state" }))).toBe(
-        path.join(path.resolve("/custom/state"), "openclaw.json"),
+      expect(resolveConfigPathCandidate(envWith({ ALIENCLAW_STATE_DIR: "/custom/state" }))).toBe(
+        path.join(path.resolve("/custom/state"), "alienclaw.json"),
       );
     });
   });
@@ -120,7 +120,7 @@ describe("Nix integration (U3, U5, U9)", () => {
   describe("U5b: tilde expansion for config paths", () => {
     it("expands ~ in common path-ish config fields", async () => {
       await withTempHome(async (home) => {
-        const configDir = path.join(home, ".openclaw");
+        const configDir = path.join(home, ".alienclaw");
         await fs.mkdir(configDir, { recursive: true });
         const pluginDir = path.join(home, "plugins", "demo-plugin");
         await fs.mkdir(pluginDir, { recursive: true });
@@ -130,7 +130,7 @@ describe("Nix integration (U3, U5, U9)", () => {
           "utf-8",
         );
         await fs.writeFile(
-          path.join(pluginDir, "openclaw.plugin.json"),
+          path.join(pluginDir, "alienclaw.plugin.json"),
           JSON.stringify(
             {
               id: "demo-plugin",
@@ -142,7 +142,7 @@ describe("Nix integration (U3, U5, U9)", () => {
           "utf-8",
         );
         await fs.writeFile(
-          path.join(configDir, "openclaw.json"),
+          path.join(configDir, "alienclaw.json"),
           JSON.stringify(
             {
               plugins: {
@@ -156,7 +156,7 @@ describe("Nix integration (U3, U5, U9)", () => {
                   {
                     id: "main",
                     workspace: "~/ws-agent",
-                    agentDir: "~/.openclaw/agents/main",
+                    agentDir: "~/.alienclaw/agents/main",
                     sandbox: { workspaceRoot: "~/sandbox-root" },
                   },
                 ],
@@ -165,7 +165,7 @@ describe("Nix integration (U3, U5, U9)", () => {
                 whatsapp: {
                   accounts: {
                     personal: {
-                      authDir: "~/.openclaw/credentials/wa-personal",
+                      authDir: "~/.alienclaw/credentials/wa-personal",
                     },
                   },
                 },
@@ -183,11 +183,11 @@ describe("Nix integration (U3, U5, U9)", () => {
         expect(cfg.agents?.defaults?.workspace).toBe(path.join(home, "ws-default"));
         expect(cfg.agents?.list?.[0]?.workspace).toBe(path.join(home, "ws-agent"));
         expect(cfg.agents?.list?.[0]?.agentDir).toBe(
-          path.join(home, ".openclaw", "agents", "main"),
+          path.join(home, ".alienclaw", "agents", "main"),
         );
         expect(cfg.agents?.list?.[0]?.sandbox?.workspaceRoot).toBe(path.join(home, "sandbox-root"));
         expect(cfg.channels?.whatsapp?.accounts?.personal?.authDir).toBe(
-          path.join(home, ".openclaw", "credentials", "wa-personal"),
+          path.join(home, ".alienclaw", "credentials", "wa-personal"),
         );
       });
     });
@@ -195,16 +195,16 @@ describe("Nix integration (U3, U5, U9)", () => {
 
   describe("U6: gateway port resolution", () => {
     it("uses default when env and config are unset", () => {
-      expect(resolveGatewayPort({}, envWith({ OPENCLAW_GATEWAY_PORT: undefined }))).toBe(
+      expect(resolveGatewayPort({}, envWith({ ALIENCLAW_GATEWAY_PORT: undefined }))).toBe(
         DEFAULT_GATEWAY_PORT,
       );
     });
 
-    it("prefers OPENCLAW_GATEWAY_PORT over config", () => {
+    it("prefers ALIENCLAW_GATEWAY_PORT over config", () => {
       expect(
         resolveGatewayPort(
           { gateway: { port: 19002 } },
-          envWith({ OPENCLAW_GATEWAY_PORT: "19001" }),
+          envWith({ ALIENCLAW_GATEWAY_PORT: "19001" }),
         ),
       ).toBe(19001);
     });
@@ -213,7 +213,7 @@ describe("Nix integration (U3, U5, U9)", () => {
       expect(
         resolveGatewayPort(
           { gateway: { port: 19003 } },
-          envWith({ OPENCLAW_GATEWAY_PORT: "nope" }),
+          envWith({ ALIENCLAW_GATEWAY_PORT: "nope" }),
         ),
       ).toBe(19003);
     });

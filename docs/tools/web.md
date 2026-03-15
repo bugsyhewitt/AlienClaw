@@ -9,7 +9,7 @@ title: "Web Tools"
 
 # Web tools
 
-OpenClaw ships two lightweight web tools:
+AlienClaw ships two lightweight web tools:
 
 - `web_search` — Search the web using Perplexity Search API, Brave Search API, Gemini with Google Search grounding, Grok, or Kimi.
 - `web_fetch` — HTTP fetch + readable extraction (HTML → markdown/text).
@@ -39,7 +39,7 @@ See [Perplexity Search setup](/perplexity) and [Brave Search setup](/brave-searc
 
 ### Auto-detection
 
-If no `provider` is explicitly set, OpenClaw auto-detects which provider to use based on available API keys, checking in this order:
+If no `provider` is explicitly set, AlienClaw auto-detects which provider to use based on available API keys, checking in this order:
 
 1. **Brave** — `BRAVE_API_KEY` env var or `tools.web.search.apiKey` config
 2. **Gemini** — `GEMINI_API_KEY` env var or `tools.web.search.gemini.apiKey` config
@@ -51,13 +51,13 @@ If no keys are found, it falls back to Brave (you'll get a missing-key error pro
 
 ## Setting up web search
 
-Use `openclaw configure --section web` to set up your API key and choose a provider.
+Use `alienclaw configure --section web` to set up your API key and choose a provider.
 
 ### Perplexity Search
 
 1. Create a Perplexity account at [perplexity.ai/settings/api](https://www.perplexity.ai/settings/api)
 2. Generate an API key in the dashboard
-3. Run `openclaw configure --section web` to store the key in config, or set `PERPLEXITY_API_KEY` in your environment.
+3. Run `alienclaw configure --section web` to store the key in config, or set `PERPLEXITY_API_KEY` in your environment.
 
 See [Perplexity Search API Docs](https://docs.perplexity.ai/guides/search-quickstart) for more details.
 
@@ -65,15 +65,15 @@ See [Perplexity Search API Docs](https://docs.perplexity.ai/guides/search-quicks
 
 1. Create a Brave Search API account at [brave.com/search/api](https://brave.com/search/api/)
 2. In the dashboard, choose the **Data for Search** plan (not "Data for AI") and generate an API key.
-3. Run `openclaw configure --section web` to store the key in config (recommended), or set `BRAVE_API_KEY` in your environment.
+3. Run `alienclaw configure --section web` to store the key in config (recommended), or set `BRAVE_API_KEY` in your environment.
 
 Brave provides paid plans; check the Brave API portal for the current limits and pricing.
 
 ### Where to store the key
 
-**Via config (recommended):** run `openclaw configure --section web`. It stores the key under `tools.web.search.perplexity.apiKey` or `tools.web.search.apiKey`.
+**Via config (recommended):** run `alienclaw configure --section web`. It stores the key under `tools.web.search.perplexity.apiKey` or `tools.web.search.apiKey`.
 
-**Via environment:** set `PERPLEXITY_API_KEY` or `BRAVE_API_KEY` in the Gateway process environment. For a gateway install, put it in `~/.openclaw/.env` (or your service environment). See [Env vars](/help/faq#how-does-openclaw-load-environment-variables).
+**Via environment:** set `PERPLEXITY_API_KEY` or `BRAVE_API_KEY` in the Gateway process environment. For a gateway install, put it in `~/.alienclaw/.env` (or your service environment). See [Env vars](/help/faq#how-does-alienclaw-load-environment-variables).
 
 ### Config examples
 
@@ -143,7 +143,7 @@ which returns AI-synthesized answers backed by live Google Search results with c
 ```
 
 **Environment alternative:** set `GEMINI_API_KEY` in the Gateway environment.
-For a gateway install, put it in `~/.openclaw/.env`.
+For a gateway install, put it in `~/.alienclaw/.env`.
 
 ### Notes
 

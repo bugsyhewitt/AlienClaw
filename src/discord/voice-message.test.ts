@@ -77,8 +77,8 @@ vi.mock("node:child_process", async (importOriginal) => {
   };
 });
 
-vi.mock("../infra/tmp-openclaw-dir.js", () => ({
-  resolvePreferredOpenClawTmpDir: () => "/tmp",
+vi.mock("../infra/tmp-alienclaw-dir.js", () => ({
+  resolvePreferredAlienClawTmpDir: () => "/tmp",
 }));
 
 const { ensureOggOpus } = await import("./voice-message.js");

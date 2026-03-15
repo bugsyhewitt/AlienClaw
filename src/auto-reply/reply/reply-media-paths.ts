@@ -1,7 +1,7 @@
 import { resolvePathFromInput } from "../../agents/path-policy.js";
 import { assertMediaNotDataUrl, resolveSandboxedMediaSource } from "../../agents/sandbox-paths.js";
 import { ensureSandboxWorkspaceForSession } from "../../agents/sandbox.js";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import type { ReplyPayload } from "../types.js";
 
 const HTTP_URL_RE = /^https?:\/\//i;
@@ -29,7 +29,7 @@ function getPayloadMediaList(payload: ReplyPayload): string[] {
 }
 
 export function createReplyMediaPathNormalizer(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   sessionKey?: string;
   workspaceDir: string;
 }): (payload: ReplyPayload) => Promise<ReplyPayload> {

@@ -37,7 +37,7 @@ import {
   supportsXHighThinking,
 } from "../../auto-reply/thinking.js";
 import type { CliDeps } from "../../cli/outbound-send-deps.js";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import {
   resolveSessionTranscriptPath,
   setSessionRuntimeModel,
@@ -82,7 +82,7 @@ export type RunCronAgentTurnResult = {
    * channel (via outbound payloads, the subagent announce flow, or a matching
    * messaging-tool send). Callers should skip posting a summary to the main
    * session to avoid duplicate
-   * messages.  See: https://github.com/openclaw/openclaw/issues/15692
+   * messages.  See: https://github.com/alienclaw/alienclaw/issues/15692
    */
   delivered?: boolean;
   /**
@@ -95,7 +95,7 @@ export type RunCronAgentTurnResult = {
   CronRunTelemetry;
 
 export async function runCronIsolatedAgentTurn(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   deps: CliDeps;
   job: CronJob;
   message: string;
@@ -113,7 +113,7 @@ export async function runCronIsolatedAgentTurn(params: {
       ? reason.trim()
       : "cron: job execution timed out";
   };
-  const isFastTestEnv = process.env.OPENCLAW_TEST_FAST === "1";
+  const isFastTestEnv = process.env.ALIENCLAW_TEST_FAST === "1";
   const defaultAgentId = resolveDefaultAgentId(params.cfg);
   const requestedAgentId =
     typeof params.agentId === "string" && params.agentId.trim()
@@ -132,7 +132,7 @@ export async function runCronIsolatedAgentTurn(params: {
   } = agentConfigOverride ?? {};
   // Use the requested agentId even when there is no explicit agent config entry.
   // This ensures auth-profiles, workspace, and agentDir all resolve to the
-  // correct per-agent paths (e.g. ~/.openclaw/agents/<agentId>/agent/).
+  // correct per-agent paths (e.g. ~/.alienclaw/agents/<agentId>/agent/).
   const agentId = normalizedRequested ?? defaultAgentId;
   // Keep sandbox overrides out of `agents.defaults` here. Sandbox resolution
   // already merges global defaults with per-agent overrides using `agentId`;
@@ -155,7 +155,7 @@ export async function runCronIsolatedAgentTurn(params: {
   } else if (overrideModel) {
     agentCfg.model = { ...existingModel, ...overrideModel };
   }
-  const cfgWithAgentDefaults: OpenClawConfig = {
+  const cfgWithAgentDefaults: AlienClawConfig = {
     ...params.cfg,
     agents: Object.assign({}, params.cfg.agents, { defaults: agentCfg }),
   };
@@ -490,7 +490,7 @@ export async function runCronIsolatedAgentTurn(params: {
             // Passing an existing ID activates the resume watchdog profile
             // (noOutputTimeoutRatio 0.3, maxMs 180 s) instead of the fresh profile
             // (ratio 0.8, maxMs 600 s), causing jobs to time out at roughly 1/3 of
-            // the configured timeoutSeconds. See: https://github.com/openclaw/openclaw/issues/29774
+            // the configured timeoutSeconds. See: https://github.com/alienclaw/alienclaw/issues/29774
             const cliSessionId = cronSession.isNewSession
               ? undefined
               : getCliSessionId(cronSession.sessionEntry, providerOverride);

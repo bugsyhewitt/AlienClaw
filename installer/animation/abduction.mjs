@@ -210,13 +210,15 @@ function beamCol(frame, rowOff = 0) {
   );
 }
 
-function drawBeam(topR, botR, cCol, frame, erase = false) {
-  const rows = botR - topR + 1;
+// fullTop/fullBot define the pyramid's full extent so partial draws/erases
+// always use the correct width for each row.
+function drawBeam(topR, botR, cCol, frame, erase = false, fullTop = topR, fullBot = botR) {
+  const maxRows = fullBot - fullTop + 1;
   let s = '';
-  for (let i = 0; i < rows; i++) {
-    const r = topR + i;
+  for (let r = topR; r <= botR; r++) {
     if (r < 1 || r > H - 1) continue;
-    const prog  = rows <= 1 ? 0 : i / (rows - 1);
+    const i     = r - fullTop;
+    const prog  = maxRows <= 1 ? 0 : i / (maxRows - 1);
     const halfW = Math.min(10, Math.floor(prog * 11));
     const w     = halfW * 2 + 1;
     const lc    = cCol - halfW;
@@ -225,10 +227,11 @@ function drawBeam(topR, botR, cCol, frame, erase = false) {
       continue;
     }
     const col  = beamCol(frame, i);
-    // Alternate fill character for shimmer effect
     const fill = (frame + i) % 3 === 0 ? '⠿' : '⣿';
-    const line = w === 1 ? '⡇' : '⡇' + fill.repeat(w - 2) + '⢸';
-    s += at(r, lc) + col + line + RST;
+    if (w <= 2) continue;
+    s += at(r, lc)         + ' ';                          // clear left edge
+    s += at(r, lc + w - 1) + ' ';                          // clear right edge
+    s += at(r, lc + 1)     + col + fill.repeat(w - 2) + RST; // interior only
   }
   out(s);
 }
@@ -308,7 +311,7 @@ async function run() {
   for (let f = 0; f <= 25; f++) {
     const t  = f / 25;
     const bt = Math.round(lerp(beamTop, beamBot, t));
-    drawBeam(beamTop, bt, beamCtr, frame);
+    drawBeam(beamTop, bt, beamCtr, frame, false, beamTop, beamBot);
     drawStars(frame);
     drawShip(shipRow, shipCol);
     drawEm(lobR, lobC, '🦞');
@@ -317,7 +320,7 @@ async function run() {
   // Pulse with 🦞 glowing
   for (let f = 0; f < 20; f++) {
     const glow = (Math.sin(frame * 0.25) + 1) / 2 * 0.4;
-    drawBeam(beamTop, beamBot, beamCtr, frame);
+    drawBeam(beamTop, beamBot, beamCtr, frame, false, beamTop, beamBot);
     drawStars(frame);
     drawShip(shipRow, shipCol, glow);
     drawEm(lobR, lobC, '🦞');
@@ -330,10 +333,10 @@ async function run() {
     const nr = Math.round(lerp(lobR, beamTop, t));
     eraseEm(pLobR ?? lobR, lobC);
     // Redraw beam
-    drawBeam(beamTop, beamBot, beamCtr, frame);
+    drawBeam(beamTop, beamBot, beamCtr, frame, false, beamTop, beamBot);
     // Erase beam cells below lobster (it "rises above" the beam bottom)
     if (nr > beamTop) {
-      drawBeam(nr + 1, beamBot, beamCtr, frame);
+      drawBeam(nr + 1, beamBot, beamCtr, frame, false, beamTop, beamBot);
     }
     drawStars(frame);
     drawShip(shipRow, shipCol, 0.2 + (Math.sin(frame*0.3)+1)*0.15);
@@ -343,7 +346,7 @@ async function run() {
   }
   eraseEm(pLobR, lobC);
   // Clear beam
-  drawBeam(beamTop, beamBot, beamCtr, frame, true);
+  drawBeam(beamTop, beamBot, beamCtr, frame, true, beamTop, beamBot);
 
   // ── Phase 7: Ship wobbles then LAUNCHES (1s) ───────────────────────────────
   for (let f = 0; f < 12; f++) {
@@ -368,6 +371,10 @@ async function run() {
   eraseShip(lSR, lSC);
 
   // ── Phase 8: Pause — empty field, stars (1s) ──────────────────────────────
+  // Wipe entire sky to remove any residual ship/beam artifacts
+  let _skyClear = '';
+  for (let r = 1; r <= SKY_H; r++) _skyClear += at(r, 1) + ' '.repeat(W);
+  out(_skyClear);
   drawGrass();
   for (let f = 0; f < 17; f++) {
     drawStars(frame);
@@ -396,7 +403,7 @@ async function run() {
   for (let f = 0; f <= 25; f++) {
     const t  = f / 25;
     const bt = Math.round(lerp(beamTop, beamBot, t));
-    drawBeam(beamTop, bt, beamCtr, frame);
+    drawBeam(beamTop, bt, beamCtr, frame, false, beamTop, beamBot);
     drawStars(frame);
     drawShip(shipRow, shipCol);
     frame++; await sleep(TICK);
@@ -407,7 +414,7 @@ async function run() {
     const t  = easeOut(f / 33);
     const nr = Math.round(lerp(beamTop, beamBot + 1, t));
     eraseEm(pAlienR, beamCtr - 1);
-    drawBeam(beamTop, beamBot, beamCtr, frame);
+    drawBeam(beamTop, beamBot, beamCtr, frame, false, beamTop, beamBot);
     drawStars(frame);
     drawShip(shipRow, shipCol);
     drawEm(nr, beamCtr - 1, '👽');
@@ -420,15 +427,15 @@ async function run() {
   for (let f = 0; f <= 20; f++) {
     const t  = f / 20;
     const bt = Math.round(lerp(beamBot, beamTop - 1, t));
-    drawBeam(beamTop, bt, beamCtr, frame);
+    drawBeam(beamTop, bt, beamCtr, frame, false, beamTop, beamBot);
     // Clear rows below retracted top
-    if (bt < beamBot) drawBeam(bt + 1, beamBot, beamCtr, frame, true);
+    if (bt < beamBot) drawBeam(bt + 1, beamBot, beamCtr, frame, true, beamTop, beamBot);
     drawStars(frame);
     drawShip(shipRow, shipCol);
     drawEm(alienR, beamCtr - 1, '👽');
     frame++; await sleep(TICK);
   }
-  drawBeam(beamTop, beamBot, beamCtr, frame, true);
+  drawBeam(beamTop, beamBot, beamCtr, frame, true, beamTop, beamBot);
 
   // 👽 lands in field
   const alienLandC = MID - 1;
@@ -453,8 +460,8 @@ async function run() {
   let pAlienRC = GR1, pAlienCC = alienLandC;
   for (let f = 0; f <= 33; f++) {
     const t  = easeInOut(f / 33);
-    const nr = Math.round(lerp(GR1, 1, t));
-    const nc = Math.round(lerp(alienLandC, 1, t));
+    const nr = Math.round(lerp(GR1, 3, t));
+    const nc = Math.round(lerp(alienLandC, 3, t));
     eraseEm(pAlienRC, pAlienCC);
     drawStars(frame);
     drawGrass();
@@ -462,13 +469,26 @@ async function run() {
     pAlienRC = nr; pAlienCC = nc;
     frame++; await sleep(TICK);
   }
-  // 👽 arrives at top-left
-  drawEm(1, 1, '👽');
+  // Clear top-left corner so no residue from slide path lingers
+  let _tlClear = '';
+  for (let r = 1; r <= 4; r++) _tlClear += at(r, 1) + ' '.repeat(8);
+  out(_tlClear);
+  // 👽 arrives
+  drawEm(3, 3, '👽');
 
   // ── Phase 13: Color bleed red → #00FF88, heartbeat pulses, steady (3s) ────
-  const TITLE = '  ✦  A L I E N C L A W   O N L I N E  ✦  ';
-  const tCol  = Math.max(1, Math.floor((W - TITLE.length) / 2) + 1);
-  const tRow  = Math.floor(H / 2);
+  const LOGO = [
+    ' ░▒▓██████▓▒░░▒▓█▓▒░      ░▒▓█▓▒░▒▓████████▓▒░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░       ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░',
+    '░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░',
+    '░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░',
+    '░▒▓████████▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓██████▓▒░ ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓████████▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░',
+    '░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░',
+    '░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░',
+    '░▒▓█▓▒░░▒▓█▓▒░▒▓████████▓▒░▒▓█▓▒░▒▓████████▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓██████▓▒░░▒▓████████▓▒░▒▓█▓▒░░▒▓█▓▒░░▒▓█████████████▓▒░',
+  ];
+  const logoW   = Math.max(...LOGO.map(l => l.length));
+  const logoCol = Math.max(1, Math.floor((W - logoW) / 2) + 1);
+  const logoRow = Math.max(2, Math.floor(H / 2) - 3);
 
   for (let f = 0; f < 55; f++) {
     const t = f / 54;
@@ -478,10 +498,10 @@ async function run() {
       : 1;
     const pulse = 0.25 + beat * 0.75;
 
-    // Color transition red → green
-    const cr = Math.round(lerp(255, 0,   Math.min(1, t * 1.6)) * pulse);
-    const cg = Math.round(lerp(51,  255, Math.min(1, t * 1.3)) * pulse);
-    const cb = Math.round(lerp(51,  136, t) * pulse);
+    // Green heartbeat — starts dim, pulses bright
+    const cr = 0;
+    const cg = Math.round(lerp(80, 255, Math.min(1, t)) * pulse);
+    const cb = Math.round(lerp(40, 136, t) * pulse);
 
     const borderCol = rgb(cr, cg, cb);
 
@@ -496,15 +516,21 @@ async function run() {
     out(s);
     drawStars(frame);
     drawGrass();
-    drawEm(1, 1, '👽');
+    drawEm(3, 3, '👽');
 
-    // Title fades in after first pulse
+    // Logo fades in after first pulse
     if (f > 12) {
       const ta = Math.min(1, (f - 12) / 18);
-      const tr = Math.round(cr * ta);
-      const tg = Math.round(lerp(0, cg, ta));
-      const tb = Math.round(lerp(255, cb, ta));
-      out(at(tRow, tCol) + rgb(tr, tg, tb) + BLD + TITLE + RST);
+      const tg2 = Math.round(lerp(0, cg, ta));
+      const tb2 = Math.round(lerp(255, cb, ta));
+      const logoColor = rgb(0, tg2, tb2);
+      const maxW = W - logoCol;
+      let ls = '';
+      for (let i = 0; i < LOGO.length; i++) {
+        const lr = logoRow + i;
+        if (lr >= 2 && lr < H - 1) ls += at(lr, logoCol) + logoColor + BLD + LOGO[i].slice(0, maxW) + RST;
+      }
+      out(ls);
     }
     frame++; await sleep(TICK);
   }
@@ -523,8 +549,14 @@ async function run() {
     out(s);
     drawStars(frame);
     drawGrass();
-    drawEm(1, 1, '👽');
-    out(at(tRow, tCol) + col + BLD + TITLE + RST);
+    drawEm(3, 3, '👽');
+    const maxW2 = W - logoCol;
+    let ls2 = '';
+    for (let i = 0; i < LOGO.length; i++) {
+      const lr = logoRow + i;
+      if (lr >= 2 && lr < H - 1) ls2 += at(lr, logoCol) + col + BLD + LOGO[i].slice(0, maxW2) + RST;
+    }
+    out(ls2);
     frame++; await sleep(TICK);
   }
 

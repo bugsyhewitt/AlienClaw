@@ -19,7 +19,7 @@ export type DiscordMessageEvent = import("./listeners.js").DiscordMessageEvent;
 export type DiscordMessagePreflightContext = {
   cfg: LoadedConfig;
   discordConfig: NonNullable<
-    import("../../config/config.js").OpenClawConfig["channels"]
+    import("../../config/config.js").AlienClawConfig["channels"]
   >["discord"];
   accountId: string;
   token: string;

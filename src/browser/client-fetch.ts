@@ -42,7 +42,7 @@ function withLoopbackBrowserAuthImpl(
   deps: LoopbackBrowserAuthDeps,
 ): RequestInit & { timeoutMs?: number } {
   const headers = new Headers(init?.headers ?? {});
-  if (headers.has("authorization") || headers.has("x-openclaw-password")) {
+  if (headers.has("authorization") || headers.has("x-alienclaw-password")) {
     return { ...init, headers };
   }
   if (!isLoopbackHttpUrl(url)) {
@@ -57,7 +57,7 @@ function withLoopbackBrowserAuthImpl(
       return { ...init, headers };
     }
     if (auth.password) {
-      headers.set("x-openclaw-password", auth.password);
+      headers.set("x-alienclaw-password", auth.password);
       return { ...init, headers };
     }
   } catch {
@@ -78,7 +78,7 @@ function withLoopbackBrowserAuthImpl(
     if (bridgeAuth?.token) {
       headers.set("Authorization", `Bearer ${bridgeAuth.token}`);
     } else if (bridgeAuth?.password) {
-      headers.set("x-openclaw-password", bridgeAuth.password);
+      headers.set("x-alienclaw-password", bridgeAuth.password);
     }
   } catch {
     // ignore
@@ -105,7 +105,7 @@ const BROWSER_TOOL_MODEL_HINT =
 function resolveBrowserFetchOperatorHint(url: string): string {
   const isLocal = !isAbsoluteHttp(url);
   return isLocal
-    ? `Restart the OpenClaw gateway (OpenClaw.app menubar, or \`${formatCliCommand("openclaw gateway")}\`).`
+    ? `Restart the AlienClaw gateway (AlienClaw.app menubar, or \`${formatCliCommand("alienclaw gateway")}\`).`
     : "If this is a sandboxed session, ensure the sandbox browser is running.";
 }
 
@@ -143,13 +143,13 @@ function enhanceBrowserFetchError(url: string, err: unknown, timeoutMs: number):
   if (looksLikeTimeout) {
     return new Error(
       appendBrowserToolModelHint(
-        `Can't reach the OpenClaw browser control service (timed out after ${timeoutMs}ms). ${operatorHint}`,
+        `Can't reach the AlienClaw browser control service (timed out after ${timeoutMs}ms). ${operatorHint}`,
       ),
     );
   }
   return new Error(
     appendBrowserToolModelHint(
-      `Can't reach the OpenClaw browser control service. ${operatorHint} (${msg})`,
+      `Can't reach the AlienClaw browser control service. ${operatorHint} (${msg})`,
     ),
   );
 }

@@ -13,8 +13,8 @@ import { installProcessWarningFilter } from "./infra/warning-filter.js";
 import { attachChildProcessBridge } from "./process/child-process-bridge.js";
 
 const ENTRY_WRAPPER_PAIRS = [
-  { wrapperBasename: "openclaw.mjs", entryBasename: "entry.js" },
-  { wrapperBasename: "openclaw.js", entryBasename: "entry.js" },
+  { wrapperBasename: "alienclaw.mjs", entryBasename: "entry.js" },
+  { wrapperBasename: "alienclaw.js", entryBasename: "entry.js" },
 ] as const;
 
 function shouldForceReadOnlyAuthStore(argv: string[]): boolean {
@@ -40,7 +40,7 @@ if (
 ) {
   // Imported as a dependency — skip all entry-point side effects.
 } else {
-  process.title = "openclaw";
+  process.title = "alienclaw";
   installProcessWarningFilter();
   normalizeEnv();
   if (!isTruthyEnvValue(process.env.NODE_DISABLE_COMPILE_CACHE)) {
@@ -52,7 +52,7 @@ if (
   }
 
   if (shouldForceReadOnlyAuthStore(process.argv)) {
-    process.env.OPENCLAW_AUTH_STORE_READONLY = "1";
+    process.env.ALIENCLAW_AUTH_STORE_READONLY = "1";
   }
 
   if (process.argv.includes("--no-color")) {
@@ -79,10 +79,10 @@ if (
     if (shouldSkipRespawnForArgv(process.argv)) {
       return false;
     }
-    if (isTruthyEnvValue(process.env.OPENCLAW_NO_RESPAWN)) {
+    if (isTruthyEnvValue(process.env.ALIENCLAW_NO_RESPAWN)) {
       return false;
     }
-    if (isTruthyEnvValue(process.env.OPENCLAW_NODE_OPTIONS_READY)) {
+    if (isTruthyEnvValue(process.env.ALIENCLAW_NODE_OPTIONS_READY)) {
       return false;
     }
     if (hasExperimentalWarningSuppressed()) {
@@ -90,7 +90,7 @@ if (
     }
 
     // Respawn guard (and keep recursion bounded if something goes wrong).
-    process.env.OPENCLAW_NODE_OPTIONS_READY = "1";
+    process.env.ALIENCLAW_NODE_OPTIONS_READY = "1";
     // Pass flag as a Node CLI option, not via NODE_OPTIONS (--disable-warning is disallowed in NODE_OPTIONS).
     const child = spawn(
       process.execPath,
@@ -113,7 +113,7 @@ if (
 
     child.once("error", (error) => {
       console.error(
-        "[openclaw] Failed to respawn CLI:",
+        "[alienclaw] Failed to respawn CLI:",
         error instanceof Error ? (error.stack ?? error.message) : error,
       );
       process.exit(1);
@@ -133,7 +133,7 @@ if (
       })
       .catch((error) => {
         console.error(
-          "[openclaw] Failed to resolve version:",
+          "[alienclaw] Failed to resolve version:",
           error instanceof Error ? (error.stack ?? error.message) : error,
         );
         process.exitCode = 1;
@@ -151,7 +151,7 @@ if (
       })
       .catch((error) => {
         console.error(
-          "[openclaw] Failed to display help:",
+          "[alienclaw] Failed to display help:",
           error instanceof Error ? (error.stack ?? error.message) : error,
         );
         process.exitCode = 1;
@@ -165,7 +165,7 @@ if (
     const parsed = parseCliProfileArgs(process.argv);
     if (!parsed.ok) {
       // Keep it simple; Commander will handle rich help/errors after we strip flags.
-      console.error(`[openclaw] ${parsed.error}`);
+      console.error(`[alienclaw] ${parsed.error}`);
       process.exit(2);
     }
 
@@ -180,7 +180,7 @@ if (
         .then(({ runCli }) => runCli(process.argv))
         .catch((error) => {
           console.error(
-            "[openclaw] Failed to start CLI:",
+            "[alienclaw] Failed to start CLI:",
             error instanceof Error ? (error.stack ?? error.message) : error,
           );
           process.exitCode = 1;

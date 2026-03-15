@@ -6,7 +6,7 @@ import {
   DEFAULT_SANDBOX_IMAGE,
   resolveSandboxScope,
 } from "../agents/sandbox.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { runCommandWithTimeout, runExec } from "../process/exec.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { note } from "../terminal/note.js";
@@ -89,17 +89,17 @@ async function dockerImageExists(image: string): Promise<boolean> {
   }
 }
 
-function resolveSandboxDockerImage(cfg: OpenClawConfig): string {
+function resolveSandboxDockerImage(cfg: AlienClawConfig): string {
   const image = cfg.agents?.defaults?.sandbox?.docker?.image?.trim();
   return image ? image : DEFAULT_SANDBOX_IMAGE;
 }
 
-function resolveSandboxBrowserImage(cfg: OpenClawConfig): string {
+function resolveSandboxBrowserImage(cfg: AlienClawConfig): string {
   const image = cfg.agents?.defaults?.sandbox?.browser?.image?.trim();
   return image ? image : DEFAULT_SANDBOX_BROWSER_IMAGE;
 }
 
-function updateSandboxDockerImage(cfg: OpenClawConfig, image: string): OpenClawConfig {
+function updateSandboxDockerImage(cfg: AlienClawConfig, image: string): AlienClawConfig {
   return {
     ...cfg,
     agents: {
@@ -118,7 +118,7 @@ function updateSandboxDockerImage(cfg: OpenClawConfig, image: string): OpenClawC
   };
 }
 
-function updateSandboxBrowserImage(cfg: OpenClawConfig, image: string): OpenClawConfig {
+function updateSandboxBrowserImage(cfg: AlienClawConfig, image: string): AlienClawConfig {
   return {
     ...cfg,
     agents: {
@@ -176,10 +176,10 @@ async function handleMissingSandboxImage(
 }
 
 export async function maybeRepairSandboxImages(
-  cfg: OpenClawConfig,
+  cfg: AlienClawConfig,
   runtime: RuntimeEnv,
   prompter: DoctorPrompter,
-): Promise<OpenClawConfig> {
+): Promise<AlienClawConfig> {
   const sandbox = cfg.agents?.defaults?.sandbox;
   const mode = sandbox?.mode ?? "off";
   if (!sandbox || mode === "off") {
@@ -195,7 +195,7 @@ export async function maybeRepairSandboxImages(
       "",
       "Options:",
       "- Install Docker and restart the gateway",
-      "- Disable sandbox mode: openclaw config set agents.defaults.sandbox.mode off",
+      "- Disable sandbox mode: alienclaw config set agents.defaults.sandbox.mode off",
     ];
     note(lines.join("\n"), "Sandbox");
     return cfg;
@@ -247,7 +247,7 @@ export async function maybeRepairSandboxImages(
   return next;
 }
 
-export function noteSandboxScopeWarnings(cfg: OpenClawConfig) {
+export function noteSandboxScopeWarnings(cfg: AlienClawConfig) {
   const globalSandbox = cfg.agents?.defaults?.sandbox;
   const agents = Array.isArray(cfg.agents?.list) ? cfg.agents.list : [];
   const warnings: string[] = [];

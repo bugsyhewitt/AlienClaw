@@ -1,4 +1,4 @@
-import { MarkdownConfigSchema, buildChannelConfigSchema } from "openclaw/plugin-sdk/nostr";
+import { MarkdownConfigSchema, buildChannelConfigSchema } from "alienclaw/plugin-sdk/nostr";
 import { z } from "zod";
 
 const allowFromEntry = z.union([z.string(), z.number()]);

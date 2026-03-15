@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import {
   type AuthCredentialReasonCode,
   type AuthProfileCredential,
@@ -99,7 +99,7 @@ function buildProfileHealth(params: {
   profileId: string;
   credential: AuthProfileCredential;
   store: AuthProfileStore;
-  cfg?: OpenClawConfig;
+  cfg?: AlienClawConfig;
   now: number;
   warnAfterMs: number;
 }): AuthProfileHealth {
@@ -186,7 +186,7 @@ function buildProfileHealth(params: {
 
 export function buildAuthHealthSummary(params: {
   store: AuthProfileStore;
-  cfg?: OpenClawConfig;
+  cfg?: AlienClawConfig;
   warnAfterMs?: number;
   providers?: string[];
 }): AuthHealthSummary {

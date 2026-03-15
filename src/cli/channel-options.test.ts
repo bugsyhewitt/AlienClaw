@@ -40,7 +40,7 @@ async function loadModule() {
 
 describe("resolveCliChannelOptions", () => {
   afterEach(() => {
-    delete process.env.OPENCLAW_EAGER_CHANNEL_OPTIONS;
+    delete process.env.ALIENCLAW_EAGER_CHANNEL_OPTIONS;
     vi.resetModules();
     vi.clearAllMocks();
   });
@@ -68,7 +68,7 @@ describe("resolveCliChannelOptions", () => {
   });
 
   it("respects eager mode and includes loaded plugin ids", async () => {
-    process.env.OPENCLAW_EAGER_CHANNEL_OPTIONS = "1";
+    process.env.ALIENCLAW_EAGER_CHANNEL_OPTIONS = "1";
     readFileSyncMock.mockReturnValue(JSON.stringify({ channelOptions: ["cached"] }));
     listCatalogMock.mockReturnValue([{ id: "zalo" }]);
     listPluginsMock.mockReturnValue([{ id: "custom-a" }, { id: "custom-b" }]);
@@ -86,13 +86,13 @@ describe("resolveCliChannelOptions", () => {
   });
 
   it("keeps dynamic catalog resolution when external catalog env is set", async () => {
-    process.env.OPENCLAW_PLUGIN_CATALOG_PATHS = "/tmp/plugins-catalog.json";
+    process.env.ALIENCLAW_PLUGIN_CATALOG_PATHS = "/tmp/plugins-catalog.json";
     readFileSyncMock.mockReturnValue(JSON.stringify({ channelOptions: ["cached", "telegram"] }));
     listCatalogMock.mockReturnValue([{ id: "custom-catalog" }]);
 
     const mod = await loadModule();
     expect(mod.resolveCliChannelOptions()).toEqual(["cached", "telegram", "custom-catalog"]);
     expect(listCatalogMock).toHaveBeenCalledOnce();
-    delete process.env.OPENCLAW_PLUGIN_CATALOG_PATHS;
+    delete process.env.ALIENCLAW_PLUGIN_CATALOG_PATHS;
   });
 });

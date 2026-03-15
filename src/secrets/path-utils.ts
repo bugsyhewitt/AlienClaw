@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { isRecord } from "./shared.js";
 
 function isArrayIndexSegment(segment: string): boolean {
@@ -89,7 +89,7 @@ export function getPath(root: unknown, segments: string[]): unknown {
 }
 
 export function setPathCreateStrict(
-  root: OpenClawConfig,
+  root: AlienClawConfig,
   segments: string[],
   value: unknown,
 ): boolean {
@@ -153,7 +153,7 @@ export function setPathCreateStrict(
 }
 
 export function setPathExistingStrict(
-  root: OpenClawConfig,
+  root: AlienClawConfig,
   segments: string[],
   value: unknown,
 ): boolean {
@@ -184,7 +184,7 @@ export function setPathExistingStrict(
   return false;
 }
 
-export function deletePathStrict(root: OpenClawConfig, segments: string[]): boolean {
+export function deletePathStrict(root: AlienClawConfig, segments: string[]): boolean {
   const cursor = traverseToLeafParent({ root, segments, requireExistingSegment: false });
 
   const leaf = segments[segments.length - 1] ?? "";

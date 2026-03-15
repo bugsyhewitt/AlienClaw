@@ -1,6 +1,6 @@
 import path from "node:path";
 import { resolveAgentSessionDirs } from "../../agents/session-dirs.js";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import { loadConfig } from "../../config/config.js";
 import { resolveStateDir } from "../../config/paths.js";
 import { loadSessionStore, resolveStorePath, updateSessionStore } from "../../config/sessions.js";
@@ -12,7 +12,7 @@ import {
 import { parseAgentSessionKey } from "../../routing/session-key.js";
 
 export type AcpSessionStoreEntry = {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   storePath: string;
   sessionKey: string;
   storeSessionKey: string;
@@ -43,8 +43,8 @@ function resolveStoreSessionKey(store: Record<string, SessionEntry>, sessionKey:
 
 export function resolveSessionStorePathForAcp(params: {
   sessionKey: string;
-  cfg?: OpenClawConfig;
-}): { cfg: OpenClawConfig; storePath: string } {
+  cfg?: AlienClawConfig;
+}): { cfg: AlienClawConfig; storePath: string } {
   const cfg = params.cfg ?? loadConfig();
   const parsed = parseAgentSessionKey(params.sessionKey);
   const storePath = resolveStorePath(cfg.session?.store, {
@@ -55,7 +55,7 @@ export function resolveSessionStorePathForAcp(params: {
 
 export function readAcpSessionEntry(params: {
   sessionKey: string;
-  cfg?: OpenClawConfig;
+  cfg?: AlienClawConfig;
 }): AcpSessionStoreEntry | null {
   const sessionKey = params.sessionKey.trim();
   if (!sessionKey) {
@@ -87,7 +87,7 @@ export function readAcpSessionEntry(params: {
 }
 
 export async function listAcpSessionEntries(params: {
-  cfg?: OpenClawConfig;
+  cfg?: AlienClawConfig;
 }): Promise<AcpSessionStoreEntry[]> {
   const cfg = params.cfg ?? loadConfig();
   const stateDir = resolveStateDir(process.env);
@@ -122,7 +122,7 @@ export async function listAcpSessionEntries(params: {
 
 export async function upsertAcpSessionMeta(params: {
   sessionKey: string;
-  cfg?: OpenClawConfig;
+  cfg?: AlienClawConfig;
   mutate: (
     current: SessionAcpMeta | undefined,
     entry: SessionEntry | undefined,

@@ -26,8 +26,8 @@ const buildGatewayInstallPlan = vi.fn(
     programArguments: ["/bin/node", "cli", "gateway", "--port", String(params.port)],
     workingDirectory: process.cwd(),
     environment: {
-      OPENCLAW_GATEWAY_PORT: String(params.port),
-      ...(params.token ? { OPENCLAW_GATEWAY_TOKEN: params.token } : {}),
+      ALIENCLAW_GATEWAY_PORT: String(params.port),
+      ...(params.token ? { ALIENCLAW_GATEWAY_TOKEN: params.token } : {}),
     },
   }),
 );
@@ -113,15 +113,15 @@ describe("daemon-cli coverage", () => {
   beforeEach(() => {
     daemonProgram = createDaemonProgram();
     envSnapshot = captureEnv([
-      "OPENCLAW_STATE_DIR",
-      "OPENCLAW_CONFIG_PATH",
-      "OPENCLAW_GATEWAY_PORT",
-      "OPENCLAW_PROFILE",
+      "ALIENCLAW_STATE_DIR",
+      "ALIENCLAW_CONFIG_PATH",
+      "ALIENCLAW_GATEWAY_PORT",
+      "ALIENCLAW_PROFILE",
     ]);
-    process.env.OPENCLAW_STATE_DIR = "/tmp/openclaw-cli-state";
-    process.env.OPENCLAW_CONFIG_PATH = "/tmp/openclaw-cli-state/openclaw.json";
-    delete process.env.OPENCLAW_GATEWAY_PORT;
-    delete process.env.OPENCLAW_PROFILE;
+    process.env.ALIENCLAW_STATE_DIR = "/tmp/alienclaw-cli-state";
+    process.env.ALIENCLAW_CONFIG_PATH = "/tmp/alienclaw-cli-state/alienclaw.json";
+    delete process.env.ALIENCLAW_GATEWAY_PORT;
+    delete process.env.ALIENCLAW_PROFILE;
     serviceReadCommand.mockResolvedValue(null);
     buildGatewayInstallPlan.mockClear();
   });
@@ -150,12 +150,12 @@ describe("daemon-cli coverage", () => {
     serviceReadCommand.mockResolvedValueOnce({
       programArguments: ["/bin/node", "cli", "gateway", "--port", "19001"],
       environment: {
-        OPENCLAW_PROFILE: "dev",
-        OPENCLAW_STATE_DIR: "/tmp/openclaw-daemon-state",
-        OPENCLAW_CONFIG_PATH: "/tmp/openclaw-daemon-state/openclaw.json",
-        OPENCLAW_GATEWAY_PORT: "19001",
+        ALIENCLAW_PROFILE: "dev",
+        ALIENCLAW_STATE_DIR: "/tmp/alienclaw-daemon-state",
+        ALIENCLAW_CONFIG_PATH: "/tmp/alienclaw-daemon-state/alienclaw.json",
+        ALIENCLAW_GATEWAY_PORT: "19001",
       },
-      sourcePath: "/tmp/ai.openclaw.gateway.plist",
+      sourcePath: "/tmp/ai.alienclaw.gateway.plist",
     });
 
     await runDaemonCommand(["daemon", "status", "--json"]);

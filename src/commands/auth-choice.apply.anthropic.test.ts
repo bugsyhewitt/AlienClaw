@@ -11,14 +11,14 @@ import {
 
 describe("applyAuthChoiceAnthropic", () => {
   const lifecycle = createAuthTestLifecycle([
-    "OPENCLAW_STATE_DIR",
-    "OPENCLAW_AGENT_DIR",
+    "ALIENCLAW_STATE_DIR",
+    "ALIENCLAW_AGENT_DIR",
     "PI_CODING_AGENT_DIR",
     "ANTHROPIC_SETUP_TOKEN",
   ]);
 
   async function setupTempState() {
-    const env = await setupAuthTestEnv("openclaw-anthropic-");
+    const env = await setupAuthTestEnv("alienclaw-anthropic-");
     lifecycle.setStateDir(env.stateDir);
     return env.agentDir;
   }

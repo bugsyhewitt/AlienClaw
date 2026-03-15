@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type {
   MarkdownTableMode,
-  OpenClawConfig,
+  AlienClawConfig,
   OutboundReplyPayload,
-} from "openclaw/plugin-sdk/zalo";
+} from "alienclaw/plugin-sdk/zalo";
 import {
   createScopedPairingAccess,
   createReplyPrefixOptions,
@@ -16,7 +16,7 @@ import {
   sendMediaWithLeadingCaption,
   resolveWebhookPath,
   warnMissingProviderGroupPolicyFallbackOnce,
-} from "openclaw/plugin-sdk/zalo";
+} from "alienclaw/plugin-sdk/zalo";
 import type { ResolvedZaloAccount } from "./accounts.js";
 import {
   ZaloApiError,
@@ -53,7 +53,7 @@ export type ZaloRuntimeEnv = {
 export type ZaloMonitorOptions = {
   token: string;
   account: ResolvedZaloAccount;
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   runtime: ZaloRuntimeEnv;
   abortSignal: AbortSignal;
   useWebhook?: boolean;
@@ -128,7 +128,7 @@ export async function handleZaloWebhookRequest(
 function startPollingLoop(params: {
   token: string;
   account: ResolvedZaloAccount;
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   runtime: ZaloRuntimeEnv;
   core: ZaloCoreRuntime;
   abortSignal: AbortSignal;
@@ -193,7 +193,7 @@ async function processUpdate(
   update: ZaloUpdate,
   token: string,
   account: ResolvedZaloAccount,
-  config: OpenClawConfig,
+  config: AlienClawConfig,
   runtime: ZaloRuntimeEnv,
   core: ZaloCoreRuntime,
   mediaMaxMb: number,
@@ -239,7 +239,7 @@ async function handleTextMessage(
   message: ZaloMessage,
   token: string,
   account: ResolvedZaloAccount,
-  config: OpenClawConfig,
+  config: AlienClawConfig,
   runtime: ZaloRuntimeEnv,
   core: ZaloCoreRuntime,
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void,
@@ -269,7 +269,7 @@ async function handleImageMessage(
   message: ZaloMessage,
   token: string,
   account: ResolvedZaloAccount,
-  config: OpenClawConfig,
+  config: AlienClawConfig,
   runtime: ZaloRuntimeEnv,
   core: ZaloCoreRuntime,
   mediaMaxMb: number,
@@ -317,7 +317,7 @@ async function processMessageWithPipeline(params: {
   message: ZaloMessage;
   token: string;
   account: ResolvedZaloAccount;
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   runtime: ZaloRuntimeEnv;
   core: ZaloCoreRuntime;
   text?: string;
@@ -558,7 +558,7 @@ async function deliverZaloReply(params: {
   chatId: string;
   runtime: ZaloRuntimeEnv;
   core: ZaloCoreRuntime;
-  config: OpenClawConfig;
+  config: AlienClawConfig;
   accountId?: string;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
   fetcher?: ZaloFetch;

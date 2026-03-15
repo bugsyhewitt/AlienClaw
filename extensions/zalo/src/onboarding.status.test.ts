@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "openclaw/plugin-sdk/zalo";
+import type { AlienClawConfig } from "alienclaw/plugin-sdk/zalo";
 import { describe, expect, it } from "vitest";
 import { zaloOnboardingAdapter } from "./onboarding.js";
 
@@ -15,7 +15,7 @@ describe("zalo onboarding status", () => {
             },
           },
         },
-      } as OpenClawConfig,
+      } as AlienClawConfig,
       accountOverrides: {},
     });
 

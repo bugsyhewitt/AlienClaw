@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import "./test-helpers/fast-coding-tools.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 
 function createMockUsage(input: number, output: number) {
   return {
@@ -98,7 +98,7 @@ beforeAll(async () => {
   vi.useRealTimers();
   ({ runEmbeddedPiAgent } = await import("./pi-embedded-runner/run.js"));
   ({ SessionManager } = await import("@mariozechner/pi-coding-agent"));
-  tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-embedded-agent-"));
+  tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "alienclaw-embedded-agent-"));
   agentDir = path.join(tempRoot, "agent");
   workspaceDir = path.join(tempRoot, "workspace");
   await fs.mkdir(agentDir, { recursive: true });
@@ -133,7 +133,7 @@ const makeOpenAiConfig = (modelIds: string[]) =>
         },
       },
     },
-  }) satisfies OpenClawConfig;
+  }) satisfies AlienClawConfig;
 
 const nextSessionFile = () => {
   sessionCounter += 1;

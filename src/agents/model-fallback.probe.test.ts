@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import type { AuthProfileStore } from "./auth-profiles.js";
 import { makeModelFallbackCfg } from "./test-helpers/model-fallback-config-fixture.js";
 
@@ -73,7 +73,7 @@ async function expectProbeFailureFallsBack({
         },
       },
     },
-  } as Partial<OpenClawConfig>);
+  } as Partial<AlienClawConfig>);
 
   mockedIsProfileInCooldown.mockReturnValue(true);
   mockedGetSoonestCooldownExpiry.mockReturnValue(1_700_000_000_000 + 30 * 1000);
@@ -103,7 +103,7 @@ describe("runWithModelFallback – probe logic", () => {
   const NOW = 1_700_000_000_000;
 
   const runPrimaryCandidate = (
-    cfg: OpenClawConfig,
+    cfg: AlienClawConfig,
     run: (provider: string, model: string) => Promise<unknown>,
   ) =>
     runWithModelFallback({
@@ -295,7 +295,7 @@ describe("runWithModelFallback – probe logic", () => {
           },
         },
       },
-    } as Partial<OpenClawConfig>);
+    } as Partial<AlienClawConfig>);
 
     const almostExpired = NOW + 30 * 1000;
     mockedGetSoonestCooldownExpiry.mockReturnValue(almostExpired);

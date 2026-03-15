@@ -4,49 +4,49 @@
 
 ### Changes
 
-- Version alignment with core OpenClaw release numbers.
+- Version alignment with core AlienClaw release numbers.
 
 ## 2026.3.3
 
 ### Changes
 
-- Version alignment with core OpenClaw release numbers.
+- Version alignment with core AlienClaw release numbers.
 
 ## 2026.3.2
 
 ### Changes
 
-- Version alignment with core OpenClaw release numbers.
+- Version alignment with core AlienClaw release numbers.
 
 ## 2026.3.1
 
 ### Changes
 
-- Version alignment with core OpenClaw release numbers.
+- Version alignment with core AlienClaw release numbers.
 
 ## 2026.2.26
 
 ### Changes
 
-- Version alignment with core OpenClaw release numbers.
+- Version alignment with core AlienClaw release numbers.
 
 ## 2026.2.25
 
 ### Changes
 
-- Version alignment with core OpenClaw release numbers.
+- Version alignment with core AlienClaw release numbers.
 
 ## 2026.2.24
 
 ### Changes
 
-- Version alignment with core OpenClaw release numbers.
+- Version alignment with core AlienClaw release numbers.
 
 ## 2026.2.22
 
 ### Changes
 
-- Version alignment with core OpenClaw release numbers.
+- Version alignment with core AlienClaw release numbers.
 
 ## 2026.1.26
 
@@ -61,7 +61,7 @@
 
 ### Highlights
 
-- First public release of the @openclaw/voice-call plugin.
+- First public release of the @alienclaw/voice-call plugin.
 
 ### Features
 
@@ -74,6 +74,6 @@
 - Speech: OpenAI TTS (model/voice/instructions) with Twilio `<Say>` fallback.
 - Tooling: `voice_call` tool actions for initiate/continue/speak/end/status.
 - Gateway RPC: `voicecall.initiate|continue|speak|end|status` (+ legacy `voicecall.start`).
-- CLI: `openclaw voicecall` commands (call/start/continue/speak/end/status/tail/expose).
+- CLI: `alienclaw voicecall` commands (call/start/continue/speak/end/status/tail/expose).
 - Observability: JSONL call logs and `voicecall tail` for live inspection.
 - Response controls: `responseModel`, `responseSystemPrompt`, and `responseTimeoutMs` for auto‑responses.

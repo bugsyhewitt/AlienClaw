@@ -149,7 +149,7 @@ function prependInternalEventContext(
   body: string,
   events: AgentCommandOpts["internalEvents"],
 ): string {
-  if (body.includes("OpenClaw runtime context (internal):")) {
+  if (body.includes("AlienClaw runtime context (internal):")) {
     return body;
   }
   const renderedEvents = formatAgentInternalEventsForPrompt(events);
@@ -464,7 +464,7 @@ async function prepareAgentCommandExecution(
     const knownAgents = listAgentIds(cfg);
     if (!knownAgents.includes(agentIdOverride)) {
       throw new Error(
-        `Unknown agent id "${agentIdOverrideRaw}". Use "${formatCliCommand("openclaw agents list")}" to see configured agents.`,
+        `Unknown agent id "${agentIdOverrideRaw}". Use "${formatCliCommand("alienclaw agents list")}" to see configured agents.`,
       );
     }
   }

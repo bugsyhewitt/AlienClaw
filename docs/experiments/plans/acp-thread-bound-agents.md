@@ -10,7 +10,7 @@ title: "ACP Thread Bound Agents"
 
 ## Overview
 
-This plan defines how OpenClaw should support ACP coding agents in thread-capable channels (Discord first) with production-level lifecycle and recovery.
+This plan defines how AlienClaw should support ACP coding agents in thread-capable channels (Discord first) with production-level lifecycle and recovery.
 
 Related document:
 
@@ -27,7 +27,7 @@ Target user experience:
 
 Long term recommendation is a hybrid architecture:
 
-- OpenClaw core owns ACP control plane concerns
+- AlienClaw core owns ACP control plane concerns
   - session identity and metadata
   - thread binding and routing decisions
   - delivery invariants and duplicate suppression
@@ -36,12 +36,12 @@ Long term recommendation is a hybrid architecture:
   - first backend is an acpx-backed plugin service
   - runtime does ACP transport, queueing, cancel, reconnect
 
-OpenClaw should not reimplement ACP transport internals in core.
-OpenClaw should not rely on a pure plugin-only interception path for routing.
+AlienClaw should not reimplement ACP transport internals in core.
+AlienClaw should not rely on a pure plugin-only interception path for routing.
 
 ## North-star architecture (holy grail)
 
-Treat ACP as a first-class control plane in OpenClaw, with pluggable runtime adapters.
+Treat ACP as a first-class control plane in AlienClaw, with pluggable runtime adapters.
 
 Non-negotiable invariants:
 
@@ -61,7 +61,7 @@ Long-term ownership model:
 
 Long-term persistence model:
 
-- move ACP control-plane state to a dedicated SQLite store (WAL mode) under OpenClaw state dir
+- move ACP control-plane state to a dedicated SQLite store (WAL mode) under AlienClaw state dir
 - keep `SessionEntry.acp` as compatibility projection during migration, not source-of-truth
 - store ACP events append-only to support replay, crash recovery, and deterministic delivery
 
@@ -106,7 +106,7 @@ This plan extends that foundation rather than replacing it.
 
 ### Boundary model
 
-Core (must be in OpenClaw core):
+Core (must be in AlienClaw core):
 
 - ACP session-mode dispatch branch in the reply pipeline
 - delivery arbitration to avoid parent plus thread duplication
@@ -236,7 +236,7 @@ Inbound:
 
 Outbound:
 
-- ACP event stream is normalized to OpenClaw reply chunks
+- ACP event stream is normalized to AlienClaw reply chunks
 - delivery target is resolved through existing bound destination path
 - when a bound thread is active for that session turn, parent channel completion is suppressed
 
@@ -462,14 +462,14 @@ Behavior:
 
 ### acpx runtime plugin contract (implementation detail)
 
-For the first production backend (`extensions/acpx`), OpenClaw and acpx are
+For the first production backend (`extensions/acpx`), AlienClaw and acpx are
 connected with a strict command contract:
 
 - backend id: `acpx`
 - plugin service id: `acpx-runtime`
 - runtime handle encoding: `runtimeSessionName = acpx:v1:<base64url(json)>`
 - encoded payload fields:
-  - `name` (acpx named session; uses OpenClaw `sessionKey`)
+  - `name` (acpx named session; uses AlienClaw `sessionKey`)
   - `agent` (acpx agent command)
   - `cwd` (session workspace root)
   - `mode` (`persistent | oneshot`)
@@ -487,7 +487,7 @@ Command mapping:
 
 Streaming:
 
-- OpenClaw consumes ndjson events from `acpx --format json --json-strict`
+- AlienClaw consumes ndjson events from `acpx --format json --json-strict`
 - `text` => `text_delta/output`
 - `thought` => `text_delta/thought`
 - `tool_call` => `tool_call`

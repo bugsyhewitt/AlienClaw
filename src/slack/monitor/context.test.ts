@@ -1,6 +1,6 @@
 import type { App } from "@slack/bolt";
 import { describe, expect, it } from "vitest";
-import type { OpenClawConfig } from "../../config/config.js";
+import type { AlienClawConfig } from "../../config/config.js";
 import type { RuntimeEnv } from "../../runtime.js";
 import { createSlackMonitorContext } from "./context.js";
 
@@ -9,7 +9,7 @@ function createTestContext() {
     cfg: {
       channels: { slack: { enabled: true } },
       session: { dmScope: "main" },
-    } as OpenClawConfig,
+    } as AlienClawConfig,
     accountId: "default",
     botToken: "xoxb-test",
     app: { client: {} } as App,
@@ -36,7 +36,7 @@ function createTestContext() {
     threadInheritParent: false,
     slashCommand: {
       enabled: true,
-      name: "openclaw",
+      name: "alienclaw",
       ephemeral: true,
       sessionPrefix: "slack:slash",
     },

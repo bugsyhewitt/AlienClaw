@@ -1,4 +1,4 @@
-import type { OpenClawConfig, PluginRuntime, RuntimeEnv } from "openclaw/plugin-sdk/zalouser";
+import type { AlienClawConfig, PluginRuntime, RuntimeEnv } from "alienclaw/plugin-sdk/zalouser";
 import { describe, expect, it, vi } from "vitest";
 import "./monitor.send-mocks.js";
 import { __testing } from "./monitor.js";
@@ -57,7 +57,7 @@ describe("zalouser monitor pairing account scoping", () => {
       },
     };
 
-    const config: OpenClawConfig = {
+    const config: AlienClawConfig = {
       channels: {
         zalouser: {
           accounts: {

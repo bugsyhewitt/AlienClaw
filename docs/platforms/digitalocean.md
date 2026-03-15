@@ -1,16 +1,16 @@
 ---
-summary: "OpenClaw on DigitalOcean (simple paid VPS option)"
+summary: "AlienClaw on DigitalOcean (simple paid VPS option)"
 read_when:
-  - Setting up OpenClaw on DigitalOcean
-  - Looking for cheap VPS hosting for OpenClaw
+  - Setting up AlienClaw on DigitalOcean
+  - Looking for cheap VPS hosting for AlienClaw
 title: "DigitalOcean"
 ---
 
-# OpenClaw on DigitalOcean
+# AlienClaw on DigitalOcean
 
 ## Goal
 
-Run a persistent OpenClaw Gateway on DigitalOcean for **$6/month** (or $4/mo with reserved pricing).
+Run a persistent AlienClaw Gateway on DigitalOcean for **$6/month** (or $4/mo with reserved pricing).
 
 If you want a $0/month option and don’t mind ARM + provider-specific setup, see the [Oracle Cloud guide](/platforms/oracle).
 
@@ -60,7 +60,7 @@ Use a clean base image (Ubuntu 24.04 LTS). Avoid third-party Marketplace 1-click
 ssh root@YOUR_DROPLET_IP
 ```
 
-## 3) Install OpenClaw
+## 3) Install AlienClaw
 
 ```bash
 # Update system
@@ -70,17 +70,17 @@ apt update && apt upgrade -y
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt install -y nodejs
 
-# Install OpenClaw
-curl -fsSL https://openclaw.ai/install.sh | bash
+# Install AlienClaw
+curl -fsSL https://alienclaw.ai/install.sh | bash
 
 # Verify
-openclaw --version
+alienclaw --version
 ```
 
 ## 4) Run Onboarding
 
 ```bash
-openclaw onboard --install-daemon
+alienclaw onboard --install-daemon
 ```
 
 The wizard will walk you through:
@@ -94,13 +94,13 @@ The wizard will walk you through:
 
 ```bash
 # Check status
-openclaw status
+alienclaw status
 
 # Check service
-systemctl --user status openclaw-gateway.service
+systemctl --user status alienclaw-gateway.service
 
 # View logs
-journalctl --user -u openclaw-gateway.service -f
+journalctl --user -u alienclaw-gateway.service -f
 ```
 
 ## 6) Access the Dashboard
@@ -124,8 +124,8 @@ curl -fsSL https://tailscale.com/install.sh | sh
 tailscale up
 
 # Configure Gateway to use Tailscale Serve
-openclaw config set gateway.tailscale.mode serve
-openclaw gateway restart
+alienclaw config set gateway.tailscale.mode serve
+alienclaw gateway restart
 ```
 
 Open: `https://<magicdns>/`
@@ -138,8 +138,8 @@ Notes:
 **Option C: Tailnet bind (no Serve)**
 
 ```bash
-openclaw config set gateway.bind tailnet
-openclaw gateway restart
+alienclaw config set gateway.bind tailnet
+alienclaw gateway restart
 ```
 
 Open: `http://<tailscale-ip>:18789` (token required).
@@ -149,14 +149,14 @@ Open: `http://<tailscale-ip>:18789` (token required).
 ### Telegram
 
 ```bash
-openclaw pairing list telegram
-openclaw pairing approve telegram <CODE>
+alienclaw pairing list telegram
+alienclaw pairing approve telegram <CODE>
 ```
 
 ### WhatsApp
 
 ```bash
-openclaw channels login whatsapp
+alienclaw channels login whatsapp
 # Scan QR code
 ```
 
@@ -198,13 +198,13 @@ htop
 
 All state lives in:
 
-- `~/.openclaw/` — config, credentials, session data
-- `~/.openclaw/workspace/` — workspace (SOUL.md, memory, etc.)
+- `~/.alienclaw/` — config, credentials, session data
+- `~/.alienclaw/workspace/` — workspace (SOUL.md, memory, etc.)
 
 These survive reboots. Back them up periodically:
 
 ```bash
-tar -czvf openclaw-backup.tar.gz ~/.openclaw ~/.openclaw/workspace
+tar -czvf alienclaw-backup.tar.gz ~/.alienclaw ~/.alienclaw/workspace
 ```
 
 ---
@@ -234,9 +234,9 @@ For the full setup guide, see [Oracle Cloud](/platforms/oracle). For signup tips
 ### Gateway won't start
 
 ```bash
-openclaw gateway status
-openclaw doctor --non-interactive
-journalctl -u openclaw --no-pager -n 50
+alienclaw gateway status
+alienclaw doctor --non-interactive
+journalctl -u alienclaw --no-pager -n 50
 ```
 
 ### Port already in use

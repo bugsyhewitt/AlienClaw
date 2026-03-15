@@ -16,18 +16,18 @@ Start at [/help/troubleshooting](/help/troubleshooting) if you want the fast tri
 Run these first, in this order:
 
 ```bash
-openclaw status
-openclaw gateway status
-openclaw logs --follow
-openclaw doctor
-openclaw channels status --probe
+alienclaw status
+alienclaw gateway status
+alienclaw logs --follow
+alienclaw doctor
+alienclaw channels status --probe
 ```
 
 Expected healthy signals:
 
-- `openclaw gateway status` shows `Runtime: running` and `RPC probe: ok`.
-- `openclaw doctor` reports no blocking config/service issues.
-- `openclaw channels status --probe` shows connected/ready channels.
+- `alienclaw gateway status` shows `Runtime: running` and `RPC probe: ok`.
+- `alienclaw doctor` reports no blocking config/service issues.
+- `alienclaw channels status --probe` shows connected/ready channels.
 
 ## Anthropic 429 extra usage required for long context
 
@@ -35,9 +35,9 @@ Use this when logs/errors include:
 `HTTP 429: rate_limit_error: Extra usage is required for long context requests`.
 
 ```bash
-openclaw logs --follow
-openclaw models status
-openclaw config get agents.defaults.models
+alienclaw logs --follow
+alienclaw models status
+alienclaw config get agents.defaults.models
 ```
 
 Look for:
@@ -63,11 +63,11 @@ Related:
 If channels are up but nothing answers, check routing and policy before reconnecting anything.
 
 ```bash
-openclaw status
-openclaw channels status --probe
-openclaw pairing list --channel <channel> [--account <id>]
-openclaw config get channels
-openclaw logs --follow
+alienclaw status
+alienclaw channels status --probe
+alienclaw pairing list --channel <channel> [--account <id>]
+alienclaw config get channels
+alienclaw logs --follow
 ```
 
 Look for:
@@ -93,11 +93,11 @@ Related:
 When dashboard/control UI will not connect, validate URL, auth mode, and secure context assumptions.
 
 ```bash
-openclaw gateway status
-openclaw status
-openclaw logs --follow
-openclaw doctor
-openclaw gateway status --json
+alienclaw gateway status
+alienclaw status
+alienclaw logs --follow
+alienclaw doctor
+alienclaw gateway status --json
 ```
 
 Look for:
@@ -119,9 +119,9 @@ Common signatures:
 Device auth v2 migration check:
 
 ```bash
-openclaw --version
-openclaw doctor
-openclaw gateway status
+alienclaw --version
+alienclaw doctor
+alienclaw gateway status
 ```
 
 If logs show nonce/signature errors, update the connecting client and verify it:
@@ -141,11 +141,11 @@ Related:
 Use this when service is installed but process does not stay up.
 
 ```bash
-openclaw gateway status
-openclaw status
-openclaw logs --follow
-openclaw doctor
-openclaw gateway status --deep
+alienclaw gateway status
+alienclaw status
+alienclaw logs --follow
+alienclaw doctor
+alienclaw gateway status --deep
 ```
 
 Look for:
@@ -156,7 +156,7 @@ Look for:
 
 Common signatures:
 
-- `Gateway start blocked: set gateway.mode=local` → local gateway mode is not enabled. Fix: set `gateway.mode="local"` in your config (or run `openclaw configure`). If you are running OpenClaw via Podman using the dedicated `openclaw` user, the config lives at `~openclaw/.openclaw/openclaw.json`.
+- `Gateway start blocked: set gateway.mode=local` → local gateway mode is not enabled. Fix: set `gateway.mode="local"` in your config (or run `alienclaw configure`). If you are running AlienClaw via Podman using the dedicated `alienclaw` user, the config lives at `~alienclaw/.alienclaw/alienclaw.json`.
 - `refusing to bind gateway ... without auth` → non-loopback bind without token/password.
 - `another gateway instance is already listening` / `EADDRINUSE` → port conflict.
 
@@ -171,11 +171,11 @@ Related:
 If channel state is connected but message flow is dead, focus on policy, permissions, and channel specific delivery rules.
 
 ```bash
-openclaw channels status --probe
-openclaw pairing list --channel <channel> [--account <id>]
-openclaw status --deep
-openclaw logs --follow
-openclaw config get channels
+alienclaw channels status --probe
+alienclaw pairing list --channel <channel> [--account <id>]
+alienclaw status --deep
+alienclaw logs --follow
+alienclaw config get channels
 ```
 
 Look for:
@@ -202,11 +202,11 @@ Related:
 If cron or heartbeat did not run or did not deliver, verify scheduler state first, then delivery target.
 
 ```bash
-openclaw cron status
-openclaw cron list
-openclaw cron runs --id <jobId> --limit 20
-openclaw system heartbeat last
-openclaw logs --follow
+alienclaw cron status
+alienclaw cron list
+alienclaw cron runs --id <jobId> --limit 20
+alienclaw system heartbeat last
+alienclaw logs --follow
 ```
 
 Look for:
@@ -234,11 +234,11 @@ Related:
 If a node is paired but tools fail, isolate foreground, permission, and approval state.
 
 ```bash
-openclaw nodes status
-openclaw nodes describe --node <idOrNameOrIp>
-openclaw approvals get --node <idOrNameOrIp>
-openclaw logs --follow
-openclaw status
+alienclaw nodes status
+alienclaw nodes describe --node <idOrNameOrIp>
+alienclaw approvals get --node <idOrNameOrIp>
+alienclaw logs --follow
+alienclaw status
 ```
 
 Look for:
@@ -265,11 +265,11 @@ Related:
 Use this when browser tool actions fail even though the gateway itself is healthy.
 
 ```bash
-openclaw browser status
-openclaw browser start --browser-profile openclaw
-openclaw browser profiles
-openclaw logs --follow
-openclaw doctor
+alienclaw browser status
+alienclaw browser start --browser-profile alienclaw
+alienclaw browser profiles
+alienclaw logs --follow
+alienclaw doctor
 ```
 
 Look for:
@@ -298,10 +298,10 @@ Most post-upgrade breakage is config drift or stricter defaults now being enforc
 ### 1) Auth and URL override behavior changed
 
 ```bash
-openclaw gateway status
-openclaw config get gateway.mode
-openclaw config get gateway.remote.url
-openclaw config get gateway.auth.mode
+alienclaw gateway status
+alienclaw config get gateway.mode
+alienclaw config get gateway.remote.url
+alienclaw config get gateway.auth.mode
 ```
 
 What to check:
@@ -317,10 +317,10 @@ Common signatures:
 ### 2) Bind and auth guardrails are stricter
 
 ```bash
-openclaw config get gateway.bind
-openclaw config get gateway.auth.token
-openclaw gateway status
-openclaw logs --follow
+alienclaw config get gateway.bind
+alienclaw config get gateway.auth.token
+alienclaw gateway status
+alienclaw logs --follow
 ```
 
 What to check:
@@ -336,10 +336,10 @@ Common signatures:
 ### 3) Pairing and device identity state changed
 
 ```bash
-openclaw devices list
-openclaw pairing list --channel <channel> [--account <id>]
-openclaw logs --follow
-openclaw doctor
+alienclaw devices list
+alienclaw pairing list --channel <channel> [--account <id>]
+alienclaw logs --follow
+alienclaw doctor
 ```
 
 What to check:
@@ -355,8 +355,8 @@ Common signatures:
 If the service config and runtime still disagree after checks, reinstall service metadata from the same profile/state directory:
 
 ```bash
-openclaw gateway install --force
-openclaw gateway restart
+alienclaw gateway install --force
+alienclaw gateway restart
 ```
 
 Related:

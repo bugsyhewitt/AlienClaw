@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import type { DiscordAccountConfig } from "../config/types.discord.js";
 import { hasConfiguredSecretInput, normalizeSecretInputString } from "../config/types.secrets.js";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "../routing/session-key.js";
@@ -45,7 +45,7 @@ function inspectDiscordTokenValue(value: unknown): {
 }
 
 export function inspectDiscordAccount(params: {
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   accountId?: string | null;
   envToken?: string | null;
 }): InspectedDiscordAccount {

@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
-import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "openclaw/plugin-sdk/account-id";
+import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "alienclaw/plugin-sdk/account-id";
 import {
   createAccountListHelpers,
   normalizeResolvedSecretInputString,
-} from "openclaw/plugin-sdk/irc";
+} from "alienclaw/plugin-sdk/irc";
 import type { CoreConfig, IrcAccountConfig, IrcNickServConfig } from "./types.js";
 
 const TRUTHY_ENV = new Set(["true", "1", "yes", "on"]);
@@ -193,12 +193,12 @@ export function resolveIrcAccount(params: {
       merged.username?.trim() ||
       (accountId === DEFAULT_ACCOUNT_ID ? process.env.IRC_USERNAME?.trim() : "") ||
       nick ||
-      "openclaw"
+      "alienclaw"
     ).trim();
     const realname = (
       merged.realname?.trim() ||
       (accountId === DEFAULT_ACCOUNT_ID ? process.env.IRC_REALNAME?.trim() : "") ||
-      "OpenClaw"
+      "AlienClaw"
     ).trim();
 
     const passwordResolution = resolvePassword(accountId, merged);

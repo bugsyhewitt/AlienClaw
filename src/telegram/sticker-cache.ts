@@ -8,7 +8,7 @@ import {
   modelSupportsVision,
 } from "../agents/model-catalog.js";
 import { resolveDefaultModelForAgent } from "../agents/model-selection.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { AlienClawConfig } from "../config/config.js";
 import { STATE_DIR } from "../config/paths.js";
 import { logVerbose } from "../globals.js";
 import { loadJsonFile, saveJsonFile } from "../infra/json-file.js";
@@ -154,7 +154,7 @@ function loadImageRuntime() {
 
 export interface DescribeStickerParams {
   imagePath: string;
-  cfg: OpenClawConfig;
+  cfg: AlienClawConfig;
   agentDir?: string;
   agentId?: string;
 }
