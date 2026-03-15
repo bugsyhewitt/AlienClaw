@@ -465,7 +465,7 @@ export async function runFirstRun() {
 
   // ── Save config ───────────────────────────────────────────────────────────
   // provider and verbosity are AlienClaw preferences — write to preferences.json
-  // NOT to alienclaw.json (OpenClaw's config file, which rejects unknown keys)
+  // NOT to alienclaw.json (the core config file, which rejects unknown keys)
   savePrefs({
     provider:         PROVIDER_IDS[providerLabel],
     verbosity:        verbosityMap[verbIdx],

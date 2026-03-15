@@ -144,7 +144,9 @@ SKIP_DIRS=(node_modules .git .pnpm-store dist .turbo .build .artifacts coverage)
 
 # Overlay directories that intentionally reference OpenClaw by name
 # (e.g. comments documenting the interface boundary to the upstream codebase)
-OVERLAY_DIRS=(src/alienclaw)
+# installer/ contains build tooling (reskin.sh, verify.sh, copy-dist.sh) that
+# necessarily references the upstream name; exclude it from the residual scan.
+OVERLAY_DIRS=(src/alienclaw installer)
 
 PRUNE_ARGS=()
 for d in "${SKIP_DIRS[@]}"; do
