@@ -130,6 +130,19 @@ function disableRaw() {
 }
 
 /**
+ * Drain any buffered stdin bytes accumulated during raw mode.
+ * Prevents a leftover Enter (\r) from leaking into the next input step.
+ */
+function drainStdin() {
+  try {
+    // Switch to non-raw so read() empties the cooked buffer too
+    if (process.stdin.isTTY) process.stdin.setRawMode(false);
+    let chunk;
+    while ((chunk = process.stdin.read()) !== null) { /* discard */ }
+  } catch { /* ignore on non-TTY */ }
+}
+
+/**
  * Wait for a single keypress. Returns the raw character(s).
  */
 function readKey() {
@@ -190,7 +203,7 @@ async function selectMenu(prompt, options, startRow) {
     render();
   }
 
-  disableRaw();
+  drainStdin();
   // Mark chosen
   for (let i = 0; i < n; i++) {
     const row = startRow + 2 + i;
@@ -240,7 +253,7 @@ async function readSecret(prompt, startRow) {
     renderInput();
   }
 
-  disableRaw();
+  drainStdin();
   write(at(startRow + 1, 1) + eraseLine +
     DKGREEN + '  ✔ ' + GREEN + '●'.repeat(Math.min(value.length, 8)) + DIM + '  (saved)' + RESET);
 
@@ -277,7 +290,7 @@ async function confirm(promptText, labelA, labelB, startRow) {
     render();
   }
 
-  disableRaw();
+  drainStdin();
   const result = chosen === 0;
   const style  = result ? GREEN + BOLD : GRAY + DIM;
   const picked = result ? labelA : labelB;
