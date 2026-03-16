@@ -54,11 +54,11 @@ try {
 
 if (!setupComplete) {
   // Wizard lives at installer/setup/first-run.mjs relative to this file
-  const wizardPath = path.join(__dirname, "setup", "first-run.mjs");
+  const wizardPath = path.join(__dirname, "installer", "setup", "first-run.mjs");
   if (!fs.existsSync(wizardPath)) {
     process.stderr.write(
       `alienclaw: setup wizard not found at ${wizardPath}\n` +
-      "Run: node build/installer/setup/first-run.mjs\n",
+      "Run: node build/installer/setup/first-run.mjs directly\n",
     );
     process.exit(1);
   }
