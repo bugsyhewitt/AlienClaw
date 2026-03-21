@@ -546,26 +546,7 @@ PREFS
   fi
   success "Evolution mode: $EVOLUTION_MODE"
 
-  # ── 9. Start gateway & launch dashboard ──────────────────────────────────
-  refresh_path
-
-  if command -v alienclaw &>/dev/null && ! $DRYRUN; then
-    step "Starting gateway"
-    # Start the gateway in the background (no systemd required).
-    info "Launching gateway daemon..."
-    nohup alienclaw gateway run --bind loopback --port 18789 --force \
-      > /tmp/alienclaw-gateway.log 2>&1 &
-    disown 2>/dev/null || true
-    sleep 2  # brief pause for gateway to bind
-
-    if alienclaw gateway status </dev/null 2>/dev/null; then
-      success "Gateway running on port 18789"
-    else
-      success "Gateway started (check /tmp/alienclaw-gateway.log if issues)"
-    fi
-  fi
-
-  # ── 10. Done ───────────────────────────────────────────────────────────────
+  # ── 9. Done ─────────────────────────────────────────────────────────────
   echo ""
   echo -e "${GREEN}${BOLD}  👽 ALIENCLAW ONLINE${NC}"
   echo -e "${GREEN}${BOLD}  ════════════════════════════════════════${NC}"
@@ -577,12 +558,37 @@ PREFS
     echo -e "  ${YELLOW}${BOLD}Dry-run complete — no changes were made.${NC}"
     echo -e "  ${DIM}Run without --dryrun to install for real.${NC}"
     echo ""
-  else
-    # Open the dashboard (non-blocking — opens browser or prints URL)
-    if command -v alienclaw &>/dev/null; then
-      alienclaw dashboard </dev/null 2>/dev/null &
-      disown 2>/dev/null || true
-    fi
+    return 0
+  fi
+
+  # ── What next? ──────────────────────────────────────────────────────────
+  echo -e "  ${BOLD}What would you like to do?${NC}"
+  echo ""
+  echo -e "    ${GREEN}[T]${NC}UI  — open the terminal interface"
+  echo -e "    ${GREEN}[D]${NC}ashboard — open the web dashboard"
+  echo -e "    ${GREEN}[N]${NC}othing  — exit to shell"
+  echo ""
+
+  if [[ -r /dev/tty && -w /dev/tty ]]; then
+    local launch=""
+    printf "  Choice: "
+    read -r -n 1 launch </dev/tty || true
+    echo ""
+    echo ""
+    case "${launch:-n}" in
+      [Tt])
+        info "Launching TUI..."
+        exec alienclaw </dev/tty
+        ;;
+      [Dd])
+        info "Opening dashboard..."
+        alienclaw dashboard </dev/tty || warn "Could not open dashboard."
+        ;;
+      *)
+        echo -e "  ${DIM}Run ${NC}${BOLD}alienclaw run \"<goal>\"${NC}${DIM} when you're ready.${NC}"
+        echo ""
+        ;;
+    esac
   fi
 }
 
