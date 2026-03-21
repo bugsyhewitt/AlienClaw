@@ -228,6 +228,27 @@ ensure_node() {
 }
 
 # =============================================================================
+# npm prefix fix (Linux — ensures npm install -g doesn't require sudo)
+# =============================================================================
+fix_npm_prefix() {
+  [[ "$OS" != "linux" ]] && return 0
+  local npm_prefix
+  npm_prefix="$(npm config get prefix 2>/dev/null || true)"
+  if [[ -n "$npm_prefix" ]] && ! [[ -w "$npm_prefix" || -w "${npm_prefix}/lib" ]]; then
+    info "Configuring npm for user-local installs..."
+    mkdir -p "$HOME/.npm-global"
+    npm config set prefix "$HOME/.npm-global" </dev/null
+    export PATH="$HOME/.npm-global/bin:$PATH"
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+      if [[ -f "$rc" ]] && ! grep -q ".npm-global" "$rc"; then
+        echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$rc"
+      fi
+    done
+    success "npm configured for user-local installs"
+  fi
+}
+
+# =============================================================================
 # pnpm
 # =============================================================================
 ensure_pnpm() {
@@ -303,6 +324,7 @@ main() {
   require_cmd curl
   require_cmd git
   ensure_node
+  fix_npm_prefix
   ensure_pnpm
 
   # ── 2. Clone AlienClaw repo ──────────────────────────────────────────────
@@ -324,212 +346,126 @@ main() {
     fi
   fi
 
-  # ── 3. Install OpenClaw via npm ─────────────────────────────────────────
-  # We install directly via npm instead of using the vendored installer
-  # because the vendored installer's post-install phase (gateway daemon
-  # status checks, restart, dashboard) hangs on WSL2/systems without
-  # full systemd.  The vendored installer itself just runs
-  # `npm install -g openclaw@latest` anyway — the rest is daemon management
-  # we don't need (onboarding handles setup in step 4).
-  step "Installing OpenClaw"
+  # ── 3. Build AlienClaw from source ────────────────────────────────────────
+  # We build from the vendored OpenClaw source (not npm install -g) because:
+  #   - npm-installed OpenClaw only has dist/ — no src/ to overlay onto
+  #   - We need to: copy vendor → reskin → overlay agents/patches → compile
+  # This is the same pipeline as `pnpm dist:all` but called directly.
+  step "Building AlienClaw"
+
+  local INSTALL_DIR="$ALIENCLAW_HOME/package"
 
   if $DRYRUN; then
-    info "[DRYRUN] Would install openclaw via npm"
+    info "[DRYRUN] Would build AlienClaw from vendored OpenClaw source"
   else
-    # On Linux, ensure npm global installs go to a user-local prefix
-    # (avoids needing sudo for npm install -g).
-    if [[ "$OS" == "linux" ]]; then
-      local npm_prefix
-      npm_prefix="$(npm config get prefix 2>/dev/null || true)"
-      if [[ -n "$npm_prefix" ]] && ! [[ -w "$npm_prefix" || -w "${npm_prefix}/lib" ]]; then
-        info "Configuring npm for user-local installs..."
-        mkdir -p "$HOME/.npm-global"
-        npm config set prefix "$HOME/.npm-global" </dev/null
-        export PATH="$HOME/.npm-global/bin:$PATH"
-        # Persist in shell rc files
-        for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
-          if [[ -f "$rc" ]] && ! grep -q ".npm-global" "$rc"; then
-            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$rc"
-          fi
-        done
-        success "npm configured for user-local installs"
+    if [[ ! -d "$AC_ROOT/openclaw" ]]; then
+      fail "Vendored OpenClaw source not found at $AC_ROOT/openclaw"
+    fi
+
+    # 3a. Copy vendored OpenClaw source → build/
+    info "Copying vendored OpenClaw source..."
+    bash "$AC_ROOT/installer/scripts/copy-dist.sh" </dev/null || \
+      fail "copy-dist.sh failed."
+
+    # 3b. Reskin: OpenClaw → AlienClaw
+    info "Reskinning OpenClaw → AlienClaw..."
+    bash "$AC_ROOT/installer/scripts/reskin.sh" --target "$AC_ROOT/build" --execute </dev/null || \
+      fail "Reskin failed."
+
+    # 3c. Overlay: agent system + core patches + entry point + installer + seeds
+    info "Applying AlienClaw overlay..."
+    bash "$AC_ROOT/installer/scripts/overlay-dist.sh" </dev/null || \
+      fail "Overlay failed."
+
+    # 3d. Install dependencies and compile
+    info "Installing dependencies (this may take a minute)..."
+    if ! (cd "$AC_ROOT/build" && pnpm install </dev/null) 2>&1; then
+      if ! (cd "$AC_ROOT/build" && npm install </dev/null) 2>&1; then
+        fail "Dependency install failed."
       fi
     fi
 
-    info "Installing openclaw package..."
-    if ! npm install -g openclaw </dev/null; then
-      warn "First attempt failed — retrying..."
-      if ! npm install -g openclaw </dev/null; then
-        fail "Could not install openclaw. Check the npm errors above."
+    info "Compiling..."
+    if ! (cd "$AC_ROOT/build" && pnpm build </dev/null) 2>&1; then
+      if ! (cd "$AC_ROOT/build" && npm run build </dev/null) 2>&1; then
+        fail "Build failed. Please report: https://github.com/AlienTool/AlienClaw/issues"
       fi
     fi
-    hash -r 2>/dev/null || true
+
+    success "Build complete."
   fi
 
+  # ── 4. Install to ~/.alienclaw/package/ ─────────────────────────────────
+  step "Installing AlienClaw"
+
+  if $DRYRUN; then
+    info "[DRYRUN] Would install to $INSTALL_DIR"
+  else
+    mkdir -p "$ALIENCLAW_HOME"
+    rm -rf "$INSTALL_DIR"
+    cp -r "$AC_ROOT/build" "$INSTALL_DIR"
+    success "Installed to $INSTALL_DIR"
+
+    # Link the alienclaw binary into global bin dir
+    local BIN_DIR
+    BIN_DIR="$(npm bin -g 2>/dev/null || echo "$HOME/.npm-global/bin")"
+    mkdir -p "$BIN_DIR"
+    chmod +x "$INSTALL_DIR/alienclaw.mjs"
+    ln -sf "$INSTALL_DIR/alienclaw.mjs" "$BIN_DIR/alienclaw" || \
+      warn "Could not link alienclaw binary."
+    hash -r 2>/dev/null || true
+
+    if command -v alienclaw &>/dev/null; then
+      success "alienclaw command linked"
+    else
+      warn "alienclaw not on PATH. Add $BIN_DIR to your PATH."
+    fi
+  fi
+
+  # ── 5. Onboarding ────────────────────────────────────────────────────────
+  # Run AlienClaw's onboarding (reskinned OpenClaw onboarding).
+  # --skip-ui prevents the post-onboard TUI/GUI menu from blocking.
   refresh_path
 
-  # Verify openclaw is reachable
-  if ! command -v openclaw &>/dev/null; then
-    local NPM_BIN
-    NPM_BIN="$(npm bin -g 2>/dev/null || echo "$HOME/.npm-global/bin")"
-    [[ -d "$NPM_BIN" ]] && export PATH="$NPM_BIN:$PATH"
-    hash -r 2>/dev/null || true
-  fi
-  if command -v openclaw &>/dev/null; then
-    success "OpenClaw installed"
-  else
-    fail "openclaw not found on PATH after install. Add npm global bin dir to PATH and re-run."
-  fi
-
-  # ── 4. Run OpenClaw onboarding ─────────────────────────────────────────────
-  # Full interactive onboarding: provider, API key, daemon setup.
-
-  step "OpenClaw onboarding"
-  if command -v openclaw &>/dev/null; then
+  step "AlienClaw onboarding"
+  if command -v alienclaw &>/dev/null; then
     if $DRYRUN; then
-      info "[DRYRUN] Would run: openclaw onboard"
+      info "[DRYRUN] Would run: alienclaw onboard --skip-ui"
     else
-      info "Running OpenClaw onboarding (provider, API key, daemon setup)."
+      info "Running onboarding (provider, API key, daemon setup)."
       info "Follow the prompts below."
       echo ""
-      openclaw onboard </dev/tty || warn "Onboarding exited with a warning (continuing)."
+      alienclaw onboard --skip-ui </dev/tty || warn "Onboarding exited with a warning (continuing)."
       echo ""
       success "Onboarding complete."
     fi
   else
-    warn "openclaw not found on PATH — skipping onboarding."
-    warn "Run 'openclaw onboard' manually after install."
+    warn "alienclaw not found on PATH — skipping onboarding."
+    warn "Run 'alienclaw onboard' manually after install."
   fi
 
-  # ── 5. Install lossless-claw plugin ────────────────────────────────────────
+  # ── 6. Install lossless-claw plugin ────────────────────────────────────────
   refresh_path
 
   step "Installing lossless-claw plugin"
-  if command -v openclaw &>/dev/null; then
+  if command -v alienclaw &>/dev/null; then
     if $DRYRUN; then
-      info "[DRYRUN] Would run: openclaw plugins install @martian-engineering/lossless-claw"
+      info "[DRYRUN] Would run: alienclaw plugins install @martian-engineering/lossless-claw"
     else
-      if openclaw plugins install @martian-engineering/lossless-claw </dev/null; then
+      if alienclaw plugins install @martian-engineering/lossless-claw </dev/null; then
         success "lossless-claw installed."
       else
         warn "lossless-claw failed to install (non-critical, continuing)."
       fi
     fi
   else
-    warn "openclaw not on PATH yet — skipping lossless-claw."
+    warn "alienclaw not on PATH yet — skipping lossless-claw."
   fi
 
-  # ── 6. Abduction animation ────────────────────────────────────────────────
-  # Play the animation (non-critical — never crash over this)
+  # ── 7. Abduction animation ────────────────────────────────────────────────
   if [[ -f "$AC_ROOT/installer/animation/abduction.mjs" ]]; then
     clear
-    node "$AC_ROOT/installer/animation/abduction.mjs" 2>/dev/null || \
-      info "Installing AlienClaw..."
-  else
-    info "Installing AlienClaw..."
-  fi
-
-  # ── 7. Apply AlienClaw overlay ─────────────────────────────────────────────
-  step "Applying AlienClaw overlay"
-
-  # Find the installed OpenClaw package directory
-  refresh_path
-  local OC_DIR=""
-  local OC_BIN
-  OC_BIN="$(command -v openclaw 2>/dev/null || true)"
-
-  if [[ -n "${OC_BIN:-}" ]]; then
-    local OC_REAL
-    OC_REAL="$(readlink -f "$OC_BIN" 2>/dev/null || realpath "$OC_BIN" 2>/dev/null || echo "")"
-    if [[ -n "${OC_REAL:-}" ]]; then
-      local candidate
-      candidate="$(dirname "$OC_REAL")"
-      local i
-      for i in 1 2 3 4; do
-        [[ -f "$candidate/package.json" ]] && { OC_DIR="$candidate"; break; }
-        candidate="$(dirname "$candidate")"
-      done
-    fi
-  fi
-  # Fallback: npm global root
-  if [[ -z "$OC_DIR" ]]; then
-    local NPM_GLOBAL
-    NPM_GLOBAL="$(npm root -g 2>/dev/null || true)"
-    [[ -d "${NPM_GLOBAL:-}/openclaw" ]] && OC_DIR="$NPM_GLOBAL/openclaw"
-  fi
-  [[ -z "$OC_DIR" ]] && fail "Cannot locate OpenClaw install directory. Is openclaw on your PATH?"
-
-  info "OpenClaw found at $OC_DIR"
-
-  if $DRYRUN; then
-    info "[DRYRUN] Would reskin OpenClaw → AlienClaw"
-    info "[DRYRUN] Would copy src/alienclaw/ overlay"
-    info "[DRYRUN] Would apply openclaw-patches/"
-    info "[DRYRUN] Would copy entry point + seed files"
-    info "[DRYRUN] Would rebuild (pnpm install && pnpm build)"
-    info "[DRYRUN] Would link alienclaw binary"
-  else
-    # 7a. Reskin all text references: OpenClaw → AlienClaw
-    info "Reskinning OpenClaw → AlienClaw..."
-    if ! bash "$AC_ROOT/installer/scripts/reskin.sh" --target "$OC_DIR" --execute </dev/null; then
-      fail "Reskin failed."
-    fi
-
-    # 7b. AlienClaw agent system (BossBot, AdvisorBot, CreatorBot, Meeseeks)
-    info "Installing AlienClaw agent system..."
-    cp -r "$AC_ROOT/src/alienclaw" "$OC_DIR/src/alienclaw"
-
-    # 7c. Patched OpenClaw core files (command registry, etc.)
-    if [[ -d "$AC_ROOT/src/openclaw-patches" ]]; then
-      info "Applying core patches..."
-      cp -r "$AC_ROOT/src/openclaw-patches"/. "$OC_DIR/src/"
-    fi
-
-    # 7d. Custom entry point (first-run gate + branding)
-    if [[ -f "$AC_ROOT/installer/alienclaw-entry.mjs" ]]; then
-      cp "$AC_ROOT/installer/alienclaw-entry.mjs" "$OC_DIR/alienclaw.mjs"
-    fi
-
-    # 7e. Seed files (Meeseeks genomes)
-    if [[ -d "$AC_ROOT/seed" ]]; then
-      cp -r "$AC_ROOT/seed" "$OC_DIR/seed"
-    fi
-
-    # 7f. Rebuild (show errors — don't suppress stderr)
-    info "Rebuilding (this may take a minute)..."
-    local build_ok=false
-    if (cd "$OC_DIR" && pnpm install </dev/null && pnpm build </dev/null) 2>&1; then
-      build_ok=true
-    elif (cd "$OC_DIR" && npm install </dev/null && npm run build </dev/null) 2>&1; then
-      build_ok=true
-    fi
-
-    if $build_ok; then
-      success "Build complete."
-    else
-      echo ""
-      echo -e "  ${RED}${BOLD}Build failed.${NC}"
-      echo ""
-      echo "  Please report this with the full terminal output:"
-      echo "  https://github.com/AlienTool/AlienClaw/issues"
-      echo ""
-      exit 1
-    fi
-
-    # 7g. Link the alienclaw binary
-    local BIN_DIR
-    BIN_DIR="$(npm bin -g 2>/dev/null || dirname "${OC_BIN:-/usr/local/bin/openclaw}")"
-    if [[ -f "$OC_DIR/alienclaw.mjs" && -d "${BIN_DIR:-}" ]]; then
-      chmod +x "$OC_DIR/alienclaw.mjs"
-      ln -sf "$OC_DIR/alienclaw.mjs" "$BIN_DIR/alienclaw" || \
-        warn "Could not link alienclaw binary. You may need: sudo ln -sf $OC_DIR/alienclaw.mjs $BIN_DIR/alienclaw"
-      ln -sf "$OC_DIR/alienclaw.mjs" "$BIN_DIR/openclaw" || true
-      if command -v alienclaw &>/dev/null; then
-        success "alienclaw command linked."
-      else
-        warn "alienclaw is not on PATH. Add $BIN_DIR to your PATH."
-      fi
-    fi
+    node "$AC_ROOT/installer/animation/abduction.mjs" 2>/dev/null || true
   fi
 
   # ── 8. Evolution network opt-in ────────────────────────────────────────────
