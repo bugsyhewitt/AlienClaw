@@ -560,20 +560,9 @@ async function run() {
     frame++; await sleep(TICK);
   }
 
-  // ── Hand off to first-run setup ───────────────────────────────────────────
+  // ── Clean exit — installer continues after us ──────────────────────────
   out(SC + RST);
-  // Clear for setup prompts
   out(CLR + at(1,1));
-
-  try {
-    const { run: firstRun } = await import('../setup/first-run.mjs');
-    await firstRun();
-  } catch (e) {
-    if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e;
-    // first-run.mjs not yet built — just show the banner
-    out(at(Math.floor(H/2)-1, 1));
-    out(rgb(0,255,136) + BLD + '  👽  AlienClaw is ready. Run: alienclaw run "<goal>"\n' + RST);
-  }
 }
 
 run().catch(err => { cleanup(1); process.stderr.write(String(err) + '\n'); });
