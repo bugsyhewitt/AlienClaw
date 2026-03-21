@@ -382,42 +382,28 @@ main() {
   fi
 
   # ── 4. Run OpenClaw onboarding ─────────────────────────────────────────────
-  # We run onboard directly (not via the installer's exec) so our script
-  # continues after it finishes. This is OpenClaw's own onboarding — unmodified.
-  refresh_path
+  # We run onboard with --skip-daemon --skip-health because the onboarding
+  # finalization calls `systemctl --user status` to check systemd availability,
+  # which hangs indefinitely on WSL2 (and any system without full systemd/D-Bus).
+  # The interactive provider + API key setup still runs normally.
+  # Users who want the daemon can run `openclaw gateway run` afterward.
 
   step "OpenClaw onboarding"
   if command -v openclaw &>/dev/null; then
     if $DRYRUN; then
-      info "[DRYRUN] Would run: openclaw onboard"
+      info "[DRYRUN] Would run: openclaw onboard --skip-daemon --skip-health"
     else
-      info "Running OpenClaw onboarding (provider, API key, daemon setup)."
+      info "Running OpenClaw onboarding (provider & API key setup)."
       info "Follow the prompts below."
       echo ""
-      openclaw onboard </dev/tty || warn "Onboarding exited with a warning (continuing)."
+      openclaw onboard --skip-daemon --skip-health </dev/tty || \
+        warn "Onboarding exited with a warning (continuing)."
       echo ""
       success "Onboarding complete."
     fi
   else
-    # openclaw not on PATH — try to add the npm global bin dir
-    local NPM_BIN
-    NPM_BIN="$(npm bin -g 2>/dev/null || echo "$HOME/.npm-global/bin")"
-    if [[ -d "$NPM_BIN" ]]; then
-      export PATH="$NPM_BIN:$PATH"
-      hash -r 2>/dev/null || true
-    fi
-    if command -v openclaw &>/dev/null; then
-      if ! $DRYRUN; then
-        info "Running OpenClaw onboarding..."
-        echo ""
-        openclaw onboard </dev/tty || warn "Onboarding exited with a warning (continuing)."
-        echo ""
-        success "Onboarding complete."
-      fi
-    else
-      warn "openclaw not found on PATH — skipping onboarding."
-      warn "Run 'openclaw onboard' manually after adding $NPM_BIN to your PATH."
-    fi
+    warn "openclaw not found on PATH — skipping onboarding."
+    warn "Run 'openclaw onboard' manually after install."
   fi
 
   # ── 5. Install lossless-claw plugin ────────────────────────────────────────
