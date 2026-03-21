@@ -535,6 +535,11 @@ main() {
   # ── 8. Evolution network opt-in ────────────────────────────────────────────
   step "AlienClaw configuration"
   mkdir -p "$ALIENCLAW_HOME"
+  mkdir -p "$ALIENCLAW_HOME/registry/ms"
+  mkdir -p "$ALIENCLAW_HOME/registry/msb"
+  mkdir -p "$ALIENCLAW_HOME/registry/lineage"
+  mkdir -p "$ALIENCLAW_HOME/registry/telemetry"
+  mkdir -p "$ALIENCLAW_HOME/workspace/output"
 
   echo ""
   echo -e "  ${GREEN}${BOLD}Evolution Network${NC}"
@@ -567,6 +572,7 @@ main() {
   if ! $DRYRUN; then
     cat > "$ALIENCLAW_HOME/preferences.json" <<PREFS
 {
+  "provider": "minimax",
   "evolutionMode": "$EVOLUTION_MODE",
   "setupComplete": true,
   "setupCompletedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
