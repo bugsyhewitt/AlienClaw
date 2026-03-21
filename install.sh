@@ -382,22 +382,17 @@ main() {
   fi
 
   # ── 4. Run OpenClaw onboarding ─────────────────────────────────────────────
-  # We run onboard with --skip-daemon --skip-health because the onboarding
-  # finalization calls `systemctl --user status` to check systemd availability,
-  # which hangs indefinitely on WSL2 (and any system without full systemd/D-Bus).
-  # The interactive provider + API key setup still runs normally.
-  # Users who want the daemon can run `openclaw gateway run` afterward.
+  # Full interactive onboarding: provider, API key, daemon setup.
 
   step "OpenClaw onboarding"
   if command -v openclaw &>/dev/null; then
     if $DRYRUN; then
-      info "[DRYRUN] Would run: openclaw onboard --skip-daemon --skip-health"
+      info "[DRYRUN] Would run: openclaw onboard"
     else
-      info "Running OpenClaw onboarding (provider & API key setup)."
+      info "Running OpenClaw onboarding (provider, API key, daemon setup)."
       info "Follow the prompts below."
       echo ""
-      openclaw onboard --skip-daemon --skip-health </dev/tty || \
-        warn "Onboarding exited with a warning (continuing)."
+      openclaw onboard </dev/tty || warn "Onboarding exited with a warning (continuing)."
       echo ""
       success "Onboarding complete."
     fi
