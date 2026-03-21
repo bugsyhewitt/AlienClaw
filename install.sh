@@ -15,7 +15,6 @@ set -uo pipefail
 
 ALIENCLAW_REPO="https://github.com/AlienTool/AlienClaw.git"
 ALIENCLAW_HOME="${ALIENCLAW_HOME:-$HOME/.alienclaw}"
-OPENCLAW_INSTALL_URL="https://raw.githubusercontent.com/openclaw/openclaw/main/install.sh"
 TMPDIR_AC=""
 
 # Dry-run flag
@@ -306,33 +305,48 @@ main() {
   ensure_node
   ensure_pnpm
 
-  # ── 2. Install OpenClaw (includes onboarding + daemon setup) ───────────────
+  # ── 2. Clone AlienClaw repo ──────────────────────────────────────────────
+  # Clone FIRST — we need the vendored OpenClaw installer and overlay files.
+  step "Downloading AlienClaw"
+  TMPDIR_AC="$(mktemp -d)"
+  local AC_ROOT=""
+
+  if $DRYRUN; then
+    info "[DRYRUN] Would clone $ALIENCLAW_REPO"
+    AC_ROOT="$TMPDIR_AC/alienclaw"
+  else
+    info "Cloning AlienClaw repository..."
+    if git clone --depth 1 "$ALIENCLAW_REPO" "$TMPDIR_AC/alienclaw"; then
+      AC_ROOT="$TMPDIR_AC/alienclaw"
+      success "AlienClaw downloaded."
+    else
+      fail "Could not clone AlienClaw repo. Check your network and re-run."
+    fi
+  fi
+
+  # ── 3. Install OpenClaw (using vendored installer — pinned version) ────────
   step "Installing OpenClaw"
-  info "Running the official OpenClaw installer."
+  info "Running the vendored OpenClaw installer (pinned to tested version)."
   info "This installs OpenClaw and runs onboarding (provider, API key, daemon)."
   info "Follow the prompts — AlienClaw takes over when OpenClaw finishes."
   echo ""
 
+  local OC_INSTALLER="$AC_ROOT/openclaw/scripts/install.sh"
   if $DRYRUN; then
-    info "[DRYRUN] Would download and run OpenClaw installer"
+    info "[DRYRUN] Would run OpenClaw installer from $OC_INSTALLER"
     info "[DRYRUN] OpenClaw onboarding would run here"
   else
-    local oc_installer
-    oc_installer="$(mktemp)"
-    if ! curl -fsSL --proto '=https' --tlsv1.2 "$OPENCLAW_INSTALL_URL" -o "$oc_installer"; then
-      rm -f "$oc_installer"
-      fail "Could not download OpenClaw installer."
+    if [[ ! -f "$OC_INSTALLER" ]]; then
+      fail "Vendored OpenClaw installer not found at $OC_INSTALLER"
     fi
-    if ! bash "$oc_installer" </dev/tty; then
-      rm -f "$oc_installer"
+    if ! bash "$OC_INSTALLER" </dev/tty; then
       fail "OpenClaw installation failed. Fix the error above, then re-run this installer."
     fi
-    rm -f "$oc_installer"
   fi
   echo ""
   success "OpenClaw installed and onboarded."
 
-  # ── 3. Install lossless-claw plugin ────────────────────────────────────────
+  # ── 4. Install lossless-claw plugin ────────────────────────────────────────
   refresh_path
 
   step "Installing lossless-claw plugin"
@@ -350,35 +364,17 @@ main() {
     warn "openclaw not on PATH yet — skipping lossless-claw."
   fi
 
-  # ── 4. Clone AlienClaw and play abduction animation ────────────────────────
-  step "Preparing AlienClaw"
-  TMPDIR_AC="$(mktemp -d)"
-  local AC_ROOT=""
-
-  info "Downloading AlienClaw..."
-  if $DRYRUN; then
-    info "[DRYRUN] Would clone $ALIENCLAW_REPO"
-    AC_ROOT="$TMPDIR_AC/alienclaw"
+  # ── 5. Abduction animation ────────────────────────────────────────────────
+  # Play the animation (non-critical — never crash over this)
+  if [[ -f "$AC_ROOT/installer/animation/abduction.mjs" ]]; then
+    clear
+    node "$AC_ROOT/installer/animation/abduction.mjs" 2>/dev/null || \
+      info "Installing AlienClaw..."
   else
-    if git clone --depth 1 "$ALIENCLAW_REPO" "$TMPDIR_AC/alienclaw"; then
-      AC_ROOT="$TMPDIR_AC/alienclaw"
-
-      # Play the abduction animation (non-critical — never crash over this)
-      if [[ -f "$AC_ROOT/installer/animation/abduction.mjs" ]]; then
-        clear
-        node "$AC_ROOT/installer/animation/abduction.mjs" 2>/dev/null || \
-          info "Installing AlienClaw..."
-      else
-        info "Installing AlienClaw..."
-      fi
-    else
-      warn "Could not clone AlienClaw repo."
-    fi
+    info "Installing AlienClaw..."
   fi
 
-  [[ -z "$AC_ROOT" ]] && fail "AlienClaw repo unavailable. Check your network and re-run."
-
-  # ── 5. Apply AlienClaw overlay ─────────────────────────────────────────────
+  # ── 6. Apply AlienClaw overlay ─────────────────────────────────────────────
   step "Applying AlienClaw overlay"
 
   # Find the installed OpenClaw package directory
@@ -418,33 +414,33 @@ main() {
     info "[DRYRUN] Would rebuild (pnpm install && pnpm build)"
     info "[DRYRUN] Would link alienclaw binary"
   else
-    # 5a. Reskin all text references: OpenClaw → AlienClaw
+    # 6a. Reskin all text references: OpenClaw → AlienClaw
     info "Reskinning OpenClaw → AlienClaw..."
     if ! bash "$AC_ROOT/installer/scripts/reskin.sh" --target "$OC_DIR" --execute </dev/null; then
       fail "Reskin failed."
     fi
 
-    # 5b. AlienClaw agent system (BossBot, AdvisorBot, CreatorBot, Meeseeks)
+    # 6b. AlienClaw agent system (BossBot, AdvisorBot, CreatorBot, Meeseeks)
     info "Installing AlienClaw agent system..."
     cp -r "$AC_ROOT/src/alienclaw" "$OC_DIR/src/alienclaw"
 
-    # 5c. Patched OpenClaw core files (command registry, etc.)
+    # 6c. Patched OpenClaw core files (command registry, etc.)
     if [[ -d "$AC_ROOT/src/openclaw-patches" ]]; then
       info "Applying core patches..."
       cp -r "$AC_ROOT/src/openclaw-patches"/. "$OC_DIR/src/"
     fi
 
-    # 5d. Custom entry point (first-run gate + branding)
+    # 6d. Custom entry point (first-run gate + branding)
     if [[ -f "$AC_ROOT/installer/alienclaw-entry.mjs" ]]; then
       cp "$AC_ROOT/installer/alienclaw-entry.mjs" "$OC_DIR/alienclaw.mjs"
     fi
 
-    # 5e. Seed files (Meeseeks genomes)
+    # 6e. Seed files (Meeseeks genomes)
     if [[ -d "$AC_ROOT/seed" ]]; then
       cp -r "$AC_ROOT/seed" "$OC_DIR/seed"
     fi
 
-    # 5f. Rebuild (show errors — don't suppress stderr)
+    # 6f. Rebuild (show errors — don't suppress stderr)
     info "Rebuilding (this may take a minute)..."
     local build_ok=false
     if (cd "$OC_DIR" && pnpm install </dev/null && pnpm build </dev/null) 2>&1; then
@@ -465,7 +461,7 @@ main() {
       exit 1
     fi
 
-    # 5g. Link the alienclaw binary
+    # 6g. Link the alienclaw binary
     local BIN_DIR
     BIN_DIR="$(npm bin -g 2>/dev/null || dirname "${OC_BIN:-/usr/local/bin/openclaw}")"
     if [[ -f "$OC_DIR/alienclaw.mjs" && -d "${BIN_DIR:-}" ]]; then
@@ -481,7 +477,7 @@ main() {
     fi
   fi
 
-  # ── 6. Evolution network opt-in ────────────────────────────────────────────
+  # ── 7. Evolution network opt-in ────────────────────────────────────────────
   step "AlienClaw configuration"
   mkdir -p "$ALIENCLAW_HOME"
 
@@ -524,7 +520,7 @@ PREFS
   fi
   success "Evolution mode: $EVOLUTION_MODE"
 
-  # ── 7. Done ────────────────────────────────────────────────────────────────
+  # ── 8. Done ────────────────────────────────────────────────────────────────
   echo ""
   echo -e "${GREEN}${BOLD}  👽 ALIENCLAW ONLINE${NC}"
   echo -e "${GREEN}${BOLD}  ════════════════════════════════════════${NC}"
