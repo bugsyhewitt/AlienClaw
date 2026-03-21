@@ -428,19 +428,23 @@ main() {
   fi
 
   # ── 5. Onboarding ────────────────────────────────────────────────────────
-  # Run AlienClaw's onboarding (reskinned OpenClaw onboarding).
-  # --skip-ui prevents the post-onboard TUI/GUI menu from blocking.
+  # Run onboarding for provider + API key config.
+  # --skip-daemon --skip-health: the systemd daemon checks hang on WSL2
+  #   (isSystemdUserServiceAvailable calls systemctl which blocks on D-Bus).
+  #   We start the gateway ourselves in step 9 without systemd.
+  # --skip-ui: prevents the post-onboard TUI/GUI menu from blocking.
   refresh_path
 
   step "AlienClaw onboarding"
   if command -v alienclaw &>/dev/null; then
     if $DRYRUN; then
-      info "[DRYRUN] Would run: alienclaw onboard --skip-ui"
+      info "[DRYRUN] Would run: alienclaw onboard --skip-daemon --skip-health --skip-ui"
     else
-      info "Running onboarding (provider, API key, daemon setup)."
+      info "Running onboarding (provider & API key setup)."
       info "Follow the prompts below."
       echo ""
-      alienclaw onboard --skip-ui </dev/tty || warn "Onboarding exited with a warning (continuing)."
+      alienclaw onboard --skip-daemon --skip-health --skip-ui </dev/tty || \
+        warn "Onboarding exited with a warning (continuing)."
       echo ""
       success "Onboarding complete."
     fi
@@ -542,7 +546,26 @@ PREFS
   fi
   success "Evolution mode: $EVOLUTION_MODE"
 
-  # ── 9. Done ────────────────────────────────────────────────────────────────
+  # ── 9. Start gateway & launch dashboard ──────────────────────────────────
+  refresh_path
+
+  if command -v alienclaw &>/dev/null && ! $DRYRUN; then
+    step "Starting gateway"
+    # Start the gateway in the background (no systemd required).
+    info "Launching gateway daemon..."
+    nohup alienclaw gateway run --bind loopback --port 18789 --force \
+      > /tmp/alienclaw-gateway.log 2>&1 &
+    disown 2>/dev/null || true
+    sleep 2  # brief pause for gateway to bind
+
+    if alienclaw gateway status </dev/null 2>/dev/null; then
+      success "Gateway running on port 18789"
+    else
+      success "Gateway started (check /tmp/alienclaw-gateway.log if issues)"
+    fi
+  fi
+
+  # ── 10. Done ───────────────────────────────────────────────────────────────
   echo ""
   echo -e "${GREEN}${BOLD}  👽 ALIENCLAW ONLINE${NC}"
   echo -e "${GREEN}${BOLD}  ════════════════════════════════════════${NC}"
@@ -554,6 +577,12 @@ PREFS
     echo -e "  ${YELLOW}${BOLD}Dry-run complete — no changes were made.${NC}"
     echo -e "  ${DIM}Run without --dryrun to install for real.${NC}"
     echo ""
+  else
+    # Open the dashboard (non-blocking — opens browser or prints URL)
+    if command -v alienclaw &>/dev/null; then
+      alienclaw dashboard </dev/null 2>/dev/null &
+      disown 2>/dev/null || true
+    fi
   fi
 }
 
