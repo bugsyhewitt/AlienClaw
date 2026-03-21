@@ -324,26 +324,62 @@ main() {
     fi
   fi
 
-  # ── 3. Install OpenClaw (package only — no onboarding yet) ──────────────
+  # ── 3. Install OpenClaw via npm ─────────────────────────────────────────
+  # We install directly via npm instead of using the vendored installer
+  # because the vendored installer's post-install phase (gateway daemon
+  # status checks, restart, dashboard) hangs on WSL2/systems without
+  # full systemd.  The vendored installer itself just runs
+  # `npm install -g openclaw@latest` anyway — the rest is daemon management
+  # we don't need (onboarding handles setup in step 4).
   step "Installing OpenClaw"
-  info "Installing OpenClaw package (onboarding runs next as a separate step)."
-  echo ""
 
-  local OC_INSTALLER="$AC_ROOT/openclaw/scripts/install.sh"
   if $DRYRUN; then
-    info "[DRYRUN] Would run OpenClaw installer from $OC_INSTALLER"
+    info "[DRYRUN] Would install openclaw via npm"
   else
-    if [[ ! -f "$OC_INSTALLER" ]]; then
-      fail "Vendored OpenClaw installer not found at $OC_INSTALLER"
+    # On Linux, ensure npm global installs go to a user-local prefix
+    # (avoids needing sudo for npm install -g).
+    if [[ "$OS" == "linux" ]]; then
+      local npm_prefix
+      npm_prefix="$(npm config get prefix 2>/dev/null || true)"
+      if [[ -n "$npm_prefix" ]] && ! [[ -w "$npm_prefix" || -w "${npm_prefix}/lib" ]]; then
+        info "Configuring npm for user-local installs..."
+        mkdir -p "$HOME/.npm-global"
+        npm config set prefix "$HOME/.npm-global" </dev/null
+        export PATH="$HOME/.npm-global/bin:$PATH"
+        # Persist in shell rc files
+        for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+          if [[ -f "$rc" ]] && ! grep -q ".npm-global" "$rc"; then
+            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$rc"
+          fi
+        done
+        success "npm configured for user-local installs"
+      fi
     fi
-    # --no-onboard: install the package only. We run onboard ourselves in step 4
-    # so it doesn't hang via exec (the installer uses exec which blocks our flow).
-    if ! bash "$OC_INSTALLER" --no-onboard </dev/tty; then
-      fail "OpenClaw installation failed. Fix the error above, then re-run this installer."
+
+    info "Installing openclaw package..."
+    if ! npm install -g openclaw </dev/null; then
+      warn "First attempt failed — retrying..."
+      if ! npm install -g openclaw </dev/null; then
+        fail "Could not install openclaw. Check the npm errors above."
+      fi
     fi
+    hash -r 2>/dev/null || true
   fi
-  echo ""
-  success "OpenClaw installed."
+
+  refresh_path
+
+  # Verify openclaw is reachable
+  if ! command -v openclaw &>/dev/null; then
+    local NPM_BIN
+    NPM_BIN="$(npm bin -g 2>/dev/null || echo "$HOME/.npm-global/bin")"
+    [[ -d "$NPM_BIN" ]] && export PATH="$NPM_BIN:$PATH"
+    hash -r 2>/dev/null || true
+  fi
+  if command -v openclaw &>/dev/null; then
+    success "OpenClaw installed"
+  else
+    fail "openclaw not found on PATH after install. Add npm global bin dir to PATH and re-run."
+  fi
 
   # ── 4. Run OpenClaw onboarding ─────────────────────────────────────────────
   # We run onboard directly (not via the installer's exec) so our script
