@@ -324,29 +324,67 @@ main() {
     fi
   fi
 
-  # ── 3. Install OpenClaw (using vendored installer — pinned version) ────────
+  # ── 3. Install OpenClaw (package only — no onboarding yet) ──────────────
   step "Installing OpenClaw"
-  info "Running the vendored OpenClaw installer (pinned to tested version)."
-  info "This installs OpenClaw and runs onboarding (provider, API key, daemon)."
-  info "Follow the prompts — AlienClaw takes over when OpenClaw finishes."
+  info "Installing OpenClaw package (onboarding runs next as a separate step)."
   echo ""
 
   local OC_INSTALLER="$AC_ROOT/openclaw/scripts/install.sh"
   if $DRYRUN; then
     info "[DRYRUN] Would run OpenClaw installer from $OC_INSTALLER"
-    info "[DRYRUN] OpenClaw onboarding would run here"
   else
     if [[ ! -f "$OC_INSTALLER" ]]; then
       fail "Vendored OpenClaw installer not found at $OC_INSTALLER"
     fi
-    if ! bash "$OC_INSTALLER" </dev/tty; then
+    # --no-onboard: install the package only. We run onboard ourselves in step 4
+    # so it doesn't hang via exec (the installer uses exec which blocks our flow).
+    if ! bash "$OC_INSTALLER" --no-onboard </dev/tty; then
       fail "OpenClaw installation failed. Fix the error above, then re-run this installer."
     fi
   fi
   echo ""
-  success "OpenClaw installed and onboarded."
+  success "OpenClaw installed."
 
-  # ── 4. Install lossless-claw plugin ────────────────────────────────────────
+  # ── 4. Run OpenClaw onboarding ─────────────────────────────────────────────
+  # We run onboard directly (not via the installer's exec) so our script
+  # continues after it finishes. This is OpenClaw's own onboarding — unmodified.
+  refresh_path
+
+  step "OpenClaw onboarding"
+  if command -v openclaw &>/dev/null; then
+    if $DRYRUN; then
+      info "[DRYRUN] Would run: openclaw onboard"
+    else
+      info "Running OpenClaw onboarding (provider, API key, daemon setup)."
+      info "Follow the prompts below."
+      echo ""
+      openclaw onboard </dev/tty || warn "Onboarding exited with a warning (continuing)."
+      echo ""
+      success "Onboarding complete."
+    fi
+  else
+    # openclaw not on PATH — try to add the npm global bin dir
+    local NPM_BIN
+    NPM_BIN="$(npm bin -g 2>/dev/null || echo "$HOME/.npm-global/bin")"
+    if [[ -d "$NPM_BIN" ]]; then
+      export PATH="$NPM_BIN:$PATH"
+      hash -r 2>/dev/null || true
+    fi
+    if command -v openclaw &>/dev/null; then
+      if ! $DRYRUN; then
+        info "Running OpenClaw onboarding..."
+        echo ""
+        openclaw onboard </dev/tty || warn "Onboarding exited with a warning (continuing)."
+        echo ""
+        success "Onboarding complete."
+      fi
+    else
+      warn "openclaw not found on PATH — skipping onboarding."
+      warn "Run 'openclaw onboard' manually after adding $NPM_BIN to your PATH."
+    fi
+  fi
+
+  # ── 5. Install lossless-claw plugin ────────────────────────────────────────
   refresh_path
 
   step "Installing lossless-claw plugin"
@@ -364,7 +402,7 @@ main() {
     warn "openclaw not on PATH yet — skipping lossless-claw."
   fi
 
-  # ── 5. Abduction animation ────────────────────────────────────────────────
+  # ── 6. Abduction animation ────────────────────────────────────────────────
   # Play the animation (non-critical — never crash over this)
   if [[ -f "$AC_ROOT/installer/animation/abduction.mjs" ]]; then
     clear
@@ -374,7 +412,7 @@ main() {
     info "Installing AlienClaw..."
   fi
 
-  # ── 6. Apply AlienClaw overlay ─────────────────────────────────────────────
+  # ── 7. Apply AlienClaw overlay ─────────────────────────────────────────────
   step "Applying AlienClaw overlay"
 
   # Find the installed OpenClaw package directory
@@ -414,33 +452,33 @@ main() {
     info "[DRYRUN] Would rebuild (pnpm install && pnpm build)"
     info "[DRYRUN] Would link alienclaw binary"
   else
-    # 6a. Reskin all text references: OpenClaw → AlienClaw
+    # 7a. Reskin all text references: OpenClaw → AlienClaw
     info "Reskinning OpenClaw → AlienClaw..."
     if ! bash "$AC_ROOT/installer/scripts/reskin.sh" --target "$OC_DIR" --execute </dev/null; then
       fail "Reskin failed."
     fi
 
-    # 6b. AlienClaw agent system (BossBot, AdvisorBot, CreatorBot, Meeseeks)
+    # 7b. AlienClaw agent system (BossBot, AdvisorBot, CreatorBot, Meeseeks)
     info "Installing AlienClaw agent system..."
     cp -r "$AC_ROOT/src/alienclaw" "$OC_DIR/src/alienclaw"
 
-    # 6c. Patched OpenClaw core files (command registry, etc.)
+    # 7c. Patched OpenClaw core files (command registry, etc.)
     if [[ -d "$AC_ROOT/src/openclaw-patches" ]]; then
       info "Applying core patches..."
       cp -r "$AC_ROOT/src/openclaw-patches"/. "$OC_DIR/src/"
     fi
 
-    # 6d. Custom entry point (first-run gate + branding)
+    # 7d. Custom entry point (first-run gate + branding)
     if [[ -f "$AC_ROOT/installer/alienclaw-entry.mjs" ]]; then
       cp "$AC_ROOT/installer/alienclaw-entry.mjs" "$OC_DIR/alienclaw.mjs"
     fi
 
-    # 6e. Seed files (Meeseeks genomes)
+    # 7e. Seed files (Meeseeks genomes)
     if [[ -d "$AC_ROOT/seed" ]]; then
       cp -r "$AC_ROOT/seed" "$OC_DIR/seed"
     fi
 
-    # 6f. Rebuild (show errors — don't suppress stderr)
+    # 7f. Rebuild (show errors — don't suppress stderr)
     info "Rebuilding (this may take a minute)..."
     local build_ok=false
     if (cd "$OC_DIR" && pnpm install </dev/null && pnpm build </dev/null) 2>&1; then
@@ -461,7 +499,7 @@ main() {
       exit 1
     fi
 
-    # 6g. Link the alienclaw binary
+    # 7g. Link the alienclaw binary
     local BIN_DIR
     BIN_DIR="$(npm bin -g 2>/dev/null || dirname "${OC_BIN:-/usr/local/bin/openclaw}")"
     if [[ -f "$OC_DIR/alienclaw.mjs" && -d "${BIN_DIR:-}" ]]; then
@@ -477,7 +515,7 @@ main() {
     fi
   fi
 
-  # ── 7. Evolution network opt-in ────────────────────────────────────────────
+  # ── 8. Evolution network opt-in ────────────────────────────────────────────
   step "AlienClaw configuration"
   mkdir -p "$ALIENCLAW_HOME"
 
@@ -520,7 +558,7 @@ PREFS
   fi
   success "Evolution mode: $EVOLUTION_MODE"
 
-  # ── 8. Done ────────────────────────────────────────────────────────────────
+  # ── 9. Done ────────────────────────────────────────────────────────────────
   echo ""
   echo -e "${GREEN}${BOLD}  👽 ALIENCLAW ONLINE${NC}"
   echo -e "${GREEN}${BOLD}  ════════════════════════════════════════${NC}"
