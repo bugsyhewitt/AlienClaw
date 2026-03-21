@@ -41,7 +41,12 @@ fail()    { echo -e "  ${RED}✘${NC} $*" >&2; exit 1; }
 step()    { echo -e "\n${BOLD}${BLUE}==>${NC}${BOLD} $*${NC}"; }
 
 cleanup() {
-  [[ -n "${TMPDIR_AC:-}" && -d "${TMPDIR_AC:-}" ]] && rm -rf "$TMPDIR_AC"
+  # Background the temp dir removal so the script exits instantly.
+  # WSL2 rm -rf on thousands of files (cloned repo + node_modules) can take 30s+.
+  if [[ -n "${TMPDIR_AC:-}" && -d "${TMPDIR_AC:-}" ]]; then
+    rm -rf "$TMPDIR_AC" &>/dev/null &
+    TMPDIR_AC=""
+  fi
   printf '%b' '\033[?25h\033[0m'
 }
 trap cleanup EXIT
@@ -489,6 +494,7 @@ main() {
   echo ""
 
   local EVOLUTION_MODE="off"
+  local LEADERBOARD_NAME=""
   if $DRYRUN; then
     info "[DRYRUN] Would prompt for evolution network choice"
   elif [[ -r /dev/tty && -w /dev/tty ]]; then
@@ -501,6 +507,24 @@ main() {
       [Aa]) EVOLUTION_MODE="anonymous" ;;
       *)    EVOLUTION_MODE="off" ;;
     esac
+
+    # If named, ask for a leaderboard name (letters only)
+    if [[ "$EVOLUTION_MODE" == "named" ]]; then
+      echo ""
+      echo -e "  ${BOLD}Choose a leaderboard name${NC} ${DIM}(letters only)${NC}"
+      local raw_name=""
+      printf "  Name: "
+      read -r raw_name </dev/tty || true
+      # Strip everything that isn't a letter
+      raw_name="${raw_name//[^a-zA-Z]/}"
+      if [[ -n "$raw_name" ]]; then
+        LEADERBOARD_NAME="$raw_name"
+        success "Leaderboard name: $LEADERBOARD_NAME"
+      else
+        warn "No valid name entered — defaulting to anonymous."
+        EVOLUTION_MODE="anonymous"
+      fi
+    fi
   else
     warn "No TTY — defaulting to local mode. Change later in ~/.alienclaw/preferences.json"
   fi
@@ -510,6 +534,7 @@ main() {
 {
   "provider": "minimax",
   "evolutionMode": "$EVOLUTION_MODE",
+  "leaderboardName": "$LEADERBOARD_NAME",
   "setupComplete": true,
   "setupCompletedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
