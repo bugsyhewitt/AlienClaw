@@ -8,7 +8,10 @@
 #   bash install.sh              # Local install
 #   bash install.sh --dryrun     # Preview all steps without making changes
 # =============================================================================
-set -euo pipefail
+set -uo pipefail
+# NOTE: we intentionally do NOT use set -e.  We check errors explicitly
+# because nvm (a shell function) and several apt/brew commands return
+# non-zero for non-error conditions and set -e kills the script silently.
 
 ALIENCLAW_REPO="https://github.com/AlienTool/AlienClaw.git"
 ALIENCLAW_HOME="${ALIENCLAW_HOME:-$HOME/.alienclaw}"
@@ -38,10 +41,6 @@ warn()    { echo -e "  ${YELLOW}⚠${NC} $*"; }
 fail()    { echo -e "  ${RED}✘${NC} $*" >&2; exit 1; }
 step()    { echo -e "\n${BOLD}${BLUE}==>${NC}${BOLD} $*${NC}"; }
 
-run() {
-  if $DRYRUN; then echo -e "  ${YELLOW}[DRYRUN]${NC} $*"; else eval "$*"; fi
-}
-
 cleanup() {
   [[ -n "${TMPDIR_AC:-}" && -d "${TMPDIR_AC:-}" ]] && rm -rf "$TMPDIR_AC"
   printf '%b' '\033[?25h\033[0m'
@@ -54,23 +53,21 @@ trap 'echo ""; echo -e "\n  ${RED}Aborted.${NC}"; exit 1' INT TERM
 # =============================================================================
 OS=""
 PKG_MANAGER=""
-INSTALL_CMD=""
 
 detect_os() {
   case "$(uname -s)" in
     Linux)
       OS="linux"
-      if   command -v apt-get &>/dev/null; then PKG_MANAGER="apt";    INSTALL_CMD="sudo apt-get install -y"
-      elif command -v dnf     &>/dev/null; then PKG_MANAGER="dnf";    INSTALL_CMD="sudo dnf install -y"
-      elif command -v yum     &>/dev/null; then PKG_MANAGER="yum";    INSTALL_CMD="sudo yum install -y"
-      elif command -v pacman  &>/dev/null; then PKG_MANAGER="pacman"; INSTALL_CMD="sudo pacman -S --noconfirm"
-      elif command -v zypper  &>/dev/null; then PKG_MANAGER="zypper"; INSTALL_CMD="sudo zypper install -y"
+      if   command -v apt-get &>/dev/null; then PKG_MANAGER="apt"
+      elif command -v dnf     &>/dev/null; then PKG_MANAGER="dnf"
+      elif command -v yum     &>/dev/null; then PKG_MANAGER="yum"
+      elif command -v pacman  &>/dev/null; then PKG_MANAGER="pacman"
+      elif command -v zypper  &>/dev/null; then PKG_MANAGER="zypper"
       else fail "No supported package manager found (need apt, dnf, yum, pacman, or zypper)."; fi
       ;;
     Darwin)
       OS="macos"
       PKG_MANAGER="brew"
-      INSTALL_CMD="brew install"
       ;;
     *)
       fail "Unsupported OS: $(uname -s). AlienClaw supports macOS, Linux, and WSL2."
@@ -80,80 +77,186 @@ detect_os() {
 }
 
 # =============================================================================
-# Dependency auto-install
+# Package install (stdin-safe: all commands get </dev/null)
 # =============================================================================
+pkg_install() {
+  local pkg="$1"
+  case "$PKG_MANAGER" in
+    apt)    sudo apt-get install -y "$pkg" </dev/null ;;
+    dnf)    sudo dnf install -y "$pkg"     </dev/null ;;
+    yum)    sudo yum install -y "$pkg"     </dev/null ;;
+    pacman) sudo pacman -S --noconfirm "$pkg" </dev/null ;;
+    zypper) sudo zypper install -y "$pkg"  </dev/null ;;
+    brew)   brew install "$pkg" </dev/null ;;
+  esac
+}
+
+apt_update_once() {
+  if [[ "$PKG_MANAGER" == "apt" && "${APT_UPDATED:-0}" != "1" ]]; then
+    info "Updating package lists..."
+    sudo apt-get update -qq </dev/null || warn "apt-get update had warnings (continuing)."
+    APT_UPDATED=1
+  fi
+}
+
 require_cmd() {
   local cmd="$1" pkg="${2:-$1}"
   if command -v "$cmd" &>/dev/null; then
     success "$cmd found"
-    return
+    return 0
   fi
   info "Installing $cmd..."
-  if $DRYRUN; then echo -e "  ${YELLOW}[DRYRUN]${NC} $INSTALL_CMD $pkg"; return; fi
-  if [[ "$OS" == "macos" ]]; then
-    brew install "$pkg"
-  elif [[ "$PKG_MANAGER" == "apt" ]]; then
-    sudo apt-get update -qq && sudo apt-get install -y "$pkg"
-  else
-    $INSTALL_CMD "$pkg"
+  if $DRYRUN; then info "[DRYRUN] Would install $pkg"; return 0; fi
+  apt_update_once
+  if pkg_install "$pkg"; then
+    hash -r 2>/dev/null || true
+    if command -v "$cmd" &>/dev/null; then
+      success "$cmd installed"
+      return 0
+    fi
   fi
-  success "$cmd installed"
+  fail "$cmd could not be installed. Install it manually, then re-run this installer."
 }
 
+# =============================================================================
+# Homebrew (macOS only)
+# =============================================================================
 ensure_homebrew() {
-  [[ "$OS" != "macos" ]] && return
-  if command -v brew &>/dev/null; then success "Homebrew found"; return; fi
+  [[ "$OS" != "macos" ]] && return 0
+  if command -v brew &>/dev/null; then success "Homebrew found"; return 0; fi
   info "Installing Homebrew..."
-  if $DRYRUN; then echo -e "  ${YELLOW}[DRYRUN]${NC} Install Homebrew"; return; fi
+  if $DRYRUN; then info "[DRYRUN] Would install Homebrew"; return 0; fi
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/tty
+  # Apple Silicon path
   [[ -f /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
-  success "Homebrew installed"
+  if command -v brew &>/dev/null; then
+    success "Homebrew installed"
+  else
+    fail "Homebrew installation failed."
+  fi
 }
 
+# =============================================================================
+# Node.js 22+  (platform-native install — avoids nvm+set-e issues)
+# =============================================================================
 ensure_node() {
   if command -v node &>/dev/null; then
     local major
-    major=$(node -e 'process.stdout.write(String(process.versions.node.split(".")[0]))')
+    major=$(node -e 'process.stdout.write(String(process.versions.node.split(".")[0]))' 2>/dev/null || echo "0")
     if [[ "$major" -ge 22 ]]; then
       success "Node.js $(node --version)"
-      return
+      return 0
     fi
     info "Node.js $(node --version) found but v22+ required. Upgrading..."
   else
     info "Node.js not found. Installing..."
   fi
 
-  if $DRYRUN; then echo -e "  ${YELLOW}[DRYRUN]${NC} Install Node.js 22 via nvm"; return; fi
+  if $DRYRUN; then info "[DRYRUN] Would install Node.js 22"; return 0; fi
 
-  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-  [[ -f "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh" 2>/dev/null || true
+  # --- Platform-specific Node install (no nvm, no stdin issues) ---
+  if [[ "$PKG_MANAGER" == "apt" ]]; then
+    info "Adding NodeSource repository..."
+    local ns_tmp
+    ns_tmp="$(mktemp)"
+    if ! curl -fsSL https://deb.nodesource.com/setup_22.x -o "$ns_tmp"; then
+      rm -f "$ns_tmp"
+      fail "Could not download NodeSource setup script."
+    fi
+    # Run with explicit stdin from /dev/null so it never steals our pipe
+    if ! sudo -E bash "$ns_tmp" </dev/null; then
+      rm -f "$ns_tmp"
+      fail "NodeSource setup failed."
+    fi
+    rm -f "$ns_tmp"
+    if ! sudo apt-get install -y nodejs </dev/null; then
+      fail "Could not install Node.js via apt."
+    fi
 
-  if ! command -v nvm &>/dev/null; then
-    info "Installing nvm..."
-    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-    source "$NVM_DIR/nvm.sh"
+  elif [[ "$PKG_MANAGER" == "brew" ]]; then
+    if ! brew install node@22 </dev/null; then
+      fail "Could not install Node.js via Homebrew."
+    fi
+    # Ensure node@22 is linked
+    brew link --overwrite node@22 2>/dev/null || true
+
+  elif [[ "$PKG_MANAGER" == "dnf" || "$PKG_MANAGER" == "yum" ]]; then
+    local ns_tmp
+    ns_tmp="$(mktemp)"
+    curl -fsSL https://rpm.nodesource.com/setup_22.x -o "$ns_tmp" || fail "Could not download NodeSource setup."
+    sudo bash "$ns_tmp" </dev/null || fail "NodeSource setup failed."
+    rm -f "$ns_tmp"
+    sudo "${PKG_MANAGER}" install -y nodejs </dev/null || fail "Could not install Node.js."
+
+  else
+    # Fallback: nvm (wrapped safely — no set -e, explicit stdin protection)
+    info "Installing via nvm (fallback)..."
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+
+    if [[ ! -f "$NVM_DIR/nvm.sh" ]]; then
+      local nvm_tmp
+      nvm_tmp="$(mktemp)"
+      curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh -o "$nvm_tmp" || \
+        fail "Could not download nvm installer."
+      bash "$nvm_tmp" </dev/null || fail "nvm installation failed."
+      rm -f "$nvm_tmp"
+    fi
+
+    # Source nvm (it's a shell function, may return non-zero harmlessly)
+    source "$NVM_DIR/nvm.sh" 2>/dev/null || true
+
+    if ! command -v nvm &>/dev/null; then
+      fail "nvm installed but could not be loaded. Try restarting your terminal and re-running."
+    fi
+
+    # nvm commands can return non-zero for benign reasons — don't let them crash us
+    nvm install 22  </dev/null || true
+    nvm use 22      </dev/null || true
+    nvm alias default 22 </dev/null || true
   fi
 
-  nvm install 22
-  nvm use 22
-  nvm alias default 22
-  success "Node.js $(node --version) installed via nvm"
+  # --- Verify ---
+  hash -r 2>/dev/null || true
+  if ! command -v node &>/dev/null; then
+    fail "Node.js installation completed but 'node' is not on PATH. Try restarting your terminal."
+  fi
+  local installed_major
+  installed_major=$(node -e 'process.stdout.write(String(process.versions.node.split(".")[0]))' 2>/dev/null || echo "0")
+  if [[ "$installed_major" -lt 22 ]]; then
+    fail "Node.js installed but version is $(node --version) — need v22+."
+  fi
+  success "Node.js $(node --version)"
 }
 
+# =============================================================================
+# pnpm
+# =============================================================================
 ensure_pnpm() {
-  if command -v pnpm &>/dev/null; then success "pnpm found"; return; fi
+  if command -v pnpm &>/dev/null; then success "pnpm found"; return 0; fi
   info "Installing pnpm..."
-  if $DRYRUN; then echo -e "  ${YELLOW}[DRYRUN]${NC} npm install -g pnpm"; return; fi
-  npm install -g pnpm 2>/dev/null || corepack enable pnpm 2>/dev/null || \
-    fail "Could not install pnpm."
-  success "pnpm installed"
+  if $DRYRUN; then info "[DRYRUN] Would install pnpm"; return 0; fi
+
+  npm install -g pnpm </dev/null || corepack enable pnpm </dev/null || true
+  hash -r 2>/dev/null || true
+
+  if command -v pnpm &>/dev/null; then
+    success "pnpm installed"
+  else
+    fail "Could not install pnpm. Install it manually: npm install -g pnpm"
+  fi
 }
 
+# =============================================================================
+# Refresh PATH (pick up tools installed by child processes)
+# =============================================================================
 refresh_path() {
+  # nvm
   export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-  [[ -f "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh" 2>/dev/null || true
-  for p in "$HOME/.local/share/pnpm" "$HOME/.local/bin" "$HOME/Library/pnpm"; do
-    [[ -d "$p" ]] && export PATH="$p:$PATH"
+  [[ -f "$NVM_DIR/nvm.sh" ]] && { source "$NVM_DIR/nvm.sh" 2>/dev/null || true; }
+  # Common tool directories
+  for p in "$HOME/.local/share/pnpm" "$HOME/.local/bin" "$HOME/Library/pnpm" \
+           "$HOME/.nvm/versions/node/"*/bin; do
+    [[ -d "$p" ]] && case ":$PATH:" in *":$p:"*) ;; *) export PATH="$p:$PATH" ;; esac
   done
   hash -r 2>/dev/null || true
 }
@@ -183,6 +286,13 @@ BANNER
 # Main
 # =============================================================================
 main() {
+  # ── CRITICAL: Redirect stdin from /dev/tty for curl|bash safety ──────────
+  # Without this, child processes (sudo, bash, apt-get) consume the curl pipe
+  # and bash loses the rest of the script.
+  if [[ ! -t 0 ]] && [[ -r /dev/tty ]]; then
+    exec </dev/tty
+  fi
+
   print_banner
 
   # ── 1. Prerequisites ───────────────────────────────────────────────────────
@@ -199,19 +309,21 @@ main() {
   # ── 2. Install OpenClaw (includes onboarding + daemon setup) ───────────────
   step "Installing OpenClaw"
   info "Running the official OpenClaw installer."
-  info "This will install OpenClaw and run onboarding (provider, API key, daemon)."
+  info "This installs OpenClaw and runs onboarding (provider, API key, daemon)."
   info "Follow the prompts — AlienClaw takes over when OpenClaw finishes."
   echo ""
 
   if $DRYRUN; then
-    echo -e "  ${YELLOW}[DRYRUN]${NC} Download and run OpenClaw installer"
-    echo -e "  ${YELLOW}[DRYRUN]${NC} OpenClaw onboarding would run here"
+    info "[DRYRUN] Would download and run OpenClaw installer"
+    info "[DRYRUN] OpenClaw onboarding would run here"
   else
     local oc_installer
     oc_installer="$(mktemp)"
-    curl -fsSL --proto '=https' --tlsv1.2 "$OPENCLAW_INSTALL_URL" -o "$oc_installer" || \
+    if ! curl -fsSL --proto '=https' --tlsv1.2 "$OPENCLAW_INSTALL_URL" -o "$oc_installer"; then
+      rm -f "$oc_installer"
       fail "Could not download OpenClaw installer."
-    if ! bash "$oc_installer"; then
+    fi
+    if ! bash "$oc_installer" </dev/tty; then
       rm -f "$oc_installer"
       fail "OpenClaw installation failed. Fix the error above, then re-run this installer."
     fi
@@ -226,9 +338,9 @@ main() {
   step "Installing lossless-claw plugin"
   if command -v openclaw &>/dev/null; then
     if $DRYRUN; then
-      echo -e "  ${YELLOW}[DRYRUN]${NC} openclaw plugins install @martian-engineering/lossless-claw"
+      info "[DRYRUN] Would run: openclaw plugins install @martian-engineering/lossless-claw"
     else
-      if openclaw plugins install @martian-engineering/lossless-claw 2>/dev/null; then
+      if openclaw plugins install @martian-engineering/lossless-claw </dev/null; then
         success "lossless-claw installed."
       else
         warn "lossless-claw failed to install (non-critical, continuing)."
@@ -245,10 +357,10 @@ main() {
 
   info "Downloading AlienClaw..."
   if $DRYRUN; then
-    echo -e "  ${YELLOW}[DRYRUN]${NC} git clone --depth 1 $ALIENCLAW_REPO"
+    info "[DRYRUN] Would clone $ALIENCLAW_REPO"
     AC_ROOT="$TMPDIR_AC/alienclaw"
   else
-    if git clone --depth 1 "$ALIENCLAW_REPO" "$TMPDIR_AC/alienclaw" 2>/dev/null; then
+    if git clone --depth 1 "$ALIENCLAW_REPO" "$TMPDIR_AC/alienclaw"; then
       AC_ROOT="$TMPDIR_AC/alienclaw"
 
       # Play the abduction animation (non-critical — never crash over this)
@@ -260,7 +372,7 @@ main() {
         info "Installing AlienClaw..."
       fi
     else
-      warn "Could not clone AlienClaw repo — skipping animation."
+      warn "Could not clone AlienClaw repo."
     fi
   fi
 
@@ -275,13 +387,14 @@ main() {
   local OC_BIN
   OC_BIN="$(command -v openclaw 2>/dev/null || true)"
 
-  if [[ -n "$OC_BIN" ]]; then
+  if [[ -n "${OC_BIN:-}" ]]; then
     local OC_REAL
     OC_REAL="$(readlink -f "$OC_BIN" 2>/dev/null || realpath "$OC_BIN" 2>/dev/null || echo "")"
-    if [[ -n "$OC_REAL" ]]; then
+    if [[ -n "${OC_REAL:-}" ]]; then
       local candidate
       candidate="$(dirname "$OC_REAL")"
-      for _ in 1 2 3 4; do
+      local i
+      for i in 1 2 3 4; do
         [[ -f "$candidate/package.json" ]] && { OC_DIR="$candidate"; break; }
         candidate="$(dirname "$candidate")"
       done
@@ -291,23 +404,25 @@ main() {
   if [[ -z "$OC_DIR" ]]; then
     local NPM_GLOBAL
     NPM_GLOBAL="$(npm root -g 2>/dev/null || true)"
-    [[ -d "$NPM_GLOBAL/openclaw" ]] && OC_DIR="$NPM_GLOBAL/openclaw"
+    [[ -d "${NPM_GLOBAL:-}/openclaw" ]] && OC_DIR="$NPM_GLOBAL/openclaw"
   fi
   [[ -z "$OC_DIR" ]] && fail "Cannot locate OpenClaw install directory. Is openclaw on your PATH?"
 
   info "OpenClaw found at $OC_DIR"
 
   if $DRYRUN; then
-    echo -e "  ${YELLOW}[DRYRUN]${NC} Reskin OpenClaw → AlienClaw"
-    echo -e "  ${YELLOW}[DRYRUN]${NC} Copy src/alienclaw/ overlay"
-    echo -e "  ${YELLOW}[DRYRUN]${NC} Apply openclaw-patches/"
-    echo -e "  ${YELLOW}[DRYRUN]${NC} Copy entry point + seed files"
-    echo -e "  ${YELLOW}[DRYRUN]${NC} pnpm install && pnpm build"
-    echo -e "  ${YELLOW}[DRYRUN]${NC} Link alienclaw binary"
+    info "[DRYRUN] Would reskin OpenClaw → AlienClaw"
+    info "[DRYRUN] Would copy src/alienclaw/ overlay"
+    info "[DRYRUN] Would apply openclaw-patches/"
+    info "[DRYRUN] Would copy entry point + seed files"
+    info "[DRYRUN] Would rebuild (pnpm install && pnpm build)"
+    info "[DRYRUN] Would link alienclaw binary"
   else
     # 5a. Reskin all text references: OpenClaw → AlienClaw
     info "Reskinning OpenClaw → AlienClaw..."
-    bash "$AC_ROOT/installer/scripts/reskin.sh" --target "$OC_DIR" --execute
+    if ! bash "$AC_ROOT/installer/scripts/reskin.sh" --target "$OC_DIR" --execute </dev/null; then
+      fail "Reskin failed."
+    fi
 
     # 5b. AlienClaw agent system (BossBot, AdvisorBot, CreatorBot, Meeseeks)
     info "Installing AlienClaw agent system..."
@@ -329,29 +444,40 @@ main() {
       cp -r "$AC_ROOT/seed" "$OC_DIR/seed"
     fi
 
-    # 5f. Rebuild
+    # 5f. Rebuild (show errors — don't suppress stderr)
     info "Rebuilding (this may take a minute)..."
-    if ! (cd "$OC_DIR" && pnpm install 2>/dev/null && pnpm build 2>/dev/null); then
-      if ! (cd "$OC_DIR" && npm install 2>/dev/null && npm run build 2>/dev/null); then
-        echo ""
-        echo -e "  ${RED}${BOLD}Build failed.${NC}"
-        echo ""
-        echo "  Please report this with the error output above:"
-        echo "  https://github.com/AlienTool/AlienClaw/issues"
-        echo ""
-        exit 1
-      fi
+    local build_ok=false
+    if (cd "$OC_DIR" && pnpm install </dev/null && pnpm build </dev/null) 2>&1; then
+      build_ok=true
+    elif (cd "$OC_DIR" && npm install </dev/null && npm run build </dev/null) 2>&1; then
+      build_ok=true
     fi
-    success "Build complete."
+
+    if $build_ok; then
+      success "Build complete."
+    else
+      echo ""
+      echo -e "  ${RED}${BOLD}Build failed.${NC}"
+      echo ""
+      echo "  Please report this with the full terminal output:"
+      echo "  https://github.com/AlienTool/AlienClaw/issues"
+      echo ""
+      exit 1
+    fi
 
     # 5g. Link the alienclaw binary
     local BIN_DIR
     BIN_DIR="$(npm bin -g 2>/dev/null || dirname "${OC_BIN:-/usr/local/bin/openclaw}")"
-    if [[ -f "$OC_DIR/alienclaw.mjs" && -d "$BIN_DIR" ]]; then
+    if [[ -f "$OC_DIR/alienclaw.mjs" && -d "${BIN_DIR:-}" ]]; then
       chmod +x "$OC_DIR/alienclaw.mjs"
-      ln -sf "$OC_DIR/alienclaw.mjs" "$BIN_DIR/alienclaw" 2>/dev/null || true
-      ln -sf "$OC_DIR/alienclaw.mjs" "$BIN_DIR/openclaw" 2>/dev/null || true
-      success "alienclaw command linked."
+      ln -sf "$OC_DIR/alienclaw.mjs" "$BIN_DIR/alienclaw" || \
+        warn "Could not link alienclaw binary. You may need: sudo ln -sf $OC_DIR/alienclaw.mjs $BIN_DIR/alienclaw"
+      ln -sf "$OC_DIR/alienclaw.mjs" "$BIN_DIR/openclaw" || true
+      if command -v alienclaw &>/dev/null; then
+        success "alienclaw command linked."
+      else
+        warn "alienclaw is not on PATH. Add $BIN_DIR to your PATH."
+      fi
     fi
   fi
 
@@ -372,8 +498,9 @@ main() {
 
   local EVOLUTION_MODE="off"
   if $DRYRUN; then
-    echo -e "  ${YELLOW}[DRYRUN]${NC} Would prompt for evolution network choice"
+    info "[DRYRUN] Would prompt for evolution network choice"
   elif [[ -r /dev/tty && -w /dev/tty ]]; then
+    local choice=""
     printf "  Choice: "
     read -r -n 1 choice </dev/tty || true
     echo ""
