@@ -423,7 +423,7 @@
   },
   "packageManager": "pnpm@10.23.0",
   "alienclaw": {
-    "vendored-openclaw": "2026.3.8",
+    "vendored-openclaw": "2026.3.14",
     "vendor-dir": "openclaw",
     "dist-dir": "build"
   },
