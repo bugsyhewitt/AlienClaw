@@ -448,19 +448,33 @@ main() {
   fi
 
   # ── 5. Onboarding ────────────────────────────────────────────────────────
-  # Run onboarding for provider + API key config.
+  # Run OpenClaw's onboarding for provider + API key config.
   # --skip-daemon --skip-health: the systemd daemon checks hang on WSL2
   #   (isSystemdUserServiceAvailable calls systemctl which blocks on D-Bus).
-  #   We start the gateway ourselves in step 9 without systemd.
   # --skip-ui: prevents the post-onboard TUI/GUI menu from blocking.
+  #
+  # IMPORTANT: Our custom entry point (alienclaw-entry.mjs, installed as
+  # openclaw.mjs) checks ~/.alienclaw/preferences.json for setupComplete.
+  # If missing, it intercepts ALL commands and runs the first-run wizard
+  # instead of the real CLI. We write a preliminary preferences.json here
+  # so the entry point passes through to OpenClaw's real onboard command.
+  # Step 8 overwrites it with the final version (evolution mode, etc).
   refresh_path
 
-  step "AlienClaw onboarding"
+  step "OpenClaw onboarding"
   if [[ -n "$ALIENCLAW_BIN" ]]; then
     if $DRYRUN; then
       info "[DRYRUN] Would run onboarding"
     else
-      info "Running onboarding (provider & API key setup)."
+      # Write preliminary preferences so entry point doesn't intercept
+      mkdir -p "$ALIENCLAW_HOME"
+      cat > "$ALIENCLAW_HOME/preferences.json" <<PREFS_EARLY
+{
+  "setupComplete": true
+}
+PREFS_EARLY
+
+      info "Running OpenClaw onboarding (provider & API key setup)."
       info "Follow the prompts below."
       echo ""
       "$ALIENCLAW_BIN" onboard --skip-daemon --skip-health --skip-ui </dev/tty || \
@@ -469,7 +483,7 @@ main() {
       success "Onboarding complete."
     fi
   else
-    warn "Skipping onboarding — run 'alienclaw onboard' manually after install."
+    warn "Skipping onboarding — run 'openclaw onboard' manually after install."
   fi
 
   # ── 6. Install lossless-claw plugin ────────────────────────────────────────
