@@ -355,8 +355,9 @@ main() {
   # ── 3. Build AlienClaw from source ────────────────────────────────────────
   # We build from the vendored OpenClaw source (not npm install -g) because:
   #   - npm-installed OpenClaw only has dist/ — no src/ to overlay onto
-  #   - We need to: copy vendor → reskin → overlay agents/patches → compile
-  # This is the same pipeline as `pnpm dist:all` but called directly.
+  #   - We need to: copy vendor → overlay agents/patches → compile
+  # No reskin — we keep OpenClaw system filenames intact and just overlay
+  # the AlienClaw agent system + branding patches on top.
   step "Building AlienClaw"
 
   local INSTALL_DIR="$ALIENCLAW_HOME/package"
@@ -373,17 +374,13 @@ main() {
     bash "$AC_ROOT/installer/scripts/copy-dist.sh" </dev/null || \
       fail "copy-dist.sh failed."
 
-    # 3b. Reskin: OpenClaw → AlienClaw
-    info "Reskinning OpenClaw → AlienClaw..."
-    bash "$AC_ROOT/installer/scripts/reskin.sh" --target "$AC_ROOT/build" --execute </dev/null || \
-      fail "Reskin failed."
-
-    # 3c. Overlay: agent system + core patches + entry point + installer + seeds
+    # 3b. Overlay: agent system + core patches + entry point + installer + seeds
+    # (no reskin step — we keep OpenClaw filenames intact)
     info "Applying AlienClaw overlay..."
     bash "$AC_ROOT/installer/scripts/overlay-dist.sh" </dev/null || \
       fail "Overlay failed."
 
-    # 3d. Install dependencies and compile
+    # 3c. Install dependencies and compile
     info "Installing dependencies (this may take a minute)..."
     if ! (cd "$AC_ROOT/build" && pnpm install </dev/null) 2>&1; then
       if ! (cd "$AC_ROOT/build" && npm install </dev/null) 2>&1; then
@@ -412,20 +409,20 @@ main() {
     cp -r "$AC_ROOT/build" "$INSTALL_DIR"
     success "Installed to $INSTALL_DIR"
 
-    # Set the canonical binary path (used for ALL subsequent alienclaw calls)
-    ALIENCLAW_BIN="$INSTALL_DIR/alienclaw.mjs"
+    # Set the canonical binary path — openclaw.mjs (we no longer rename it)
+    ALIENCLAW_BIN="$INSTALL_DIR/openclaw.mjs"
     chmod +x "$ALIENCLAW_BIN"
 
     # Verify the entry point actually exists
     if [[ ! -f "$ALIENCLAW_BIN" ]]; then
-      fail "Build succeeded but alienclaw.mjs not found at $ALIENCLAW_BIN"
+      fail "Build succeeded but openclaw.mjs not found at $ALIENCLAW_BIN"
     fi
 
     # Symlink into ~/.alienclaw/bin/ — a known, stable location we control.
-    # This avoids relying on npm's global bin dir (npm bin -g removed in npm 9+)
-    # or guessing where the system puts global packages.
+    # Both `openclaw` and `alienclaw` commands point to the same binary.
     local BIN_DIR="$ALIENCLAW_HOME/bin"
     mkdir -p "$BIN_DIR"
+    ln -sf "$ALIENCLAW_BIN" "$BIN_DIR/openclaw"
     ln -sf "$ALIENCLAW_BIN" "$BIN_DIR/alienclaw"
     export PATH="$BIN_DIR:$PATH"
     hash -r 2>/dev/null || true
@@ -447,7 +444,7 @@ main() {
       warn "dist/entry.js not found — build may be incomplete"
     fi
 
-    success "Symlinked: $BIN_DIR/alienclaw → $ALIENCLAW_BIN"
+    success "Symlinked: openclaw + alienclaw → $ALIENCLAW_BIN"
   fi
 
   # ── 5. Onboarding ────────────────────────────────────────────────────────

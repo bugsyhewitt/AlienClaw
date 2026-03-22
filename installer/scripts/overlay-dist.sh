@@ -48,10 +48,11 @@ cp -r "$REPO_ROOT/installer" "$INSTALLER_DST"
 echo "  installer: $(find "$INSTALLER_DST" -type f | wc -l) files"
 
 # ── 4. Custom entry point (first-run gate + correct branding) ─────────────────
-# Overwrites OpenClaw's alienclaw.mjs with our wrapper that checks setup first.
+# Overwrites OpenClaw's openclaw.mjs with our wrapper that checks setup first.
+# We keep the original filename (openclaw.mjs) — no reskin needed.
 ENTRY_SRC="$REPO_ROOT/installer/alienclaw-entry.mjs"
-ENTRY_DST="$REPO_ROOT/build/alienclaw.mjs"
-echo "Installing custom entry point → alienclaw.mjs ..."
+ENTRY_DST="$REPO_ROOT/build/openclaw.mjs"
+echo "Installing custom entry point → openclaw.mjs ..."
 cp "$ENTRY_SRC" "$ENTRY_DST"
 
 echo "Done."
