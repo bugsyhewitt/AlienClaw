@@ -49,7 +49,9 @@ function findFatalUnresolvedImport(lines) {
     }
 
     const normalizedLine = line.replace(ANSI_ESCAPE_RE, "");
-    if (!normalizedLine.includes("extensions/")) {
+    // Skip warnings from extensions/ (optional plugins) and node_modules/
+    // (third-party optional peer deps like jimp in @whiskeysockets/baileys)
+    if (!normalizedLine.includes("extensions/") && !normalizedLine.includes("node_modules/")) {
       return normalizedLine;
     }
   }
