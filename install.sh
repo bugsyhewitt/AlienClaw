@@ -15,6 +15,7 @@ set -uo pipefail
 
 ALIENCLAW_REPO="https://github.com/AlienTool/AlienClaw.git"
 ALIENCLAW_HOME="${ALIENCLAW_HOME:-$HOME/.alienclaw}"
+ALIENCLAW_BIN=""   # Full path to alienclaw binary — set in step 4
 TMPDIR_AC=""
 
 # Dry-run flag
@@ -411,20 +412,42 @@ main() {
     cp -r "$AC_ROOT/build" "$INSTALL_DIR"
     success "Installed to $INSTALL_DIR"
 
-    # Link the alienclaw binary into global bin dir
-    local BIN_DIR
-    BIN_DIR="$(npm bin -g 2>/dev/null || echo "$HOME/.npm-global/bin")"
+    # Set the canonical binary path (used for ALL subsequent alienclaw calls)
+    ALIENCLAW_BIN="$INSTALL_DIR/alienclaw.mjs"
+    chmod +x "$ALIENCLAW_BIN"
+
+    # Verify the entry point actually exists
+    if [[ ! -f "$ALIENCLAW_BIN" ]]; then
+      fail "Build succeeded but alienclaw.mjs not found at $ALIENCLAW_BIN"
+    fi
+
+    # Symlink into ~/.alienclaw/bin/ — a known, stable location we control.
+    # This avoids relying on npm's global bin dir (npm bin -g removed in npm 9+)
+    # or guessing where the system puts global packages.
+    local BIN_DIR="$ALIENCLAW_HOME/bin"
     mkdir -p "$BIN_DIR"
-    chmod +x "$INSTALL_DIR/alienclaw.mjs"
-    ln -sf "$INSTALL_DIR/alienclaw.mjs" "$BIN_DIR/alienclaw" || \
-      warn "Could not link alienclaw binary."
+    ln -sf "$ALIENCLAW_BIN" "$BIN_DIR/alienclaw"
+    export PATH="$BIN_DIR:$PATH"
     hash -r 2>/dev/null || true
 
-    if command -v alienclaw &>/dev/null; then
-      success "alienclaw command linked"
+    # Persist PATH for future shells (bashrc / zshrc / profile)
+    local path_line='export PATH="$HOME/.alienclaw/bin:$PATH"'
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
+      if [[ -f "$rc" ]] && ! grep -qF '.alienclaw/bin' "$rc"; then
+        echo "" >> "$rc"
+        echo '# AlienClaw' >> "$rc"
+        echo "$path_line" >> "$rc"
+      fi
+    done
+
+    # Verify key files exist (don't run the binary yet — preferences.json isn't written until step 8)
+    if [[ -f "$INSTALL_DIR/dist/entry.js" ]] || [[ -f "$INSTALL_DIR/dist/entry.mjs" ]]; then
+      success "Build output verified (dist/entry found)"
     else
-      warn "alienclaw not on PATH. Add $BIN_DIR to your PATH."
+      warn "dist/entry.js not found — build may be incomplete"
     fi
+
+    success "Symlinked: $BIN_DIR/alienclaw → $ALIENCLAW_BIN"
   fi
 
   # ── 5. Onboarding ────────────────────────────────────────────────────────
@@ -436,39 +459,36 @@ main() {
   refresh_path
 
   step "AlienClaw onboarding"
-  if command -v alienclaw &>/dev/null; then
+  if [[ -n "$ALIENCLAW_BIN" ]]; then
     if $DRYRUN; then
-      info "[DRYRUN] Would run: alienclaw onboard --skip-daemon --skip-health --skip-ui"
+      info "[DRYRUN] Would run onboarding"
     else
       info "Running onboarding (provider & API key setup)."
       info "Follow the prompts below."
       echo ""
-      alienclaw onboard --skip-daemon --skip-health --skip-ui </dev/tty || \
+      "$ALIENCLAW_BIN" onboard --skip-daemon --skip-health --skip-ui </dev/tty || \
         warn "Onboarding exited with a warning (continuing)."
       echo ""
       success "Onboarding complete."
     fi
   else
-    warn "alienclaw not found on PATH — skipping onboarding."
-    warn "Run 'alienclaw onboard' manually after install."
+    warn "Skipping onboarding — run 'alienclaw onboard' manually after install."
   fi
 
   # ── 6. Install lossless-claw plugin ────────────────────────────────────────
-  refresh_path
-
   step "Installing lossless-claw plugin"
-  if command -v alienclaw &>/dev/null; then
+  if [[ -n "$ALIENCLAW_BIN" ]]; then
     if $DRYRUN; then
-      info "[DRYRUN] Would run: alienclaw plugins install @martian-engineering/lossless-claw"
+      info "[DRYRUN] Would install lossless-claw plugin"
     else
-      if alienclaw plugins install @martian-engineering/lossless-claw </dev/null; then
+      if "$ALIENCLAW_BIN" plugins install @martian-engineering/lossless-claw </dev/null; then
         success "lossless-claw installed."
       else
         warn "lossless-claw failed to install (non-critical, continuing)."
       fi
     fi
   else
-    warn "alienclaw not on PATH yet — skipping lossless-claw."
+    warn "Skipping lossless-claw — alienclaw binary not set."
   fi
 
   # ── 7. Abduction animation ────────────────────────────────────────────────
@@ -562,6 +582,12 @@ PREFS
   fi
 
   # ── What next? ──────────────────────────────────────────────────────────
+  if [[ -z "$ALIENCLAW_BIN" || ! -f "$ALIENCLAW_BIN" ]]; then
+    warn "Binary not found — run the installer again or check ~/.alienclaw/package/"
+    echo ""
+    return 1
+  fi
+
   echo -e "  ${BOLD}What would you like to do?${NC}"
   echo ""
   echo -e "    ${GREEN}[T]${NC}UI  — open the terminal interface"
@@ -578,14 +604,15 @@ PREFS
     case "${launch:-n}" in
       [Tt])
         info "Launching TUI..."
-        exec alienclaw </dev/tty
+        exec "$ALIENCLAW_BIN" </dev/tty
         ;;
       [Dd])
         info "Opening dashboard..."
-        alienclaw dashboard </dev/tty || warn "Could not open dashboard."
+        "$ALIENCLAW_BIN" dashboard </dev/tty || warn "Could not open dashboard."
         ;;
       *)
-        echo -e "  ${DIM}Run ${NC}${BOLD}alienclaw run \"<goal>\"${NC}${DIM} when you're ready.${NC}"
+        echo -e "  ${DIM}Open a new terminal, then run:${NC}"
+        echo -e "  ${BOLD}alienclaw run \"<goal>\"${NC}"
         echo ""
         ;;
     esac
