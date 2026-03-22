@@ -22,7 +22,7 @@ if [[ ! -d "$SRC" ]]; then
 fi
 
 if [[ ! -d "$REPO_ROOT/build/src" ]]; then
-    echo "error: build/src/ not found — run dist:copy and dist:reskin first" >&2
+    echo "error: build/src/ not found — run dist:copy first" >&2
     exit 1
 fi
 

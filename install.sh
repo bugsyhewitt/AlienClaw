@@ -437,7 +437,7 @@ main() {
       fi
     done
 
-    # Verify key files exist (don't run the binary yet — preferences.json isn't written until step 8)
+    # Verify key files exist
     if [[ -f "$INSTALL_DIR/dist/entry.js" ]] || [[ -f "$INSTALL_DIR/dist/entry.mjs" ]]; then
       success "Build output verified (dist/entry found)"
     else
@@ -447,46 +447,19 @@ main() {
     success "Symlinked: openclaw + alienclaw → $ALIENCLAW_BIN"
   fi
 
-  # ── 5. Onboarding ────────────────────────────────────────────────────────
-  # Run OpenClaw's onboarding for provider + API key config.
-  # --skip-daemon --skip-health: the systemd daemon checks hang on WSL2
-  #   (isSystemdUserServiceAvailable calls systemctl which blocks on D-Bus).
-  # --skip-ui: prevents the post-onboard TUI/GUI menu from blocking.
-  #
-  # IMPORTANT: Our custom entry point (alienclaw-entry.mjs, installed as
-  # openclaw.mjs) checks ~/.alienclaw/preferences.json for setupComplete.
-  # If missing, it intercepts ALL commands and runs the first-run wizard
-  # instead of the real CLI. We write a preliminary preferences.json here
-  # so the entry point passes through to OpenClaw's real onboard command.
-  # Step 8 overwrites it with the final version (evolution mode, etc).
-  refresh_path
-
-  step "OpenClaw onboarding"
-  if [[ -n "$ALIENCLAW_BIN" ]]; then
-    if $DRYRUN; then
-      info "[DRYRUN] Would run onboarding"
-    else
-      # Write preliminary preferences so entry point doesn't intercept
-      mkdir -p "$ALIENCLAW_HOME"
-      cat > "$ALIENCLAW_HOME/preferences.json" <<PREFS_EARLY
+  # ── 5. Install lossless-claw plugin ────────────────────────────────────────
+  # Write preferences.json FIRST so our custom entry point (alienclaw-entry.mjs,
+  # installed as openclaw.mjs) passes through to the real CLI instead of
+  # launching the first-run wizard.
+  if ! $DRYRUN; then
+    mkdir -p "$ALIENCLAW_HOME"
+    cat > "$ALIENCLAW_HOME/preferences.json" <<PREFS_EARLY
 {
   "setupComplete": true
 }
 PREFS_EARLY
-
-      info "Running OpenClaw onboarding (provider & API key setup)."
-      info "Follow the prompts below."
-      echo ""
-      "$ALIENCLAW_BIN" onboard --skip-daemon --skip-health --skip-ui </dev/tty || \
-        warn "Onboarding exited with a warning (continuing)."
-      echo ""
-      success "Onboarding complete."
-    fi
-  else
-    warn "Skipping onboarding — run 'openclaw onboard' manually after install."
   fi
 
-  # ── 6. Install lossless-claw plugin ────────────────────────────────────────
   step "Installing lossless-claw plugin"
   if [[ -n "$ALIENCLAW_BIN" ]]; then
     if $DRYRUN; then
@@ -499,16 +472,18 @@ PREFS_EARLY
       fi
     fi
   else
-    warn "Skipping lossless-claw — alienclaw binary not set."
+    warn "Skipping lossless-claw — binary not set."
   fi
 
-  # ── 7. Abduction animation ────────────────────────────────────────────────
-  if [[ -f "$AC_ROOT/installer/animation/abduction.mjs" ]]; then
+  # ── 6. Abduction animation ────────────────────────────────────────────────
+  local ANIM="$INSTALL_DIR/installer/animation/abduction.mjs"
+  [[ ! -f "$ANIM" ]] && ANIM="$AC_ROOT/installer/animation/abduction.mjs"
+  if [[ -f "$ANIM" ]] && ! $DRYRUN; then
     clear
-    node "$AC_ROOT/installer/animation/abduction.mjs" 2>/dev/null || true
+    node "$ANIM" 2>/dev/null || true
   fi
 
-  # ── 8. Evolution network opt-in ────────────────────────────────────────────
+  # ── 7. Evolution network opt-in ────────────────────────────────────────────
   step "AlienClaw configuration"
   mkdir -p "$ALIENCLAW_HOME"
   mkdir -p "$ALIENCLAW_HOME/registry/ms"
@@ -545,6 +520,8 @@ PREFS_EARLY
 
     # If named, ask for a leaderboard name (letters only)
     if [[ "$EVOLUTION_MODE" == "named" ]]; then
+      # Drain any leftover Enter from the single-char read above
+      read -r -t 0.1 _ </dev/tty 2>/dev/null || true
       echo ""
       echo -e "  ${BOLD}Choose a leaderboard name${NC} ${DIM}(letters only)${NC}"
       local raw_name=""
@@ -567,7 +544,6 @@ PREFS_EARLY
   if ! $DRYRUN; then
     cat > "$ALIENCLAW_HOME/preferences.json" <<PREFS
 {
-  "provider": "minimax",
   "evolutionMode": "$EVOLUTION_MODE",
   "leaderboardName": "$LEADERBOARD_NAME",
   "setupComplete": true,
@@ -577,7 +553,7 @@ PREFS
   fi
   success "Evolution mode: $EVOLUTION_MODE"
 
-  # ── 9. Done ─────────────────────────────────────────────────────────────
+  # ── 8. Done ─────────────────────────────────────────────────────────────
   echo ""
   echo -e "${GREEN}${BOLD}  👽 ALIENCLAW ONLINE${NC}"
   echo -e "${GREEN}${BOLD}  ════════════════════════════════════════${NC}"
