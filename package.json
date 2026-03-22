@@ -334,7 +334,7 @@
     "dist:reskin": "bash installer/scripts/reskin.sh --target build --execute",
     "dist:overlay": "bash installer/scripts/overlay-dist.sh",
     "dist:verify": "bash installer/scripts/verify.sh --target build --skip-build",
-    "dist:build": "pnpm dist:copy && pnpm dist:reskin && pnpm dist:overlay && cd build && pnpm install && pnpm build",
+    "dist:build": "pnpm dist:copy && pnpm dist:overlay && cd build && pnpm install && pnpm build",
     "dist:all": "pnpm dist:build && bash installer/scripts/verify.sh --target build"
   },
   "dependencies": {

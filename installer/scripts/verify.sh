@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # installer/scripts/verify.sh
 #
-# Verifies that the AlienClaw reskin has been applied correctly to a target directory
-# and (optionally) that the build passes clean.
+# Verifies that the AlienClaw build has been assembled correctly.
+# Checks that the overlay was applied and the build output exists.
 #
 # Usage:
 #   installer/scripts/verify.sh --target <dir>               # full check + build
@@ -71,169 +71,140 @@ info() { echo -e "        $1"; }
 # ── Header ───────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║        AlienClaw Reskin — installer/scripts/verify.sh        ║${NC}"
+echo -e "${CYAN}║       AlienClaw Build Verify — installer/scripts/verify.sh   ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo "  Target     : $TARGET"
 echo "  Skip build : $SKIP_BUILD"
 echo ""
 
-# ── Check 1: alienclaw.mjs entry point exists ───────────────────────────────────
+# ── Check 1: Entry point exists ─────────────────────────────────────────────────
 echo -e "${WHITE}[1] Entry point${NC}"
-if [[ -f "$TARGET/alienclaw.mjs" ]]; then
-    pass "alienclaw.mjs exists"
-else
-    fail "alienclaw.mjs not found at $TARGET/alienclaw.mjs"
-fi
-
 if [[ -f "$TARGET/openclaw.mjs" ]]; then
-    fail "openclaw.mjs still present (rename was not applied)"
+    pass "openclaw.mjs exists"
 else
-    pass "openclaw.mjs absent (rename applied)"
+    fail "openclaw.mjs not found at $TARGET/openclaw.mjs"
 fi
 echo ""
 
-# ── Check 2: package.json fields ────────────────────────────────────────────────
-echo -e "${WHITE}[2] package.json fields${NC}"
+# ── Check 2: package.json exists and is valid ────────────────────────────────────
+echo -e "${WHITE}[2] package.json${NC}"
 PKG="$TARGET/package.json"
 if [[ ! -f "$PKG" ]]; then
     fail "package.json not found"
 else
-    # name field
     pkg_name="$(grep '"name"' "$PKG" | head -1 \
         | sed 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo '')"
-    if [[ "$pkg_name" == "alienclaw" ]]; then
-        pass "name = \"alienclaw\""
+    if [[ -n "$pkg_name" ]]; then
+        pass "package name = \"$pkg_name\""
     else
-        fail "name = \"$pkg_name\" (expected alienclaw)"
+        fail "could not read package name"
     fi
 
-    # bin field
-    if grep -q '"alienclaw"[[:space:]]*:' "$PKG" 2>/dev/null; then
-        pass "bin contains alienclaw key"
+    if grep -q '"openclaw"[[:space:]]*:' "$PKG" 2>/dev/null; then
+        pass "bin contains openclaw key"
     else
-        fail "bin does not contain alienclaw key"
-    fi
-
-    # cli-entry
-    if grep -q '"cli-entry"' "$PKG" 2>/dev/null; then
-        cli_val="$(grep '"./cli-entry"' "$PKG" | head -1 | grep -o '"[^"]*\.mjs"' || echo '')"
-        if echo "$cli_val" | grep -q 'alienclaw'; then
-            pass "./cli-entry points to alienclaw.mjs ($cli_val)"
-        else
-            fail "./cli-entry does not point to alienclaw.mjs (got: $cli_val)"
-        fi
-    else
-        warn "no ./cli-entry export found in package.json (may be intentional)"
-    fi
-
-    # Guard: old name must not remain
-    if grep -q '"name"[[:space:]]*:[[:space:]]*"openclaw"' "$PKG" 2>/dev/null; then
-        fail "name is still openclaw in package.json"
-    else
-        pass "name is not openclaw"
+        fail "bin does not contain openclaw key"
     fi
 fi
 echo ""
 
-# ── Check 3: No remaining 'openclaw' text references ────────────────────────────
-echo -e "${WHITE}[3] Residual openclaw references (text scan)${NC}"
-
-# Skip directories that are expected to be pristine/ignored
-SKIP_DIRS=(node_modules .git .pnpm-store dist .turbo .build .artifacts coverage)
-
-# Overlay directories that intentionally reference OpenClaw by name
-# (e.g. comments documenting the interface boundary to the upstream codebase)
-# installer/ contains build tooling (reskin.sh, verify.sh, copy-dist.sh) that
-# necessarily references the upstream name; exclude it from the residual scan.
-OVERLAY_DIRS=(src/alienclaw installer)
-
-PRUNE_ARGS=()
-for d in "${SKIP_DIRS[@]}"; do
-    PRUNE_ARGS+=(-name "$d" -prune -o)
-done
-# Also prune overlay dirs from the residual scan
-for d in "${OVERLAY_DIRS[@]}"; do
-    PRUNE_ARGS+=(-path "*/$d" -prune -o)
-done
-
-# Binary extensions to skip
-SKIP_EXT_RE='\.(png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot|otf|mp3|wav|ogg|zip|tar|gz|bz2|xz|7z|bin|exe|node|map|wasm|icns|dylib|so|dll|pdf|lock)$'
-
-RESIDUAL_FILES=()
-RESIDUAL_COUNT=0
-
-while IFS= read -r -d '' file; do
-    [[ "$file" =~ $SKIP_EXT_RE ]] && continue
-    [[ -f "$file" && -r "$file" ]] || continue
-
-    if grep -qE 'openclaw|OpenClaw|OPENCLAW' "$file" 2>/dev/null; then
-        RESIDUAL_FILES+=("${file#$TARGET/}")
-        RESIDUAL_COUNT=$((RESIDUAL_COUNT + 1))
-    fi
-done < <(find "$TARGET" \
-    "${PRUNE_ARGS[@]}" \
-    -type f -print0)
-
-if [[ $RESIDUAL_COUNT -eq 0 ]]; then
-    pass "No residual openclaw/OpenClaw/OPENCLAW references found in text files"
+# ── Check 3: AlienClaw overlay applied ───────────────────────────────────────────
+echo -e "${WHITE}[3] AlienClaw overlay${NC}"
+if [[ -d "$TARGET/src/alienclaw" ]]; then
+    pass "src/alienclaw/ directory exists"
 else
-    fail "$RESIDUAL_COUNT file(s) still contain openclaw references"
-    for f in "${RESIDUAL_FILES[@]}"; do
-        info "${RED}$f${NC}"
-        grep -nE 'openclaw|OpenClaw|OPENCLAW' "$TARGET/$f" 2>/dev/null | head -3 \
-            | sed "s/^/        /" || true
-    done
+    fail "src/alienclaw/ not found — overlay was not applied"
 fi
-echo ""
 
-# ── Check 4: No openclaw filenames remain ───────────────────────────────────────
-echo -e "${WHITE}[4] Residual openclaw filenames${NC}"
-
-OLD_NAMES=()
-while IFS= read -r -d '' f; do
-    OLD_NAMES+=("${f#$TARGET/}")
-done < <(find "$TARGET" \
-    "${PRUNE_ARGS[@]}" \
-    -name '*openclaw*' -type f -print0)
-
-if [[ ${#OLD_NAMES[@]} -eq 0 ]]; then
-    pass "No files with openclaw in their name"
+if [[ -f "$TARGET/src/alienclaw/constants.ts" ]]; then
+    pass "src/alienclaw/constants.ts exists"
 else
-    fail "${#OLD_NAMES[@]} file(s) still have openclaw in their filename"
-    for f in "${OLD_NAMES[@]}"; do
-        info "${RED}$f${NC}"
-    done
+    fail "src/alienclaw/constants.ts not found"
+fi
+
+if [[ -f "$TARGET/src/alienclaw/cli/cli.ts" ]]; then
+    pass "src/alienclaw/cli/cli.ts exists"
+else
+    fail "src/alienclaw/cli/cli.ts not found"
 fi
 echo ""
 
-# ── Check 5: alienclaw.mjs content spot-check ───────────────────────────────────
-echo -e "${WHITE}[5] alienclaw.mjs content${NC}"
-MJS="$TARGET/alienclaw.mjs"
+# ── Check 4: Core patches applied ───────────────────────────────────────────────
+echo -e "${WHITE}[4] Core patches${NC}"
+CMD_REG="$TARGET/src/cli/program/command-registry.ts"
+if [[ -f "$CMD_REG" ]]; then
+    if grep -q 'alienclaw' "$CMD_REG" 2>/dev/null; then
+        pass "command-registry.ts contains alienclaw entries"
+    else
+        fail "command-registry.ts does not contain alienclaw entries"
+    fi
+else
+    fail "command-registry.ts not found at expected path"
+fi
+
+BANNER="$TARGET/src/cli/banner.ts"
+if [[ -f "$BANNER" ]]; then
+    if grep -q 'AlienClaw' "$BANNER" 2>/dev/null; then
+        pass "banner.ts shows AlienClaw branding"
+    else
+        warn "banner.ts does not mention AlienClaw"
+    fi
+else
+    warn "banner.ts not found (branding may be missing)"
+fi
+echo ""
+
+# ── Check 5: Entry point content ────────────────────────────────────────────────
+echo -e "${WHITE}[5] Entry point content${NC}"
+MJS="$TARGET/openclaw.mjs"
 if [[ -f "$MJS" ]]; then
+    # Should contain our first-run gate (references ~/.alienclaw/)
     if grep -q 'alienclaw' "$MJS" 2>/dev/null; then
-        pass "alienclaw.mjs contains alienclaw references (reskin applied)"
+        pass "openclaw.mjs contains AlienClaw first-run gate"
     else
-        warn "alienclaw.mjs contains no alienclaw references (may be empty or unusual)"
+        warn "openclaw.mjs may not have the custom entry point"
     fi
-    if grep -qE 'openclaw' "$MJS" 2>/dev/null; then
-        fail "alienclaw.mjs still contains openclaw references"
-        grep -nE 'openclaw' "$MJS" | head -5 | sed "s/^/        /" || true
+    if grep -q 'dist/entry' "$MJS" 2>/dev/null; then
+        pass "openclaw.mjs delegates to dist/entry"
     else
-        pass "alienclaw.mjs: no residual openclaw references"
+        warn "openclaw.mjs does not reference dist/entry"
     fi
 fi
 echo ""
 
-# ── Check 6: Build (optional) ────────────────────────────────────────────────────
+# ── Check 6: Installer + animation assets ───────────────────────────────────────
+echo -e "${WHITE}[6] Installer assets${NC}"
+if [[ -d "$TARGET/installer" ]]; then
+    pass "installer/ directory exists"
+else
+    fail "installer/ not found"
+fi
+
+if [[ -f "$TARGET/installer/animation/abduction.mjs" ]]; then
+    pass "abduction animation found"
+else
+    warn "abduction animation missing (non-critical)"
+fi
+echo ""
+
+# ── Check 7: Seed files ─────────────────────────────────────────────────────────
+echo -e "${WHITE}[7] Seed files${NC}"
+if [[ -d "$TARGET/src/alienclaw/seed" ]] || [[ -d "$TARGET/seed" ]]; then
+    pass "seed directory found"
+else
+    warn "seed directory not found (seeds may be in a different location)"
+fi
+echo ""
+
+# ── Check 8: Build (optional) ──────────────────────────────────────────────────
 if $SKIP_BUILD; then
-    echo -e "${WHITE}[6] Build${NC}"
+    echo -e "${WHITE}[8] Build${NC}"
     warn "Skipped (--skip-build)"
     echo ""
 else
-    echo -e "${WHITE}[6] Build${NC}"
+    echo -e "${WHITE}[8] Build${NC}"
 
-    # Require pnpm
     if ! command -v pnpm >/dev/null 2>&1; then
         fail "pnpm not found in PATH — cannot run build check"
     else
@@ -253,6 +224,32 @@ else
     fi
     echo ""
 fi
+
+# ── Check 9: Build output ──────────────────────────────────────────────────────
+echo -e "${WHITE}[9] Build output${NC}"
+if [[ -f "$TARGET/dist/entry.js" ]] || [[ -f "$TARGET/dist/entry.mjs" ]]; then
+    pass "dist/entry found"
+else
+    if $SKIP_BUILD; then
+        warn "dist/entry not found (build was skipped)"
+    else
+        fail "dist/entry not found after build"
+    fi
+fi
+echo ""
+
+# ── Check 10: Soul files ───────────────────────────────────────────────────────
+echo -e "${WHITE}[10] Soul files${NC}"
+SOUL_COUNT=0
+if [[ -d "$TARGET/src/alienclaw/prompts" ]]; then
+    SOUL_COUNT=$(find "$TARGET/src/alienclaw/prompts" -name '*.soul.md' -type f 2>/dev/null | wc -l)
+fi
+if [[ $SOUL_COUNT -gt 0 ]]; then
+    pass "$SOUL_COUNT soul file(s) found"
+else
+    warn "No soul files found in src/alienclaw/prompts/"
+fi
+echo ""
 
 # ── Summary ──────────────────────────────────────────────────────────────────────
 echo -e "${WHITE}──────────────────────────────────────────────────────────────────${NC}"
