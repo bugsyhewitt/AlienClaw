@@ -27,76 +27,66 @@
 
 ---
 
-## The Hierarchy
+## The Agents
 
-AlienClaw runs a five-layer agent system the moment you issue a goal. You don't configure it — it's already wired.
+AlienClaw has three agents — all LLM-backed, all reasoning. Everything else is a Meeseeks.
 
-<br>
+### BossBot
 
-<table>
-<thead>
-<tr>
-<th align="center">Agent</th>
-<th align="center">Tier</th>
-<th>Role</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td align="center"><strong>BossBot</strong></td>
-<td align="center">A — Governance</td>
-<td>Receives your goal, decomposes it with AdvisorBot, dispatches sub-goals in parallel, adapts the plan mid-flight, and folds your input without losing momentum. Reviews completion before surfacing to you.</td>
-</tr>
-<tr>
-<td align="center"><strong>AdvisorBot</strong></td>
-<td align="center">A — Governance</td>
-<td>Stateful within each task. Consulted at decomposition, every failure rebuild, and sign-off. Decides nothing — pure wisdom on tap. Sessions are keyed per caller; cross-contamination is structurally impossible.</td>
-</tr>
-<tr>
-<td align="center"><strong>CreatorBot</strong></td>
-<td align="center">A — Governance</td>
-<td>Silent and janitorial. Briefs itself from BossBot's failure context and rebuilds Employees. Sole authority over <code>.ms</code> genome files. Maintains an URGENT / NOTABLE queue so it never blocks execution.</td>
-</tr>
-<tr>
-<td align="center"><strong>Employees</strong></td>
-<td align="center">B — Execution</td>
-<td>Purpose-built autonomous reasoners, one per domain. Built by CreatorBot to BossBot's spec. Select Meeseeks from the registry by tool tags, fitness, and compatibility. Never call tools directly.</td>
-</tr>
-<tr>
-<td align="center"><strong>Meeseeks</strong></td>
-<td align="center">B — Execution</td>
-<td>Not agents. Execution bots defined entirely by a 256-char genome. Execute tools, report <code>SUCCESS | FAILURE | ESCALATED</code>, and terminate. Never spawn other Meeseeks.</td>
-</tr>
-</tbody>
-</table>
+The one you talk to. Receives your goal, decomposes it with AdvisorBot into sub-goals, dispatches Meeseeks to execute those sub-goals in parallel, and adapts the plan mid-flight based on results. Surfacing a finished result to you is BossBot's job — nothing surfaces until it signs off.
 
-<br>
+### AdvisorBot
 
-### Escalation ladder
+Pure wisdom. Consulted during goal decomposition, every failure rebuild, and final sign-off. Decides nothing — only advises. Sessions are keyed per caller, so AdvisorBot can never leak context between concurrent tasks.
 
-BossBot doesn't give up quietly. Failures climb a strike ladder before they reach you:
+### CreatorBot
 
-```
-Strike 1 → BossBot + AdvisorBot confer → CreatorBot rebuilds Employee → retry
-Strike 2 → same
-Strike 3 → you are surfaced: give new instructions, resume budget, or abandon
-```
-
-After Strike 3 you can reset the counter and the ladder restarts.
+Silent and janitorial. When a Meeseeks fails, BossBot briefs CreatorBot with the failure context, and CreatorBot rewrites that Meeseeks's genome. CreatorBot is the sole authority over `.ms` genome files and maintains a URGENT / NOTABLE queue so failures never block execution.
 
 ---
 
-## Meeseeks & Genomes
+## Meeseeks
 
-Every Meeseeks is defined by a **256-character Base62 genome** — 8 blocks of 32 chars each. Blocks encode tool declaration, execution flow, retry logic, escalation behavior, performance weights, and output contract. Block 0 (header) and Block 7 (checksum) are immutable. Blocks 1–6 are CreatorBot's domain.
+Meeseeks are not agents — they are execution bots defined entirely by a **256-character Base62 genome**.
 
 ```
 │ 0 Header │ 1 Tools │ 2 Exec │ 3 Retry │ 4 Escalation │ 5 Weights │ 6 Output │ 7 Checksum │
 ```
 
-Meeseeks don't carry prompt logic — they carry a genome. The `.msb` MeeseeksBrain file is conditioning text only. Control logic lives in the executor, not the file.
+- **Block 0 (Header)** and **Block 7 (Checksum)** are immutable.
+- **Blocks 1–6** are editable by CreatorBot.
+- The `.msb` file is conditioning text only — no logic lives in it.
+- Meeseeks execute tools, report `SUCCESS | FAILURE | ESCALATED`, and terminate.
+- Meeseeks never spawn other Meeseeks.
 
-Fitness scores update after every run. CreatorBot reads them. The graveyard in each `.ms` file preserves top historical genomes. The best ideas survive.
+BossBot picks Meeseeks from the registry by tool tags, fitness score, and domain compatibility. It never calls tools directly — Meeseeks do that.
+
+Fitness scores update after every run. The graveyard section of each `.ms` file preserves historical top-performers. The best ideas survive.
+
+---
+
+## Execution Flow
+
+When you run `alienclaw run "goal"`:
+
+```
+You → BossBot (decomposes with AdvisorBot)
+     → Meeseeks (execute sub-goals in parallel)
+     → CreatorBot (rebuilds failed Meeseeks genomes on failure)
+     → BossBot (signs off, surfaces result to you)
+```
+
+### Failure Ladder
+
+BossBot doesn't give up quietly. Failures climb a strike ladder before reaching you:
+
+```
+Strike 1 → BossBot + AdvisorBot confer → CreatorBot rebuilds Meeseeks genome → retry
+Strike 2 → same
+Strike 3 → BossBot surfaces you: give new instructions, resume budget, or abandon
+```
+
+You can reset the counter after Strike 3.
 
 ---
 
