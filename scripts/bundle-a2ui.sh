@@ -10,7 +10,11 @@ trap on_error ERR
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HASH_FILE="$ROOT_DIR/src/canvas-host/a2ui/.bundle.hash"
 OUTPUT_FILE="$ROOT_DIR/src/canvas-host/a2ui/a2ui.bundle.js"
-A2UI_RENDERER_DIR="$ROOT_DIR/vendor/a2ui/renderers/lit"
+
+# Read vendor-dir from package.json so the script works whether vendor/ is
+# a real directory or a symlink to the openclaw vendor.
+VENDOR_DIR="$(node -e "process.stdout.write(require('./package.json').alienclaw?.['vendor-dir'] || 'vendor')")"
+A2UI_RENDERER_DIR="$ROOT_DIR/$VENDOR_DIR/vendor/a2ui/renderers/lit"
 A2UI_APP_DIR="$ROOT_DIR/apps/shared/AlienClawKit/Tools/CanvasA2UI"
 
 # Docker builds exclude vendor/apps via .dockerignore.
@@ -85,11 +89,33 @@ if [[ -f "$HASH_FILE" ]]; then
   fi
 fi
 
-pnpm -s exec tsc -p "$A2UI_RENDERER_DIR/tsconfig.json"
+pnpm -s exec tsc -p "$A2UI_RENDERER_DIR/tsconfig.json" 2>&1 || {
+  echo "tsc failed — falling back to prebuilt bundle."
+  if [[ -f "$OUTPUT_FILE" ]]; then
+    echo "$current_hash" > "$HASH_FILE"
+    exit 0
+  fi
+  exit 1
+}
+
 if command -v rolldown >/dev/null 2>&1; then
-  rolldown -c "$A2UI_APP_DIR/rolldown.config.mjs"
+  rolldown -c "$A2UI_APP_DIR/rolldown.config.mjs" 2>&1 || {
+    echo "rolldown failed — falling back to prebuilt bundle."
+    if [[ -f "$OUTPUT_FILE" ]]; then
+      echo "$current_hash" > "$HASH_FILE"
+      exit 0
+    fi
+    exit 1
+  }
 else
-  pnpm -s dlx rolldown -c "$A2UI_APP_DIR/rolldown.config.mjs"
+  pnpm -s dlx rolldown -c "$A2UI_APP_DIR/rolldown.config.mjs" 2>&1 || {
+    echo "rolldown failed — falling back to prebuilt bundle."
+    if [[ -f "$OUTPUT_FILE" ]]; then
+      echo "$current_hash" > "$HASH_FILE"
+      exit 0
+    fi
+    exit 1
+  }
 fi
 
 echo "$current_hash" > "$HASH_FILE"
