@@ -152,6 +152,16 @@ function readKey() {
 }
 
 async function confirm(promptText, labelA, labelB, startRow) {
+  const isTTY = process.stdin.isTTY;
+
+  if (!isTTY) {
+    // No TTY — skip the interactive prompt and default to opt-out.
+    write(at(startRow, 1) + eraseLine + CYAN + BOLD + `  ${promptText}` + RESET);
+    write(at(startRow + 2, 1) + eraseLine + GRAY + DIM + '  (no TTY detected — defaulting to: ' + labelB + ')' + RESET);
+    write(at(startRow + 3, 1) + eraseLine);
+    return false;
+  }
+
   enableRaw();
   let chosen = 0;
 
