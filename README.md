@@ -33,7 +33,7 @@ AlienClaw has three agents — all LLM-backed, all reasoning. Everything else is
 
 ### BossBot
 
-The one you talk to. Receives your goal, decomposes it with AdvisorBot into sub-goals, dispatches Meeseeks to execute those sub-goals in parallel, and adapts the plan mid-flight based on results. Surfacing a finished result to you is BossBot's job — nothing surfaces until it signs off.
+The one you talk to. Receives your goal, decomposes it with AdvisorBot into sub-goals, dispatches Meeseeks to execute those sub-goals in parallel, and adapts the plan mid-flight based on results from AdvisorBot. Surfacing a finished result to you is BossBot's job — nothing surfaces until it signs off. Stays lean by not tracking Meeseeks state directly.
 
 ### AdvisorBot
 
@@ -58,10 +58,9 @@ Meeseeks are not agents — they are execution bots defined entirely by a **256-
 - The `.msb` file is conditioning text only — no logic lives in it.
 - Meeseeks execute tools, report `SUCCESS | FAILURE | ESCALATED`, and terminate.
 - Meeseeks never spawn other Meeseeks.
+- After each run, Meeseeks report fitness scores directly to **AdvisorBot** (for context) and **CreatorBot** (for genome updates). BossBot stays lean.
 
-BossBot picks Meeseeks from the registry by tool tags, fitness score, and domain compatibility. It never calls tools directly — Meeseeks do that.
-
-Fitness scores update after every run. The graveyard section of each `.ms` file preserves historical top-performers. The best ideas survive.
+BossBot picks Meeseeks from the registry by tool tags, fitness score, and domain compatibility. Fitness data flows to AdvisorBot and CreatorBot — BossBot doesn't track it directly.
 
 ---
 
@@ -72,9 +71,12 @@ When you run `alienclaw run "goal"`:
 ```
 You → BossBot (decomposes with AdvisorBot)
      → Meeseeks (execute sub-goals in parallel)
+     → Meeseeks report run results + fitness → AdvisorBot + CreatorBot
      → CreatorBot (rebuilds failed Meeseeks genomes on failure)
      → BossBot (signs off, surfaces result to you)
 ```
+
+Meeseeks report their results directly to AdvisorBot and CreatorBot after every run — BossBot stays out of that loop.
 
 ### Failure Ladder
 
