@@ -5,8 +5,9 @@ import type { MsgContext } from "../templating.js";
 import type { ElevatedLevel } from "../thinking.js";
 import type { ReplyPayload } from "../types.js";
 import type { CommandContext } from "./commands-types.js";
+import { isDirectiveOnly } from "./directive-handling.directive-only.js";
 import type { ApplyInlineDirectivesFastLaneParams } from "./directive-handling.params.js";
-import { isDirectiveOnly, type InlineDirectives } from "./directive-handling.parse.js";
+import type { InlineDirectives } from "./directive-handling.parse.js";
 import { clearInlineDirectives } from "./get-reply-directives-utils.js";
 import type { createModelSelectionState } from "./model-selection.js";
 import type { TypingController } from "./typing.js";
@@ -174,6 +175,27 @@ export async function applyInlineDirectiveOverrides(params: {
     directives = clearInlineDirectives(directives.cleaned);
   }
 
+  const hasAnyDirective =
+    directives.hasThinkDirective ||
+    directives.hasFastDirective ||
+    directives.hasVerboseDirective ||
+    directives.hasReasoningDirective ||
+    directives.hasElevatedDirective ||
+    directives.hasExecDirective ||
+    directives.hasModelDirective ||
+    directives.hasQueueDirective ||
+    directives.hasStatusDirective;
+
+  if (!hasAnyDirective && !modelState.resetModelOverride) {
+    return {
+      kind: "continue",
+      directives,
+      provider,
+      model,
+      contextTokens,
+    };
+  }
+
   if (
     isDirectiveOnly({
       directives,
@@ -212,18 +234,22 @@ export async function applyInlineDirectiveOverrides(params: {
       currentVerboseLevel,
       currentReasoningLevel,
       currentElevatedLevel,
+      messageProvider: ctx.Provider,
       surface: ctx.Surface,
+      gatewayClientScopes: ctx.GatewayClientScopes,
     });
     let statusReply: ReplyPayload | undefined;
     if (directives.hasStatusDirective && allowTextCommands && command.isAuthorizedSender) {
       const { buildStatusReply } = await loadCommandsStatus();
+      const targetSessionEntry = sessionStore[sessionKey] ?? sessionEntry;
       statusReply = await buildStatusReply({
         cfg,
         command,
-        sessionEntry,
+        sessionEntry: targetSessionEntry,
         sessionKey,
-        parentSessionKey: ctx.ParentSessionKey,
+        parentSessionKey: targetSessionEntry?.parentSessionKey ?? ctx.ParentSessionKey,
         sessionScope,
+        storePath,
         provider,
         model,
         contextTokens,
@@ -246,17 +272,6 @@ export async function applyInlineDirectiveOverrides(params: {
     }
     return { kind: "reply", reply: statusReply ?? directiveReply };
   }
-
-  const hasAnyDirective =
-    directives.hasThinkDirective ||
-    directives.hasFastDirective ||
-    directives.hasVerboseDirective ||
-    directives.hasReasoningDirective ||
-    directives.hasElevatedDirective ||
-    directives.hasExecDirective ||
-    directives.hasModelDirective ||
-    directives.hasQueueDirective ||
-    directives.hasStatusDirective;
 
   if (hasAnyDirective && command.isAuthorizedSender) {
     const fastLane = await (
@@ -317,6 +332,9 @@ export async function applyInlineDirectiveOverrides(params: {
     initialModelLabel,
     formatModelSwitchEvent,
     agentCfg,
+    messageProvider: ctx.Provider,
+    surface: ctx.Surface,
+    gatewayClientScopes: ctx.GatewayClientScopes,
   });
   provider = persisted.provider;
   model = persisted.model;

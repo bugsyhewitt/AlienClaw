@@ -17,7 +17,7 @@ import type {
 import type { TierAAgent } from '../constants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SOUL_PATH = join(__dirname, '..', 'src', 'alienclaw', 'prompts', 'advisorbot.soul.md');
+const SOUL_PATH  = join(__dirname, '..', 'prompts', 'advisorbot.soul.md');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

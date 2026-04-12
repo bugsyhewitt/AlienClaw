@@ -5,7 +5,7 @@ import { AGENT_MODELS, PATHS, GENOME_LENGTH } from '../constants.js';
 import type { EmployeeSpec, CreatorQueueItem, CreatorQueuePriority } from '../types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SOUL_PATH = join(__dirname, '..', 'src', 'alienclaw', 'prompts', 'creatorbot.soul.md');
+const SOUL_PATH  = join(__dirname, '..', 'prompts', 'creatorbot.soul.md');
 
 export class CreatorBot {
   readonly name  = 'CreatorBot' as const;

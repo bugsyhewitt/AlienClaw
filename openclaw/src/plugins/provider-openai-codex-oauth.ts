@@ -1,4 +1,5 @@
 import { loginOpenAICodex, type OAuthCredentials } from "@mariozechner/pi-ai/oauth";
+import { ensureGlobalUndiciEnvProxyDispatcher } from "../infra/net/undici-global-dispatcher.js";
 import type { RuntimeEnv } from "../runtime.js";
 import type { WizardPrompter } from "../wizard/prompts.js";
 import { createVpsAwareOAuthHandlers } from "./provider-oauth-flow.js";
@@ -8,6 +9,49 @@ import {
 } from "./provider-openai-codex-oauth-tls.js";
 
 const manualInputPromptMessage = "Paste the authorization code (or full redirect URL):";
+const openAICodexOAuthOriginator = "openclaw";
+const OPENAI_CODEX_OAUTH_REQUIRED_SCOPES = [
+  "openid",
+  "profile",
+  "email",
+  "offline_access",
+  "model.request",
+  "api.responses.write",
+] as const;
+
+function normalizeOpenAICodexAuthorizeUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    return rawUrl;
+  }
+  try {
+    const url = new URL(trimmed);
+    if (
+      !/(?:^|\.)openai\.com$/i.test(url.hostname) ||
+      !/\/oauth\/authorize\/?$/i.test(url.pathname)
+    ) {
+      return rawUrl;
+    }
+
+    const existing = new Set(
+      (url.searchParams.get("scope") ?? "")
+        .split(/\s+/)
+        .map((scope) => scope.trim())
+        .filter(Boolean),
+    );
+    for (const scope of OPENAI_CODEX_OAUTH_REQUIRED_SCOPES) {
+      existing.add(scope);
+    }
+    url.searchParams.set("scope", Array.from(existing).join(" "));
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+export const __testing = {
+  normalizeOpenAICodexAuthorizeUrl,
+};
 
 export async function loginOpenAICodexOAuth(params: {
   prompter: WizardPrompter;
@@ -17,6 +61,11 @@ export async function loginOpenAICodexOAuth(params: {
   localBrowserMessage?: string;
 }): Promise<OAuthCredentials | null> {
   const { prompter, runtime, isRemote, openUrl, localBrowserMessage } = params;
+
+  // Ensure env-based proxy dispatcher is active before any outbound fetch calls,
+  // including the TLS preflight check.
+  ensureGlobalUndiciEnvProxyDispatcher();
+
   const preflight = await runOpenAIOAuthTlsPreflight();
   if (!preflight.ok && preflight.kind === "tls-cert") {
     const hint = formatOpenAIOAuthTlsPreflightFix(preflight);
@@ -53,8 +102,13 @@ export async function loginOpenAICodexOAuth(params: {
     });
 
     const creds = await loginOpenAICodex({
-      onAuth: baseOnAuth,
+      onAuth: async (event) =>
+        await baseOnAuth({
+          ...event,
+          url: normalizeOpenAICodexAuthorizeUrl(event.url),
+        }),
       onPrompt,
+      originator: openAICodexOAuthOriginator,
       onManualCodeInput: isRemote
         ? async () =>
             await onPrompt({

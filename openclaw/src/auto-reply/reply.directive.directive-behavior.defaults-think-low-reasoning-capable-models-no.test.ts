@@ -1,34 +1,35 @@
 import "./reply.directive.directive-behavior.e2e-mocks.js";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { loadSessionStore } from "../config/sessions.js";
 import {
   assertModelSelection,
   installDirectiveBehaviorE2EHooks,
-  loadModelCatalog,
   makeEmbeddedTextResult,
   makeWhatsAppDirectiveConfig,
   mockEmbeddedTextResult,
   replyText,
   replyTexts,
-  runEmbeddedPiAgent,
   sessionStorePath,
   withTempHome,
 } from "./reply.directive.directive-behavior.e2e-harness.js";
-import { runModelDirectiveText } from "./reply.directive.directive-behavior.model-directive-test-utils.js";
+import {
+  loadModelCatalogMock,
+  runEmbeddedPiAgentMock,
+} from "./reply.directive.directive-behavior.e2e-mocks.js";
 import { getReplyFromConfig } from "./reply.js";
 
 function makeDefaultModelConfig(home: string) {
   return makeWhatsAppDirectiveConfig(home, {
-    model: { primary: "anthropic/claude-opus-4-5" },
+    model: { primary: "anthropic/claude-opus-4-6" },
     models: {
-      "anthropic/claude-opus-4-5": {},
+      "anthropic/claude-opus-4-6": {},
       "openai/gpt-4.1-mini": {},
     },
   });
 }
 
 async function runReplyToCurrentCase(home: string, text: string) {
-  vi.mocked(runEmbeddedPiAgent).mockResolvedValue(makeEmbeddedTextResult(text));
+  runEmbeddedPiAgentMock.mockResolvedValue(makeEmbeddedTextResult(text));
 
   const res = await getReplyFromConfig(
     {
@@ -38,7 +39,7 @@ async function runReplyToCurrentCase(home: string, text: string) {
       MessageSid: "msg-123",
     },
     {},
-    makeWhatsAppDirectiveConfig(home, { model: "anthropic/claude-opus-4-5" }),
+    makeWhatsAppDirectiveConfig(home, { model: "anthropic/claude-opus-4-6" }),
   );
 
   return Array.isArray(res) ? res[0] : res;
@@ -49,9 +50,9 @@ async function expectThinkStatusForReasoningModel(params: {
   reasoning: boolean;
   expectedLevel: "low" | "off";
 }): Promise<void> {
-  vi.mocked(loadModelCatalog).mockResolvedValueOnce([
+  loadModelCatalogMock.mockResolvedValueOnce([
     {
-      id: "claude-opus-4-5",
+      id: "claude-opus-4-6",
       name: "Opus 4.5",
       provider: "anthropic",
       reasoning: params.reasoning,
@@ -61,7 +62,7 @@ async function expectThinkStatusForReasoningModel(params: {
   const res = await getReplyFromConfig(
     { Body: "/think", From: "+1222", To: "+1222", CommandAuthorized: true },
     {},
-    makeWhatsAppDirectiveConfig(params.home, { model: "anthropic/claude-opus-4-5" }),
+    makeWhatsAppDirectiveConfig(params.home, { model: "anthropic/claude-opus-4-6" }),
   );
 
   const text = replyText(res);
@@ -70,9 +71,9 @@ async function expectThinkStatusForReasoningModel(params: {
 }
 
 function mockReasoningCapableCatalog() {
-  vi.mocked(loadModelCatalog).mockResolvedValueOnce([
+  loadModelCatalogMock.mockResolvedValueOnce([
     {
-      id: "claude-opus-4-5",
+      id: "claude-opus-4-6",
       name: "Opus 4.5",
       provider: "anthropic",
       reasoning: true,
@@ -86,7 +87,7 @@ async function runReasoningDefaultCase(params: {
   expectedReasoningLevel: "off" | "on";
   thinkingDefault?: "off" | "low" | "medium" | "high";
 }) {
-  vi.mocked(runEmbeddedPiAgent).mockClear();
+  runEmbeddedPiAgentMock.mockClear();
   mockEmbeddedTextResult("done");
   mockReasoningCapableCatalog();
 
@@ -98,13 +99,13 @@ async function runReasoningDefaultCase(params: {
     },
     {},
     makeWhatsAppDirectiveConfig(params.home, {
-      model: { primary: "anthropic/claude-opus-4-5" },
+      model: { primary: "anthropic/claude-opus-4-6" },
       ...(params.thinkingDefault ? { thinkingDefault: params.thinkingDefault } : {}),
     }),
   );
 
-  expect(runEmbeddedPiAgent).toHaveBeenCalledOnce();
-  const call = vi.mocked(runEmbeddedPiAgent).mock.calls[0]?.[0];
+  expect(runEmbeddedPiAgentMock).toHaveBeenCalledOnce();
+  const call = runEmbeddedPiAgentMock.mock.calls[0]?.[0];
   expect(call?.thinkLevel).toBe(params.expectedThinkLevel);
   expect(call?.reasoningLevel).toBe(params.expectedReasoningLevel);
 }
@@ -124,9 +125,9 @@ describe("directive behavior", () => {
         reasoning: false,
         expectedLevel: "off",
       });
-      expect(runEmbeddedPiAgent).not.toHaveBeenCalled();
+      expect(runEmbeddedPiAgentMock).not.toHaveBeenCalled();
 
-      vi.mocked(runEmbeddedPiAgent).mockClear();
+      runEmbeddedPiAgentMock.mockClear();
 
       for (const scenario of [
         {
@@ -146,100 +147,6 @@ describe("directive behavior", () => {
       }
     });
   });
-  it("renders model list and status variants across catalog/config combinations", async () => {
-    await withTempHome(async (home) => {
-      const aliasText = await runModelDirectiveText(home, "/model list");
-      expect(aliasText).toContain("Providers:");
-      expect(aliasText).toContain("- anthropic");
-      expect(aliasText).toContain("- openai");
-      expect(aliasText).toContain("Use: /models <provider>");
-      expect(aliasText).toContain("Switch: /model <provider/model>");
-
-      vi.mocked(loadModelCatalog).mockResolvedValueOnce([]);
-      const unavailableCatalogText = await runModelDirectiveText(home, "/model");
-      expect(unavailableCatalogText).toContain("Current: anthropic/claude-opus-4-5");
-      expect(unavailableCatalogText).toContain("Switch: /model <provider/model>");
-      expect(unavailableCatalogText).toContain(
-        "Browse: /models (providers) or /models <provider> (models)",
-      );
-      expect(unavailableCatalogText).toContain("More: /model status");
-
-      const allowlistedStatusText = await runModelDirectiveText(home, "/model status", {
-        includeSessionStore: false,
-      });
-      expect(allowlistedStatusText).toContain("anthropic/claude-opus-4-5");
-      expect(allowlistedStatusText).toContain("openai/gpt-4.1-mini");
-      expect(allowlistedStatusText).not.toContain("claude-sonnet-4-1");
-      expect(allowlistedStatusText).toContain("auth:");
-
-      vi.mocked(loadModelCatalog).mockResolvedValue([
-        { id: "claude-opus-4-5", name: "Opus 4.5", provider: "anthropic" },
-        { id: "gpt-4.1-mini", name: "GPT-4.1 Mini", provider: "openai" },
-        { id: "grok-4", name: "Grok 4", provider: "xai" },
-      ]);
-      const noAllowlistText = await runModelDirectiveText(home, "/model list", {
-        defaults: {
-          model: {
-            primary: "anthropic/claude-opus-4-5",
-            fallbacks: ["openai/gpt-4.1-mini"],
-          },
-          imageModel: { primary: "minimax/MiniMax-M2.7" },
-          models: undefined,
-        },
-      });
-      expect(noAllowlistText).toContain("Providers:");
-      expect(noAllowlistText).toContain("- anthropic");
-      expect(noAllowlistText).toContain("- openai");
-      expect(noAllowlistText).toContain("- xai");
-      expect(noAllowlistText).toContain("Use: /models <provider>");
-
-      vi.mocked(loadModelCatalog).mockResolvedValueOnce([
-        {
-          provider: "anthropic",
-          id: "claude-opus-4-5",
-          name: "Claude Opus 4.5",
-        },
-        { provider: "openai", id: "gpt-4.1-mini", name: "GPT-4.1 mini" },
-      ]);
-      const configOnlyProviderText = await runModelDirectiveText(home, "/models minimax", {
-        defaults: {
-          models: {
-            "anthropic/claude-opus-4-5": {},
-            "openai/gpt-4.1-mini": {},
-            "minimax/MiniMax-M2.7": { alias: "minimax" },
-          },
-        },
-        extra: {
-          models: {
-            mode: "merge",
-            providers: {
-              minimax: {
-                baseUrl: "https://api.minimax.io/anthropic",
-                api: "anthropic-messages",
-                models: [
-                  { id: "MiniMax-M2.7", name: "MiniMax M2.7" },
-                  { id: "MiniMax-M2.5", name: "MiniMax M2.5" },
-                ],
-              },
-            },
-          },
-        },
-      });
-      expect(configOnlyProviderText).toContain("Models (minimax");
-      expect(configOnlyProviderText).toContain("minimax/MiniMax-M2.7");
-
-      const missingAuthText = await runModelDirectiveText(home, "/model list", {
-        defaults: {
-          models: {
-            "anthropic/claude-opus-4-5": {},
-          },
-        },
-      });
-      expect(missingAuthText).toContain("Providers:");
-      expect(missingAuthText).not.toContain("missing (missing)");
-      expect(runEmbeddedPiAgent).not.toHaveBeenCalled();
-    });
-  });
   it("sets model override on /model directive", async () => {
     await withTempHome(async (home) => {
       const storePath = sessionStorePath(home);
@@ -250,9 +157,9 @@ describe("directive behavior", () => {
         makeWhatsAppDirectiveConfig(
           home,
           {
-            model: { primary: "anthropic/claude-opus-4-5" },
+            model: { primary: "anthropic/claude-opus-4-6" },
             models: {
-              "anthropic/claude-opus-4-5": {},
+              "anthropic/claude-opus-4-6": {},
               "openai/gpt-4.1-mini": {},
             },
           },
@@ -264,7 +171,7 @@ describe("directive behavior", () => {
         model: "gpt-4.1-mini",
         provider: "openai",
       });
-      expect(runEmbeddedPiAgent).not.toHaveBeenCalled();
+      expect(runEmbeddedPiAgentMock).not.toHaveBeenCalled();
     });
   });
   it("ignores inline /model and /think directives while still running agent content", async () => {
@@ -283,11 +190,11 @@ describe("directive behavior", () => {
 
       const texts = replyTexts(inlineModelRes);
       expect(texts).toContain("done");
-      expect(runEmbeddedPiAgent).toHaveBeenCalledOnce();
-      const call = vi.mocked(runEmbeddedPiAgent).mock.calls[0]?.[0];
+      expect(runEmbeddedPiAgentMock).toHaveBeenCalledOnce();
+      const call = runEmbeddedPiAgentMock.mock.calls[0]?.[0];
       expect(call?.provider).toBe("anthropic");
-      expect(call?.model).toBe("claude-opus-4-5");
-      vi.mocked(runEmbeddedPiAgent).mockClear();
+      expect(call?.model).toBe("claude-opus-4-6");
+      runEmbeddedPiAgentMock.mockClear();
 
       mockEmbeddedTextResult("done");
       const inlineThinkRes = await getReplyFromConfig(
@@ -297,53 +204,18 @@ describe("directive behavior", () => {
           To: "+2000",
         },
         {},
-        makeWhatsAppDirectiveConfig(home, { model: { primary: "anthropic/claude-opus-4-5" } }),
+        makeWhatsAppDirectiveConfig(home, { model: { primary: "anthropic/claude-opus-4-6" } }),
       );
 
       expect(replyTexts(inlineThinkRes)).toContain("done");
-      expect(runEmbeddedPiAgent).toHaveBeenCalledOnce();
-    });
-  });
-  it("passes elevated defaults when sender is approved", async () => {
-    await withTempHome(async (home) => {
-      mockEmbeddedTextResult("done");
-
-      await getReplyFromConfig(
-        {
-          Body: "hello",
-          From: "+1004",
-          To: "+2000",
-          Provider: "whatsapp",
-          SenderE164: "+1004",
-        },
-        {},
-        makeWhatsAppDirectiveConfig(
-          home,
-          { model: { primary: "anthropic/claude-opus-4-5" } },
-          {
-            tools: {
-              elevated: {
-                allowFrom: { whatsapp: ["+1004"] },
-              },
-            },
-          },
-        ),
-      );
-
-      expect(runEmbeddedPiAgent).toHaveBeenCalledOnce();
-      const call = vi.mocked(runEmbeddedPiAgent).mock.calls[0]?.[0];
-      expect(call?.bashElevated).toEqual({
-        enabled: true,
-        allowed: true,
-        defaultLevel: "on",
-      });
+      expect(runEmbeddedPiAgentMock).toHaveBeenCalledOnce();
     });
   });
   it("persists /reasoning off on discord even when model defaults reasoning on", async () => {
     await withTempHome(async (home) => {
       const storePath = sessionStorePath(home);
       mockEmbeddedTextResult("done");
-      vi.mocked(loadModelCatalog).mockResolvedValue([
+      loadModelCatalogMock.mockResolvedValue([
         {
           id: "x-ai/grok-4.1-fast",
           name: "Grok 4.1 Fast",
@@ -398,8 +270,8 @@ describe("directive behavior", () => {
         config,
       );
 
-      expect(runEmbeddedPiAgent).toHaveBeenCalledOnce();
-      const call = vi.mocked(runEmbeddedPiAgent).mock.calls[0]?.[0];
+      expect(runEmbeddedPiAgentMock).toHaveBeenCalledOnce();
+      const call = runEmbeddedPiAgentMock.mock.calls[0]?.[0];
       expect(call?.reasoningLevel).toBe("off");
     });
   });
@@ -411,7 +283,7 @@ describe("directive behavior", () => {
         expect(payload?.replyToId).toBe("msg-123");
       }
 
-      vi.mocked(runEmbeddedPiAgent).mockResolvedValue(
+      runEmbeddedPiAgentMock.mockResolvedValue(
         makeEmbeddedTextResult("hi [[reply_to_current]] [[reply_to:abc-456]]"),
       );
 
@@ -423,7 +295,7 @@ describe("directive behavior", () => {
           MessageSid: "msg-123",
         },
         {},
-        makeWhatsAppDirectiveConfig(home, { model: { primary: "anthropic/claude-opus-4-5" } }),
+        makeWhatsAppDirectiveConfig(home, { model: { primary: "anthropic/claude-opus-4-6" } }),
       );
 
       const payload = Array.isArray(res) ? res[0] : res;

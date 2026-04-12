@@ -1,89 +1,54 @@
 #!/usr/bin/env node
+/**
+ * alienclaw.mjs
+ * Standalone AlienClaw entry point for the governance layer.
+ * "alienclaw run <goal>" → BossBot governance loop.
+ * Everything else passes through to OpenClaw.
+ *
+ * This is the repo-root convenience copy. The install.sh deploys
+ * src-alienclaw/cli/alienclaw.mjs to ~/.alienclaw/ and that is the
+ * canonical entry point used at runtime.
+ */
 
-import module from "node:module";
+import { spawn } from 'node:child_process';
+import { env }  from 'node:process';
+import { parseCliArgs } from './cli/args.js';
+import { runAlienClaw } from './cli/cli.js';
 
-const MIN_NODE_MAJOR = 22;
-const MIN_NODE_MINOR = 12;
-const MIN_NODE_VERSION = `${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}`;
+const rawArgv = env.argv ?? [];
+const userArgv = (rawArgv[2] ?? '').startsWith('-') ? rawArgv : rawArgv.slice(2);
+const cmd = parseCliArgs(userArgv);
 
-const parseNodeVersion = (rawVersion) => {
-  const [majorRaw = "0", minorRaw = "0"] = rawVersion.split(".");
-  return {
-    major: Number(majorRaw),
-    minor: Number(minorRaw),
-  };
-};
+if (cmd.type === 'run') {
+  // ── BossBot governance mode ─────────────────────────────────────────────
+  await runAlienClaw(cmd.args.goal, cmd.args.verbosity);
+} else if (cmd.type === 'version') {
+  const pkg = await import('./package.json', { assert: { type: 'json' } });
+  console.log(`AlienClaw ${pkg.default.version}`);
+} else if (cmd.type === 'help') {
+  console.log(`AlienClaw — Run the agent hierarchy.
 
-const isSupportedNodeVersion = (version) =>
-  version.major > MIN_NODE_MAJOR ||
-  (version.major === MIN_NODE_MAJOR && version.minor >= MIN_NODE_MINOR);
+alienclaw run "<goal>" [options]
+  Run the AlienClaw agent hierarchy toward a goal.
 
-const ensureSupportedNodeVersion = () => {
-  if (isSupportedNodeVersion(parseNodeVersion(process.versions.node))) {
-    return;
-  }
+Options:
+  --verbose   Enable verbose output
+  --silent    Suppress all non-essential output
+  --help      Show this help
+  --version   Show version
 
-  process.stderr.write(
-    `alienclaw: Node.js v${MIN_NODE_VERSION}+ is required (current: v${process.versions.node}).\n` +
-      "If you use nvm, run:\n" +
-      `  nvm install ${MIN_NODE_MAJOR}\n` +
-      `  nvm use ${MIN_NODE_MAJOR}\n` +
-      `  nvm alias default ${MIN_NODE_MAJOR}\n`,
-  );
-  process.exit(1);
-};
-
-ensureSupportedNodeVersion();
-
-// https://nodejs.org/api/module.html#module-compile-cache
-if (module.enableCompileCache && !process.env.NODE_DISABLE_COMPILE_CACHE) {
-  try {
-    module.enableCompileCache();
-  } catch {
-    // Ignore errors
-  }
-}
-
-const isModuleNotFoundError = (err) =>
-  err && typeof err === "object" && "code" in err && err.code === "ERR_MODULE_NOT_FOUND";
-
-const installProcessWarningFilter = async () => {
-  // Keep bootstrap warnings consistent with the TypeScript runtime.
-  for (const specifier of ["./dist/warning-filter.js", "./dist/warning-filter.mjs"]) {
-    try {
-      const mod = await import(specifier);
-      if (typeof mod.installProcessWarningFilter === "function") {
-        mod.installProcessWarningFilter();
-        return;
-      }
-    } catch (err) {
-      if (isModuleNotFoundError(err)) {
-        continue;
-      }
-      throw err;
-    }
-  }
-};
-
-await installProcessWarningFilter();
-
-const tryImport = async (specifier) => {
-  try {
-    await import(specifier);
-    return true;
-  } catch (err) {
-    // Only swallow missing-module errors; rethrow real runtime errors.
-    if (isModuleNotFoundError(err)) {
-      return false;
-    }
-    throw err;
-  }
-};
-
-if (await tryImport("./dist/entry.js")) {
-  // OK
-} else if (await tryImport("./dist/entry.mjs")) {
-  // OK
+alienclaw --help
+  Show OpenClaw help (gateway, channels, etc.)
+`);
 } else {
-  throw new Error("alienclaw: missing dist/entry.(m)js (build output).");
+  // ── Pass through to OpenClaw ─────────────────────────────────────────────
+  const openclaw = 'openclaw';
+  const args = env.argv?.slice(2) ?? [];
+  const child = spawn(openclaw, args, {
+    stdio: 'inherit',
+    shell: true,
+  });
+  child.on('exit', (code) => {
+    process.exitCode = code ?? 0;
+  });
 }

@@ -23,7 +23,7 @@ export type CliCommand =
 
 /**
  * Parse `process.argv`-style array into a typed CliCommand.
- * Strips the leading `node` and script-path entries (argv.slice(2)).
+ * Handles both interpreter-prefixed calls (node/tsx/bun script.js) and direct calls.
  *
  * Supported:
  *   alienclaw run "<goal>" [--verbose | --silent]
@@ -31,7 +31,11 @@ export type CliCommand =
  *   alienclaw --help    | -h
  */
 export function parseCliArgs(argv: string[]): CliCommand {
-  const raw = argv.slice(2);
+  // alienclaw.mjs already strips the [node, script] prefix (or detects direct invocation).
+  // We still guard against the interpreter case when called from other entry points.
+  const raw = (argv[0] === 'node' || argv[0] === 'tsx' || argv[0] === 'bun')
+    ? argv.slice(2)
+    : argv;
 
   if (raw.includes('--version') || raw.includes('-V')) {
     return { type: 'version' };
