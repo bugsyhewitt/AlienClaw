@@ -301,8 +301,13 @@ if (fs.existsSync(cfgFile)) { try { cfg = JSON.parse(fs.readFileSync(cfgFile, 'u
 const existing = cfg.agents?.list ?? [];
 const alienIds  = new Set(['bossbot', 'advisorbot', 'creatorbot']);
 const others    = existing.filter(a => !alienIds.has(a.id));
-cfg = { ...cfg, agents: { ...(cfg.agents ?? {}), list: [...others, ...agents] } };
+cfg = {
+  ...cfg,
+  gateway: { ...(cfg.gateway ?? {}), mode: 'local' },
+  agents: { ...(cfg.agents ?? {}), list: [...others, ...agents] },
+};
 fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 2) + '\n');
+console.log('Gateway mode set to local in ' + cfgFile);
 console.log('Agents registered in ' + cfgFile);
 "
     success "Agents registered in ~/.openclaw/openclaw.json"
@@ -372,6 +377,17 @@ WRAPPER_SCRIPT
       node "$WIZARD" || warn "Wizard exited with non-zero status."
     else
       warn "Wizard not found at $WIZARD"
+    fi
+  fi
+
+  # ── 8b. Start gateway ──────────────────────────────────────────────────────
+  step "Starting gateway"
+
+  if ! $DRYRUN; then
+    if openclaw gateway start 2>/dev/null; then
+      success "Gateway started."
+    else
+      warn "Gateway start failed — run 'openclaw gateway start' manually."
     fi
   fi
 
