@@ -6,9 +6,10 @@
  *
  * Zero external dependencies — plain Node.js ESM.
  *
- * Step 1: Ensure ~/.alienclaw/ directories exist
- * Step 2: Evolution network opt-in
- * Step 3: Write preferences.json
+ * Step 1: Detect OpenClaw installation
+ * Step 2: Ensure ~/.alienclaw/ directories exist
+ * Step 3: Evolution network (automatic opt-in)
+ * Step 4: Write preferences.json
  *
  * (Agent souls and openclaw.json are written by install.sh — not here.)
  */
@@ -17,6 +18,7 @@ import * as fs   from 'node:fs';
 import * as path from 'node:path';
 import * as os   from 'node:os';
 import * as readline from 'node:readline';
+import { execSync } from 'node:child_process';
 
 // ── ANSI primitives ──────────────────────────────────────────────────────────
 const ESC   = '\x1b';
@@ -245,6 +247,16 @@ process.on('exit',    cleanup);
 process.on('SIGINT',  () => { cleanup(); process.exit(0); });
 process.on('SIGTERM', () => { cleanup(); process.exit(0); });
 
+// ── OpenClaw detection ───────────────────────────────────────────────────
+function checkOpenClaw() {
+  try {
+    const v = execSync('openclaw --version', { encoding: 'utf8', stdio: 'pipe' });
+    return v.trim();
+  } catch {
+    return null;
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 export async function runFirstRun() {
   const cols = W();
@@ -258,20 +270,32 @@ export async function runFirstRun() {
   write(at(row + 1, 1) + center(GRAY + DIM + 'Configure your command center' + RESET, cols));
   row += 4;
 
+  // ── OpenClaw check ────────────────────────────────────────────────────
+  const openclawVersion = checkOpenClaw();
+  if (openclawVersion) {
+    write(at(row, 1) + DKGREEN + '  ✔ OpenClaw' + RESET + '  ' + WHITE + openclawVersion + RESET);
+  } else {
+    write(at(row, 1) + RED + BOLD + '  ✘ OpenClaw not found' + RESET);
+    write(at(row + 1, 1) + GRAY + '  Run ' + WHITE + 'npm install -g openclaw' + GRAY + ' first, then re-run this wizard.' + RESET);
+    write(at(row + 2, 1) + SHOW + RESET);
+    process.exit(1);
+  }
+  row += 2;
+
   // ── Step 1: Directories ────────────────────────────────────────────────
-  write(at(row, 1) + GOLD + BOLD + '  STEP 1 / 2 — Mission Directories' + RESET);
+  write(at(row, 1) + GOLD + BOLD + '  STEP 1 — Mission Directories' + RESET);
   row += 2;
   row = await setupDirectories(row);
   row += 1;
 
-  // ── Step 2: Evolution Network ───────────────────────────────────────
-  write(at(row, 1) + GOLD + BOLD + '  STEP 2 / 2 — Evolution Network' + RESET);
+  // ── Evolution Network (automatic) ────────────────────────────────────
+  write(at(row, 1) + GOLD + BOLD + '  STEP 2 — Evolution Network' + RESET);
   row += 2;
 
   const optInLines = [
     GRAY + '  Your Meeseeks learn from every run.' + RESET,
     '',
-    WHITE + '  Share anonymous genome fitness data with' + RESET,
+    WHITE + '  Sharing anonymous genome fitness data with' + RESET,
     CYAN  + '  alienclaw.gg' + RESET + WHITE + ' in exchange for:' + RESET,
     '',
     GREEN + '    ✦  Full leaderboard access' + RESET,
@@ -283,20 +307,14 @@ export async function runFirstRun() {
     write(at(row, 1) + l);
     row++;
   }
-  row++;
+  row += 1;
 
-  const evolveOptIn = await confirm(
-    'Join the evolution network?',
-    'Yes, evolve together',
-    'No, stay local',
-    row
-  );
-
-  row += 5;
+  write(at(row, 1) + GREEN + '  ✔ Evolution network: enabled (automatic)' + RESET);
+  row += 2;
 
   // ── Save ──────────────────────────────────────────────────────────────
   savePrefs({
-    evolutionOptIn:   evolveOptIn,
+    evolutionOptIn:   true,
     setupComplete:    true,
     setupCompletedAt: new Date().toISOString(),
   });
@@ -311,7 +329,7 @@ export async function runFirstRun() {
   await sleep(300);
 
   const legend = [
-    GRAY  + '  Evolution : ' + (evolveOptIn ? GREEN + 'enabled' : GRAY + 'local'),
+    GRAY  + '  Evolution : ' + GREEN + 'enabled' + RESET,
     '',
     GRAY  + DIM + '  Run ' + WHITE + 'alienclaw run "<goal>"' + GRAY + ' to begin your first mission.',
     GRAY  + DIM + '  Run ' + WHITE + 'openclaw --help' + GRAY + '      for OpenClaw commands.' + RESET,
@@ -324,7 +342,7 @@ export async function runFirstRun() {
 
   write(at(row + 2, 1) + SHOW + RESET);
 
-  return { evolutionOptIn: evolveOptIn };
+  return { evolutionOptIn: true };
 }
 
 // Named alias
