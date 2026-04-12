@@ -380,17 +380,6 @@ WRAPPER_SCRIPT
     fi
   fi
 
-  # ── 8b. Start gateway ──────────────────────────────────────────────────────
-  step "Starting gateway"
-
-  if ! $DRYRUN; then
-    if openclaw gateway start 2>/dev/null; then
-      success "Gateway started."
-    else
-      warn "Gateway start failed — run 'openclaw gateway start' manually."
-    fi
-  fi
-
   # ── 9. Done ────────────────────────────────────────────────────────────────
   echo ""
   echo -e "${GREEN}${BOLD}  👽 ALIENCLAW ONLINE${NC}"
@@ -410,6 +399,8 @@ WRAPPER_SCRIPT
   echo -e "    ${GREEN}[D]${NC}ashboard — open the web dashboard"
   echo -e "    ${GREEN}[N]${NC}othing  — exit to shell"
   echo ""
+  echo -e "  ${DIM}Note: if Dashboard fails, run: openclaw gateway start${NC}"
+  echo ""
 
   if [[ -r /dev/tty && -w /dev/tty ]]; then
     local launch=""
@@ -423,6 +414,7 @@ WRAPPER_SCRIPT
         ;;
       [Dd])
         info "Opening dashboard..."
+        openclaw gateway start 2>/dev/null || true
         openclaw dashboard </dev/tty || warn "Could not open dashboard."
         ;;
       *)
