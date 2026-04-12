@@ -19,7 +19,7 @@ const REGISTRY_MSB = path.join(HOME, 'registry', 'msb');
 // Seed files live alongside the built output in dist/seed/
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
-function getSeedDir(sub: 'ms' | 'msb'): string {
+function getSeedDir(sub: 'ms' | 'msb'): string | undefined {
   // Walk up from src/alienclaw/registry/ to repo root, then into seed/
   const candidates = [
     path.join(__dirname, '..', '..', '..', 'seed', sub),            // from dist/
@@ -29,9 +29,7 @@ function getSeedDir(sub: 'ms' | 'msb'): string {
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
-  throw new Error(
-    `Cannot find seed/${sub} directory. Tried:\n  ${candidates.join('\n  ')}`
-  );
+  return undefined;   // no seed dir — graceful, caller skips
 }
 
 export function installSeeds(options: { overwrite?: boolean } = {}): void {
@@ -42,8 +40,17 @@ export function installSeeds(options: { overwrite?: boolean } = {}): void {
 
   for (const [sub, dest] of [['ms', REGISTRY_MS], ['msb', REGISTRY_MSB]] as const) {
     const seedDir = getSeedDir(sub);
+    if (!seedDir) {
+      console.log(`[SeedInstaller] No seed/${sub} directory found — skipping (Genesis Meeseeks will be created by CreatorBot)`);
+      continue;
+    }
     const ext     = `.${sub}`;
     const files   = fs.readdirSync(seedDir).filter(f => f.endsWith(ext));
+
+    if (files.length === 0) {
+      console.log(`[SeedInstaller] seed/${sub}/ is empty — skipping`);
+      continue;
+    }
 
     for (const file of files) {
       const src     = path.join(seedDir, file);

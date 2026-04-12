@@ -13,7 +13,7 @@ import { AGENT_MODELS, ALIENCLAW_PROVIDER }         from '../constants.js';
 import type { TaskEnvelope, AdviceRequest, SubGoal } from '../types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SOUL_PATH = join(__dirname, '..', 'src', 'alienclaw', 'prompts', 'bossbot.soul.md');
+const SOUL_PATH  = join(__dirname, '..', 'prompts', 'bossbot.soul.md');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

@@ -2,9 +2,15 @@
 /**
  * first-run.mjs
  * AlienClaw first-run configuration wizard.
- * Called from installer/animation/abduction.mjs after the animation completes.
+ * Called from install.sh after the ASCII art animation.
  *
  * Zero external dependencies — plain Node.js ESM.
+ *
+ * Step 1: Ensure ~/.alienclaw/ directories exist
+ * Step 2: Evolution network opt-in
+ * Step 3: Write preferences.json
+ *
+ * (Agent souls and openclaw.json are written by install.sh — not here.)
  */
 
 import * as fs   from 'node:fs';
@@ -21,7 +27,6 @@ const CLEAR = `${ESC}[2J`;
 const HOME  = `${ESC}[H`;
 const BOLD  = `${ESC}[1m`;
 const DIM   = `${ESC}[2m`;
-const ITAL  = `${ESC}[3m`;
 
 const rgb  = (r, g, b, bg = false) => `${ESC}[${bg ? 48 : 38};2;${r};${g};${b}m`;
 const at   = (r, c) => `${ESC}[${r};${c}H`;
@@ -30,15 +35,14 @@ const eraseLine = `${ESC}[2K`;
 // AlienClaw palette
 const GREEN     = rgb(0,   255,  90);
 const DKGREEN   = rgb(0,   180,  60);
-const MENUGREEN = rgb(0,   140,  50);  // dim green for unselected menu items
+const MENUGREEN = rgb(0,   140,  50);
 const CYAN      = rgb(120, 245, 255);
 const GOLD      = rgb(255, 200,   0);
 const RED       = rgb(255,  60,  60);
 const WHITE     = rgb(230, 230, 230);
 const GRAY      = rgb(110, 110, 130);
-const ALIEN     = rgb(80,  255, 120);
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
 const W = () => process.stdout.columns || 80;
 const H = () => process.stdout.rows    || 24;
 
@@ -50,7 +54,6 @@ function sleep(ms) {
 }
 
 function center(str, width = W()) {
-  // Strip ANSI before measuring width
   const visible = str.replace(/\x1b\[[^m]*m/g, '');
   const pad = Math.max(0, Math.floor((width - visible.length) / 2));
   return ' '.repeat(pad) + str;
@@ -84,7 +87,8 @@ function box(lines, opts = {}) {
 // ── Paths ─────────────────────────────────────────────────────────────────────
 const ALIENCLAW_HOME = process.env['ALIENCLAW_HOME']
   ?? path.join(os.homedir(), '.alienclaw');
-const CONFIG_FILE    = path.join(ALIENCLAW_HOME, 'alienclaw.json');
+const OPENCLAW_HOME  = process.env['OPENCLAW_HOME']
+  ?? path.join(os.homedir(), '.openclaw');
 const PREFS_FILE     = path.join(ALIENCLAW_HOME, 'preferences.json');
 
 const SUBDIRS = [
@@ -95,15 +99,15 @@ const SUBDIRS = [
   'workspace/output',
 ];
 
-// ── Directory setup ───────────────────────────────────────────────────────────
+// ── Directory setup ─────────────────────────────────────────────────────────---
 async function setupDirectories(startRow) {
-  const tasks = [ALIENCLAW_HOME, ...SUBDIRS.map(d => path.join(ALIENCLAW_HOME, d))];
+  const dirs = [ALIENCLAW_HOME, ...SUBDIRS.map(d => path.join(ALIENCLAW_HOME, d))];
   let row = startRow;
 
-  write(at(row, 1) + CYAN + BOLD + '  Preparing mission directories...' + RESET);
+  write(at(row, 1) + CYAN + BOLD + '  Creating mission directories...' + RESET);
   row += 2;
 
-  for (const dir of tasks) {
+  for (const dir of dirs) {
     const short = dir.replace(os.homedir(), '~');
     write(at(row, 1) + eraseLine + GRAY + '  › ' + WHITE + short + RESET);
     await sleep(55);
@@ -117,7 +121,7 @@ async function setupDirectories(startRow) {
   return row + 3;
 }
 
-// ── Keyboard input (raw mode) ─────────────────────────────────────────────────
+// ── Keyboard input ──────────────────────────────────────────────────────────
 function enableRaw() {
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
   process.stdin.resume();
@@ -129,22 +133,14 @@ function disableRaw() {
   process.stdin.pause();
 }
 
-/**
- * Drain any buffered stdin bytes accumulated during raw mode.
- * Prevents a leftover Enter (\r) from leaking into the next input step.
- */
 function drainStdin() {
   try {
-    // Switch to non-raw so read() empties the cooked buffer too
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
     let chunk;
     while ((chunk = process.stdin.read()) !== null) { /* discard */ }
   } catch { /* ignore on non-TTY */ }
 }
 
-/**
- * Wait for a single keypress. Returns the raw character(s).
- */
 function readKey() {
   return new Promise(resolve => {
     function onData(chunk) {
@@ -155,117 +151,9 @@ function readKey() {
   });
 }
 
-/**
- * Present a numbered-menu selection. Returns the 0-based index chosen.
- */
-async function selectMenu(prompt, options, startRow) {
-  enableRaw();
-
-  let selected = 0;
-  const n = options.length;
-
-  function render() {
-    write(at(startRow, 1) + eraseLine + CYAN + BOLD + `  ${prompt}` + RESET);
-    for (let i = 0; i < n; i++) {
-      const row = startRow + 2 + i;
-      if (i === selected) {
-        write(at(row, 1) + eraseLine + GREEN + BOLD + `  ▶  ${options[i]}` + RESET);
-      } else {
-        write(at(row, 1) + eraseLine + MENUGREEN + `     ${options[i]}` + RESET);
-      }
-    }
-    write(at(startRow + 2 + n + 1, 1) + eraseLine +
-      DIM + '  ↑↓ arrows  ·  Enter to confirm' + RESET);
-  }
-
-  render();
-
-  while (true) {
-    const key = await readKey();
-
-    if (key === '\x1b[A' || key === 'k') {  // up
-      selected = (selected - 1 + n) % n;
-    } else if (key === '\x1b[B' || key === 'j') {  // down
-      selected = (selected + 1) % n;
-    } else if (key === '\r' || key === '\n') {
-      break;
-    } else if (key === '\x03') {  // Ctrl-C
-      cleanup();
-      process.exit(0);
-    } else {
-      // Number shortcuts 1–9
-      const num = parseInt(key, 10);
-      if (!isNaN(num) && num >= 1 && num <= n) {
-        selected = num - 1;
-        break;
-      }
-    }
-    render();
-  }
-
-  drainStdin();
-  // Mark chosen
-  for (let i = 0; i < n; i++) {
-    const row = startRow + 2 + i;
-    if (i === selected) {
-      write(at(row, 1) + eraseLine + GREEN + BOLD + `  ✔  ${options[i]}` + RESET);
-    } else {
-      write(at(row, 1) + eraseLine + MENUGREEN + DIM + `     ${options[i]}` + RESET);
-    }
-  }
-  write(at(startRow + 2 + n + 1, 1) + eraseLine);
-
-  return selected;
-}
-
-/**
- * Read a line of hidden input (asterisks shown, content not echoed).
- * Returns the string entered.
- */
-async function readSecret(prompt, startRow) {
-  enableRaw();
-  write(at(startRow, 1) + eraseLine + CYAN + BOLD + `  ${prompt}` + RESET);
-  write(at(startRow + 1, 1) + eraseLine + GRAY + '  › ' + RESET);
-
-  let value = '';
-
-  function renderInput() {
-    write(at(startRow + 1, 1) + eraseLine +
-      GRAY + '  › ' + GREEN + '●'.repeat(value.length) +
-      (value.length === 0 ? DIM + '(hidden)' + RESET : '') + RESET);
-  }
-
-  renderInput();
-
-  while (true) {
-    const key = await readKey();
-
-    if (key === '\r' || key === '\n') {
-      break;
-    } else if (key === '\x03') {  // Ctrl-C
-      cleanup();
-      process.exit(0);
-    } else if (key === '\x7f' || key === '\b') {  // backspace
-      value = value.slice(0, -1);
-    } else if (key >= ' ' && key.length === 1) {
-      value += key;
-    }
-    renderInput();
-  }
-
-  drainStdin();
-  write(at(startRow + 1, 1) + eraseLine +
-    DKGREEN + '  ✔ ' + GREEN + '●'.repeat(Math.min(value.length, 8)) + DIM + '  (saved)' + RESET);
-
-  return value;
-}
-
-/**
- * Yes/No choice with highlighted selection.
- */
 async function confirm(promptText, labelA, labelB, startRow) {
   enableRaw();
-  let chosen = 0;  // 0 = A (Yes), 1 = B (No)
+  let chosen = 0;
 
   function render() {
     write(at(startRow, 1) + eraseLine + CYAN + BOLD + `  ${promptText}` + RESET);
@@ -300,7 +188,7 @@ async function confirm(promptText, labelA, labelB, startRow) {
   return result;
 }
 
-// ── Pulsing ONLINE banner ─────────────────────────────────────────────────────
+// ── Pulsing ONLINE banner ──────────────────────────────────────────────────
 const BANNER = [
   '  ╔══════════════════════════════════════════════╗',
   '  ║                                              ║',
@@ -313,7 +201,7 @@ async function showOnlineBanner(startRow) {
   const STEPS = 28;
   for (let s = 0; s <= STEPS; s++) {
     const t    = s / STEPS;
-    const ease = 1 - Math.pow(1 - t, 2.5);   // ease-out curve
+    const ease = 1 - Math.pow(1 - t, 2.5);
     const g    = Math.round(ease * 255);
     const b    = Math.round(ease * 90);
     const col  = rgb(0, g, b);
@@ -322,38 +210,13 @@ async function showOnlineBanner(startRow) {
     }
     await sleep(40);
   }
-  // Hold at full alien green
   const finalCol = rgb(0, 255, 90);
   for (let i = 0; i < BANNER.length; i++) {
     write(at(startRow + i, 1) + finalCol + BOLD + BANNER[i] + RESET);
   }
 }
 
-// ── Config persistence ────────────────────────────────────────────────────────
-const PROVIDER_ENV_KEYS = {
-  'Anthropic':  'ANTHROPIC_API_KEY',
-  'MiniMax':    'MINIMAX_API_KEY',
-  'OpenAI':     'OPENAI_API_KEY',
-  'Ollama':     null,   // local, no key needed
-  'Other':      'ALIENCLAW_API_KEY',
-};
-
-const PROVIDER_IDS = {
-  'Anthropic': 'anthropic',
-  'MiniMax':   'minimax',
-  'OpenAI':    'openai',
-  'Ollama':    'ollama',
-  'Other':     'other',
-};
-
-function saveConfig(cfg) {
-  const existing = fs.existsSync(CONFIG_FILE)
-    ? JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'))
-    : {};
-  const merged = { ...existing, ...cfg };
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2) + '\n');
-}
-
+// ── Config persistence ────────────────────────────────────────────────────
 function savePrefs(prefs) {
   const existing = fs.existsSync(PREFS_FILE)
     ? JSON.parse(fs.readFileSync(PREFS_FILE, 'utf-8'))
@@ -362,18 +225,7 @@ function savePrefs(prefs) {
   fs.writeFileSync(PREFS_FILE, JSON.stringify(merged, null, 2) + '\n');
 }
 
-function appendEnvFile(key, value) {
-  // Write / update ~/.alienclaw/.env (not the repo .env)
-  const envPath = path.join(ALIENCLAW_HOME, '.env');
-  let content = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : '';
-  // Remove existing line for this key if present
-  content = content.split('\n').filter(l => !l.startsWith(`${key}=`)).join('\n');
-  if (content && !content.endsWith('\n')) content += '\n';
-  content += `${key}=${value}\n`;
-  fs.writeFileSync(envPath, content, { mode: 0o600 });
-}
-
-// ── Cleanup ───────────────────────────────────────────────────────────────────
+// ── Cleanup ────────────────────────────────────────────────────────────────
 function cleanup() {
   disableRaw();
   write(SHOW + RESET + '\n');
@@ -383,86 +235,42 @@ process.on('exit',    cleanup);
 process.on('SIGINT',  () => { cleanup(); process.exit(0); });
 process.on('SIGTERM', () => { cleanup(); process.exit(0); });
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────
 export async function runFirstRun() {
   const cols = W();
   const rows = H();
 
-  // Clear and set up a clean surface
   write(HIDE + CLEAR + HOME);
 
   let row = 2;
 
-  // Header
   write(at(row, 1) + center(GREEN + BOLD + '━━━   A L I E N C L A W   S E T U P   ━━━' + RESET, cols));
   write(at(row + 1, 1) + center(GRAY + DIM + 'Configure your command center' + RESET, cols));
   row += 4;
 
-  // ── Step 1: Directory setup ───────────────────────────────────────────────
-  write(at(row, 1) + GOLD + BOLD + '  STEP 1 / 4 — Mission Directories' + RESET);
+  // ── Step 1: Directories ────────────────────────────────────────────────
+  write(at(row, 1) + GOLD + BOLD + '  STEP 1 / 2 — Mission Directories' + RESET);
   row += 2;
   row = await setupDirectories(row);
   row += 1;
 
-  // ── Step 2: Provider selection ────────────────────────────────────────────
-  write(at(row, 1) + GOLD + BOLD + '  STEP 2 / 4 — AI Provider' + RESET);
-  row += 2;
-
-  const PROVIDERS = ['Anthropic', 'MiniMax', 'OpenAI', 'Ollama', 'Other'];
-  const providerIdx = await selectMenu('Choose your LLM provider:', PROVIDERS, row);
-  const providerLabel = PROVIDERS[providerIdx];
-  const providerEnvKey = PROVIDER_ENV_KEYS[providerLabel];
-
-  row += 2 + PROVIDERS.length + 3;
-
-  // ── Step 2b: API key (skip for Ollama) ───────────────────────────────────
-  let apiKey = null;
-  if (providerEnvKey) {
-    // Check if already set in environment
-    if (process.env[providerEnvKey]) {
-      write(at(row, 1) + eraseLine + DKGREEN + '  ✔ ' + GREEN +
-        `${providerEnvKey} already set in environment.` + RESET);
-      apiKey = process.env[providerEnvKey];
-      row += 2;
-    } else {
-      apiKey = await readSecret(`${providerLabel} API key  (${providerEnvKey}):`, row);
-      row += 3;
-      if (apiKey) {
-        appendEnvFile(providerEnvKey, apiKey);
-      }
-    }
-  } else {
-    write(at(row, 1) + eraseLine + GRAY + '  › Ollama runs locally — no API key needed.' + RESET);
-    row += 2;
-  }
-
-  // ── Step 3: Verbosity preference ─────────────────────────────────────────
-  write(at(row, 1) + GOLD + BOLD + '  STEP 3 / 4 — Verbosity' + RESET);
-  row += 2;
-
-  const VERBOSITY = ['Quiet  — summary only', 'Normal — standard output', 'Verbose — full agent stream'];
-  const verbIdx = await selectMenu('How much output do you want?', VERBOSITY, row);
-  const verbosityMap = ['silent', 'normal', 'verbose'];
-
-  row += 2 + VERBOSITY.length + 3;
-
-  // ── Step 4: Evolution opt-in ──────────────────────────────────────────────
-  write(at(row, 1) + GOLD + BOLD + '  STEP 4 / 4 — Evolution Network' + RESET);
+  // ── Step 2: Evolution Network ───────────────────────────────────────
+  write(at(row, 1) + GOLD + BOLD + '  STEP 2 / 2 — Evolution Network' + RESET);
   row += 2;
 
   const optInLines = [
-    GRAY + 'Your Meeseeks learn from every run.' + RESET,
+    GRAY + '  Your Meeseeks learn from every run.' + RESET,
     '',
-    WHITE + 'Share anonymous genome fitness data with' + RESET,
-    CYAN + 'alienclaw.gg' + RESET + WHITE + ' in exchange for:' + RESET,
+    WHITE + '  Share anonymous genome fitness data with' + RESET,
+    CYAN  + '  alienclaw.gg' + RESET + WHITE + ' in exchange for:' + RESET,
     '',
-    GREEN + '  ✦' + RESET + '  Full leaderboard access',
-    GREEN + '  ✦' + RESET + '  Community genome upgrades',
-    GREEN + '  ✦' + RESET + '  Cross-swarm intelligence boosts',
+    GREEN + '    ✦  Full leaderboard access' + RESET,
+    GREEN + '    ✦  Community genome upgrades' + RESET,
+    GREEN + '    ✦  Cross-swarm intelligence boosts' + RESET,
   ];
 
   for (const l of optInLines) {
-    write(at(row, 1) + '  ' + l);
+    write(at(row, 1) + l);
     row++;
   }
   row++;
@@ -476,12 +284,8 @@ export async function runFirstRun() {
 
   row += 5;
 
-  // ── Save config ───────────────────────────────────────────────────────────
-  // provider and verbosity are AlienClaw preferences — write to preferences.json
-  // NOT to alienclaw.json (the core config file, which rejects unknown keys)
+  // ── Save ──────────────────────────────────────────────────────────────
   savePrefs({
-    provider:         PROVIDER_IDS[providerLabel],
-    verbosity:        verbosityMap[verbIdx],
     evolutionOptIn:   evolveOptIn,
     setupComplete:    true,
     setupCompletedAt: new Date().toISOString(),
@@ -490,20 +294,17 @@ export async function runFirstRun() {
   write(at(row, 1) + DKGREEN + '  ✔ Configuration saved to ' + GREEN + ALIENCLAW_HOME + RESET);
   row += 3;
 
-  // ── ONLINE banner ─────────────────────────────────────────────────────────
+  // ── ONLINE banner ────────────────────────────────────────────────────
   await showOnlineBanner(row);
   row += BANNER.length + 2;
 
   await sleep(300);
 
-  // Sub-legend
   const legend = [
-    GRAY + '  Provider  : ' + GREEN + providerLabel,
-    GRAY + '  Verbosity : ' + GREEN + verbosityMap[verbIdx],
-    GRAY + '  Evolution : ' + (evolveOptIn ? GREEN + 'enabled' : GRAY + 'local'),
+    GRAY  + '  Evolution : ' + (evolveOptIn ? GREEN + 'enabled' : GRAY + 'local'),
     '',
-    GRAY + DIM + '  Run ' + WHITE + 'alienclaw run "<goal>"' + GRAY + ' to begin your first mission.',
-    GRAY + DIM + '  Run ' + WHITE + 'alienclaw --help' + GRAY + '       for all commands.' + RESET,
+    GRAY  + DIM + '  Run ' + WHITE + 'alienclaw run "<goal>"' + GRAY + ' to begin your first mission.',
+    GRAY  + DIM + '  Run ' + WHITE + 'openclaw --help' + GRAY + '      for OpenClaw commands.' + RESET,
   ];
 
   for (const l of legend) {
@@ -511,21 +312,14 @@ export async function runFirstRun() {
     row++;
   }
 
-  // Position cursor below everything and restore
   write(at(row + 2, 1) + SHOW + RESET);
 
-  return {
-    provider:      PROVIDER_IDS[providerLabel],
-    apiKey,
-    verbosity:     verbosityMap[verbIdx],
-    evolutionOptIn: evolveOptIn,
-  };
+  return { evolutionOptIn: evolveOptIn };
 }
 
-// Named alias so abduction.mjs can: const { run } = await import('../setup/first-run.mjs')
+// Named alias
 export { runFirstRun as run };
 
-// Allow running directly
 if (import.meta.url === `file://${process.argv[1]}`.replace(/\\/g, '/') ||
     process.argv[1]?.replace(/\\/g, '/').endsWith('first-run.mjs')) {
   runFirstRun().catch(err => {
