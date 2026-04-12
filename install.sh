@@ -224,7 +224,9 @@ main() {
 
   # ── 2. Install OpenClaw ────────────────────────────────────────────────────
   step "Installing OpenClaw"
-  if $DRYRUN; then
+  if command -v openclaw &>/dev/null; then
+    success "OpenClaw already installed: $(openclaw --version 2>/dev/null || echo 'found')"
+  elif $DRYRUN; then
     info "[DRYRUN] Would run: npm install -g openclaw"
   else
     if npm install -g openclaw </dev/null; then
