@@ -12,7 +12,7 @@
   <a href="https://github.com/AlienTool/AlienClaw/releases"><img src="https://img.shields.io/badge/version-v0.1.0-00FF5A?style=for-the-badge&labelColor=0a0a0a" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-00B43C?style=for-the-badge&labelColor=0a0a0a" alt="MIT License"></a>
   <a href="https://github.com/AlienTool/AlienClaw/actions"><img src="https://img.shields.io/badge/build-passing-00FF5A?style=for-the-badge&labelColor=0a0a0a" alt="Build"></a>
-  <a href="alienclaw-HANDOFF-v0.9.md"><img src="https://img.shields.io/badge/vendor-OpenClaw%202026.3.13-78F5FF?style=for-the-badge&labelColor=0a0a0a" alt="Vendor"></a>
+  <a href="alienclaw-HANDOFF-v0.9.md"><img src="https://img.shields.io/badge/vendor-OpenClaw%202026.4.11-78F5FF?style=for-the-badge&labelColor=0a0a0a" alt="Vendor"></a>
 </p>
 
 <br>
@@ -122,18 +122,14 @@ Opt-in preference is set at first-run and stored in `~/.alienclaw/preferences.js
 **Requires Node ≥ 22.**
 
 ```bash
-npm install -g alienclaw@latest
-# or
-pnpm add -g alienclaw@latest
+curl -fsSL https://raw.githubusercontent.com/AlienTool/AlienClaw/main/install.sh | bash
 ```
 
-On first run, the setup wizard creates your `~/.alienclaw/` directory structure, writes your API key, sets verbosity, and walks you through the Evolution Network opt-in.
-
-```bash
-alienclaw run "summarise the last 7 days of my emails"
-alienclaw run "find all TODO comments in this repo and open issues for each" --verbose
-alienclaw run "monitor my server CPU every 5 minutes and alert me if it spikes"
-```
+The installer will:
+1. Install prerequisites (git, curl, Node 22+)
+2. Install OpenClaw via npm
+3. Install the AlienClaw agent system
+4. Run the first-run wizard (directories + Evolution Network opt-in)
 
 ---
 
@@ -159,29 +155,26 @@ git clone https://github.com/AlienTool/AlienClaw.git
 cd AlienClaw
 
 pnpm install
-pnpm dist:all      # copy vendor → build, reskin, overlay, compile, verify
+pnpm build                           # compile TypeScript, bundle a2ui, copy hooks
+bash installer/scripts/overlay-dist.sh  # overlay alienclaw agent system → build/
 
-node build/alienclaw.mjs run "hello world" --verbose
+node build/src/alienclaw/cli/alienclaw.mjs run "hello world" --verbose
 ```
-
-`pnpm dist:all` runs the full assembly pipeline: copy the pinned OpenClaw vendor snapshot → apply the AlienClaw reskin → overlay the agent hierarchy → TypeScript compile → 10-check verification. It exits 0 or it tells you exactly what failed.
 
 ---
 
 ## Architecture
 
-AlienClaw is an **overlay distribution**, not a fork.
+AlienClaw is a **layered agent system** that runs on top of OpenClaw — no source patches, no forks.
 
 ```
-openclaw/        ← pinned OpenClaw vendor snapshot (never modified)
+openclaw/        ← vendored OpenClaw snapshot (never modified directly)
 src/alienclaw/   ← the agent hierarchy (BossBot, AdvisorBot, CreatorBot, Employees, Meeseeks)
-installer/       ← reskin.sh, verify.sh, abduction.mjs, first-run.mjs
+installer/       ← install.sh, overlay-dist.sh, first-run.mjs, abduction.mjs
 build/           ← assembled output (gitignored)
 ```
 
-OpenClaw provides the engine: gateway, channels, tools, providers, sessions, browser, TTS, canvas. AlienClaw provides the brain on top. Upstream updates flow in by swapping the `openclaw/` snapshot and running `pnpm dist:all`.
-
-Current vendor: **OpenClaw 2026.3.13** — includes security patch [GHSA-5wcw-8jjv-m286](https://github.com/openclaw/openclaw/security/advisories/GHSA-5wcw-8jjv-m286) (WebSocket origin validation, 2026.3.11).
+OpenClaw provides the engine: gateway, channels, tools, providers, sessions, browser, TTS, canvas. AlienClaw provides the brain on top — BossBot, AdvisorBot, CreatorBot, Employees, and Meeseeks. OpenClaw upgrades independently via `npm install -g openclaw`; AlienClaw upgrades via `git pull` and rebuilding.
 
 ---
 
