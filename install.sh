@@ -225,15 +225,15 @@ main() {
   # ── 2. Install OpenClaw ────────────────────────────────────────────────────
   step "Installing OpenClaw"
   if command -v openclaw &>/dev/null; then
-    success "OpenClaw already installed: $(openclaw --version 2>/dev/null || echo 'found')"
+    info "OpenClaw already installed: $(openclaw --version 2>/dev/null)"
+    success "Skipping npm install."
   elif $DRYRUN; then
     info "[DRYRUN] Would run: npm install -g openclaw"
   else
-    if npm install -g openclaw </dev/null; then
-      success "OpenClaw installed via npm."
-    else
-      fail "Failed to install OpenClaw. Check your network and try again."
-    fi
+    info "OpenClaw not found on PATH."
+    info "Install it with: npm install -g openclaw"
+    info "Then re-run: bash install.sh"
+    fail "OpenClaw is required but not installed."
   fi
 
   # ── 3. Download AlienClaw source ───────────────────────────────────────────
