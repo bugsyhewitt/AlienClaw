@@ -286,10 +286,17 @@ const os   = require('os');
 const soulDir  = '${TMPDIR_AC}' + '/alienclaw/src/alienclaw/prompts';
 const openclaw = process.env.OPENCLAW_HOME || path.join(os.homedir(), '.openclaw');
 const cfgFile  = path.join(openclaw, 'openclaw.json');
+
+const readSoul = (name) => {
+  const p = path.join(soulDir, name);
+  if (!fs.existsSync(p)) throw new Error('Soul file not found: ' + p);
+  return fs.readFileSync(p, 'utf8');
+};
+
 const souls = {
-  bossbot:     fs.readFileSync(path.join(soulDir, 'bossbot.soul.md'),     'utf8'),
-  advisorbot:  fs.readFileSync(path.join(soulDir, 'advisorbot.soul.md'),  'utf8'),
-  creatorbot:  fs.readFileSync(path.join(soulDir, 'creatorbot.soul.md'),  'utf8'),
+  bossbot:     readSoul('bossbot.soul.md'),
+  advisorbot:  readSoul('advisorbot.soul.md'),
+  creatorbot:  readSoul('creatorbot.soul.md'),
 };
 const agents = [
   { id: 'bossbot',    default: true,  name: 'BossBot',    identity: { name: 'BossBot',    emoji: '👽' }, systemPromptOverride: souls.bossbot    },
@@ -297,7 +304,10 @@ const agents = [
   { id: 'creatorbot', default: false, name: 'CreatorBot', identity: { name: 'CreatorBot', emoji: '🔧' }, systemPromptOverride: souls.creatorbot },
 ];
 let cfg = {};
-if (fs.existsSync(cfgFile)) { try { cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8')); } catch {} }
+if (fs.existsSync(cfgFile)) {
+  try { cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8')); }
+  catch (e) { throw new Error('Failed to parse openclaw.json: ' + e.message); }
+}
 const existing = cfg.agents?.list ?? [];
 const alienIds  = new Set(['bossbot', 'advisorbot', 'creatorbot']);
 const others    = existing.filter(a => !alienIds.has(a.id));
@@ -306,10 +316,12 @@ cfg = {
   gateway: { ...(cfg.gateway ?? {}), mode: 'local' },
   agents: { ...(cfg.agents ?? {}), list: [...others, ...agents] },
 };
-fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 2) + '\n');
+try {
+  fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 2) + '\n');
+} catch (e) { throw new Error('Failed to write openclaw.json: ' + e.message); }
 console.log('Gateway mode set to local in ' + cfgFile);
 console.log('Agents registered in ' + cfgFile);
-"
+" || fail "Agent registration failed — check openclaw.json permissions."
     success "Agents registered in ~/.openclaw/openclaw.json"
   fi
 
@@ -346,6 +358,7 @@ WRAPPER_SCRIPT
 
   # ── 6. Symlink alienclaw command ──────────────────────────────────────────
   if ! $DRYRUN; then
+    mkdir -p "$HOME/.local/bin"
     ln -sf "$WRAPPER" "$HOME/.local/bin/alienclaw"
     # Persist PATH
     for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
