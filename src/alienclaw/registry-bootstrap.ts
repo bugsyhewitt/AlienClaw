@@ -11,11 +11,11 @@
  */
 
 import * as path from 'node:path';
-import * as os   from 'node:os';
 
 import { MartianRegistry }  from './registry/martian-registry.js';
 import { wireToolAdapters }  from './msb/tool-adapters.js';
 import { installSeeds }      from './registry/seed-installer.js';
+import { PATHS }             from './constants.js';
 
 export interface RegistryRuntime {
   registry: MartianRegistry;
@@ -26,9 +26,7 @@ export interface RegistryRuntime {
  * Installs seeds, loads all .ms files, wires tool adapters.
  */
 export async function bootstrapRegistry(alienclawHome?: string): Promise<RegistryRuntime> {
-  const home = alienclawHome
-    ?? process.env['ALIENCLAW_HOME']
-    ?? path.join(os.homedir(), '.alienclaw');
+  const home = alienclawHome ?? PATHS.home;
 
   // 1. Install seed .ms / .msb files if not already present
   installSeeds();
@@ -37,7 +35,7 @@ export async function bootstrapRegistry(alienclawHome?: string): Promise<Registr
   const registry = new MartianRegistry(path.join(home, 'registry', 'ms'));
   await registry.ensureDir();
   await registry.loadAll();
-  console.log(`[RegistryBootstrap] Loaded ${registry.size} Martian from ${registry.registryPath}`);
+  console.log(`[RegistryBootstrap] Loaded ${registry.size} Martian from ${path.join(home, 'registry', 'ms')}`);
 
   // 3. Wire OpenClaw tool adapters into the executor
   wireToolAdapters();

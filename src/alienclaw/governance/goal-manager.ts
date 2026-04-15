@@ -102,12 +102,6 @@ export class GoalManager {
     );
   }
 
-  getActiveSubGoals(file: GoalsFile, goalId: string): SubGoal[] {
-    const goal = file.goals.find(g => g.id === goalId);
-    if (!goal) return [];
-    return goal.subGoals.filter(s => s.status === 'active');
-  }
-
   isGoalComplete(file: GoalsFile, goalId: string): boolean {
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) return false;
@@ -168,12 +162,6 @@ export class GoalManager {
     return goal.scheme.campaigns.filter(
       c => c.status === 'pending' && c.dependsOn.every(dep => doneIds.has(dep))
     );
-  }
-
-  getActiveCampaigns(file: GoalsFile, goalId: string): Campaign[] {
-    const goal = file.goals.find(g => g.id === goalId);
-    if (!goal?.scheme) return [];
-    return goal.scheme.campaigns.filter(c => c.status === 'active');
   }
 
   isSchemeComplete(file: GoalsFile, goalId: string): boolean {

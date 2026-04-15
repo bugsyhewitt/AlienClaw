@@ -13,9 +13,8 @@
 
 import * as fs   from 'node:fs/promises';
 import * as path from 'node:path';
-import * as os   from 'node:os';
 import { errorMessage } from '../utils.js';
-
+import { ALIENCLAW_HOME, PATHS }   from '../constants.js';
 import { loadMsFile, MsParseError } from './ms-loader.js';
 import type { MartianSpec }         from './ms-types.js';
 
@@ -32,8 +31,7 @@ export class MartianRegistry {
   private loaded = false;
 
   constructor(registryDir?: string) {
-    const home = process.env['ALIENCLAW_HOME'] ?? path.join(os.homedir(), '.alienclaw');
-    this.registryDir = registryDir ?? path.join(home, 'registry', 'ms');
+    this.registryDir = registryDir ?? PATHS.ms;
   }
 
   // ---------------------------------------------------------------------------

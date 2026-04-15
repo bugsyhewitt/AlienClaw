@@ -14,12 +14,11 @@
 import * as fs   from 'node:fs';
 import * as path from 'node:path';
 import * as url  from 'node:url';
-import * as os   from 'node:os';
 import { assembleGenome } from './genome-codec.js';
+import { PATHS } from '../constants.js';
 
-const HOME         = process.env['ALIENCLAW_HOME'] ?? path.join(os.homedir(), '.alienclaw');
-const REGISTRY_MS  = path.join(HOME, 'registry', 'ms');
-const REGISTRY_MSB = path.join(HOME, 'registry', 'msb');
+const REGISTRY_MS  = PATHS.ms;
+const REGISTRY_MSB = PATHS.msb;
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 

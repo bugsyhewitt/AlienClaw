@@ -17,9 +17,9 @@
  */
 
 import * as path from 'node:path';
-import * as os   from 'node:os';
 
 import { sleep, errorMessage } from '../utils.js';
+import { ALIENCLAW_HOME }      from '../constants.js';
 import { loadMsbCached }  from './msb-loader.js';
 import type { MartianBrain } from './msb-types.js';
 import type {
@@ -30,10 +30,7 @@ import type {
 } from '../registry/ms-types.js';
 import { parseGenome } from '../registry/genome-codec.js';
 
-const DEFAULT_MSB_DIR = path.join(
-  process.env['ALIENCLAW_HOME'] ?? path.join(os.homedir(), '.alienclaw'),
-  'registry', 'msb'
-);
+const DEFAULT_MSB_DIR = path.join(ALIENCLAW_HOME, 'registry', 'msb');
 
 // ---------------------------------------------------------------------------
 // Tool adapter registry — thin wrappers around OpenClaw tool implementations.
@@ -102,7 +99,6 @@ function parseBehaviorSection(section: string): EscalationConfig {
 async function invokeToolWithRetry(
   toolName:    string,
   input:       Record<string, unknown>,
-  __brain:     MartianBrain,
   retryConfig: RetryConfig,
 ): Promise<{ success: boolean; output: unknown; error?: string }> {
   const adapter = getToolAdapter(toolName);
@@ -191,7 +187,7 @@ export async function executeMartian(
     }
 
     const toolInput: Record<string, unknown> = { task, ...context };
-    const result = await invokeToolWithRetry(toolName, toolInput, brain, retryConfig);
+    const result = await invokeToolWithRetry(toolName, toolInput, retryConfig);
 
     if (result.success) {
       results.push(result.output);

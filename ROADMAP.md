@@ -438,6 +438,24 @@ Line 503 used hardcoded `3` for strike exhaustion check. Replaced with `MAX_STRI
 
 **File**: `src/alienclaw/agents/creatorbot.ts`
 
+### Bug 70: `PATHS.home` duplicated across 5 files ✅ FIXED
+
+Five files re-computed `process.env['ALIENCLAW_HOME'] ?? path.join(os.homedir(), '.alienclaw')` instead of using `ALIENCLAW_HOME` or `PATHS.home` from `constants.ts`. Replaced all with the shared constant.
+
+**Files**: `src/alienclaw/registry/martian-registry.ts`, `src/alienclaw/msb/martian-executor.ts`, `src/alienclaw/msb/tool-adapters.ts`, `src/alienclaw/registry/seed-installer.ts`, `src/alienclaw/registry-bootstrap.ts`
+
+### Bug 71: Dead `getActiveSubGoals` and `getActiveCampaigns` in GoalManager ✅ FIXED
+
+Both methods were defined but never called anywhere. Removed them along with their dead `file` parameter variants.
+
+**File**: `src/alienclaw/governance/goal-manager.ts`
+
+### Bug 72: Unused `__brain` parameter in `invokeToolWithRetry` ✅ FIXED
+
+`invokeToolWithRetry` accepted `__brain: MartianBrain` but never referenced it. Removed the parameter and its argument from the call site.
+
+**File**: `src/alienclaw/msb/martian-executor.ts`
+
 ---
 
 ## Known Limitations
