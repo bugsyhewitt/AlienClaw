@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { AGENT_MODELS, EMPLOYEE_DEFAULT_MODEL, DOMAIN_SLUG_MAX } from '../constants.js';
+import { AGENT_MODELS, EMPLOYEE_DEFAULT_MODEL, DOMAIN_SLUG_MAX, CREATOR_QUEUE_MAX } from '../constants.js';
 import { errorMessage } from '../utils.js';
 import type {
   EmployeeSpec, CreatorQueueItem, CreatorQueuePriority,
@@ -69,6 +69,9 @@ export class CreatorBot {
   // ── Queue ──────────────────────────────────────────────────────────────────
 
   enqueue(priority: CreatorQueuePriority, observation: string, context: string): void {
+    if (this.queue.length >= CREATOR_QUEUE_MAX) {
+      this.queue.shift();  // drop oldest to make room
+    }
     this.queue.push({ priority, observation, context, ts: Date.now() });
   }
 
@@ -145,7 +148,11 @@ export class CreatorBot {
   spawnSubagent(spec: SubagentSpec, work: () => Promise<unknown>): void {
     const promise: Promise<void> = work()
       .then(result => {
-        spec.onComplete?.(result);
+        try {
+          spec.onComplete?.(result);
+        } catch (cbErr) {
+          this.enqueue('NOTABLE', `onComplete threw: ${errorMessage(cbErr)}`, spec.domain);
+        }
       })
       .catch(err => {
         const msg = errorMessage(err);

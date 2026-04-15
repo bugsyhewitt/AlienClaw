@@ -66,6 +66,9 @@ export const DEFAULT_BUDGET_EXTENSION  = 3;
 // Domain slug max length (used in employee/specialist ID generation)
 export const DOMAIN_SLUG_MAX = 6;
 
+// CreatorBot queue capacity — oldest entries evicted when exceeded
+export const CREATOR_QUEUE_MAX = 1000;
+
 // Paths
 export const ALIENCLAW_HOME = process.env['ALIENCLAW_HOME']
   ?? `${homedir()}/.alienclaw`;
