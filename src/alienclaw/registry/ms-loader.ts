@@ -31,6 +31,7 @@ import * as path from 'node:path';
 
 import { validateGenome, parseGenome } from './genome-codec.js';
 import { MAX_MS_TOOLS }                from '../constants.js';
+import { errorMessage }                from '../utils.js';
 import type { MartianSpec, MartianStatus, GraveyardEntry } from './ms-types.js';
 
 // ---------------------------------------------------------------------------

@@ -246,6 +246,24 @@ When AdvisorBot flagged gaps and items were re-opened to `pending`, only `dispat
 
 **File**: `src/alienclaw/agents/creatorbot.ts`
 
+### Bug 38: Missing `errorMessage` import in `ms-loader.ts` ✅ FIXED
+
+`loadMsDirectory()` called `errorMessage(err)` at line 227 but the import was missing — would throw `ReferenceError` at runtime when any `.ms` file fails to parse during registry bootstrap. Added `import { errorMessage } from '../utils.js'`.
+
+**File**: `src/alienclaw/registry/ms-loader.ts`
+
+### Bug 39: N+1 file I/O in `resumeGoal` ✅ FIXED
+
+Crash recovery loop called `updateCampaign`/`updateSubGoal` sequentially — each doing a full `load() + save()` cycle. Changed to in-memory mutation with a single conditional `save()` when dirty.
+
+**File**: `src/alienclaw/governance/governance-loop.ts`
+
+### Bug 40: Dead `getState()` public method in GovernanceLoop ✅ FIXED
+
+`getState()` was defined public but never called externally (all internal callers use `this.state` directly). Removed the dead method.
+
+**File**: `src/alienclaw/governance/governance-loop.ts`
+
 ---
 
 ## Known Limitations
