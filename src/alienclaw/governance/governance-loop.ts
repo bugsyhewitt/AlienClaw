@@ -1,5 +1,5 @@
 import { sleep, errorMessage, normalizeInput } from '../utils.js';
-import { EMPLOYEE_DEFAULT_MODEL, MAX_STRIKE_COUNT } from '../constants.js';
+import { EMPLOYEE_DEFAULT_MODEL, MAX_STRIKE_COUNT, EVENT_TICK_MS } from '../constants.js';
 import type {
   GovernanceState, GovernanceEvent, TransitionHook,
   Goal, SubGoal, Campaign,
@@ -189,7 +189,7 @@ export class GovernanceLoop {
         const event = this.eventQueue.shift()!;
         await this.processEvent(event);
       } else {
-        await sleep(50);
+        await sleep(EVENT_TICK_MS);
       }
     }
   }

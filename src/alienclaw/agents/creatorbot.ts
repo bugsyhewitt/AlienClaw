@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { AGENT_MODELS, GENOME_LENGTH, EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
+import { AGENT_MODELS, EMPLOYEE_DEFAULT_MODEL, DOMAIN_SLUG_MAX } from '../constants.js';
 import { errorMessage } from '../utils.js';
 import type {
   EmployeeSpec, CreatorQueueItem, CreatorQueuePriority,
@@ -172,40 +172,6 @@ export class CreatorBot {
     return this.activeSubagents.size;
   }
 
-  // ── Report receipt ─────────────────────────────────────────────────────────
-
-  /**
-   * Receive a Martian execution report.
-   * CreatorBot and AdvisorBot are the only agents that receive these.
-   * BossBot never sees raw execution reports.
-   */
-  receiveMartianReport(report: {
-    martianId: string;
-    outcome:    'SUCCESS' | 'FAILURE' | 'ESCALATED';
-    toolsRun:   string[];
-    summary:    string;
-    ts:         number;
-  }): void {
-    if (report.outcome !== 'SUCCESS') {
-      this.enqueue(
-        report.outcome === 'ESCALATED' ? 'URGENT' : 'NOTABLE',
-        `Martian ${report.martianId} → ${report.outcome}: ${report.summary}`,
-        `Tools run: ${report.toolsRun.join(', ')}`
-      );
-    }
-    // SUCCESS reports are recorded but do not need immediate attention
-  }
-
-  // ── Genome ─────────────────────────────────────────────────────────────────
-
-  validateGenome(genome: string): { valid: boolean; reason?: string } {
-    if (genome.length !== GENOME_LENGTH)
-      return { valid: false, reason: `Length ${genome.length} ≠ ${GENOME_LENGTH}` };
-    if (!/^[0-9A-Za-z]+$/.test(genome))
-      return { valid: false, reason: 'Non-Base62 characters found' };
-    return { valid: true };
-  }
-
   // ── Employee spec ──────────────────────────────────────────────────────────
 
   buildEmployeeSpec(
@@ -215,7 +181,7 @@ export class CreatorBot {
     generation = 1,
   ): EmployeeSpec {
     const suffix     = Date.now().toString(36).toUpperCase();
-    const employeeId = `EMP_${domain.toUpperCase().slice(0, 6)}_${suffix}`;
+    const employeeId = `EMP_${domain.toUpperCase().slice(0, DOMAIN_SLUG_MAX)}_${suffix}`;
     return {
       employeeId,
       domain,
@@ -241,7 +207,7 @@ export class CreatorBot {
     generation  = 1
   ): Employee {
     const suffix     = Date.now().toString(36).toUpperCase();
-    const roleSlug   = role.domain.toUpperCase().slice(0, 6);
+    const roleSlug   = role.domain.toUpperCase().slice(0, DOMAIN_SLUG_MAX);
     const employeeId = `SPEC_${roleSlug}_${suffix}`;
 
     const spec: EmployeeSpec = {

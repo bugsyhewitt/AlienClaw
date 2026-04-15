@@ -150,6 +150,8 @@ export function loadMsbFile(filePath: string): MartianBrain {
 // MSB cache — one instance per tool name per process
 // ---------------------------------------------------------------------------
 
+const MAX_CACHE_SIZE = 64;
+
 const _cache = new Map<string, MartianBrain>();
 
 export function loadMsbCached(
@@ -158,6 +160,10 @@ export function loadMsbCached(
 ): MartianBrain {
   const key = `${msbDir}:${toolName}`;
   if (_cache.has(key)) return _cache.get(key)!;
+  if (_cache.size >= MAX_CACHE_SIZE) {
+    const oldest = _cache.keys().next().value;
+    _cache.delete(oldest);
+  }
   const filePath = path.join(msbDir, `${toolName}.msb`);
   const brain    = loadMsbFile(filePath);
   _cache.set(key, brain);

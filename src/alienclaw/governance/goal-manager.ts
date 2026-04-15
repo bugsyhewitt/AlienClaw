@@ -1,5 +1,5 @@
 import {
-  readFileSync, writeFileSync, existsSync,
+  readFileSync, writeFileSync,
   mkdirSync, renameSync, unlinkSync, openSync,
 } from 'fs';
 import { dirname } from 'path';
@@ -37,13 +37,30 @@ function releaseLock(): void {
 }
 
 export class GoalManager {
+  private _cached: GoalsFile | null = null;
+  private _dirty  = false;
+  private _mtime  = -1;
+
   load(): GoalsFile {
+    if (this._cached !== null && !this._dirty) {
+      try {
+        const stat = fs.statSync(GOALS_PATH);
+        if (stat.mtimeMs === this._mtime) return this._cached;
+      } catch { /* file deleted — re-read will produce ENOENT path below */ }
+    }
     ensureGoalsDir();
     try {
-      return JSON.parse(readFileSync(GOALS_PATH, 'utf-8')) as GoalsFile;
+      const stat   = fs.statSync(GOALS_PATH);
+      this._cached = JSON.parse(readFileSync(GOALS_PATH, 'utf-8')) as GoalsFile;
+      this._mtime  = stat.mtimeMs;
+      this._dirty  = false;
+      return this._cached;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        return { version: '1', activeGoalId: null, goals: [] };
+        this._cached = { version: '1', activeGoalId: null, goals: [] };
+        this._mtime  = -1;
+        this._dirty  = false;
+        return this._cached;
       }
       throw new Error(`load goals: ${errorMessage(err)}`);
     }
@@ -56,6 +73,7 @@ export class GoalManager {
     await acquireLock();
     try {
       renameSync(TMP_PATH, GOALS_PATH);
+      this._dirty = false;
     } finally {
       releaseLock();
     }
@@ -65,6 +83,7 @@ export class GoalManager {
     const file         = this.load();
     file.goals.push(goal);
     file.activeGoalId  = goal.id;
+    this._dirty       = true;
     await this.save(file);
   }
 
@@ -79,6 +98,7 @@ export class GoalManager {
     const sg = goal.subGoals.find(s => s.id === subGoalId);
     if (!sg) throw new Error(`SubGoal ${subGoalId} not found`);
     Object.assign(sg, patch);
+    this._dirty = true;
     await this.save(file);
   }
 
@@ -87,6 +107,7 @@ export class GoalManager {
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) throw new Error(`Goal ${goalId} not found`);
     Object.assign(goal, patch);
+    this._dirty = true;
     await this.save(file);
   }
 
@@ -113,6 +134,7 @@ export class GoalManager {
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) throw new Error(`Goal ${goalId} not found`);
     goal.subGoals.push(...newSubGoals);
+    this._dirty = true;
     await this.save(file);
   }
 
@@ -123,6 +145,7 @@ export class GoalManager {
     goal.status       = 'complete';
     goal.completedAt  = Date.now();
     file.activeGoalId = null;
+    this._dirty = true;
     await this.save(file);
   }
 
@@ -149,6 +172,7 @@ export class GoalManager {
     const campaign = goal.scheme.campaigns.find(c => c.id === campaignId);
     if (!campaign) throw new Error(`Campaign ${campaignId} not found`);
     Object.assign(campaign, patch);
+    this._dirty = true;
     await this.save(file);
   }
 

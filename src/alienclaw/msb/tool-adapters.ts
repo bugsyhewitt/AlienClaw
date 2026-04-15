@@ -17,7 +17,7 @@ import * as path from 'node:path';
 
 import { registerToolAdapter } from './martian-executor.js';
 import type { ToolFn }         from './martian-executor.js';
-import { PATHS }               from '../constants.js';
+import { PATHS, MAX_FILE_READ_BYTES } from '../constants.js';
 
 const OUTPUT_DIR = PATHS.output;
 
@@ -120,10 +120,9 @@ const fileReadAdapter: ToolFn = async (input) => {
     throw err;
   }
 
-  const MAX = 10 * 1024 * 1024;
   const sizeBytes = Buffer.byteLength(contents, 'utf-8');
-  if (sizeBytes > MAX) {
-    throw new Error(`file_read: file too large (${sizeBytes} bytes, limit ${MAX})`);
+  if (sizeBytes > MAX_FILE_READ_BYTES) {
+    throw new Error(`file_read: file too large (${sizeBytes} bytes, limit ${MAX_FILE_READ_BYTES})`);
   }
 
   return { path: rawPath, contents, sizeBytes };
@@ -144,7 +143,10 @@ const fileWriteAdapter: ToolFn = async (input) => {
 
   let created = false;
   try {
-    await fsPromises.writeFile(resolved, content, 'utf-8');
+    const flags = 'wx';
+    const handle = await fsPromises.open(resolved, flags);
+    await handle.write(content, 'utf-8');
+    await handle.close();
     created = true;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;

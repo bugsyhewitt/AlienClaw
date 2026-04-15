@@ -7,6 +7,10 @@ import { wireToolAdapters } from '../msb/tool-adapters.js';
 import { getRegistry }      from '../registry/registry.js';
 import { validateGenome }   from '../registry/genome-codec.js';
 import { installSeeds }     from '../registry/seed-installer.js';
+import {
+  REGISTRY_HEALTH_INTERVAL_MS,
+  GENOME_AUDIT_INTERVAL_MS,
+} from '../constants.js';
 import { GoalManager }       from '../governance/goal-manager.js';
 import { TaskManager }       from '../governance/task-manager.js';
 import { EscalationHandler } from '../governance/escalation-handler.js';
@@ -77,7 +81,7 @@ export function bootstrap(): BootstrapResult {
   // Register default maintenance jobs. More can be added by extensions.
   creatorBot.registerScheduledJob({
     label:      'registry-health-check',
-    intervalMs: 5 * 60 * 1000,   // every 5 minutes
+    intervalMs: REGISTRY_HEALTH_INTERVAL_MS,
     fn: async () => {
       // Phase 2B: run fitness audit on loaded Martian, flag anomalies
       const loaded = registry.list();
@@ -95,7 +99,7 @@ export function bootstrap(): BootstrapResult {
 
   creatorBot.registerScheduledJob({
     label:      'genome-checksum-audit',
-    intervalMs: 15 * 60 * 1000,  // every 15 minutes
+    intervalMs: GENOME_AUDIT_INTERVAL_MS,
     fn: async () => {
       // Phase 2B: revalidate all genome checksums, flag corruption
       const loaded = registry.list();
@@ -122,7 +126,7 @@ export function bootstrap(): BootstrapResult {
     '[Bootstrap] All 3 Tier-A agents online:\n' +
     '  BossBot    — awaiting loop.start()\n' +
     '  AdvisorBot — ready\n' +
-    `  CreatorBot — scheduler running (${2} jobs registered)`
+    `  CreatorBot — scheduler running (2 jobs registered)`
   );
 
   // ── Shutdown handle ───────────────────────────────────────────────────────
