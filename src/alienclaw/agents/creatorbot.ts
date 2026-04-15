@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { AGENT_MODELS, PATHS, GENOME_LENGTH, EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
+import { AGENT_MODELS, GENOME_LENGTH, EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
 import { errorMessage } from '../utils.js';
 import type {
   EmployeeSpec, CreatorQueueItem, CreatorQueuePriority,
@@ -204,11 +204,6 @@ export class CreatorBot {
     if (!/^[0-9A-Za-z]+$/.test(genome))
       return { valid: false, reason: 'Non-Base62 characters found' };
     return { valid: true };
-  }
-
-  writeMs(msId: string, content: string): void {
-    mkdirSync(PATHS.ms, { recursive: true });
-    writeFileSync(join(PATHS.ms, `${msId}.ms`), content, 'utf-8');
   }
 
   // ── Employee spec ──────────────────────────────────────────────────────────

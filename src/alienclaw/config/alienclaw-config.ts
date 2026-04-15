@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { PATHS } from '../constants.js';
 import { DEFAULT_CONFIG, DEFAULT_PREFERENCES } from './defaults.js';
@@ -10,12 +10,14 @@ function ensureDir(filePath: string): void {
 }
 
 function loadOrCreate<T>(path: string, defaults: T): T {
-  if (!existsSync(path)) {
+  try {
+    return { ...defaults, ...JSON.parse(readFileSync(path, 'utf-8')) as T };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     ensureDir(path);
     writeFileSync(path, JSON.stringify(defaults, null, 2), 'utf-8');
     return defaults;
   }
-  return { ...defaults, ...JSON.parse(readFileSync(path, 'utf-8')) } as T;
 }
 
 export class AlienClawConfigManager {

@@ -426,6 +426,18 @@ Line 503 used hardcoded `3` for strike exhaustion check. Replaced with `MAX_STRI
 
 **File**: `src/alienclaw/governance/governance-loop.ts`
 
+### Bug 68: TOCTOU `existsSync` before `readFileSync` in `loadOrCreate` ✅ FIXED
+
+`loadOrCreate` pre-checked `existsSync` before `readFileSync` — a race window between the check and read existed. Replaced with direct `readFileSync` wrapped in try/catch; `ENOENT` triggers the create-default path.
+
+**File**: `src/alienclaw/config/alienclaw-config.ts`
+
+### Bug 69: Dead `writeMs` method in `CreatorBot` ✅ FIXED
+
+`writeMs(msId, content)` was defined but never called anywhere. Removed the method and its unused `PATHS`/`writeFileSync`/`mkdirSync` imports.
+
+**File**: `src/alienclaw/agents/creatorbot.ts`
+
 ---
 
 ## Known Limitations
