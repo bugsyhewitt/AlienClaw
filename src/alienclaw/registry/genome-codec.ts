@@ -16,6 +16,7 @@
  */
 
 export const BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+const _base62Set = new Set(BASE62_ALPHABET);
 export const GENOME_LENGTH   = 256;
 export const SECTION_SIZE    = 64;
 export const SECTION_COUNT   = 4;
@@ -46,7 +47,10 @@ export interface GenomeValidationResult {
 }
 
 function isBase62(s: string): boolean {
-  return [...s].every(c => BASE62_ALPHABET.includes(c));
+  for (let i = 0; i < s.length; i++) {
+    if (!_base62Set.has(s[i]!)) return false;
+  }
+  return true;
 }
 
 /**
