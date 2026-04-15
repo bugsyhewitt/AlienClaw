@@ -420,6 +420,12 @@ Line 503 used hardcoded `3` for strike exhaustion check. Replaced with `MAX_STRI
 
 **Files**: `src/alienclaw/governance/goal-manager.ts`, `src/alienclaw/config/alienclaw-config.ts`
 
+### Bug 67: Unbounded event queue could cause memory exhaustion ✅ FIXED
+
+`GovernanceLoop.pushEvent()` appended events without bound. Under burst load (rapid user input or campaign completions), the queue could grow indefinitely. Added `EVENT_QUEUE_LIMIT = 200` — when exceeded, oldest events are dropped (ring-buffer behavior).
+
+**File**: `src/alienclaw/governance/governance-loop.ts`
+
 ---
 
 ## Known Limitations
