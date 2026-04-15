@@ -53,7 +53,10 @@ export interface GovernanceLoopDeps {
 export class GovernanceLoop {
   private state:         GovernanceState = 'IDLE';
   private currentGoalId: string | null   = null;
+  /** Bounded event queue — oldest events dropped when limit is exceeded. */
   private eventQueue:    GovernanceEvent[] = [];
+
+  private static readonly EVENT_QUEUE_LIMIT = 200;
 
   /**
    * Active jobs: campaignId → running Promise tracking the campaign's
@@ -171,6 +174,10 @@ export class GovernanceLoop {
   // ── Event loop ─────────────────────────────────────────────────────────────
 
   private pushEvent(event: GovernanceEvent): void {
+    if (this.eventQueue.length >= GovernanceLoop.EVENT_QUEUE_LIMIT) {
+      // Drop oldest — ring-buffer behavior prevents unbounded memory growth
+      this.eventQueue.shift();
+    }
     this.eventQueue.push(event);
   }
 
