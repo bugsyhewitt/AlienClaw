@@ -95,10 +95,6 @@ export class GovernanceLoop {
     this.transitionHooks.push(hook);
   }
 
-  getState(): GovernanceState {
-    return this.state;
-  }
-
   submitGoal(description: string): void {
     this.pushEvent({ type: 'USER_GOAL', description });
   }
@@ -126,22 +122,19 @@ export class GovernanceLoop {
     this.userChannel.required(`Resuming goal: "${goal.description}"`);
 
     if (goal.scheme) {
-      // Scheme-based goal: reset any active campaigns to pending
+      // Scheme-based goal: reset any active campaigns to pending (mutate in-memory, single save)
+      let dirty = false;
       for (const c of goal.scheme.campaigns) {
-        if (c.status === 'active') {
-          await this.goalManager.updateCampaign(goalId, c.id, { status: 'pending' });
-        }
+        if (c.status === 'active') { c.status = 'pending'; dirty = true; }
       }
+      if (dirty) await this.goalManager.save(file);
     } else {
       // Legacy sub-goal goal
+      let dirty = false;
       for (const sg of goal.subGoals) {
-        if (sg.status === 'active') {
-          await this.goalManager.updateSubGoal(goalId, sg.id, {
-            status: 'pending',
-            taskId: undefined,
-          });
-        }
+        if (sg.status === 'active') { sg.status = 'pending'; sg.taskId = undefined; dirty = true; }
       }
+      if (dirty) await this.goalManager.save(file);
     }
 
     this.currentGoalId = goalId;
