@@ -14,13 +14,14 @@ const TMP_PATH   = `${GOALS_PATH}.tmp`;
 
 function ensureGoalsDir(): void {
   const dir = dirname(GOALS_PATH);
-  mkdirSync(dir, { recursive: true });  // idempotent — no pre-check needed
+  mkdirSync(dir, { recursive: true });
 }
 
 async function acquireLock(): Promise<void> {
   for (let i = 0; i < LOCK_MAX_TRIES; i++) {
     try {
-      openSync(LOCK_PATH, 'wx');  // exclusive create — TOCTOU-free
+      const handle = await import('fs').then(m => m.promises.open(LOCK_PATH, 'wx'));
+      await handle.close();
       return;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
@@ -40,17 +41,17 @@ export class GoalManager {
   private _mtime  = -1;
 
   load(): GoalsFile {
+    // Clean cache — return without any syscall
     if (this._cached !== null && !this._dirty) {
-      try {
-        const stat = fs.statSync(GOALS_PATH);
-        if (stat.mtimeMs === this._mtime) return this._cached;
-      } catch { /* file deleted — re-read will produce ENOENT path below */ }
+      return this._cached;
     }
+    // Stale or absent — read from disk
     ensureGoalsDir();
     try {
-      const stat   = fs.statSync(GOALS_PATH);
-      this._cached = JSON.parse(readFileSync(GOALS_PATH, 'utf-8')) as GoalsFile;
-      this._mtime  = stat.mtimeMs;
+      const stat   = openSync(GOALS_PATH, 'r');  // reuse fd for stat+read
+      const { mtimeMs } = fs.fstatSync(stat);
+      this._cached = JSON.parse(readFileSync(stat, 'utf-8')) as GoalsFile;
+      this._mtime  = mtimeMs;
       this._dirty  = false;
       return this._cached;
     } catch (err) {
