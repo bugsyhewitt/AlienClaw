@@ -1,11 +1,11 @@
 /**
  * tool-adapters.ts
- * Registers OpenClaw tool functions as Meeseeks tool adapters.
+ * Registers OpenClaw tool functions as Martian tool adapters.
  *
  * Call wireToolAdapters() once during bootstrap AFTER registry.load().
  *
  * Each adapter:
- *   1. Accepts a flat Record<string,unknown> from the Meeseeks executor
+ *   1. Accepts a flat Record<string,unknown> from the Martian executor
  *   2. Delegates to the correct OpenClaw tool implementation
  *   3. Returns output matching the .msb OUTPUT CONTRACT
  *
@@ -16,8 +16,8 @@ import * as fs   from 'node:fs';
 import * as path from 'node:path';
 import * as os   from 'node:os';
 
-import { registerToolAdapter } from './meeseeks-executor.js';
-import type { ToolFn }         from './meeseeks-executor.js';
+import { registerToolAdapter } from './martian-executor.js';
+import type { ToolFn }         from './martian-executor.js';
 
 const HOME       = process.env['ALIENCLAW_HOME'] ?? path.join(os.homedir(), '.alienclaw');
 const WORKSPACE  = path.join(HOME, 'workspace');

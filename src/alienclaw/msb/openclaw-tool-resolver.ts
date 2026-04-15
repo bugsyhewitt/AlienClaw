@@ -5,10 +5,10 @@
  * This is the ONLY place in AlienClaw that touches OpenClaw's tool layer directly.
  *
  * Employees NEVER call tools directly. They go through:
- *   Employee → MeeseeksExecutor → OpenClawToolResolver → OpenClaw tool fn
+ *   Employee → MartianExecutor → OpenClawToolResolver → OpenClaw tool fn
  */
 
-import type { ToolFn, ToolResolver } from './meeseeks-executor.js';
+import type { ToolFn, ToolResolver } from './martian-executor.js';
 
 // ---------------------------------------------------------------------------
 // Shim types for OpenClaw tools

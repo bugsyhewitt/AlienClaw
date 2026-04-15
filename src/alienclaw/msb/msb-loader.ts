@@ -3,7 +3,7 @@
  * Read-only .msb file loader.
  *
  * MSB files are conditioning text — they describe HOW a tool behaves
- * so that Meeseeks can invoke it correctly. No executable logic lives here.
+ * so that Martian can invoke it correctly. No executable logic lives here.
  *
  * Required sections:
  *   TOOL, VERSION, CAPABILITIES, LIMITATIONS, FAILURE MODES,
@@ -19,7 +19,7 @@
 import * as fs   from 'node:fs';
 import * as path from 'node:path';
 
-import type { MeeseeksBrain, MsbValidationResult, GenomeSectionDocs } from './msb-types.js';
+import type { MartianBrain, MsbValidationResult, GenomeSectionDocs } from './msb-types.js';
 
 const REQUIRED_SECTIONS = [
   'TOOL',
@@ -110,7 +110,7 @@ export function validateMsb(raw: string): MsbValidationResult {
   return { valid: errors.length === 0, errors };
 }
 
-export function parseMsbContent(raw: string, sourcePath?: string): MeeseeksBrain {
+export function parseMsbContent(raw: string, sourcePath?: string): MartianBrain {
   const validation = validateMsb(raw);
   if (!validation.valid) {
     const loc = sourcePath ? ` (${sourcePath})` : '';
@@ -133,7 +133,7 @@ export function parseMsbContent(raw: string, sourcePath?: string): MeeseeksBrain
   };
 }
 
-export function loadMsbFile(filePath: string): MeeseeksBrain {
+export function loadMsbFile(filePath: string): MartianBrain {
   if (!fs.existsSync(filePath)) {
     throw new Error(`MSB file not found: ${filePath}`);
   }
@@ -145,12 +145,12 @@ export function loadMsbFile(filePath: string): MeeseeksBrain {
 // MSB cache — one instance per tool name per process
 // ---------------------------------------------------------------------------
 
-const _cache = new Map<string, MeeseeksBrain>();
+const _cache = new Map<string, MartianBrain>();
 
 export function loadMsbCached(
   toolName:  string,
   msbDir:    string,
-): MeeseeksBrain {
+): MartianBrain {
   if (_cache.has(toolName)) return _cache.get(toolName)!;
   const filePath = path.join(msbDir, `${toolName}.msb`);
   const brain    = loadMsbFile(filePath);

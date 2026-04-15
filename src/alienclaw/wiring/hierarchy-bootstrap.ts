@@ -5,6 +5,7 @@ import { agentRegistry } from '../agents/agent-registry.js';
 import { alienClawConfig } from '../config/alienclaw-config.js';
 import { wireToolAdapters } from '../msb/tool-adapters.js';
 import { getRegistry }      from '../registry/registry.js';
+import { validateGenome }   from '../registry/genome-codec.js';
 import { installSeeds }     from '../registry/seed-installer.js';
 import { GoalManager }       from '../governance/goal-manager.js';
 import { TaskManager }       from '../governance/task-manager.js';
@@ -38,11 +39,11 @@ export interface BootstrapResult {
  * Does NOT call loop.start() — the caller owns the lifecycle.
  */
 export function bootstrap(): BootstrapResult {
-  // ── Meeseeks registry ──────────────────────────────────────────────────────
+  // ── Martian registry ──────────────────────────────────────────────────────
   installSeeds();               // copy seed .ms / .msb to ~/.alienclaw/registry/
   const registry = getRegistry();
   registry.load();              // read-only load of all .ms files
-  wireToolAdapters();           // wire OpenClaw tools → Meeseeks adapter layer
+  wireToolAdapters();           // wire OpenClaw tools → Martian adapter layer
 
   // ── Comms & config ────────────────────────────────────────────────────────
   const prefs       = alienClawConfig.preferences;
@@ -57,7 +58,7 @@ export function bootstrap(): BootstrapResult {
   );
 
   const completionHandler = new CompletionHandler(
-    advisorBot, bossBot, goalManager, userChannel
+    advisorBot, goalManager, userChannel
   );
 
   const loop = new GovernanceLoop({
@@ -78,13 +79,13 @@ export function bootstrap(): BootstrapResult {
     label:      'registry-health-check',
     intervalMs: 5 * 60 * 1000,   // every 5 minutes
     fn: async () => {
-      // Phase 2B: run fitness audit on loaded Meeseeks, flag anomalies
+      // Phase 2B: run fitness audit on loaded Martian, flag anomalies
       const loaded = registry.list();
       for (const ms of loaded) {
         if (ms.fitness < 0 || ms.fitness > 1) {
           creatorBot.enqueue(
             'URGENT',
-            `Meeseeks ${ms.id} has invalid fitness score: ${ms.fitness}`,
+            `Martian ${ms.id} has invalid fitness score: ${ms.fitness}`,
             `Registry health check`
           );
         }
@@ -97,7 +98,6 @@ export function bootstrap(): BootstrapResult {
     intervalMs: 15 * 60 * 1000,  // every 15 minutes
     fn: async () => {
       // Phase 2B: revalidate all genome checksums, flag corruption
-      const { validateGenome } = await import('../registry/genome-codec.js');
       const loaded = registry.list();
       for (const ms of loaded) {
         const result = validateGenome(ms.genome);

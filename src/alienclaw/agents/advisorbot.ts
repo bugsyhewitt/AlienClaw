@@ -5,11 +5,10 @@ import {
   completeSimple,
   getEnvApiKey,
   getModel,
-  type AssistantMessage,
   type Context,
-  type TextContent,
 } from '@mariozechner/pi-ai';
 import { AGENT_MODELS, ALIENCLAW_PROVIDER } from '../constants.js';
+import { extractText }                       from '../utils.js';
 import type {
   AdviceRequest, AdviceResponse,
   AdvisorySession, AgentMessage,
@@ -18,15 +17,6 @@ import type { TierAAgent } from '../constants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOUL_PATH  = join(__dirname, '..', 'prompts', 'advisorbot.soul.md');
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function extractText(msg: AssistantMessage): string {
-  return (msg.content as Array<{ type: string; text?: string }>)
-    .filter((c): c is TextContent => c.type === 'text')
-    .map(c => c.text)
-    .join('');
-}
 
 // ── AdvisorBot ────────────────────────────────────────────────────────────────
 
@@ -109,7 +99,7 @@ export class AdvisorBot {
    *                (req.requesterId, taskId) is included in the LLM context.
    */
   async advise(req: AdviceRequest, taskId?: string): Promise<AdviceResponse> {
-    const model  = getModel(ALIENCLAW_PROVIDER, 'MiniMax-M2.5');
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.AdvisorBot);
     const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
 
     // Build user content — include session history when taskId is known

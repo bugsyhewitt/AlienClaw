@@ -1,8 +1,8 @@
 /**
  * msb-types.ts
- * Types for .msb MeeseeksBrain files.
+ * Types for .msb MartianBrain files.
  *
- * A MeeseeksBrain is CONDITIONING TEXT ONLY — never control logic.
+ * A MartianBrain is CONDITIONING TEXT ONLY — never control logic.
  * (Hard invariant: MSB describes behavior, it does not implement it.)
  *
  * Each .msb file MUST document:
@@ -25,7 +25,7 @@ export interface GenomeSectionDocs {
   checksum:  string;
 }
 
-export interface MeeseeksBrain {
+export interface MartianBrain {
   /** Tool name this brain conditions, e.g. "web_search" */
   tool:        string;
   version:     string;

@@ -3,6 +3,7 @@ import {
   mkdirSync, renameSync, unlinkSync,
 } from 'fs';
 import { dirname } from 'path';
+import { sleep }  from '../utils.js';
 import { PATHS } from '../constants.js';
 import type { Goal, GoalsFile, SubGoal, Campaign, Scheme } from '../types.js';
 
@@ -12,10 +13,6 @@ const TMP_PATH   = `${GOALS_PATH}.tmp`;
 
 const LOCK_RETRY_MS  = 50;
 const LOCK_MAX_TRIES = 10;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(r => setTimeout(r, ms));
-}
 
 function ensureGoalsDir(): void {
   const dir = dirname(GOALS_PATH);

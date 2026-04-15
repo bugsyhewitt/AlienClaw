@@ -8,7 +8,7 @@
 <assembled by seed-installer.ts using assembleGenome(identity, execution, behavior)>
 
 # MS_FREAD0001
-# description: File read Meeseeks — executes file_read tool
+# description: File read Martian — executes file_read tool
 # generation: 1
 # status: active
 # fitness: 0.00

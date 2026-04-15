@@ -50,13 +50,13 @@ OUTPUT CONTRACT:
 }
 
 GENOME SECTIONS:
-IDENTITY: Chars 0-7 = Meeseeks ID tag (WEB00001). Chars 8-9 = generation marker (G1). Chars 10-19 = origin namespace (AlienClaw1). Chars 20-63 = tool family label (WebSearchFamily) + zero padding.
+IDENTITY: Chars 0-7 = Martian ID tag (WEB00001). Chars 8-9 = generation marker (G1). Chars 10-19 = origin namespace (AlienClaw1). Chars 20-63 = tool family label (WebSearchFamily) + zero padding.
 EXECUTION: Char 0 = retry attempt encoding (charCode-48 mod 5 + 1 = maxAttempts). Char 1 = backoff encoding ((charCode-48) mod 10 * 500ms). Chars 2-63 = flow label (Sequential) + performance mode (PerfBalanced) + zero padding.
 BEHAVIOR: Char 0 = escalation mode ('E' = EscalateStd/failForward false, 'F' = failForward true). Chars 1-63 = escalation label + output contract type (OutputJSONArray) + zero padding.
 CHECKSUM: FNV-1a-inspired 64-char Base62 hash of sections 0-2 (chars 0-191). Computed by assembleGenome(). Never hand-written.
 
 VARIABLES:
-task: The natural language task description passed to this Meeseeks
+task: The natural language task description passed to this Martian
 query: The search query string extracted or derived from task
 context: Additional key-value pairs from the execution context
 maxResults: Maximum number of results to return (from context, default 10)

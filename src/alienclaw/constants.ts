@@ -1,8 +1,8 @@
-export const ALIENCLAW_PROVIDER = 'minimax' as const;
+export const ALIENCLAW_PROVIDER = 'anthropic' as const;
 
 export const ALIENCLAW_MODELS = {
-  POWER: 'MiniMax-M2.5',
-  FAST:  'MiniMax-M2.5-highspeed',
+  POWER: 'claude-opus-4-6',
+  FAST:  'claude-haiku-4-5',
 } as const;
 
 export const TIER_A_AGENTS = ['BossBot', 'AdvisorBot', 'CreatorBot'] as const;
@@ -25,19 +25,19 @@ export const GENOME_LENGTH        = 256;
 export const GENOME_SECTION_COUNT = 4;
 export const GENOME_SECTION_SIZE  = 64;
 
-// Meeseeks tool cap — a single Meeseeks file may declare at most 4 tools
+// Martian tool cap — a single Martian file may declare at most 4 tools
 export const MAX_MS_TOOLS = 4;
 
-// Meeseeks cannot spawn other Meeseeks (depth must stay at 0)
-export const MAX_MEESEEKS_DEPTH = 0;
+// Martian cannot spawn other Martian (depth must stay at 0)
+export const MAX_MARTIAN_DEPTH = 0;
 
-// Report routing — only these two Tier-A agents receive Meeseeks execution
+// Report routing — only these two Tier-A agents receive Martian execution
 // reports and sub-agent reports. BossBot is intentionally excluded.
 export const REPORT_RECIPIENTS = ['AdvisorBot', 'CreatorBot'] as const;
 export type ReportRecipient = typeof REPORT_RECIPIENTS[number];
 
 // Report code lengths
-export const MEESEEKS_REPORT_LEN = 8;
+export const MARTIAN_REPORT_LEN = 8;
 export const EMPLOYEE_REPORT_LEN = 20;
 
 // Escalation

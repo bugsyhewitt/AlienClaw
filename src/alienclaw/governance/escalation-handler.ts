@@ -1,3 +1,4 @@
+import { normalizeInput } from '../utils.js';
 import { EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
 import type { TaskEnvelope, EmployeeSpec } from '../types.js';
 import type { AdvisorBot } from '../agents/advisorbot.js';
@@ -41,15 +42,6 @@ export class EscalationHandler {
     /** BossBot's advisory session key for this task */
     advisorTaskId: string,
   ): Promise<StrikeAction> {
-    // Record attempt — increments strikeCount
-    this.taskManager.recordAttempt(task.taskId, {
-      attemptNumber:  task.attempts.length + 1,
-      employeeId:     task.assignedTo ?? 'unknown',
-      failureReason,
-      advisorVerdict: '',
-      ts:             Date.now(),
-    });
-
     if (this.taskManager.isExhausted(task.taskId)) {
       return { action: 'SURFACE_USER' };
     }
@@ -63,8 +55,7 @@ export class EscalationHandler {
       question: 'What is your read on a new approach? What might be causing repeated failure?',
     };
 
-    const session = this.advisorBot.getOrCreateSession('BossBot', advisorTaskId);
-    const advice  = await this.advisorBot.advise(adviceReq, advisorTaskId);
+    const advice = await this.advisorBot.advise(adviceReq, advisorTaskId);
 
     this.advisorBot.appendToSession('BossBot', advisorTaskId, {
       from: 'BossBot', to: 'AdvisorBot', content: adviceReq.question, ts: Date.now(),
@@ -73,29 +64,31 @@ export class EscalationHandler {
       from: 'AdvisorBot', to: 'BossBot', content: advice.verdict, ts: Date.now(),
     });
 
-    void session; // session reference kept for future persistence
+    // Record attempt with the AdvisorBot verdict and post-increment strike count
+    this.taskManager.recordAttempt(task.taskId, {
+      attemptNumber:  task.strikeCount + 1,
+      employeeId:     task.assignedTo ?? 'unknown',
+      failureReason,
+      advisorVerdict: advice.verdict,
+      ts:             Date.now(),
+    });
 
     // Telemetry: record failforward event
     void telemetryWriter.writeFailforward({
-      taskId:        task.taskId,
+      taskId:          task.taskId,
       domain,
-      strikeCount:   task.strikeCount,
+      strikeCount:     task.strikeCount + 1,
       failureReason,
-      advisorVerdict: advice.verdict,
+      advisorVerdict:  advice.verdict,
       advisorConfidence: advice.confidence,
     });
 
-    // ── Brief CreatorBot — direction only, not AdvisorBot's exact words ─────
-    const direction =
-      `Task ${task.taskId} in domain "${domain}" failed ${task.strikeCount} time(s). ` +
-      `Adjust the Employee spec for better results in this domain.`;
-
+    // ── Brief CreatorBot ────────────────────────────────────────────────────
     const spec = this.creatorBot.buildEmployeeSpec(
       domain,
       toolTags,
       EMPLOYEE_DEFAULT_MODEL,
       task.strikeCount + 1,
-      direction,
     );
 
     return { action: 'REBUILD', spec };
@@ -107,14 +100,14 @@ export class EscalationHandler {
    */
   async handleStrikeThree(task: TaskEnvelope): Promise<UserStrikeResponse> {
     const raw      = await this.userChannel.strikeAlert(task, false);
-    const trimmed  = raw.trim().toLowerCase();
+    const input     = normalizeInput(raw);
 
-    if (trimmed === 'abandon') {
+    if (input === 'abandon') {
       return { outcome: 'abandon' };
     }
 
-    if (trimmed.startsWith('budget:')) {
-      const n = parseInt(trimmed.slice('budget:'.length), 10);
+    if (input.startsWith('budget:')) {
+      const n = parseInt(input.slice('budget:'.length), 10);
       return { outcome: 'resume_budget', budget: isNaN(n) ? 3 : n };
     }
 

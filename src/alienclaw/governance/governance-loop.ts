@@ -1,3 +1,4 @@
+import { sleep, errorMessage } from '../utils.js';
 import { EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
 import type {
   GovernanceState, GovernanceEvent, TransitionHook,
@@ -18,7 +19,7 @@ import type { UserChannel }        from '../comms/user-channel.js';
 // ── Valid state transitions ───────────────────────────────────────────────────
 
 const VALID_TRANSITIONS: Record<GovernanceState, GovernanceState[]> = {
-  IDLE:                  ['SCHEMING'],
+  IDLE:                  ['SCHEMING', 'CREATOR_BUILDING'],
   SCHEMING:              ['CREATOR_BUILDING', 'AWAITING_ADVICE'],
   DECOMPOSING:           ['EXECUTING', 'AWAITING_ADVICE'],
   CREATOR_BUILDING:      ['EXECUTING'],
@@ -145,6 +146,16 @@ export class GovernanceLoop {
 
     this.currentGoalId = goalId;
     this.transition('CREATOR_BUILDING', 'Crash recovery — rebuilding from plan');
+
+    // Rebuild specialists so campaign specialistIds are populated
+    if (goal.scheme) {
+      const specialistMap = this.creatorBot.buildSchemeSpecialists(goal.scheme);
+      for (const specialists of specialistMap.values()) {
+        for (const s of specialists) this.agentRegistry.registerEmployee(s);
+      }
+      await this.goalManager.attachScheme(goalId, goal.scheme);
+    }
+
     this.transition('EXECUTING', 'Crash recovery — dispatching ready campaigns');
     await this.dispatchReadyCampaigns(goalId);
   }
@@ -190,9 +201,6 @@ export class GovernanceLoop {
         break;
       case 'USER_INPUT':
         await this.handleUserInput(event.message);
-        break;
-      case 'SCHEME_READY':
-        // Governance-internal: handled inline in handleUserGoal; listed for completeness
         break;
       case 'CAMPAIGN_READY':
         // Fired when a dependency completes and a blocked campaign becomes ready
@@ -265,8 +273,9 @@ export class GovernanceLoop {
       }
     }
 
-    // Persist specialist IDs back to the goal's scheme
-    await this.goalManager.attachScheme(goalId, scheme);
+    // Note: goal already persisted via addGoal above with scheme attached.
+    // buildSchemeSpecialists mutates campaign.specialistIds in-place on the
+    // same scheme object, so the in-memory goal is already correct.
 
     this.userChannel.status(
       `All specialists built. Dispatching ready campaigns.`
@@ -286,15 +295,13 @@ export class GovernanceLoop {
     const file  = this.goalManager.load();
     const ready = this.goalManager.getReadyCampaigns(file, goalId);
 
-    for (const campaign of ready) {
-      if (this.activeJobs.has(campaign.id)) continue;
-      await this.spawnCampaign(goalId, campaign);
-    }
-
-    if (ready.length > 1) {
+    // Dispatch all ready campaigns in parallel
+    const toSpawn = ready.filter(c => !this.activeJobs.has(c.id));
+    if (toSpawn.length > 0) {
+      await Promise.all(toSpawn.map(c => this.spawnCampaign(goalId, c)));
       this.userChannel.verbose(
-        `Dispatched ${ready.length} campaign(s) in parallel: ` +
-        ready.map(c => `"${c.name}"`).join(', ')
+        `Dispatched ${toSpawn.length} campaign(s) in parallel: ` +
+        toSpawn.map(c => `"${c.name}"`).join(', ')
       );
     }
   }
@@ -378,7 +385,7 @@ export class GovernanceLoop {
           type: 'JOB_FAILED',
           subGoalId: campaign.id,
           goalId,
-          error: `Campaign "${campaign.name}" threw: ${err instanceof Error ? err.message : String(err)}`,
+          error: `Campaign "${campaign.name}" threw: ${errorMessage(err)}`,
         });
       })
       .finally(() => {
@@ -388,18 +395,26 @@ export class GovernanceLoop {
     this.activeJobs.set(campaign.id, campaignJob);
   }
 
+  // ── Campaign vs legacy sub-goal ID resolution ───────────────────────────────
+
+  /** Returns true if `subGoalId` refers to a campaign (not a legacy sub-goal). */
+  private isCampaignSubGoal(file: ReturnType<GoalManager['load']>, subGoalId: string): boolean {
+    for (const goal of file.goals) {
+      if (goal.scheme?.campaigns.some(c => c.id === subGoalId)) return true;
+    }
+    return false;
+  }
+
   // ── JOB_COMPLETE / JOB_FAILED ─────────────────────────────────────────────
 
   private async handleJobComplete(
     event: GovernanceEvent & { type: 'JOB_COMPLETE' }
   ): Promise<void> {
-    this.activeJobs.delete(event.subGoalId);
-
     // Determine if this was a campaign or legacy sub-goal
     const file = this.goalManager.load();
     const goal = file.goals.find(g => g.id === event.goalId);
 
-    const isCampaign = goal?.scheme?.campaigns.some(c => c.id === event.subGoalId);
+    const isCampaign = this.isCampaignSubGoal(file, event.subGoalId);
 
     if (isCampaign) {
       this.userChannel.status(
@@ -434,12 +449,10 @@ export class GovernanceLoop {
   private async handleJobFailed(
     event: GovernanceEvent & { type: 'JOB_FAILED' }
   ): Promise<void> {
-    this.activeJobs.delete(event.subGoalId);
-
     const file = this.goalManager.load();
     const goal = file.goals.find(g => g.id === event.goalId);
 
-    const isCampaign = goal?.scheme?.campaigns.some(c => c.id === event.subGoalId);
+    const isCampaign = this.isCampaignSubGoal(file, event.subGoalId);
 
     if (isCampaign) {
       const campaign = goal!.scheme!.campaigns.find(c => c.id === event.subGoalId);
@@ -545,7 +558,7 @@ export class GovernanceLoop {
           this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: event.subGoalId, goalId: event.goalId, result });
         })
         .catch((err: unknown) => {
-          this.pushEvent({ type: 'JOB_FAILED', subGoalId: event.subGoalId, goalId: event.goalId, error: String(err) });
+          this.pushEvent({ type: 'JOB_FAILED', subGoalId: event.subGoalId, goalId: event.goalId, error: errorMessage(err) });
         });
       this.legacyJobs.set(event.subGoalId, job);
     }
@@ -591,10 +604,10 @@ export class GovernanceLoop {
     const review = await this.completionHandler.review(goalId);
 
     if (!review.proceed) {
+      const file = this.goalManager.load();
+      const goal = file.goals.find(g => g.id === goalId);
       for (const id of review.reopenIds) {
         // reopenIds may be campaign IDs or legacy subGoalIds
-        const file = this.goalManager.load();
-        const goal = file.goals.find(g => g.id === goalId);
         const isCampaign = goal?.scheme?.campaigns.some(c => c.id === id);
         if (isCampaign) {
           await this.goalManager.updateCampaign(goalId, id, { status: 'pending' });
@@ -606,6 +619,7 @@ export class GovernanceLoop {
       this.transition('AWAITING_ADVICE', 'AdvisorBot flagged gaps');
       this.transition('EXECUTING', 'Re-dispatching after gap identified');
       await this.dispatchReadyCampaigns(goalId);
+      await this.dispatchReadySubGoals(goalId);
       return;
     }
 
@@ -635,9 +649,9 @@ export class GovernanceLoop {
     const file  = this.goalManager.load();
     const ready = this.goalManager.getReadySubGoals(file, goalId);
 
-    for (const subGoal of ready) {
-      if (this.legacyJobs.has(subGoal.id)) continue;
-      await this.spawnLegacyJob(goalId, subGoal);
+    const toSpawn = ready.filter(s => !this.legacyJobs.has(s.id));
+    if (toSpawn.length > 0) {
+      await Promise.all(toSpawn.map(s => this.spawnLegacyJob(goalId, s)));
     }
   }
 
@@ -664,7 +678,7 @@ export class GovernanceLoop {
         this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: subGoal.id, goalId, result });
       })
       .catch((err: unknown) => {
-        this.pushEvent({ type: 'JOB_FAILED', subGoalId: subGoal.id, goalId, error: String(err) });
+        this.pushEvent({ type: 'JOB_FAILED', subGoalId: subGoal.id, goalId, error: errorMessage(err) });
       })
       .finally(() => {
         this.legacyJobs.delete(subGoal.id);
@@ -687,18 +701,16 @@ export class GovernanceLoop {
     this.transition('CREATOR_INTERRUPT', `CreatorBot urgent: ${urgent.observation}`);
     this.userChannel.required(`[CreatorBot URGENT] ${urgent.observation}`);
 
-    if (VALID_TRANSITIONS['CREATOR_INTERRUPT'].includes('AWAITING_ADVICE')) {
-      const adviceReq = {
-        requesterId: 'BossBot' as const,
-        context:     urgent.context,
-        question:    `CreatorBot reports: "${urgent.observation}". What do you advise?`,
-      };
-      const advice = await this.advisorBot.advise(adviceReq);
-      this.userChannel.verbose(`AdvisorBot on urgent: ${advice.verdict}`);
-    }
+    // Always consult AdvisorBot on urgent matters
+    const adviceReq = {
+      requesterId: 'BossBot' as const,
+      context:     urgent.context,
+      question:    `CreatorBot reports: "${urgent.observation}". What do you advise?`,
+    };
+    const advice = await this.advisorBot.advise(adviceReq);
+    this.userChannel.verbose(`AdvisorBot on urgent: ${advice.verdict}`);
 
-    this.transition(resumeState as GovernanceState,
-      `Resuming ${resumeState} after CreatorBot interrupt`);
+    this.transition(resumeState, `Resuming ${resumeState} after CreatorBot interrupt`);
   }
 
   // ── Crash recovery ─────────────────────────────────────────────────────────
@@ -716,8 +728,4 @@ export class GovernanceLoop {
       await this.resumeGoal(goal.id);
     }
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(r => setTimeout(r, ms));
 }

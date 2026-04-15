@@ -1,6 +1,6 @@
 /**
  * seed-installer.ts
- * Installs seed Meeseeks (.ms) and MSB substrate (.msb) files into
+ * Installs seed Martian (.ms) and MSB substrate (.msb) files into
  * ~/.alienclaw/registry/ on first run.
  *
  * Called from hierarchy-bootstrap.ts before loading the registry.
@@ -75,7 +75,7 @@ interface SeedSpec {
 const SEED_SPECS: SeedSpec[] = [
   {
     id:          'MS_WEB00001',
-    description: 'Web research Meeseeks — executes web_search tool',
+    description: 'Web research Martian — executes web_search tool',
     generation:  1,
     status:      'active',
     fitness:     0.00,
@@ -86,7 +86,7 @@ const SEED_SPECS: SeedSpec[] = [
   },
   {
     id:          'MS_FREAD0001',
-    description: 'File read Meeseeks — executes file_read tool',
+    description: 'File read Martian — executes file_read tool',
     generation:  1,
     status:      'active',
     fitness:     0.00,
@@ -97,7 +97,7 @@ const SEED_SPECS: SeedSpec[] = [
   },
   {
     id:          'MS_FWRITE001',
-    description: 'File write Meeseeks — executes file_write tool',
+    description: 'File write Martian — executes file_write tool',
     generation:  1,
     status:      'active',
     fitness:     0.00,
