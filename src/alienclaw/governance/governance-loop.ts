@@ -1,4 +1,4 @@
-import { sleep, errorMessage } from '../utils.js';
+import { sleep, errorMessage, normalizeInput } from '../utils.js';
 import { EMPLOYEE_DEFAULT_MODEL, MAX_STRIKE_COUNT } from '../constants.js';
 import type {
   GovernanceState, GovernanceEvent, TransitionHook,
@@ -462,7 +462,7 @@ export class GovernanceLoop {
       const advice = await this.advisorBot.advise(adviceReq, event.goalId);
       this.userChannel.verbose(`AdvisorBot on campaign failure: ${advice.verdict}`);
 
-      if (advice.recommendation.toLowerCase().includes('user') ||
+      if (normalizeInput(advice.recommendation).includes('user') ||
           advice.confidence === 'low') {
         // Surface to user
         this.transition('AWAITING_USER_INPUT', 'Campaign failure — surfacing to user');

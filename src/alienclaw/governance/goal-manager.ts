@@ -1,9 +1,9 @@
 import {
   readFileSync, writeFileSync, existsSync,
-  mkdirSync, renameSync, unlinkSync,
+  mkdirSync, renameSync, unlinkSync, openSync,
 } from 'fs';
 import { dirname } from 'path';
-import { sleep }  from '../utils.js';
+import { errorMessage, sleep } from '../utils.js';
 import { PATHS } from '../constants.js';
 import type { Goal, GoalsFile, SubGoal, Campaign, Scheme } from '../types.js';
 
@@ -21,11 +21,13 @@ function ensureGoalsDir(): void {
 
 async function acquireLock(): Promise<void> {
   for (let i = 0; i < LOCK_MAX_TRIES; i++) {
-    if (!existsSync(LOCK_PATH)) {
-      writeFileSync(LOCK_PATH, String(process.pid), 'utf-8');
+    try {
+      openSync(LOCK_PATH, 'wx');  // exclusive create — TOCTOU-free
       return;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+      await sleep(LOCK_RETRY_MS);
     }
-    await sleep(LOCK_RETRY_MS);
   }
   throw new Error(`goals.json lock not acquired after ${LOCK_MAX_TRIES} retries`);
 }
@@ -37,10 +39,14 @@ function releaseLock(): void {
 export class GoalManager {
   load(): GoalsFile {
     ensureGoalsDir();
-    if (!existsSync(GOALS_PATH)) {
-      return { version: '1', activeGoalId: null, goals: [] };
+    try {
+      return JSON.parse(readFileSync(GOALS_PATH, 'utf-8')) as GoalsFile;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return { version: '1', activeGoalId: null, goals: [] };
+      }
+      throw new Error(`load goals: ${errorMessage(err)}`);
     }
-    return JSON.parse(readFileSync(GOALS_PATH, 'utf-8')) as GoalsFile;
   }
 
   /** Atomic write: tmp → lock → rename → release */

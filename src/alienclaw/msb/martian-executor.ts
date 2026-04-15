@@ -102,7 +102,7 @@ function parseBehaviorSection(section: string): EscalationConfig {
 async function invokeToolWithRetry(
   toolName:    string,
   input:       Record<string, unknown>,
-  _brain:      MartianBrain,
+  __brain:     MartianBrain,
   retryConfig: RetryConfig,
 ): Promise<{ success: boolean; output: unknown; error?: string }> {
   const adapter = getToolAdapter(toolName);

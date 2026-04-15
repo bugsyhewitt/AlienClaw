@@ -9,7 +9,7 @@ import {
   type Context,
 } from '@mariozechner/pi-ai';
 import { AGENT_MODELS, ALIENCLAW_PROVIDER }         from '../constants.js';
-import { extractText }                              from '../utils.js';
+import { extractText, normalizeInput }             from '../utils.js';
 import type {
   TaskEnvelope, AdviceRequest, SubGoal,
   Scheme, Campaign, SpecialistRole,
@@ -270,7 +270,7 @@ export class BossBot {
       const advice = await advisorBot.advise(adviceReq, goalId);
 
       // If AdvisorBot is confident and has no significant changes, we're done
-      if (advice.confidence === 'high' && !advice.recommendation.toLowerCase().includes('should')) {
+      if (advice.confidence === 'high' && !normalizeInput(advice.recommendation).includes('should')) {
         return {
           ...scheme,
           advisorEndorsement: advice.verdict,

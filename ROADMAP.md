@@ -378,6 +378,30 @@ Line 503 used hardcoded `3` for strike exhaustion check. Replaced with `MAX_STRI
 
 **File**: `src/alienclaw/registry/seed-installer.ts`
 
+### Bug 60: Inline `.toLowerCase()` on LLM advice strings ✅ FIXED
+
+`bossbot.ts:273` and `governance-loop.ts:465` used raw `.toLowerCase()` on `advice.recommendation` — inconsistent with `normalizeInput()` which also trims. Both now use `normalizeInput()`.
+
+**File**: `src/alienclaw/agents/bossbot.ts`, `src/alienclaw/governance/governance-loop.ts`
+
+### Bug 61: TOCTOU `existsSync` before file read in `GoalManager.load()` ✅ FIXED
+
+`load()` pre-checked `existsSync(GOALS_PATH)` before `readFileSync` — a race window existed. Replaced with direct `readFileSync` wrapped in try/catch, converting `ENOENT` to a default empty goals file.
+
+**File**: `src/alienclaw/governance/goal-manager.ts`
+
+### Bug 62: TOCTOU `existsSync` before lock acquisition in `acquireLock()` ✅ FIXED
+
+`acquireLock()` checked `existsSync(LOCK_PATH)` before writing the lock file — a race window between check and write. Replaced with atomic `openSync(path, 'wx')` (exclusive create) which either creates the file atomically or fails with `EEXIST` if it already exists.
+
+**File**: `src/alienclaw/governance/goal-manager.ts`
+
+### Bug 63: `_brain` parameter not referenced in `invokeToolWithRetry` ✅ FIXED
+
+`_brain: MartianBrain` parameter was accepted but never used. Renamed to `__brain` per TypeScript convention for intentionally unused parameters.
+
+**File**: `src/alienclaw/msb/martian-executor.ts`
+
 ---
 
 ## Known Limitations
