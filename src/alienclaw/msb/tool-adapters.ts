@@ -14,14 +14,12 @@
 
 import * as fsPromises  from 'node:fs/promises';
 import * as path from 'node:path';
-import * as os   from 'node:os';
 
 import { registerToolAdapter } from './martian-executor.js';
 import type { ToolFn }         from './martian-executor.js';
+import { PATHS }               from '../constants.js';
 
-const HOME       = process.env['ALIENCLAW_HOME'] ?? path.join(os.homedir(), '.alienclaw');
-const WORKSPACE  = path.join(HOME, 'workspace');
-const OUTPUT_DIR = path.join(WORKSPACE, 'output');
+const OUTPUT_DIR = PATHS.output;
 
 // ---------------------------------------------------------------------------
 // Path safety guard
@@ -110,7 +108,7 @@ const urlFetchAdapter: ToolFn = async (input) => {
 
 const fileReadAdapter: ToolFn = async (input) => {
   const rawPath  = String(input['path'] ?? input['task'] ?? '');
-  const resolved = assertInsideBoundary(rawPath, WORKSPACE);
+  const resolved = assertInsideBoundary(rawPath, PATHS.workspace);
 
   let contents: string;
   try {
