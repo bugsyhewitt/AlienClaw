@@ -89,12 +89,6 @@ export class MartianRegistry {
     return this.store.get(id);
   }
 
-  getOrThrow(id: string): MartianSpec {
-    const ms = this.get(id);
-    if (!ms) throw new RegistryError(`Martian not found: ${id}`);
-    return ms;
-  }
-
   /**
    * Find all active Martian that declare a given tool name.
    * Results sorted by fitness descending.

@@ -18,15 +18,6 @@ export class AgentRegistry {
     return this.employees.get(id);
   }
 
-  getEmployeesByDomain(domain: string): Employee[] {
-    return [...this.employees.values()]
-      .filter(e => e.spec.domain === domain);
-  }
-
-  listEmployees(): Employee[] {
-    return [...this.employees.values()];
-  }
-
   /**
    * Deregister is called by BossBot via GovernanceLoop when he
    * decides an Employee's work is done. Never auto-expires.

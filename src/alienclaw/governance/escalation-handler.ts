@@ -1,5 +1,5 @@
 import { normalizeInput } from '../utils.js';
-import { EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
+import { EMPLOYEE_DEFAULT_MODEL, DEFAULT_BUDGET_EXTENSION } from '../constants.js';
 import type { TaskEnvelope, EmployeeSpec } from '../types.js';
 import type { AdvisorBot } from '../agents/advisorbot.js';
 import type { CreatorBot }  from '../agents/creatorbot.js';
@@ -108,7 +108,7 @@ export class EscalationHandler {
 
     if (input.startsWith('budget:')) {
       const n = parseInt(input.slice('budget:'.length), 10);
-      return { outcome: 'resume_budget', budget: isNaN(n) ? 3 : n };
+      return { outcome: 'resume_budget', budget: isNaN(n) ? DEFAULT_BUDGET_EXTENSION : n };
     }
 
     // Everything else is treated as new instructions

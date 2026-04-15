@@ -29,7 +29,12 @@ function getSeedDir(sub: 'msb'): string | undefined {
     path.join(__dirname, '..', '..', 'seed', sub),
   ];
   for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
+    try {
+      fs.readdirSync(c);
+      return c;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
   }
   return undefined;
 }

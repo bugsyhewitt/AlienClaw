@@ -46,6 +46,26 @@ export const EMPLOYEE_REPORT_LEN = 20;
 export const MAX_STRIKE_COUNT         = 3;
 export const FAILFORWARD_MAX_ATTEMPTS = 2;
 
+// Scheduled job intervals
+export const REGISTRY_HEALTH_INTERVAL_MS = 5 * 60 * 1000;   // 5 minutes
+export const GENOME_AUDIT_INTERVAL_MS    = 15 * 60 * 1000;  // 15 minutes
+
+// Lock/retry
+export const LOCK_RETRY_MS   = 50;
+export const LOCK_MAX_TRIES  = 10;
+
+// Event loop tick
+export const EVENT_TICK_MS   = 50;
+
+// File read adapter — max file size (10 MB)
+export const MAX_FILE_READ_BYTES = 10 * 1024 * 1024;
+
+// Default budget extension (number of extra attempts when resuming with budget)
+export const DEFAULT_BUDGET_EXTENSION  = 3;
+
+// Domain slug max length (used in employee/specialist ID generation)
+export const DOMAIN_SLUG_MAX = 6;
+
 // Paths
 export const ALIENCLAW_HOME = process.env['ALIENCLAW_HOME']
   ?? `${homedir()}/.alienclaw`;
