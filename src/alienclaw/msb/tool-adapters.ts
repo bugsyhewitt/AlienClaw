@@ -143,14 +143,12 @@ const fileWriteAdapter: ToolFn = async (input) => {
 
   let created = false;
   try {
-    const flags = 'wx';
-    const handle = await fsPromises.open(resolved, flags);
-    await handle.write(content, 'utf-8');
-    await handle.close();
+    // Atomic create-or-fail: 'wx' fails if file already exists
+    await fsPromises.writeFile(resolved, content, { flag: 'wx', encoding: 'utf-8' });
     created = true;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-    await fsPromises.writeFile(resolved, content, 'utf-8');
+    throw err;  // refuse to overwrite — fail explicitly
   }
 
   const sizeBytes = Buffer.byteLength(content, 'utf-8');

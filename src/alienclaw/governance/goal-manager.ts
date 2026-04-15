@@ -1,18 +1,16 @@
+import * as fs from 'fs';
 import {
   readFileSync, writeFileSync,
   mkdirSync, renameSync, unlinkSync, openSync,
 } from 'fs';
 import { dirname } from 'path';
 import { errorMessage, sleep } from '../utils.js';
-import { PATHS } from '../constants.js';
+import { PATHS, LOCK_RETRY_MS, LOCK_MAX_TRIES } from '../constants.js';
 import type { Goal, GoalsFile, SubGoal, Campaign, Scheme } from '../types.js';
 
 const GOALS_PATH = PATHS.goals;
 const LOCK_PATH  = `${GOALS_PATH}.lock`;
 const TMP_PATH   = `${GOALS_PATH}.tmp`;
-
-const LOCK_RETRY_MS  = 50;
-const LOCK_MAX_TRIES = 10;
 
 function ensureGoalsDir(): void {
   const dir = dirname(GOALS_PATH);
