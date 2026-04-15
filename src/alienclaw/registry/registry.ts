@@ -13,8 +13,6 @@ import type { MartianSpec } from './ms-types.js';
 import { PATHS } from '../constants.js';
 
 class RegistryStore {
-  isLoaded = false;
-
   private store = new Map<string, MartianSpec>();
 
   /**
@@ -32,7 +30,6 @@ class RegistryStore {
     for (const spec of specs) {
       this.store.set(spec.id, spec);
     }
-    this.isLoaded = true;
   }
 
   /**

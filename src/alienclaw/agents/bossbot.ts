@@ -172,7 +172,7 @@ export class BossBot {
       }],
     };
     const response = await completeSimple(model, context, { apiKey });
-    const raw = extractText(response).trim().toLowerCase();
+    const raw = normalizeInput(extractText(response));
     if (raw.includes('constraint'))        return 'constraint';
     if (raw.includes('direction_change'))  return 'direction_change';
     return 'new_subgoal';
