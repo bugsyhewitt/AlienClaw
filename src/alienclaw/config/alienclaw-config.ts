@@ -6,7 +6,7 @@ import type { AlienClawConfig, UserPreferences } from '../types.js';
 
 function ensureDir(filePath: string): void {
   const dir = dirname(filePath);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  mkdirSync(dir, { recursive: true });  // idempotent — no pre-check needed
 }
 
 function loadOrCreate<T>(path: string, defaults: T): T {

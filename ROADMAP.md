@@ -414,6 +414,12 @@ Line 503 used hardcoded `3` for strike exhaustion check. Replaced with `MAX_STRI
 
 **File**: `src/alienclaw/registry/registry.ts`
 
+### Bug 66: Redundant `existsSync` before idempotent `mkdirSync` ✅ FIXED
+
+`ensureGoalsDir()` in goal-manager.ts and `ensureDir()` in alienclaw-config.ts both pre-checked `existsSync` before calling `mkdirSync` with `{ recursive: true }` — the pre-check was redundant since `mkdirSync({ recursive: true })` is already idempotent and only fails for reasons other than "exists". Removed both unnecessary guards.
+
+**Files**: `src/alienclaw/governance/goal-manager.ts`, `src/alienclaw/config/alienclaw-config.ts`
+
 ---
 
 ## Known Limitations

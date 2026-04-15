@@ -16,7 +16,7 @@ const LOCK_MAX_TRIES = 10;
 
 function ensureGoalsDir(): void {
   const dir = dirname(GOALS_PATH);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  mkdirSync(dir, { recursive: true });  // idempotent — no pre-check needed
 }
 
 async function acquireLock(): Promise<void> {
