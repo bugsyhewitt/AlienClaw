@@ -214,12 +214,13 @@ export function loadMsDirectory(
   const specs:  MartianSpec[]                    = [];
   const errors: { file: string; error: string }[] = [];
 
-  if (!fs.existsSync(dir)) {
+  let files: string[];
+  try {
+    files = fs.readdirSync(dir).filter(f => f.endsWith('.ms'));
+  } catch {
     if (options.strict) throw new MsParseError(`Registry directory not found: ${dir}`);
     return { specs, errors };
   }
-
-  const files = fs.readdirSync(dir).filter(f => f.endsWith('.ms'));
   for (const file of files) {
     const fullPath = path.join(dir, file);
     try {
