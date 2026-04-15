@@ -117,10 +117,7 @@ export class Employee {
     task:    string,
     context: Record<string, string> = {}
   ): Promise<SummonResult> {
-    const registry = getRegistry();
-    if (!registry.isLoaded) registry.load();
-
-    const martian = registry.bestForTool(tag);
+    const martian = getRegistry().bestForTool(tag);
 
     if (!martian) {
       return {

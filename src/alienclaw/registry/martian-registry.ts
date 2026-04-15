@@ -14,6 +14,7 @@
 import * as fs   from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os   from 'node:os';
+import { errorMessage } from '../utils.js';
 
 import { loadMsFile, MsParseError } from './ms-loader.js';
 import type { MartianSpec }         from './ms-types.js';
@@ -53,7 +54,7 @@ export class MartianRegistry {
         .map(d => d.name);
     } catch (err) {
       throw new RegistryError(
-        `Cannot read registry dir ${this.registryDir}: ${(err as Error).message}`
+        `Cannot read registry dir ${this.registryDir}: ${errorMessage(err)}`
       );
     }
 

@@ -31,7 +31,7 @@ async function acquireLock(): Promise<void> {
 }
 
 function releaseLock(): void {
-  try { if (existsSync(LOCK_PATH)) unlinkSync(LOCK_PATH); } catch { /* best-effort */ }
+  try { unlinkSync(LOCK_PATH); } catch { /* best-effort */ }
 }
 
 export class GoalManager {

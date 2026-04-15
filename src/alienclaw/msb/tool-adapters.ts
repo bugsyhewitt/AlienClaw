@@ -12,7 +12,7 @@
  * File paths are scoped to ALIENCLAW_HOME/workspace/ for safety.
  */
 
-import * as fs   from 'node:fs';
+import * as fsPromises  from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os   from 'node:os';
 
@@ -43,6 +43,8 @@ function assertInsideBoundary(filePath: string, boundary: string): string {
 // Dynamic import of OpenClaw tool so this module compiles without hard dep.
 // ---------------------------------------------------------------------------
 
+let _webSearchFn: ((arg: unknown) => Promise<unknown>) | undefined;
+
 const webSearchAdapter: ToolFn = async (input) => {
   const query = String(
     input['query'] ?? input['task'] ?? ''
@@ -50,16 +52,19 @@ const webSearchAdapter: ToolFn = async (input) => {
 
   if (!query) throw new Error('web_search: query is empty');
 
-  try {
-    // OpenClaw tool — path relative to compiled output
-    const mod = await import('../../agents/tools/web-search.js') as Record<string, unknown>;
-    const fn  = (mod['webSearch'] ?? mod['default']) as ((arg: unknown) => Promise<unknown>) | undefined;
-    if (typeof fn === 'function') {
-      const results = await fn({ query });
-      return { query, results };
+  // Resolve and cache the OpenClaw tool fn on first call
+  if (!_webSearchFn) {
+    try {
+      const mod = await import('../../agents/tools/web-search.js') as Record<string, unknown>;
+      _webSearchFn = (mod['webSearch'] ?? mod['default']) as ((arg: unknown) => Promise<unknown>) | undefined;
+    } catch {
+      // Tool unavailable — leave _webSearchFn undefined
     }
-  } catch {
-    // Tool unavailable in this environment — return typed stub
+  }
+
+  if (typeof _webSearchFn === 'function') {
+    const results = await _webSearchFn({ query });
+    return { query, results };
   }
 
   return {
@@ -74,21 +79,26 @@ const webSearchAdapter: ToolFn = async (input) => {
 // url_fetch
 // ---------------------------------------------------------------------------
 
+let _webFetchFn: ((arg: unknown) => Promise<unknown>) | undefined;
+
 const urlFetchAdapter: ToolFn = async (input) => {
   const url = String(input['url'] ?? '');
   if (!url.startsWith('https://')) {
     throw new Error(`url_fetch: URL must use https, got "${url}"`);
   }
 
-  try {
-    const mod = await import('../../agents/tools/web-fetch.js') as Record<string, unknown>;
-    const fn  = (mod['webFetch'] ?? mod['default']) as ((arg: unknown) => Promise<unknown>) | undefined;
-    if (typeof fn === 'function') {
-      const content = await fn({ url });
-      return { url, statusCode: 200, content: String(content ?? ''), contentType: 'text/html' };
+  if (!_webFetchFn) {
+    try {
+      const mod = await import('../../agents/tools/web-fetch.js') as Record<string, unknown>;
+      _webFetchFn = (mod['webFetch'] ?? mod['default']) as ((arg: unknown) => Promise<unknown>) | undefined;
+    } catch {
+      // Tool unavailable
     }
-  } catch {
-    // stub
+  }
+
+  if (typeof _webFetchFn === 'function') {
+    const content = await _webFetchFn({ url });
+    return { url, statusCode: 200, content: String(content ?? ''), contentType: 'text/html' };
   }
 
   return { url, statusCode: 0, content: '', _stub: true };
@@ -102,18 +112,23 @@ const fileReadAdapter: ToolFn = async (input) => {
   const rawPath  = String(input['path'] ?? input['task'] ?? '');
   const resolved = assertInsideBoundary(rawPath, WORKSPACE);
 
-  if (!fs.existsSync(resolved)) {
-    throw new Error(`file_read: not found: ${resolved}`);
+  let contents: string;
+  try {
+    contents = await fsPromises.readFile(resolved, 'utf-8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`file_read: not found: ${resolved}`);
+    }
+    throw err;
   }
 
-  const stat = fs.statSync(resolved);
-  const MAX  = 10 * 1024 * 1024;
-  if (stat.size > MAX) {
-    throw new Error(`file_read: file too large (${stat.size} bytes, limit ${MAX})`);
+  const MAX = 10 * 1024 * 1024;
+  const sizeBytes = Buffer.byteLength(contents, 'utf-8');
+  if (sizeBytes > MAX) {
+    throw new Error(`file_read: file too large (${sizeBytes} bytes, limit ${MAX})`);
   }
 
-  const contents = fs.readFileSync(resolved, 'utf-8');
-  return { path: rawPath, contents, sizeBytes: stat.size };
+  return { path: rawPath, contents, sizeBytes };
 };
 
 // ---------------------------------------------------------------------------
@@ -127,13 +142,19 @@ const fileWriteAdapter: ToolFn = async (input) => {
     : JSON.stringify(input['content'] ?? '');
 
   const resolved = assertInsideBoundary(rawPath, OUTPUT_DIR);
-  fs.mkdirSync(path.dirname(resolved), { recursive: true });
+  await fsPromises.mkdir(path.dirname(resolved), { recursive: true });
 
-  const existed   = fs.existsSync(resolved);
-  fs.writeFileSync(resolved, content, 'utf-8');
+  let created = false;
+  try {
+    await fsPromises.writeFile(resolved, content, 'utf-8');
+    created = true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    await fsPromises.writeFile(resolved, content, 'utf-8');
+  }
+
   const sizeBytes = Buffer.byteLength(content, 'utf-8');
-
-  return { path: rawPath, sizeBytes, created: !existed };
+  return { path: rawPath, sizeBytes, created };
 };
 
 // ---------------------------------------------------------------------------

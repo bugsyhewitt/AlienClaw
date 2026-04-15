@@ -149,32 +149,6 @@ export class BossBot {
   }
 
   /**
-   * Decompose a goal description into ordered sub-goals via a real LLM call.
-   * Routes through OpenClaw's provider layer (anthropic provider, claude-opus-4-5).
-   */
-  async decompose(goalDescription: string): Promise<SubGoal[]> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
-    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
-    const context: Context = {
-      systemPrompt:
-        `${this.soul}\n\n` +
-        `## Decompose Task\n` +
-        `Decompose the user goal into sub-goals.\n` +
-        `Respond ONLY with a JSON array — no prose, no markdown fences.\n` +
-        `Schema: [{"description":"string","domain":"string","dependsOn":[]}]\n` +
-        `Use short domain tags: analysis, implementation, testing, research, writing, configuration.\n` +
-        `Set dependsOn to [] for sub-goals that can start immediately in parallel.`,
-      messages: [{
-        role:      'user',
-        content:   `Decompose this goal into sub-goals:\n\n${goalDescription}`,
-        timestamp: Date.now(),
-      }],
-    };
-    const response = await completeSimple(model, context, { apiKey });
-    return parseSubGoals(extractText(response));
-  }
-
-  /**
    * Classify mid-execution user input into one of three categories.
    */
   async classifyUserInput(
