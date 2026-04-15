@@ -11,6 +11,7 @@ import {
   REGISTRY_HEALTH_INTERVAL_MS,
   GENOME_AUDIT_INTERVAL_MS,
 } from '../constants.js';
+import type { MartianSpec } from '../registry/ms-types.js';
 import { GoalManager }       from '../governance/goal-manager.js';
 import { TaskManager }       from '../governance/task-manager.js';
 import { EscalationHandler } from '../governance/escalation-handler.js';
@@ -79,41 +80,35 @@ export function bootstrap(): BootstrapResult {
 
   // ── CreatorBot scheduled jobs ─────────────────────────────────────────────
   // Register default maintenance jobs. More can be added by extensions.
-  creatorBot.registerScheduledJob({
-    label:      'registry-health-check',
-    intervalMs: REGISTRY_HEALTH_INTERVAL_MS,
-    fn: async () => {
-      // Phase 2B: run fitness audit on loaded Martian, flag anomalies
+
+  /** Audit every Martian in the registry against a predicate, enqueuing URGENT on match */
+  function registerAuditJob(
+    label:      string,
+    intervalMs: number,
+    predicate: (ms: MartianSpec) => string | undefined,  // returns msg if anomalous
+  ): void {
+    creatorBot.registerScheduledJob({ label, intervalMs, fn: async () => {
       const loaded = registry.list();
       for (const ms of loaded) {
-        if (ms.fitness < 0 || ms.fitness > 1) {
-          creatorBot.enqueue(
-            'URGENT',
-            `Martian ${ms.id} has invalid fitness score: ${ms.fitness}`,
-            `Registry health check`
-          );
-        }
+        const msg = predicate(ms);
+        if (msg) creatorBot.enqueue('URGENT', msg, label);
       }
-    },
+    }});
+  }
+
+  registerAuditJob('registry-health-check', REGISTRY_HEALTH_INTERVAL_MS, ms => {
+    if (ms.fitness < 0 || ms.fitness > 1) {
+      return `Martian ${ms.id} has invalid fitness score: ${ms.fitness}`;
+    }
+    return undefined;
   });
 
-  creatorBot.registerScheduledJob({
-    label:      'genome-checksum-audit',
-    intervalMs: GENOME_AUDIT_INTERVAL_MS,
-    fn: async () => {
-      // Phase 2B: revalidate all genome checksums, flag corruption
-      const loaded = registry.list();
-      for (const ms of loaded) {
-        const result = validateGenome(ms.genome);
-        if (!result.valid) {
-          creatorBot.enqueue(
-            'URGENT',
-            `Genome corruption detected in ${ms.id}: ${result.errors.join('; ')}`,
-            `Genome checksum audit`
-          );
-        }
-      }
-    },
+  registerAuditJob('genome-checksum-audit', GENOME_AUDIT_INTERVAL_MS, ms => {
+    const result = validateGenome(ms.genome);
+    if (!result.valid) {
+      return `Genome corruption detected in ${ms.id}: ${result.errors.join('; ')}`;
+    }
+    return undefined;
   });
 
   // ── Start all three agents simultaneously ─────────────────────────────────
