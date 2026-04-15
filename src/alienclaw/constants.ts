@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+
 export const ALIENCLAW_PROVIDER = 'anthropic' as const;
 
 export const ALIENCLAW_MODELS = {
@@ -46,7 +48,7 @@ export const FAILFORWARD_MAX_ATTEMPTS = 2;
 
 // Paths
 export const ALIENCLAW_HOME = process.env['ALIENCLAW_HOME']
-  ?? `${process.env['HOME']}/.alienclaw`;
+  ?? `${homedir()}/.alienclaw`;
 
 export const PATHS = {
   home:        ALIENCLAW_HOME,

@@ -1,5 +1,5 @@
 import { sleep, errorMessage } from '../utils.js';
-import { EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
+import { EMPLOYEE_DEFAULT_MODEL, MAX_STRIKE_COUNT } from '../constants.js';
 import type {
   GovernanceState, GovernanceEvent, TransitionHook,
   Goal, SubGoal, Campaign,
@@ -500,7 +500,7 @@ export class GovernanceLoop {
       `Sub-goal failed (strike ${task.strikeCount + 1}): "${subGoal.description}"`
     );
 
-    const willBeExhausted = (task.strikeCount + 1) >= 3;
+    const willBeExhausted = (task.strikeCount + 1) >= MAX_STRIKE_COUNT;
     if (!willBeExhausted) {
       this.transition('AWAITING_ADVICE', `Strike ${task.strikeCount + 1} — consulting AdvisorBot`);
     }

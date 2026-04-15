@@ -151,10 +151,11 @@ export function loadMsbCached(
   toolName:  string,
   msbDir:    string,
 ): MartianBrain {
-  if (_cache.has(toolName)) return _cache.get(toolName)!;
+  const key = `${msbDir}:${toolName}`;
+  if (_cache.has(key)) return _cache.get(key)!;
   const filePath = path.join(msbDir, `${toolName}.msb`);
   const brain    = loadMsbFile(filePath);
-  _cache.set(toolName, brain);
+  _cache.set(key, brain);
   return brain;
 }
 

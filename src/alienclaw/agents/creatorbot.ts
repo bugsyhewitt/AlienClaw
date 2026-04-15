@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { AGENT_MODELS, PATHS, GENOME_LENGTH, EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
@@ -206,7 +206,7 @@ export class CreatorBot {
   }
 
   writeMs(msId: string, content: string): void {
-    if (!existsSync(PATHS.ms)) mkdirSync(PATHS.ms, { recursive: true });
+    mkdirSync(PATHS.ms, { recursive: true });
     writeFileSync(join(PATHS.ms, `${msId}.ms`), content, 'utf-8');
   }
 

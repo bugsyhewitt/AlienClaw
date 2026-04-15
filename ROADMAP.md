@@ -264,6 +264,72 @@ Crash recovery loop called `updateCampaign`/`updateSubGoal` sequentially — eac
 
 **File**: `src/alienclaw/governance/governance-loop.ts`
 
+### Bug 41: Dead `decompose()` method in BossBot ✅ FIXED
+
+`decompose(goalDescription)` was defined but never called anywhere. Removed the dead method.
+
+**File**: `src/alienclaw/agents/bossbot.ts`
+
+### Bug 42: Blocking sync I/O in `fileReadAdapter` ✅ FIXED
+
+`fileReadAdapter` used three synchronous calls (`existsSync`, `statSync`, `readFileSync`) on the tool execution hot path. Converted to async `fs.promises.readFile` — removes event-loop blocking and eliminates the TOCTOU `existsSync` pre-check.
+
+**File**: `src/alienclaw/msb/tool-adapters.ts`
+
+### Bug 43: Blocking sync I/O in `fileWriteAdapter` ✅ FIXED
+
+`fileWriteAdapter` used sync `writeFileSync` and a TOCTOU `existsSync` for the `created` flag. Converted to async with `O_CREAT|O_EXCL` for atomic create detection.
+
+**File**: `src/alienclaw/msb/tool-adapters.ts`
+
+### Bug 44: Dynamic `import()` on every web_search/url_fetch call ✅ FIXED
+
+Both adapters called `await import(...)` on every invocation, allocating a Promise and re-resolving the module every time. Added module-level cache for the resolved function — subsequent calls skip the import entirely.
+
+**File**: `src/alienclaw/msb/tool-adapters.ts`
+
+### Bug 45: Redundant `isLoaded` guard on every `summonMartian` call ✅ FIXED
+
+`registry.load()` was already called at bootstrap in `hierarchy-bootstrap.ts`. Removed the per-call `if (!registry.isLoaded) registry.load()` guard — registry is guaranteed loaded before any summon can fire.
+
+**File**: `src/alienclaw/agents/employee.ts`
+
+### Bug 46: Magic number `3` instead of `MAX_STRIKE_COUNT` ✅ FIXED
+
+Line 503 used hardcoded `3` for strike exhaustion check. Replaced with `MAX_STRIKE_COUNT` constant.
+
+**File**: `src/alienclaw/governance/governance-loop.ts`
+
+### Bug 47: `process.env['HOME']` not cross-platform ✅ FIXED
+
+`constants.ts` used `process.env['HOME']` which is undefined on Windows. Changed to `homedir()` from `node:os`.
+
+**File**: `src/alienclaw/constants.ts`
+
+### Bug 48: Unsafe `as Error` cast in martian-registry ✅ FIXED
+
+`(err as Error).message` silently drops the message for non-Error throws. Replaced with `errorMessage(err)` utility.
+
+**File**: `src/alienclaw/registry/martian-registry.ts`
+
+### Bug 49: MSB cache key ignores `msbDir` ✅ FIXED
+
+`loadMsbCached` keyed only on `toolName` — same tool name from a different `msbDir` would return a cached brain from the wrong directory. Changed key to `` `${msbDir}:${toolName}` ``.
+
+**File**: `src/alienclaw/msb/msb-loader.ts`
+
+### Bug 50: Redundant `existsSync` before `unlinkSync` in `releaseLock` ✅ FIXED
+
+`releaseLock` pre-checked `existsSync` before `unlinkSync` — the latter already throws `ENOENT` which is caught. Removed the redundant check.
+
+**File**: `src/alienclaw/governance/goal-manager.ts`
+
+### Bug 51: Redundant `existsSync` before `mkdirSync` in `writeMs` ✅ FIXED
+
+`mkdirSync` with `{ recursive: true }` is already idempotent — pre-checking is a redundant syscall and adds a race window. Removed.
+
+**File**: `src/alienclaw/agents/creatorbot.ts`
+
 ---
 
 ## Known Limitations
