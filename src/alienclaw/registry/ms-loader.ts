@@ -211,7 +211,6 @@ export function loadMsDirectory(
   dir:     string,
   options: { strict?: boolean } = {}
 ): { specs: MartianSpec[]; errors: { file: string; error: string }[] } {
-  const specs:  MartianSpec[]                    = [];
   const errors: { file: string; error: string }[] = [];
 
   let files: string[];
@@ -219,8 +218,12 @@ export function loadMsDirectory(
     files = fs.readdirSync(dir).filter(f => f.endsWith('.ms'));
   } catch {
     if (options.strict) throw new MsParseError(`Registry directory not found: ${dir}`);
-    return { specs, errors };
+    return { specs: [], errors };
   }
+
+  // Revert to sync reads — loadMsFile does its own readFileSync internally,
+  // and this function is called at startup (not hot path). Parallelizing
+  // would require re-architecting loadMsFile to accept raw content.
   for (const file of files) {
     const fullPath = path.join(dir, file);
     try {

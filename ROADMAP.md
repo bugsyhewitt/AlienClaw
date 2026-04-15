@@ -402,6 +402,18 @@ Line 503 used hardcoded `3` for strike exhaustion check. Replaced with `MAX_STRI
 
 **File**: `src/alienclaw/msb/martian-executor.ts`
 
+### Bug 64: `isBase62` O(n²) — `Array.includes` per char + array spread ✅ FIXED
+
+`[...s].every(c => BASE62_ALPHABET.includes(c))` was O(62) per character and created a new 256-element array via spread. Replaced with a module-level `Set<string>` built once at load time, making per-character lookup O(1).
+
+**File**: `src/alienclaw/registry/genome-codec.ts`
+
+### Bug 65: `bestForTool` O(n) linear scan on hot path ✅ FIXED
+
+`summonMartian` called `bestForTool` on every invocation — O(n) with O(m) `.includes` per iteration. Built a `toolIndex: Map<toolTag, MartianSpec>` at `load()` time keyed by tool tag, storing only the highest-fitness active Martian per tag. `bestForTool` is now O(1).
+
+**File**: `src/alienclaw/registry/registry.ts`
+
 ---
 
 ## Known Limitations

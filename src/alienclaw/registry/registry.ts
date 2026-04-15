@@ -13,7 +13,9 @@ import type { MartianSpec } from './ms-types.js';
 import { PATHS } from '../constants.js';
 
 class RegistryStore {
-  private store = new Map<string, MartianSpec>();
+  private store     = new Map<string, MartianSpec>();
+  // toolTag → best active Martian for that tag (O(1) lookup)
+  private toolIndex = new Map<string, MartianSpec>();
 
   /**
    * Synchronously load all .ms files from the given directory.
@@ -26,9 +28,19 @@ class RegistryStore {
         console.warn(`[Registry] Skipping ${e.file}: ${e.error}`);
       }
     }
+
     this.store.clear();
+    this.toolIndex.clear();
+
     for (const spec of specs) {
       this.store.set(spec.id, spec);
+      if (spec.status !== 'active') continue;
+      for (const tag of spec.toolTags) {
+        const existing = this.toolIndex.get(tag);
+        if (!existing || spec.fitness > existing.fitness) {
+          this.toolIndex.set(tag, spec);
+        }
+      }
     }
   }
 
@@ -37,13 +49,7 @@ class RegistryStore {
    * Returns undefined if no match — caller escalates to BossBot.
    */
   bestForTool(toolTag: string): MartianSpec | undefined {
-    let best: MartianSpec | undefined;
-    for (const s of this.store.values()) {
-      if (s.status !== 'active') continue;
-      if (!s.toolTags.includes(toolTag)) continue;
-      if (!best || s.fitness > best.fitness) best = s;
-    }
-    return best;
+    return this.toolIndex.get(toolTag);
   }
 
   get(id: string): MartianSpec | undefined {
