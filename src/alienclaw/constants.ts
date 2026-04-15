@@ -16,19 +16,33 @@ export const AGENT_MODELS: Record<TierAAgent, string> = {
 
 export const EMPLOYEE_DEFAULT_MODEL = ALIENCLAW_MODELS.FAST;
 
-// Genome hard invariants
-export const GENOME_LENGTH      = 256;
-export const GENOME_BLOCK_COUNT = 8;
-export const GENOME_BLOCK_SIZE  = 32;
+// Genome hard invariants — 256-char Base62, 4 sections × 64 chars
+// Section 0: IDENTITY   (chars 0-63)   — ID, generation, tool family
+// Section 1: EXECUTION  (chars 64-127) — flow type, retry, performance
+// Section 2: BEHAVIOR   (chars 128-191)— escalation policy, output contract
+// Section 3: CHECKSUM   (chars 192-255)— FNV-1a over sections 0-2
+export const GENOME_LENGTH        = 256;
+export const GENOME_SECTION_COUNT = 4;
+export const GENOME_SECTION_SIZE  = 64;
 
-// Report code lengths (v0.2 — not implemented yet)
+// Meeseeks tool cap — a single Meeseeks file may declare at most 4 tools
+export const MAX_MS_TOOLS = 4;
+
+// Meeseeks cannot spawn other Meeseeks (depth must stay at 0)
+export const MAX_MEESEEKS_DEPTH = 0;
+
+// Report routing — only these two Tier-A agents receive Meeseeks execution
+// reports and sub-agent reports. BossBot is intentionally excluded.
+export const REPORT_RECIPIENTS = ['AdvisorBot', 'CreatorBot'] as const;
+export type ReportRecipient = typeof REPORT_RECIPIENTS[number];
+
+// Report code lengths
 export const MEESEEKS_REPORT_LEN = 8;
 export const EMPLOYEE_REPORT_LEN = 20;
 
 // Escalation
 export const MAX_STRIKE_COUNT         = 3;
 export const FAILFORWARD_MAX_ATTEMPTS = 2;
-export const MAX_MEESEEKS_DEPTH       = 1;
 
 // Paths
 export const ALIENCLAW_HOME = process.env['ALIENCLAW_HOME']

@@ -15,10 +15,13 @@ export { agentRegistry }   from './agents/agent-registry.js';
 export {
   Employee,
   buildEmployee,
+  buildSpecialist,
   registerEmployee,
   deregisterEmployee,
   getEmployee,
   getAllEmployees,
+  getCampaignSpecialists,
+  disposeCampaign,
 } from './agents/employee.js';
 
 // Config
@@ -35,16 +38,15 @@ export { bootstrap }         from './wiring/hierarchy-bootstrap.js';
 
 // Registry (Phase 3)
 // Selective exports to avoid name clashes with constants.ts
-// (genome-codec re-exports GENOME_LENGTH, BLOCK_SIZE, etc.)
 export {
   validateGenome,
   assembleGenome,
   parseGenome,
   computeChecksum,
   BASE62_ALPHABET,
-  BLOCK,
+  SECTION,
 } from './registry/genome-codec.js';
-export type { GenomeBlocks, GenomeValidationResult, BlockIndex } from './registry/genome-codec.js';
+export type { GenomeSections, GenomeValidationResult, SectionIndex } from './registry/genome-codec.js';
 export type { MeeseeksSpec, MeeseeksStatus, GraveyardEntry,
               MeeseeksExecutionInput, MeeseeksExecutionResult, MeeseeksOutcome } from './registry/ms-types.js';
 export { loadMsFile, loadMsDirectory, MsParseError }       from './registry/ms-loader.js';

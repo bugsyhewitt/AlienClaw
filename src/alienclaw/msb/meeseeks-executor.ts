@@ -1,13 +1,19 @@
 /**
  * meeseeks-executor.ts
- * Executes a Meeseeks synchronously: runs its tool(s) via MSB conditioning.
+ * Executes a Meeseeks via its declared tools and MSB conditioning.
  *
  * Hard invariants enforced:
- *   - Meeseeks execute ONE tool call each (no chains)
- *   - No nested Meeseeks (depth enforced by caller via ExecutionContext)
+ *   - A Meeseeks may call at most MAX_MS_TOOLS (4) tools per execution
+ *   - No nested Meeseeks (depth must stay at 0 — Meeseeks cannot spawn Meeseeks)
  *   - Execution terminates fully before returning control
  *   - Returns SUCCESS | FAILURE | ESCALATED
  *   - MSB is conditioning text only — no control logic lives there
+ *
+ * Genome section layout (4 × 64 chars):
+ *   Section 0 IDENTITY  (chars   0– 63): ID, generation, tool family
+ *   Section 1 EXECUTION (chars  64–127): flow, retry config, performance — read here
+ *   Section 2 BEHAVIOR  (chars 128–191): escalation, output contract — read here
+ *   Section 3 CHECKSUM  (chars 192–255): integrity (not read during execution)
  */
 
 import * as path from 'node:path';
@@ -36,8 +42,6 @@ export type ToolFn = (input: Record<string, unknown>) => Promise<unknown>;
 
 /**
  * Interface implemented by tool resolvers (e.g. OpenClawToolResolver).
- * Phase 3 uses the flat registerToolAdapter() approach; this interface
- * is available for class-based resolvers in future phases.
  */
 export interface ToolResolver {
   resolve(toolName: string): ToolFn | undefined;
@@ -57,7 +61,7 @@ export function getToolAdapter(toolName: string): ToolFn | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Genome block helpers
+// Genome section helpers
 // ---------------------------------------------------------------------------
 
 interface RetryConfig {
@@ -69,18 +73,24 @@ interface EscalationConfig {
   failForward: boolean;
 }
 
-function parseRetryBlock(block: string): RetryConfig {
-  // Block 3 (retry): first 2 chars encode maxAttempts and backoff.
-  const char0       = block.charCodeAt(0) - 48;
+/**
+ * Parse retry/performance config from Section 1 (EXECUTION, chars 64–127).
+ * First two chars of the section encode maxAttempts and backoff.
+ */
+function parseExecutionSection(section: string): RetryConfig {
+  const char0       = section.charCodeAt(0) - 48;
   const maxAttempts = Math.max(1, Math.min(5, char0 % 5 + 1));
-  const char1       = block.charCodeAt(1) - 48;
+  const char1       = section.charCodeAt(1) - 48;
   const backoffMs   = Math.max(100, (char1 % 10) * 500);
   return { maxAttempts, backoffMs };
 }
 
-function parseEscalationBlock(block: string): EscalationConfig {
-  // Block 4 (escalation): if first char is 'F', fail-forward is enabled.
-  const failForward = block[0] === 'F';
+/**
+ * Parse escalation policy from Section 2 (BEHAVIOR, chars 128–191).
+ * If the first char is 'F', fail-forward is enabled.
+ */
+function parseBehaviorSection(section: string): EscalationConfig {
+  const failForward = section[0] === 'F';
   return { failForward };
 }
 
@@ -131,7 +141,10 @@ async function invokeToolWithRetry(
 // ---------------------------------------------------------------------------
 
 export interface ExecutionContext {
-  /** Current nesting depth. Must be 0 — Meeseeks cannot spawn Meeseeks. */
+  /**
+   * Current nesting depth. Must be 0.
+   * Meeseeks cannot spawn other Meeseeks — this is a hard invariant.
+   */
   depth: number;
 }
 
@@ -140,7 +153,7 @@ export async function executeMeeseeks(
   msbDir?: string,
   ctx:     ExecutionContext = { depth: 0 },
 ): Promise<MeeseeksExecutionResult> {
-  // Hard invariant: no nested Meeseeks
+  // Hard invariant: Meeseeks cannot spawn Meeseeks
   if (ctx.depth > 0) {
     throw new Error(
       `[Hard invariant] Meeseeks cannot spawn other Meeseeks. depth=${ctx.depth}`
@@ -150,10 +163,10 @@ export async function executeMeeseeks(
   const { meeseeks, task, context } = input;
   const resolvedMsbDir = msbDir ?? DEFAULT_MSB_DIR;
 
-  // Parse genome for retry and escalation config
-  const blocks      = parseGenome(meeseeks.genome);
-  const retryConfig = parseRetryBlock(blocks.retryLogic);
-  const escalConfig = parseEscalationBlock(blocks.escalation);
+  // Parse genome sections for execution config
+  const sections     = parseGenome(meeseeks.genome);
+  const retryConfig  = parseExecutionSection(sections.execution);
+  const escalConfig  = parseBehaviorSection(sections.behavior);
 
   if (meeseeks.tools.length === 0) {
     return {

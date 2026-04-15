@@ -4,12 +4,22 @@
  *
  * MSB files are conditioning text — they describe HOW a tool behaves
  * so that Meeseeks can invoke it correctly. No executable logic lives here.
+ *
+ * Required sections:
+ *   TOOL, VERSION, CAPABILITIES, LIMITATIONS, FAILURE MODES,
+ *   BEST PRACTICES, EXECUTION ORDER, OUTPUT CONTRACT,
+ *   GENOME SECTIONS, VARIABLES
+ *
+ * GENOME SECTIONS documents what each of the 4 genome sections means for
+ * this specific tool (used by AdvisorBot/CreatorBot for tuning/debugging).
+ *
+ * VARIABLES documents the execution-context keys available to this tool.
  */
 
 import * as fs   from 'node:fs';
 import * as path from 'node:path';
 
-import type { MeeseeksBrain, MsbValidationResult } from './msb-types.js';
+import type { MeeseeksBrain, MsbValidationResult, GenomeSectionDocs } from './msb-types.js';
 
 const REQUIRED_SECTIONS = [
   'TOOL',
@@ -20,12 +30,14 @@ const REQUIRED_SECTIONS = [
   'BEST PRACTICES',
   'EXECUTION ORDER',
   'OUTPUT CONTRACT',
+  'GENOME SECTIONS',
+  'VARIABLES',
 ] as const;
 
 function extractField(raw: string, fieldName: string): string {
   const re = new RegExp(`^${fieldName}:\\s*(.+)$`, 'm');
   const m  = raw.match(re);
-  return m ? m[1].trim() : '';
+  return m ? m[1]!.trim() : '';
 }
 
 function extractSection(raw: string, sectionName: string): string {
@@ -35,7 +47,7 @@ function extractSection(raw: string, sectionName: string): string {
     'm'
   );
   const m = raw.match(re);
-  return m ? m[1].trim() : '';
+  return m ? m[1]!.trim() : '';
 }
 
 function extractExecutionOrder(raw: string): string[] {
@@ -45,6 +57,46 @@ function extractExecutionOrder(raw: string): string[] {
     .split('\n')
     .map(l => l.replace(/^\d+\.\s*/, '').trim())
     .filter(Boolean);
+}
+
+/**
+ * Parse GENOME SECTIONS block.
+ * Expected format:
+ *   GENOME SECTIONS:
+ *   IDENTITY: <description>
+ *   EXECUTION: <description>
+ *   BEHAVIOR: <description>
+ *   CHECKSUM: <description>
+ */
+function extractGenomeSections(raw: string): GenomeSectionDocs {
+  const block = extractSection(raw, 'GENOME SECTIONS');
+  const get = (key: string): string => {
+    const m = block.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
+    return m ? m[1]!.trim() : '';
+  };
+  return {
+    identity:  get('IDENTITY'),
+    execution: get('EXECUTION'),
+    behavior:  get('BEHAVIOR'),
+    checksum:  get('CHECKSUM'),
+  };
+}
+
+/**
+ * Parse VARIABLES block.
+ * Expected format:
+ *   VARIABLES:
+ *   <name>: <description>
+ *   <name>: <description>
+ */
+function extractVariables(raw: string): Record<string, string> {
+  const block  = extractSection(raw, 'VARIABLES');
+  const result: Record<string, string> = {};
+  for (const line of block.split('\n')) {
+    const m = line.match(/^(\S+):\s+(.+)$/);
+    if (m) result[m[1]!] = m[2]!.trim();
+  }
+  return result;
 }
 
 export function validateMsb(raw: string): MsbValidationResult {
@@ -76,6 +128,8 @@ export function parseMsbContent(raw: string, sourcePath?: string): MeeseeksBrain
     bestPractices:  extractSection(raw, 'BEST PRACTICES'),
     executionOrder: extractExecutionOrder(raw),
     outputContract: extractSection(raw, 'OUTPUT CONTRACT'),
+    genomeSections: extractGenomeSections(raw),
+    variables:      extractVariables(raw),
   };
 }
 

@@ -4,39 +4,40 @@
  *
  * HARD INVARIANTS enforced here:
  *   - Genome is always exactly 256 chars
- *   - 8 blocks × 32 chars
- *   - Block 0 (header) and Block 7 (checksum) are IMMUTABLE
- *   - Only CreatorBot may write or mutate .ms genome files
+ *   - 4 sections × 64 chars
+ *   - Section layout:
+ *       0 IDENTITY  (chars   0– 63) — Meeseeks ID, generation, tool family
+ *       1 EXECUTION (chars  64–127) — flow type, retry config, performance mode
+ *       2 BEHAVIOR  (chars 128–191) — escalation policy, output contract
+ *       3 CHECKSUM  (chars 192–255) — 64-char FNV-1a hash of sections 0–2
+ *   - Sections 0–2 are mutable by CreatorBot only
+ *   - Section 3 (checksum) is recomputed and immutable post-assembly
  *   - This codec is READ-ONLY from everyone else's perspective
  */
 
 export const BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-export const GENOME_LENGTH = 256;
-export const BLOCK_SIZE    = 32;
-export const BLOCK_COUNT   = 8;
+export const GENOME_LENGTH   = 256;
+export const SECTION_SIZE    = 64;
+export const SECTION_COUNT   = 4;
 
-export const BLOCK = {
-  HEADER:           0,
-  TOOL_DECLARATION: 1,
-  EXECUTION_FLOW:   2,
-  RETRY_LOGIC:      3,
-  ESCALATION:       4,
-  PERFORMANCE:      5,
-  OUTPUT_CONTRACT:  6,
-  CHECKSUM:         7,
+export const SECTION = {
+  IDENTITY:  0,
+  EXECUTION: 1,
+  BEHAVIOR:  2,
+  CHECKSUM:  3,
 } as const;
 
-export type BlockIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type SectionIndex = 0 | 1 | 2 | 3;
 
-export interface GenomeBlocks {
-  header:          string;
-  toolDeclaration: string;
-  executionFlow:   string;
-  retryLogic:      string;
-  escalation:      string;
-  performance:     string;
-  outputContract:  string;
-  checksum:        string;
+export interface GenomeSections {
+  /** Section 0: Meeseeks identity — ID tag, generation marker, tool family */
+  identity:  string;
+  /** Section 1: Execution parameters — flow, retry count/backoff, perf mode */
+  execution: string;
+  /** Section 2: Behavioral rules — escalation policy, output contract type */
+  behavior:  string;
+  /** Section 3: Integrity checksum (read-only; recomputed on assembly) */
+  checksum:  string;
 }
 
 export interface GenomeValidationResult {
@@ -49,54 +50,48 @@ function isBase62(s: string): boolean {
 }
 
 /**
- * Compute a deterministic 32-char Base62 checksum over blocks 0-6.
+ * Compute a deterministic 64-char Base62 checksum over sections 0–2 (192 chars).
  * FNV-1a-inspired rolling hash, mapped to Base62.
  */
-export function computeChecksum(blocks0to6: string): string {
-  if (blocks0to6.length !== BLOCK_SIZE * 7) {
+export function computeChecksum(sections012: string): string {
+  const expected = SECTION_SIZE * 3;
+  if (sections012.length !== expected) {
     throw new Error(
-      `computeChecksum: expected ${BLOCK_SIZE * 7} chars, got ${blocks0to6.length}`
+      `computeChecksum: expected ${expected} chars, got ${sections012.length}`
     );
   }
 
   let a = 0x811c9dc5 >>> 0;
   let b = 0xc59d1c81 >>> 0;
-  for (let i = 0; i < blocks0to6.length; i++) {
-    const ch = blocks0to6.charCodeAt(i);
-    a = (Math.imul(a ^ ch,          0x01000193)) >>> 0;
-    b = (Math.imul(b ^ (ch >>> 4),  0x01000193)) >>> 0;
+  for (let i = 0; i < sections012.length; i++) {
+    const ch = sections012.charCodeAt(i);
+    a = (Math.imul(a ^ ch,         0x01000193)) >>> 0;
+    b = (Math.imul(b ^ (ch >>> 4), 0x01000193)) >>> 0;
   }
 
-  // Produce 32 Base62 chars from two 32-bit values
+  // Produce 64 Base62 chars from two 32-bit values
   let digits = '';
-  let carry  = (a * 0x100000000 + b);   // NOTE: this is a float but fine for mod
-  // Work in integer space to stay deterministic
   let hi = a;
   let lo = b;
-  for (let i = 0; i < BLOCK_SIZE; i++) {
+  for (let i = 0; i < SECTION_SIZE; i++) {
     const idx = (hi ^ lo ^ i) % 62;
     digits += BASE62_ALPHABET[Math.abs(idx)];
     hi = (Math.imul(hi, 31) + lo + i) >>> 0;
     lo = (Math.imul(lo, 37) + hi)     >>> 0;
   }
-  void carry; // unused — suppress lint
   return digits;
 }
 
-export function parseGenome(genome: string): GenomeBlocks {
+export function parseGenome(genome: string): GenomeSections {
   if (genome.length !== GENOME_LENGTH) {
     throw new Error(`Genome must be exactly ${GENOME_LENGTH} chars; got ${genome.length}`);
   }
-  const g = (n: BlockIndex) => genome.slice(n * BLOCK_SIZE, (n + 1) * BLOCK_SIZE);
+  const s = (n: SectionIndex) => genome.slice(n * SECTION_SIZE, (n + 1) * SECTION_SIZE);
   return {
-    header:          g(0),
-    toolDeclaration: g(1),
-    executionFlow:   g(2),
-    retryLogic:      g(3),
-    escalation:      g(4),
-    performance:     g(5),
-    outputContract:  g(6),
-    checksum:        g(7),
+    identity:  s(0),
+    execution: s(1),
+    behavior:  s(2),
+    checksum:  s(3),
   };
 }
 
@@ -114,9 +109,9 @@ export function validateGenome(genome: string): GenomeValidationResult {
     errors.push('Genome must contain only Base62 characters (0-9, A-Z, a-z)');
   }
 
-  const blocks0to6      = genome.slice(0, BLOCK_SIZE * 7);
-  const storedChecksum  = genome.slice(BLOCK_SIZE * 7);
-  const expectedChecksum = computeChecksum(blocks0to6);
+  const body            = genome.slice(0, SECTION_SIZE * 3);
+  const storedChecksum  = genome.slice(SECTION_SIZE * 3);
+  const expectedChecksum = computeChecksum(body);
 
   if (storedChecksum !== expectedChecksum) {
     errors.push(
@@ -128,31 +123,27 @@ export function validateGenome(genome: string): GenomeValidationResult {
 }
 
 /**
- * Assemble a full genome from mutable blocks + an immutable header.
- * ONLY called by CreatorBot. Computes checksum automatically.
+ * Assemble a full 256-char genome from 3 mutable sections + auto-computed checksum.
+ * ONLY called by CreatorBot. Each section must be exactly 64 Base62 chars.
  */
 export function assembleGenome(
-  headerBlock:     string,
-  toolDeclaration: string,
-  executionFlow:   string,
-  retryLogic:      string,
-  escalation:      string,
-  performance:     string,
-  outputContract:  string,
+  identity:  string,
+  execution: string,
+  behavior:  string,
 ): string {
-  const blocks = [
-    headerBlock, toolDeclaration, executionFlow,
-    retryLogic,  escalation,      performance, outputContract,
-  ];
-  for (let i = 0; i < blocks.length; i++) {
-    if (blocks[i].length !== BLOCK_SIZE) {
-      throw new Error(`Block ${i} must be exactly ${BLOCK_SIZE} chars; got ${blocks[i].length}`);
+  const sections = [identity, execution, behavior];
+  const names    = ['identity', 'execution', 'behavior'];
+  for (let i = 0; i < sections.length; i++) {
+    if (sections[i]!.length !== SECTION_SIZE) {
+      throw new Error(
+        `Section ${i} (${names[i]}) must be exactly ${SECTION_SIZE} chars; got ${sections[i]!.length}`
+      );
     }
-    if (!isBase62(blocks[i])) {
-      throw new Error(`Block ${i} contains non-Base62 characters`);
+    if (!isBase62(sections[i]!)) {
+      throw new Error(`Section ${i} (${names[i]}) contains non-Base62 characters`);
     }
   }
-  const body     = blocks.join('');
+  const body     = sections.join('');
   const checksum = computeChecksum(body);
   return body + checksum;
 }

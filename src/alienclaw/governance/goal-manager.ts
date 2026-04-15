@@ -4,7 +4,7 @@ import {
 } from 'fs';
 import { dirname } from 'path';
 import { PATHS } from '../constants.js';
-import type { Goal, GoalsFile, SubGoal } from '../types.js';
+import type { Goal, GoalsFile, SubGoal, Campaign, Scheme } from '../types.js';
 
 const GOALS_PATH = PATHS.goals;
 const LOCK_PATH  = `${GOALS_PATH}.lock`;
@@ -127,5 +127,56 @@ export class GoalManager {
     goal.completedAt  = Date.now();
     file.activeGoalId = null;
     await this.save(file);
+  }
+
+  // ── Campaign / Scheme methods ───────────────────────────────────────────────
+
+  /** Attach a Scheme to an existing goal and initialise its campaigns. */
+  async attachScheme(goalId: string, scheme: Scheme): Promise<void> {
+    const file = this.load();
+    const goal = file.goals.find(g => g.id === goalId);
+    if (!goal) throw new Error(`Goal ${goalId} not found`);
+    goal.scheme = scheme;
+    await this.save(file);
+  }
+
+  /** Update a campaign's status and optional specialistIds list. */
+  async updateCampaign(
+    goalId:     string,
+    campaignId: string,
+    patch:      Partial<Pick<Campaign, 'status' | 'specialistIds'>>
+  ): Promise<void> {
+    const file = this.load();
+    const goal = file.goals.find(g => g.id === goalId);
+    if (!goal?.scheme) throw new Error(`Goal ${goalId} has no Scheme`);
+    const campaign = goal.scheme.campaigns.find(c => c.id === campaignId);
+    if (!campaign) throw new Error(`Campaign ${campaignId} not found`);
+    Object.assign(campaign, patch);
+    await this.save(file);
+  }
+
+  /** Campaigns whose dependencies are all complete and whose status is 'pending'. */
+  getReadyCampaigns(file: GoalsFile, goalId: string): Campaign[] {
+    const goal = file.goals.find(g => g.id === goalId);
+    if (!goal?.scheme) return [];
+    const doneIds = new Set(
+      goal.scheme.campaigns.filter(c => c.status === 'complete').map(c => c.id)
+    );
+    return goal.scheme.campaigns.filter(
+      c => c.status === 'pending' && c.dependsOn.every(dep => doneIds.has(dep))
+    );
+  }
+
+  getActiveCampaigns(file: GoalsFile, goalId: string): Campaign[] {
+    const goal = file.goals.find(g => g.id === goalId);
+    if (!goal?.scheme) return [];
+    return goal.scheme.campaigns.filter(c => c.status === 'active');
+  }
+
+  isSchemeComplete(file: GoalsFile, goalId: string): boolean {
+    const goal = file.goals.find(g => g.id === goalId);
+    if (!goal?.scheme) return false;
+    const { campaigns } = goal.scheme;
+    return campaigns.length > 0 && campaigns.every(c => c.status === 'complete');
   }
 }
