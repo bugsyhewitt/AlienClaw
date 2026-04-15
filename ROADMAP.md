@@ -330,6 +330,24 @@ Line 503 used hardcoded `3` for strike exhaustion check. Replaced with `MAX_STRI
 
 **File**: `src/alienclaw/agents/creatorbot.ts`
 
+### Bug 52: `registry.size` undefined reference in error message ✅ FIXED
+
+`employee.ts:126` referenced `registry.size` but no `registry` variable was in scope — the code used `getRegistry().bestForTool(tag)` directly on line 120. Would throw `ReferenceError` at runtime. Changed to `getRegistry().size`.
+
+**File**: `src/alienclaw/agents/employee.ts`
+
+### Bug 53: TOCTOU `existsSync` before `readFileSync` in `loadMsbFile` ✅ FIXED
+
+`loadMsbFile` pre-checked `existsSync` before `readFileSync` — a race window existed between the check and the read. Removed the pre-check; `readFileSync` throws `ENOENT` naturally which is caught and converted to a user-friendly message.
+
+**File**: `src/alienclaw/msb/msb-loader.ts`
+
+### Bug 54: TOCTOU `existsSync` before `readdirSync` in `loadMsDirectory` ✅ FIXED
+
+`loadMsDirectory` pre-checked `existsSync` before `readdirSync` to return empty specs if the registry directory doesn't exist. Wrapped `readdirSync` in try/catch — it throws naturally if the directory doesn't exist, eliminating the TOCTOU window.
+
+**File**: `src/alienclaw/registry/ms-loader.ts`
+
 ---
 
 ## Known Limitations

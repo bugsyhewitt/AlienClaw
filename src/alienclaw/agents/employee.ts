@@ -123,7 +123,7 @@ export class Employee {
       return {
         tag,
         outcome: 'FAILURE',
-        error:   `No active Martian for tool tag "${tag}" (registry size: ${registry.size})`,
+        error:   `No active Martian for tool tag "${tag}" (registry size: ${getRegistry().size})`,
         ts:      Date.now(),
       };
     }

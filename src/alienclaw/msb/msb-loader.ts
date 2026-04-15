@@ -134,10 +134,15 @@ export function parseMsbContent(raw: string, sourcePath?: string): MartianBrain 
 }
 
 export function loadMsbFile(filePath: string): MartianBrain {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`MSB file not found: ${filePath}`);
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`MSB file not found: ${filePath}`);
+    }
+    throw err;
   }
-  const raw = fs.readFileSync(filePath, 'utf-8');
   return parseMsbContent(raw, filePath);
 }
 
