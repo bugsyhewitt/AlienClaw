@@ -122,10 +122,6 @@ export class MartianRegistry {
     return this.store.size;
   }
 
-  get registryPath(): string {
-    return this.registryDir;
-  }
-
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------

@@ -155,9 +155,15 @@ function installMsbSeeds(overwrite: boolean): void {
   for (const file of files) {
     const src    = path.join(seedDir, file);
     const target = path.join(REGISTRY_MSB, file);
-    if (!fs.existsSync(target) || overwrite) {
+    try {
       fs.copyFileSync(src, target);
       console.log(`[SeedInstaller] Installed msb/${file}`);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+      if (overwrite) {
+        fs.copyFileSync(src, target);
+        console.log(`[SeedInstaller] Overwrote msb/${file}`);
+      }
     }
   }
 }
@@ -169,10 +175,17 @@ function installMsbSeeds(overwrite: boolean): void {
 function installMsSeeds(overwrite: boolean): void {
   for (const spec of SEED_SPECS) {
     const target = path.join(REGISTRY_MS, `${spec.id}.ms`);
-    if (!fs.existsSync(target) || overwrite) {
+    try {
       const content = buildMsContent(spec);
       fs.writeFileSync(target, content, 'utf-8');
       console.log(`[SeedInstaller] Installed ms/${spec.id}.ms (genome assembled fresh)`);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+      if (overwrite) {
+        const content = buildMsContent(spec);
+        fs.writeFileSync(target, content, 'utf-8');
+        console.log(`[SeedInstaller] Overwrote ms/${spec.id}.ms`);
+      }
     }
   }
 }

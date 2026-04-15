@@ -148,13 +148,14 @@ export class CreatorBot {
         spec.onComplete?.(result);
       })
       .catch(err => {
-        const error = err instanceof Error ? err : new Error(String(err));
+        const msg = errorMessage(err);
+        const error = err instanceof Error ? err : new Error(msg);
         if (spec.onError) {
           spec.onError(error);
         } else {
           this.enqueue(
             'NOTABLE',
-            `Subagent for "${spec.task}" failed: ${error.message}`,
+            `Subagent for "${spec.task}" failed: ${msg}`,
             `Domain: ${spec.domain}`
           );
         }

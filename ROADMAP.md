@@ -348,6 +348,36 @@ Line 503 used hardcoded `3` for strike exhaustion check. Replaced with `MAX_STRI
 
 **File**: `src/alienclaw/registry/ms-loader.ts`
 
+### Bug 55: Inline error message pattern in `spawnSubagent` catch ✅ FIXED
+
+`creatorbot.ts:151` used the inline `err instanceof Error ? err : new Error(String(err))` pattern. Replaced with `errorMessage(err)` utility. Also used `error.message` which duplicates `errorMessage(err)`.
+
+**File**: `src/alienclaw/agents/creatorbot.ts`
+
+### Bug 56: Inline `.trim().toLowerCase()` in user input classifier ✅ FIXED
+
+`bossbot.ts:175` used inline `.trim().toLowerCase()` on LLM output. Replaced with `normalizeInput()` utility.
+
+**File**: `src/alienclaw/agents/bossbot.ts`
+
+### Bug 57: Dead `isLoaded` field in `RegistryStore` ✅ FIXED
+
+`isLoaded = false` was set but never read — `loaded` state was tracked by the caller (martian-registry), not by the store itself. Removed the dead field.
+
+**File**: `src/alienclaw/registry/registry.ts`
+
+### Bug 58: Unused `registryPath` getter in `MartianRegistry` ✅ FIXED
+
+`get registryPath` was defined but never called anywhere. Removed the dead getter.
+
+**File**: `src/alienclaw/registry/martian-registry.ts`
+
+### Bug 59: TOCTOU `existsSync` before `copyFileSync`/`writeFileSync` in seed-installer ✅ FIXED
+
+`installMsbSeeds` and `installMsSeeds` used `existsSync` pre-checks before write operations — added a TOCTOU race window. Replaced with direct try/catch around the I/O operation, catching `EEXIST` for the non-overwrite case.
+
+**File**: `src/alienclaw/registry/seed-installer.ts`
+
 ---
 
 ## Known Limitations
