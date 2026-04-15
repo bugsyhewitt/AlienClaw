@@ -33,7 +33,8 @@ function getSeedDir(sub: 'msb'): string | undefined {
       fs.readdirSync(c);
       return c;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue;  // try next candidate
+      throw err;  // surface permission errors immediately
     }
   }
   return undefined;
@@ -179,15 +180,14 @@ function installMsbSeeds(overwrite: boolean): void {
 function installMsSeeds(overwrite: boolean): void {
   for (const spec of SEED_SPECS) {
     const target = path.join(REGISTRY_MS, `${spec.id}.ms`);
+    const content = buildMsContent(spec);  // build once
     try {
-      const content = buildMsContent(spec);
       fs.writeFileSync(target, content, 'utf-8');
       console.log(`[SeedInstaller] Installed ms/${spec.id}.ms (genome assembled fresh)`);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
       if (overwrite) {
-        const content = buildMsContent(spec);
-        fs.writeFileSync(target, content, 'utf-8');
+        fs.writeFileSync(target, content, 'utf-8');  // reuse content
         console.log(`[SeedInstaller] Overwrote ms/${spec.id}.ms`);
       }
     }
