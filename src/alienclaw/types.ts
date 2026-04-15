@@ -123,7 +123,7 @@ export type CampaignStatus = 'pending' | 'active' | 'complete' | 'failed';
 /**
  * A Specialist is a campaign-scoped Employee with deep domain knowledge.
  * It is created by CreatorBot and disposed when its Campaign ends.
- * Specialists never call tools directly — they summon Meeseeks intentionally.
+ * Specialists never call tools directly — they summon Martian intentionally.
  */
 export interface SpecialistRole {
   /** Human-readable role label, e.g. "Frontend Developer" */
@@ -132,8 +132,8 @@ export interface SpecialistRole {
   domain:       string;
   /** Campaign-specific expertise loaded into the specialist's soul at build time */
   knowledgeBase: string;
-  /** Meeseeks tool tags this specialist is expected to summon */
-  meeseeksTags: string[];
+  /** Martian tool tags this specialist is expected to summon */
+  martianTags: string[];
 }
 
 /**
@@ -194,7 +194,6 @@ export type TransitionHook = (
 export type GovernanceEvent =
   | { type: 'USER_GOAL';        description: string }
   | { type: 'USER_INPUT';       message: string }
-  | { type: 'SCHEME_READY';     goalId: string; scheme: Scheme }
   | { type: 'CAMPAIGN_READY';   goalId: string; campaignId: string }
   | { type: 'JOB_COMPLETE';     subGoalId: string; goalId: string; result: TaskResult }
   | { type: 'JOB_FAILED';       subGoalId: string; goalId: string; error: string };
@@ -218,11 +217,11 @@ export interface GoalsFile {
   goals:        Goal[];
 }
 
-// ── Specialist / Meeseeks summoning ───────────────────────────────────────────
+// ── Specialist / Martian summoning ───────────────────────────────────────────
 
 /**
- * Result returned by a specialist after summoning a Meeseeks.
- * Mirrors MeeseeksExecutionResult but typed at the specialist boundary.
+ * Result returned by a specialist after summoning a Martian.
+ * Mirrors MartianExecutionResult but typed at the specialist boundary.
  */
 export interface SummonResult {
   tag:       string;

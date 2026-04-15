@@ -3,11 +3,11 @@
  * Specialist agent — campaign-scoped domain expert built by CreatorBot.
  *
  * Design invariants:
- *   - Cannot call tools directly — ALWAYS via summonMeeseeks()
- *   - Cannot mutate Meeseeks genomes
+ *   - Cannot call tools directly — ALWAYS via summonMartian()
+ *   - Cannot mutate Martian genomes
  *   - Holds deep campaign-specific knowledge in its soul (injected at build time)
  *   - Is disposed when its Campaign ends (deregisterEmployee)
- *   - summonMeeseeks() is an intentional act, not a passive registry lookup
+ *   - summonMartian() is an intentional act, not a passive registry lookup
  */
 
 import { readFileSync } from 'node:fs';
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import {
   EMPLOYEE_DEFAULT_MODEL,
   FAILFORWARD_MAX_ATTEMPTS,
-  MEESEEKS_REPORT_LEN,
+  MARTIAN_REPORT_LEN,
 } from '../constants.js';
 import type {
   EmployeeSpec,
@@ -27,8 +27,9 @@ import type {
   SpecialistRole,
 } from '../types.js';
 import { getRegistry }       from '../registry/registry.js';
-import { executeMeeseeks }   from '../msb/meeseeks-executor.js';
-import type { MeeseeksExecutionInput } from '../registry/ms-types.js';
+import { executeMartian }   from '../msb/martian-executor.js';
+import type { MartianExecutionInput } from '../registry/ms-types.js';
+import { errorMessage }    from '../utils.js';
 import { telemetryWriter }   from '../telemetry/telemetry-writer.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,7 +55,7 @@ export class Employee {
   /** Campaign ID this specialist was built for (undefined for legacy generic employees) */
   readonly campaignId?: string;
 
-  /** Which Meeseeks tool tags this specialist is authorised to summon */
+  /** Which Martian tool tags this specialist is authorised to summon */
   readonly authorisedTags: ReadonlySet<string>;
 
   constructor(spec: EmployeeSpec, role?: SpecialistRole, campaignId?: string) {
@@ -80,13 +81,13 @@ export class Employee {
       soul += `\n\n---\n## Campaign Knowledge Base\n\n${role.knowledgeBase}`;
     }
 
-    if (role?.meeseeksTags?.length) {
-      soul += `\n\n## Authorised Meeseeks Tags\n\n` +
-              role.meeseeksTags.map(t => `- ${t}`).join('\n');
+    if (role?.martianTags?.length) {
+      soul += `\n\n## Authorised Martian Tags\n\n` +
+              role.martianTags.map(t => `- ${t}`).join('\n');
     }
 
     this.soul           = soul;
-    this.authorisedTags = new Set(role?.meeseeksTags ?? spec.toolTags);
+    this.authorisedTags = new Set(role?.martianTags ?? spec.toolTags);
   }
 
   systemPrompt(): string {
@@ -98,20 +99,20 @@ export class Employee {
     return this.soul.replace(/PENDING/g, task.taskId);
   }
 
-  // ── summonMeeseeks ──────────────────────────────────────────────────────────
+  // ── summonMartian ──────────────────────────────────────────────────────────
 
   /**
-   * Intentionally summon a specific Meeseeks by tool tag to execute work.
+   * Intentionally summon a specific Martian by tool tag to execute work.
    *
    * This is the specialist's only interface to tool execution — it is an
-   * explicit, intentional act. The specialist chooses WHICH Meeseeks to
+   * explicit, intentional act. The specialist chooses WHICH Martian to
    * call and WHY, rather than passively waiting for a registry lookup.
    *
-   * @param tag     - Meeseeks tool tag (must be in authorisedTags for specialists)
+   * @param tag     - Martian tool tag (must be in authorisedTags for specialists)
    * @param task    - Natural language task description
    * @param context - Key-value execution context (passed to the MSB executor)
    */
-  async summonMeeseeks(
+  async summonMartian(
     tag:     string,
     task:    string,
     context: Record<string, string> = {}
@@ -119,21 +120,21 @@ export class Employee {
     const registry = getRegistry();
     if (!registry.isLoaded) registry.load();
 
-    const meeseeks = registry.bestForTool(tag);
+    const martian = registry.bestForTool(tag);
 
-    if (!meeseeks) {
+    if (!martian) {
       return {
         tag,
         outcome: 'FAILURE',
-        error:   `No active Meeseeks for tool tag "${tag}" (registry size: ${registry.size})`,
+        error:   `No active Martian for tool tag "${tag}" (registry size: ${registry.size})`,
         ts:      Date.now(),
       };
     }
 
-    const execInput: MeeseeksExecutionInput = { meeseeks, task, context };
+    const execInput: MartianExecutionInput = { martian, task, context };
 
     try {
-      const result = await executeMeeseeks(execInput);
+      const result = await executeMartian(execInput);
 
       const summonResult: SummonResult = {
         tag,
@@ -144,25 +145,25 @@ export class Employee {
       };
 
       // Telemetry
-      const reportCode = meeseeks.id.slice(0, MEESEEKS_REPORT_LEN);
-      void telemetryWriter.writeMeeseeksReport(reportCode, {
+      const reportCode = martian.id.slice(0, MARTIAN_REPORT_LEN);
+      void telemetryWriter.writeMartianReport(reportCode, {
         taskId:     `summon-${Date.now()}`,
         employeeId: this.name,
-        meeseeksId: meeseeks.id,
+        martianId: martian.id,
         domain:     tag,
         outcome:    result.outcome,
         summary:    result.outcome === 'SUCCESS'
-          ? `Meeseeks ${meeseeks.id} succeeded: ${task.slice(0, 80)}`
-          : `Meeseeks ${meeseeks.id} failed: ${result.error ?? 'unknown'}`,
+          ? `Martian ${martian.id} succeeded: ${task.slice(0, 80)}`
+          : `Martian ${martian.id} failed: ${result.error ?? 'unknown'}`,
       });
 
       return summonResult;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errorMessage(err);
       return {
         tag,
         outcome: 'FAILURE',
-        error:   `Meeseeks ${meeseeks.id} threw unexpectedly: ${msg}`,
+        error:   `Martian ${martian.id} threw unexpectedly: ${msg}`,
         ts:      Date.now(),
       };
     }
@@ -171,7 +172,7 @@ export class Employee {
   // ── executeTask ─────────────────────────────────────────────────────────────
 
   /**
-   * Execute a task by summoning the appropriate Meeseeks.
+   * Execute a task by summoning the appropriate Martian.
    *
    * Uses the task's domain as the tool tag. For specialists with a defined
    * set of authorised tags, the domain must match one of them — otherwise
@@ -185,7 +186,7 @@ export class Employee {
       tag = [...this.authorisedTags][0];
     }
 
-    const summon = await this.summonMeeseeks(tag, task.description, {
+    const summon = await this.summonMartian(tag, task.description, {
       taskId:     task.taskId,
       employeeId: this.name,
       domain:     task.domain,
@@ -197,8 +198,8 @@ export class Employee {
       employeeId:    this.name,
       outcome:       summon.outcome,
       summary:       summon.outcome === 'SUCCESS'
-        ? `Meeseeks [${tag}] completed: ${task.description.slice(0, 80)}`
-        : `Meeseeks [${tag}] failed: ${summon.error ?? 'unknown'}`,
+        ? `Martian [${tag}] completed: ${task.description.slice(0, 80)}`
+        : `Martian [${tag}] failed: ${summon.error ?? 'unknown'}`,
       failureReason: summon.error,
       ts:            Date.now(),
     };

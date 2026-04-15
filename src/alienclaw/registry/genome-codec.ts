@@ -1,12 +1,12 @@
 /**
  * genome-codec.ts
- * Parse, validate, and inspect 256-char Base62 Meeseeks genomes.
+ * Parse, validate, and inspect 256-char Base62 Martian genomes.
  *
  * HARD INVARIANTS enforced here:
  *   - Genome is always exactly 256 chars
  *   - 4 sections × 64 chars
  *   - Section layout:
- *       0 IDENTITY  (chars   0– 63) — Meeseeks ID, generation, tool family
+ *       0 IDENTITY  (chars   0– 63) — Martian ID, generation, tool family
  *       1 EXECUTION (chars  64–127) — flow type, retry config, performance mode
  *       2 BEHAVIOR  (chars 128–191) — escalation policy, output contract
  *       3 CHECKSUM  (chars 192–255) — 64-char FNV-1a hash of sections 0–2
@@ -30,7 +30,7 @@ export const SECTION = {
 export type SectionIndex = 0 | 1 | 2 | 3;
 
 export interface GenomeSections {
-  /** Section 0: Meeseeks identity — ID tag, generation marker, tool family */
+  /** Section 0: Martian identity — ID tag, generation marker, tool family */
   identity:  string;
   /** Section 1: Execution parameters — flow, retry count/backoff, perf mode */
   execution: string;

@@ -1,5 +1,5 @@
-import type { AdvisorBot } from '../agents/advisorbot.js';
-import type { BossBot }    from '../agents/bossbot.js';
+import { normalizeInput } from '../utils.js';
+import type { AdvisorBot }  from '../agents/advisorbot.js';
 import type { GoalManager } from './goal-manager.js';
 import type { UserChannel } from '../comms/user-channel.js';
 import type { SubGoal }     from '../types.js';
@@ -12,10 +12,29 @@ export type SignoffOutcome =
   | { approved: true }
   | { approved: false; instructions: string };
 
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+function goalStatusLines(goal: { subGoals: SubGoal[]; scheme?: { campaigns: Array<{ name: string; objective: string; status: string }> } }): string[] {
+  const subGoalLines = goal.subGoals
+    .map(s => `  [${s.status.toUpperCase()}] ${s.description}`);
+  const campaignLines = (goal.scheme?.campaigns ?? [])
+    .map(c => `  [${c.status.toUpperCase()}] Campaign "${c.name}": ${c.objective}`);
+  return [...subGoalLines, ...campaignLines];
+}
+
+function goalDoneLines(goal: { subGoals: SubGoal[]; scheme?: { campaigns: Array<{ name: string; objective: string; status: string }> } }): string[] {
+  const subGoalLines = goal.subGoals
+    .filter(s => s.status === 'complete')
+    .map((s: SubGoal) => `  ✓ ${s.description}`);
+  const campaignLines = (goal.scheme?.campaigns ?? [])
+    .filter(c => c.status === 'complete')
+    .map(c => `  ✓ Campaign "${c.name}": ${c.objective}`);
+  return [...subGoalLines, ...campaignLines];
+}
+
 export class CompletionHandler {
   constructor(
     private advisorBot:  AdvisorBot,
-    private bossBot:     BossBot,
     private goalManager: GoalManager,
     private userChannel: UserChannel,
   ) {}
@@ -32,16 +51,15 @@ export class CompletionHandler {
     const goal    = file.goals.find(g => g.id === goalId);
     if (!goal) throw new Error(`Goal ${goalId} not found`);
 
-    const subSummary = goal.subGoals
-      .map(s => `  [${s.status.toUpperCase()}] ${s.description}`)
-      .join('\n');
+    const summary = goalStatusLines(goal);
 
     this.userChannel.verbose(`Reviewing completion with AdvisorBot for "${goal.description}"`);
 
     const adviceReq = {
       requesterId: 'BossBot' as const,
-      context:     `Goal "${goal.description}" sub-goals:\n${subSummary}`,
-      question:    'Is this actually done? What might we have missed?',
+      context:
+        `Goal "${goal.description}" completion review:\n${summary.join('\n') || '  (no items)'}`,
+      question: 'Is this actually done? What might we have missed?',
     };
 
     // Use goalId as the advisory session key for completion review
@@ -54,12 +72,15 @@ export class CompletionHandler {
       from: 'AdvisorBot', to: 'BossBot', content: verdict.verdict, ts: Date.now(),
     });
 
-    void this.bossBot; // wired for Phase 3 synthesis
-
-    // Low-confidence: flag the first sub-goal to re-exercise the state machine
+    // Low-confidence: flag the first incomplete item to re-exercise the state machine
     if (verdict.confidence === 'low') {
-      const firstId = goal.subGoals[0]?.id;
-      return { proceed: false, reopenIds: firstId ? [firstId] : [] };
+      const firstIncompleteSubGoal = goal.subGoals.find(s => s.status !== 'complete');
+      const firstIncompleteCampaign = (goal.scheme?.campaigns ?? [])
+        .find(c => c.status !== 'complete');
+      const reopenId = firstIncompleteSubGoal?.id
+        ?? firstIncompleteCampaign?.id
+        ?? goal.subGoals[0]?.id;
+      return { proceed: false, reopenIds: reopenId ? [reopenId] : [] };
     }
 
     return { proceed: true };
@@ -74,21 +95,18 @@ export class CompletionHandler {
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) throw new Error(`Goal ${goalId} not found`);
 
-    const done = goal.subGoals
-      .filter(s => s.status === 'complete')
-      .map((s: SubGoal) => `  ✓ ${s.description}`)
-      .join('\n');
+    const allDone = goalDoneLines(goal);
 
     const msg =
       `Goal complete: "${goal.description}"\n` +
-      `Accomplished:\n${done}\n\n` +
+      `Accomplished:\n${allDone.join('\n') || '  (no items)'}\n\n` +
       `AdvisorBot has reviewed and agrees.\n` +
       `Sign off? (yes / no + instructions)`;
 
     const response = await this.userChannel.prompt(msg);
-    const trimmed  = response.trim().toLowerCase();
+    const input   = normalizeInput(response);
 
-    if (trimmed === 'yes' || trimmed === 'y') {
+    if (input === 'yes' || input === 'y') {
       return { approved: true };
     }
 

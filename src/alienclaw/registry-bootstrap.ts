@@ -1,6 +1,6 @@
 /**
  * registry-bootstrap.ts
- * Wires the Meeseeks registry, MSB store, and tool adapters at startup.
+ * Wires the Martian registry, MSB store, and tool adapters at startup.
  *
  * Called from hierarchy-bootstrap.ts before the governance loop starts.
  * For async startup contexts (CLI, test harness) that need a fully loaded
@@ -13,12 +13,12 @@
 import * as path from 'node:path';
 import * as os   from 'node:os';
 
-import { MeeseeksRegistry }  from './registry/meeseeks-registry.js';
+import { MartianRegistry }  from './registry/martian-registry.js';
 import { wireToolAdapters }  from './msb/tool-adapters.js';
 import { installSeeds }      from './registry/seed-installer.js';
 
 export interface RegistryRuntime {
-  registry: MeeseeksRegistry;
+  registry: MartianRegistry;
 }
 
 /**
@@ -33,11 +33,11 @@ export async function bootstrapRegistry(alienclawHome?: string): Promise<Registr
   // 1. Install seed .ms / .msb files if not already present
   installSeeds();
 
-  // 2. Load the Meeseeks registry (async directory scan + sync file parsing)
-  const registry = new MeeseeksRegistry(path.join(home, 'registry', 'ms'));
+  // 2. Load the Martian registry (async directory scan + sync file parsing)
+  const registry = new MartianRegistry(path.join(home, 'registry', 'ms'));
   await registry.ensureDir();
   await registry.loadAll();
-  console.log(`[RegistryBootstrap] Loaded ${registry.size} Meeseeks from ${registry.registryPath}`);
+  console.log(`[RegistryBootstrap] Loaded ${registry.size} Martian from ${registry.registryPath}`);
 
   // 3. Wire OpenClaw tool adapters into the executor
   wireToolAdapters();

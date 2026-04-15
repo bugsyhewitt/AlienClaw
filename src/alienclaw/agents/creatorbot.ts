@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { AGENT_MODELS, PATHS, GENOME_LENGTH, EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
+import { errorMessage } from '../utils.js';
 import type {
   EmployeeSpec, CreatorQueueItem, CreatorQueuePriority,
   Campaign, Scheme, SpecialistRole,
@@ -113,7 +114,7 @@ export class CreatorBot {
         } catch (err) {
           this.enqueue(
             'NOTABLE',
-            `Scheduled job "${job.label}" threw: ${err instanceof Error ? err.message : String(err)}`,
+            `Scheduled job "${job.label}" threw: ${errorMessage(err)}`,
             `Job: ${job.label}`
           );
         }
@@ -173,12 +174,12 @@ export class CreatorBot {
   // ── Report receipt ─────────────────────────────────────────────────────────
 
   /**
-   * Receive a Meeseeks execution report.
+   * Receive a Martian execution report.
    * CreatorBot and AdvisorBot are the only agents that receive these.
    * BossBot never sees raw execution reports.
    */
-  receiveMeeseeksReport(report: {
-    meeseeksId: string;
+  receiveMartianReport(report: {
+    martianId: string;
     outcome:    'SUCCESS' | 'FAILURE' | 'ESCALATED';
     toolsRun:   string[];
     summary:    string;
@@ -187,32 +188,11 @@ export class CreatorBot {
     if (report.outcome !== 'SUCCESS') {
       this.enqueue(
         report.outcome === 'ESCALATED' ? 'URGENT' : 'NOTABLE',
-        `Meeseeks ${report.meeseeksId} → ${report.outcome}: ${report.summary}`,
+        `Martian ${report.martianId} → ${report.outcome}: ${report.summary}`,
         `Tools run: ${report.toolsRun.join(', ')}`
       );
     }
     // SUCCESS reports are recorded but do not need immediate attention
-  }
-
-  /**
-   * Receive a sub-agent (Employee) completion report.
-   * CreatorBot and AdvisorBot are the only agents that receive these.
-   */
-  receiveSubagentReport(report: {
-    employeeId: string;
-    outcome:    'SUCCESS' | 'FAILURE' | 'ESCALATED';
-    domain:     string;
-    summary:    string;
-    ts:         number;
-  }): void {
-    if (report.outcome === 'FAILURE') {
-      this.enqueue(
-        'NOTABLE',
-        `Employee ${report.employeeId} [${report.domain}] FAILED: ${report.summary}`,
-        `Domain: ${report.domain}`
-      );
-    }
-    // Future: feed into genome fitness / lineage scoring
   }
 
   // ── Genome ─────────────────────────────────────────────────────────────────
@@ -237,11 +217,9 @@ export class CreatorBot {
     toolTags: string[],
     model: string,
     generation = 1,
-    failureContext?: string
   ): EmployeeSpec {
     const suffix     = Date.now().toString(36).toUpperCase();
     const employeeId = `EMP_${domain.toUpperCase().slice(0, 6)}_${suffix}`;
-    void failureContext; // used in Phase 2B LLM call
     return {
       employeeId,
       domain,
@@ -274,7 +252,7 @@ export class CreatorBot {
       employeeId,
       domain:     role.domain,
       model:      EMPLOYEE_DEFAULT_MODEL,
-      toolTags:   role.meeseeksTags,
+      toolTags:   role.martianTags,
       createdBy:  'CreatorBot',
       createdAt:  Date.now(),
       generation,
@@ -286,7 +264,7 @@ export class CreatorBot {
     this.enqueue(
       'NOTABLE',
       `Specialist ${employeeId} built for campaign ${campaignId} (role: ${role.role})`,
-      `Domain: ${role.domain}, Tags: ${role.meeseeksTags.join(', ')}`
+      `Domain: ${role.domain}, Tags: ${role.martianTags.join(', ')}`
     );
 
     return specialist;

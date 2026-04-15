@@ -47,12 +47,12 @@ export {
   SECTION,
 } from './registry/genome-codec.js';
 export type { GenomeSections, GenomeValidationResult, SectionIndex } from './registry/genome-codec.js';
-export type { MeeseeksSpec, MeeseeksStatus, GraveyardEntry,
-              MeeseeksExecutionInput, MeeseeksExecutionResult, MeeseeksOutcome } from './registry/ms-types.js';
+export type { MartianSpec, MartianStatus, GraveyardEntry,
+              MartianExecutionInput, MartianExecutionResult, MartianOutcome } from './registry/ms-types.js';
 export { loadMsFile, loadMsDirectory, MsParseError }       from './registry/ms-loader.js';
-export { MeeseeksRegistry, RegistryError }                  from './registry/meeseeks-registry.js';
+export { MartianRegistry, RegistryError }                  from './registry/martian-registry.js';
 export { installSeeds }                                     from './registry/seed-installer.js';
 export { getRegistry }                                      from './registry/registry.js';
 
-// MeeseeksBrain / executor (Phase 3)
+// MartianBrain / executor (Phase 3)
 export * from './msb/index.js';

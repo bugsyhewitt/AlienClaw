@@ -3,7 +3,7 @@
  * Writes structured telemetry records to ~/.alienclaw/registry/telemetry/<ISO-date>/
  *
  * Three file types:
- *   <report_code>.json         — Meeseeks execution reports
+ *   <report_code>.json         — Martian execution reports
  *   failforward_<ts>.json      — escalation / failforward events
  *   advisory_<taskId>.json     — AdvisorBot advisory sessions
  */
@@ -22,10 +22,10 @@ export class TelemetryWriter {
   }
 
   /**
-   * Write a Meeseeks execution report.
+   * Write a Martian execution report.
    * Filename: <reportCode>.json
    */
-  async writeMeeseeksReport(reportCode: string, data: Record<string, unknown>): Promise<void> {
+  async writeMartianReport(reportCode: string, data: Record<string, unknown>): Promise<void> {
     const dir = this.dirForDate();
     await this.ensureDir(dir);
     const payload = { reportCode, ts: Date.now(), ...data };

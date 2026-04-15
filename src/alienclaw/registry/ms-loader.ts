@@ -22,7 +22,7 @@
  * Hard rules enforced:
  *  - Only parses. Never writes. Writing is CreatorBot's exclusive domain.
  *  - Genome hard invariants checked via genome-codec.
- *  - Max 4 tools per Meeseeks (MAX_MS_TOOLS).
+ *  - Max 4 tools per Martian (MAX_MS_TOOLS).
  *  - Malformed files throw MsParseError — not silently ignored.
  */
 
@@ -31,7 +31,7 @@ import * as path from 'node:path';
 
 import { validateGenome, parseGenome } from './genome-codec.js';
 import { MAX_MS_TOOLS }                from '../constants.js';
-import type { MeeseeksSpec, MeeseeksStatus, GraveyardEntry } from './ms-types.js';
+import type { MartianSpec, MartianStatus, GraveyardEntry } from './ms-types.js';
 
 // ---------------------------------------------------------------------------
 // Custom error — lets callers distinguish parse failures from other errors
@@ -48,8 +48,8 @@ export class MsParseError extends Error {
 // Section parsers
 // ---------------------------------------------------------------------------
 
-function parseMetadata(lines: string[]): Partial<MeeseeksSpec> {
-  const spec: Partial<MeeseeksSpec> = {};
+function parseMetadata(lines: string[]): Partial<MartianSpec> {
+  const spec: Partial<MartianSpec> = {};
   for (const line of lines) {
     const m = line.match(/^#\s*(\w+):\s*(.+)$/);
     if (!m) continue;
@@ -57,7 +57,7 @@ function parseMetadata(lines: string[]): Partial<MeeseeksSpec> {
     switch (key!.toLowerCase()) {
       case 'description': spec.description = val!.trim();  break;
       case 'generation':  spec.generation  = parseInt(val!, 10); break;
-      case 'status':      spec.status      = val!.trim() as MeeseeksStatus; break;
+      case 'status':      spec.status      = val!.trim() as MartianStatus; break;
       case 'fitness':     spec.fitness     = parseFloat(val!); break;
     }
   }
@@ -72,10 +72,25 @@ function parseFirstCommentId(lines: string[]): string | undefined {
   return undefined;
 }
 
-function extractSection(raw: string, sectionName: string): string | undefined {
-  const re = new RegExp(`\\[${sectionName}\\]\\s*\\n([\\s\\S]*?)(?=\\n\\[|$)`);
-  const m  = raw.match(re);
-  return m ? m[1].trim() : undefined;
+function extractSection(lines: string[], sectionName: string): string | undefined {
+  // Line-based extraction: find [SECTION] marker, skip metadata comment/blank
+  // lines, collect content until next [SECTION] or end-of-file.
+  const startMarker = `[${sectionName}]`;
+  const startLine = lines.indexOf(startMarker);
+  if (startLine === -1) return undefined;
+
+  // Collect lines after the marker until next [SECTION] or end
+  // Skip lines that are blank or are metadata comments (start with #)
+  const sectionLines: string[] = [];
+  for (let i = startLine + 1; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (line.startsWith('[')) break;  // hit next section
+    if (line.trim() === '' || line.startsWith('#')) continue;  // skip blank/metadata
+    sectionLines.push(line);
+  }
+
+  const content = sectionLines.join('\n').trim();
+  return content || undefined;
 }
 
 function parseTools(
@@ -122,10 +137,6 @@ function parseGraveyard(graveyardSection: string | undefined): GraveyardEntry[] 
   return entries;
 }
 
-function deriveToolTags(tools: string[]): string[] {
-  return [...tools];
-}
-
 // ---------------------------------------------------------------------------
 // Public API — read-only
 // ---------------------------------------------------------------------------
@@ -137,16 +148,12 @@ function deriveToolTags(tools: string[]): string[] {
  * Expected file order:
  *   [GENOME] → metadata comments → [TOOLS] → [GRAVEYARD]
  */
-export function loadMsFile(filePath: string): MeeseeksSpec {
-  if (!fs.existsSync(filePath)) {
-    throw new MsParseError('File not found', filePath);
-  }
-
+export function loadMsFile(filePath: string): MartianSpec {
   const raw   = fs.readFileSync(filePath, 'utf-8');
   const lines = raw.split('\n');
 
   // --- [GENOME] — must be first meaningful section ---
-  const genomeSection = extractSection(raw, 'GENOME');
+  const genomeSection = extractSection(lines, 'GENOME');
   if (!genomeSection) throw new MsParseError('Missing [GENOME] section', filePath);
 
   const genome     = genomeSection.trim();
@@ -164,7 +171,7 @@ export function loadMsFile(filePath: string): MeeseeksSpec {
   const partialSpec  = parseMetadata(commentLines);
 
   const id = parseFirstCommentId(lines);
-  if (!id) throw new MsParseError('Missing Meeseeks ID comment (# MS_XXXXXXXX)', filePath);
+  if (!id) throw new MsParseError('Missing Martian ID comment (# MS_XXXXXXXX)', filePath);
 
   if (!partialSpec.description) throw new MsParseError('Missing # description', filePath);
   if (partialSpec.generation  == null) throw new MsParseError('Missing # generation', filePath);
@@ -172,13 +179,13 @@ export function loadMsFile(filePath: string): MeeseeksSpec {
   if (partialSpec.fitness      == null) throw new MsParseError('Missing # fitness', filePath);
 
   // --- [TOOLS] ---
-  const toolsSection = extractSection(raw, 'TOOLS');
+  const toolsSection = extractSection(lines, 'TOOLS');
   if (!toolsSection) throw new MsParseError('Missing [TOOLS] section', filePath);
   const { tools, msbRefs } = parseTools(toolsSection, filePath);
   if (tools.length === 0) throw new MsParseError('[TOOLS] section is empty', filePath);
 
   // --- [GRAVEYARD] ---
-  const graveyard = parseGraveyard(extractSection(raw, 'GRAVEYARD'));
+  const graveyard = parseGraveyard(extractSection(lines, 'GRAVEYARD'));
 
   return {
     id,
@@ -188,7 +195,7 @@ export function loadMsFile(filePath: string): MeeseeksSpec {
     fitness:     partialSpec.fitness,
     tools,
     msbRefs,
-    toolTags:    deriveToolTags(tools),
+    toolTags:    [...tools],
     genome,
     graveyard,
   };
@@ -202,8 +209,8 @@ export function loadMsFile(filePath: string): MeeseeksSpec {
 export function loadMsDirectory(
   dir:     string,
   options: { strict?: boolean } = {}
-): { specs: MeeseeksSpec[]; errors: { file: string; error: string }[] } {
-  const specs:  MeeseeksSpec[]                    = [];
+): { specs: MartianSpec[]; errors: { file: string; error: string }[] } {
+  const specs:  MartianSpec[]                    = [];
   const errors: { file: string; error: string }[] = [];
 
   if (!fs.existsSync(dir)) {
@@ -217,7 +224,7 @@ export function loadMsDirectory(
     try {
       specs.push(loadMsFile(fullPath));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errorMessage(err);
       errors.push({ file: fullPath, error: msg });
       if (options.strict) throw err;
     }

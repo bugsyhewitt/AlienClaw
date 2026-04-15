@@ -5,7 +5,7 @@
 <h1 align="center">👽 AlienClaw</h1>
 
 <p align="center">
-  <strong>A governed multi-agent distribution built on OpenClaw.</strong>
+  <strong>A self-evolving AI agent hierarchy that thinks at the top and executes at the edge.</strong>
 </p>
 
 <p align="center">
@@ -18,49 +18,112 @@
 <br>
 
 <p align="center">
-  Five preset agents handle decomposition, execution, failure, and sign-off — automatically.<br>
-  Meeseeks run on evolving 256-char genomes.<br>
-  Opt in to share fitness data and your agents benefit from every other AlienClaw installation on Earth.
+  Three lean command agents plan and orchestrate — they never touch tools.<br>
+  Purpose-built Specialists carry deep campaign knowledge and are disposed when the mission ends.<br>
+  Martians execute at the edge, guided by 256-char genomes that evolve with every run.<br>
+  Opt in to share fitness data and your agents benefit from every AlienClaw installation on Earth.
 </p>
 
 <br>
 
----
-
-## The Agents
-
-AlienClaw has three agents — all LLM-backed, all reasoning. Everything else is a Meeseeks.
-
-### BossBot
-
-The one you talk to. Receives your goal, decomposes it with AdvisorBot into sub-goals, dispatches Meeseeks to execute those sub-goals in parallel, and adapts the plan mid-flight based on results from AdvisorBot. Surfacing a finished result to you is BossBot's job — nothing surfaces until it signs off. Stays lean by not tracking Meeseeks state directly.
-
-### AdvisorBot
-
-Pure wisdom. Consulted during goal decomposition, every failure rebuild, and final sign-off. Decides nothing — only advises. Sessions are keyed per caller, so AdvisorBot can never leak context between concurrent tasks.
-
-### CreatorBot
-
-Silent and janitorial. When a Meeseeks fails, BossBot briefs CreatorBot with the failure context, and CreatorBot rewrites that Meeseeks's genome. CreatorBot is the sole authority over `.ms` genome files and maintains a URGENT / NOTABLE queue so failures never block execution.
+> *"Most agent frameworks give you one brain doing everything. AlienClaw gives you a chain of command — and that chain gets smarter every time it runs."*
 
 ---
 
-## Meeseeks
+## The Command Tier
 
-Meeseeks are not agents — they are execution bots defined entirely by a **256-character Base62 genome**.
+AlienClaw's three Tier-A agents are permanently alive, LLM-backed, and **strictly forbidden from calling tools directly**. Their authority is to think, plan, and build — nothing more.
+
+### 🧠 BossBot — The Executive
+
+The one you talk to. BossBot receives your goal and immediately enters a **scheming phase** — it works with AdvisorBot to design a complete Scheme before a single task is dispatched. No improvisation. No premature execution. The plan is agreed first.
+
+Once a Scheme is locked, BossBot hands it to CreatorBot with a clear mandate: *build these specialists.* After that, BossBot governs the campaign lifecycle: tracking progress, handling escalations, and surfacing the final result to you when AdvisorBot signs off. Stays lean by never tracking raw execution state directly.
+
+### 🔭 AdvisorBot — The Strategist
+
+Pure wisdom. AdvisorBot co-authors the Scheme with BossBot, stress-tests assumptions during planning, and receives every execution report that flows up from Specialists and Martians. It is the system's strategic memory in motion.
+
+AdvisorBot is stateless between calls. It carries no accumulated context of its own — it receives structured reports, reasons over them precisely, and responds. This is intentional. Statelessness is what keeps AdvisorBot sharp: it cannot drift, accumulate bias, or conflate campaigns. Sessions are keyed per caller so context never leaks between concurrent goals.
+
+### ⚙️ CreatorBot — The Builder
+
+Silent, scheduled, and essential. CreatorBot runs on a heartbeat — auditing the Martian registry, validating genome checksums, maintaining a prioritized URGENT / NOTABLE queue. When a Scheme arrives, CreatorBot reads the specialist roles and **builds every agent the campaign needs**: the right domain, the right tools, the right campaign knowledge baked directly into each Specialist's identity.
+
+CreatorBot is the sole authority over `.ms` genome files. No other agent can write them. When campaigns end, CreatorBot disposes their specialists and reclaims the slot. The workforce stays exactly as large as the active mission requires — no more.
+
+---
+
+## Campaigns & Specialists
+
+When BossBot and AdvisorBot agree on a Scheme, they're not producing a task list. They're producing a **campaign blueprint** — a structured plan that maps out every Campaign needed to reach the goal, the dependency edges between them, and exactly what kind of Specialist each Campaign requires.
+
+**A Campaign is a cohesive, bounded unit of work.** "Build the data pipeline." "Write and validate the API layer." "Deploy and verify production." Campaigns execute in parallel where their dependencies allow, in sequence where they don't.
+
+Each Campaign gets its own **Specialists** — agents created from scratch by CreatorBot, carrying deep, campaign-specific knowledge injected directly into their soul at construction time. A Specialist for a deployment campaign knows everything about that deployment: what tools are available, what success looks like, what failure means, and which Martians it is authorised to summon.
+
+**Specialists are temporary by design.** They exist for the duration of their campaign and nothing more. When the campaign ends, they are disposed. This is not a limitation — it's the architecture. Purpose-built agents with bounded scope are more capable within that scope than generalist agents trying to know everything. And when they're gone, they take their context with them. No drift. No contamination. Every campaign starts clean.
+
+The only way a Specialist can interact with the outside world is to **summon a Martian**.
+
+---
+
+## The Martian System
+
+Here is where AlienClaw becomes genuinely different from anything else you've seen.
+
+At the execution edge are **Martians** — lightweight, disposable execution primitives that actually call tools, run code, and interact with systems. A Martian has no planning capability, no long-term memory, and no authority to spawn further agents. It receives a task, runs the tools it was built for, and returns a result.
+
+What makes Martians extraordinary is how they're defined — and how they evolve.
+
+### Genomes
+
+Every Martian is defined by a **256-character Base62 genome** — a compact, machine-readable fingerprint encoding its complete behavioral identity:
 
 ```
-│ 0 Header │ 1 Tools │ 2 Exec │ 3 Retry │ 4 Escalation │ 5 Weights │ 6 Output │ 7 Checksum │
+│ IDENTITY (64) │ EXECUTION (64) │ BEHAVIOR (64) │ CHECKSUM (64) │
 ```
 
-- **Block 0 (Header)** and **Block 7 (Checksum)** are immutable.
-- **Blocks 1–6** are editable by CreatorBot.
-- The `.msb` file is conditioning text only — no logic lives in it.
-- Meeseeks execute tools, report `SUCCESS | FAILURE | ESCALATED`, and terminate.
-- Meeseeks never spawn other Meeseeks.
-- After each run, Meeseeks report fitness scores directly to **AdvisorBot** (for context) and **CreatorBot** (for genome updates). BossBot stays lean.
+- **IDENTITY** — What domain this Martian owns, what tools it operates, who created its lineage
+- **EXECUTION** — How it approaches tool calls, retry logic, escalation thresholds
+- **BEHAVIOR** — Reasoning style, output format, failure handling preferences
+- **CHECKSUM** — Cryptographic integrity block, detected by CreatorBot's scheduled genome audit
 
-BossBot picks Meeseeks from the registry by tool tags, fitness score, and domain compatibility. Fitness data flows to AdvisorBot and CreatorBot — BossBot doesn't track it directly.
+Two Martians with different genomes, running identical tools on identical tasks, will behave differently. The genome *is* the agent. The `.msb` conditioning file provides context — no logic lives there.
+
+### Fitness and the Evolution Network
+
+Every time a Martian runs, its performance is measured. Success rate. Retry count. Escalation frequency. Output quality. These outcomes feed a **fitness score** that CreatorBot tracks across the Martian's lineage.
+
+High-fitness genomes are preserved and propagated. Low-fitness genomes are flagged, quarantined, or rewritten. The Martian population evolves — not through random mutation, but through **selection pressure applied by real-world execution data**.
+
+This is machine learning without a training loop. The system learns by running.
+
+When you install AlienClaw, you're asked whether to join the Evolution Network:
+
+```
+  ▶  Yes, evolve together   — share anonymous genome fitness data with alienclaw.gg
+     No, stay local         — your Martians evolve in isolation
+```
+
+**If you opt in:** your Martian fitness scores are pooled with every other opted-in installation worldwide. High-performing genomes propagate back to you. Your agents improve from runs they never made — the collective execution history of the entire AlienClaw network working in your favor.
+
+**If you opt out:** everything stays local. No data leaves your machine. Genomes still evolve — just from your runs only.
+
+Opt-in preference is set at first-run and stored in `~/.alienclaw/preferences.json`. You can change it any time.
+
+### Intentional Summoning
+
+Specialists don't passively pick a Martian from a registry. They **summon** — intentionally, explicitly, with full awareness of why. Before any summon, a Specialist must answer four questions:
+
+1. What specific operation do I need performed?
+2. Which Martian tag covers that operation?
+3. What context does the Martian need to succeed?
+4. What is my acceptance criterion for the result?
+
+Only then does the summon happen. The Specialist evaluates the result. If it fails, it decides: retry with different context, summon a different tag, or escalate. The Specialist owns the outcome — the Martian just runs the tool.
+
+This distinction matters. Passive registry lookups produce passive agents. Intentional summoning produces agents that reason about their tools.
 
 ---
 
@@ -69,43 +132,27 @@ BossBot picks Meeseeks from the registry by tool tags, fitness score, and domain
 When you run `alienclaw run "goal"`:
 
 ```
-You → BossBot (decomposes with AdvisorBot)
-     → Meeseeks (execute sub-goals in parallel)
-     → Meeseeks report run results + fitness → AdvisorBot + CreatorBot
-     → CreatorBot (rebuilds failed Meeseeks genomes on failure)
+You → BossBot + AdvisorBot (scheme together)
+     → Scheme → CreatorBot (builds Specialists for each Campaign)
+     → GovernanceLoop (dispatches Campaigns in dependency order)
+     → Specialists (summon Martians intentionally)
+     → Martians (execute tools, return results)
+     → Reports → AdvisorBot + CreatorBot (BossBot sees summaries only)
+     → Fitness data → Martian genome evolution
      → BossBot (signs off, surfaces result to you)
 ```
 
-Meeseeks report their results directly to AdvisorBot and CreatorBot after every run — BossBot stays out of that loop.
-
 ### Failure Ladder
 
-BossBot doesn't give up quietly. Failures climb a strike ladder before reaching you:
+The system doesn't give up quietly. Failures climb a strike ladder before reaching you:
 
 ```
-Strike 1 → BossBot + AdvisorBot confer → CreatorBot rebuilds Meeseeks genome → retry
+Strike 1 → AdvisorBot consults → CreatorBot rebuilds Specialist → retry Campaign
 Strike 2 → same
-Strike 3 → BossBot surfaces you: give new instructions, resume budget, or abandon
+Strike 3 → BossBot surfaces to you: give new instructions, resume budget, or abandon
 ```
 
 You can reset the counter after Strike 3.
-
----
-
-## Evolution Network
-
-When you install AlienClaw, you're asked whether to join the Evolution Network.
-
-```
-  ▶  Yes, evolve together   — share anonymous genome fitness data with alienclaw.gg
-     No, stay local         — your agents evolve in isolation
-```
-
-**If you opt in:** your Meeseeks fitness scores are pooled with every other opted-in installation. High-performing genomes from across the network propagate back to you. Your agents improve from runs they never made.
-
-**If you opt out:** everything stays local. No data leaves your machine. Genomes still evolve — just from your runs only.
-
-Opt-in preference is set at first-run and stored in `~/.alienclaw/preferences.json`. You can change it any time.
 
 ---
 
@@ -161,12 +208,18 @@ AlienClaw is a **layered agent system** that runs on top of OpenClaw — no sour
 
 ```
 openclaw/        ← vendored OpenClaw snapshot (never modified directly)
-src/alienclaw/   ← the agent hierarchy (BossBot, AdvisorBot, CreatorBot, Employees, Meeseeks)
+src/alienclaw/   ← the agent hierarchy
+│  agents/       ←   BossBot, AdvisorBot, CreatorBot, Specialists (Employees)
+│  governance/   ←   GovernanceLoop, GoalManager, TaskManager, Escalation, Completion
+│  registry/     ←   MartianRegistry, genome codec, .ms file loader
+│  msb/          ←   MartianBrain executor, tool adapters
+│  telemetry/    ←   per-run fitness + genome telemetry
+│  prompts/      ←   agent souls (bossbot, advisorbot, creatorbot, employee)
 installer/       ← install.sh, overlay-dist.sh, first-run.mjs, abduction.mjs
 build/           ← assembled output (gitignored)
 ```
 
-OpenClaw provides the engine: gateway, channels, tools, providers, sessions, browser, TTS, canvas. AlienClaw provides the brain on top — BossBot, AdvisorBot, CreatorBot, Employees, and Meeseeks. OpenClaw upgrades independently via `npm install -g openclaw`; AlienClaw upgrades via `git pull` and rebuilding.
+OpenClaw provides the engine: gateway, channels, tools, providers, sessions, browser, TTS, canvas. AlienClaw provides the brain on top — the full agent hierarchy from executive command down to Martian execution and genome evolution. OpenClaw upgrades independently via `npm install -g openclaw`; AlienClaw upgrades via `git pull` and rebuilding.
 
 ---
 
@@ -181,9 +234,9 @@ OpenClaw provides the engine: gateway, channels, tools, providers, sessions, bro
 │   ├── goals.json          ← BossBot working memory (atomic writes)
 │   └── output/             ← task outputs
 └── registry/
-    ├── ms/                 ← Meeseeks genome files
-    ├── msb/                ← MeeseeksBrain conditioning files
-    ├── lineage/
+    ├── ms/                 ← Martian genome files (.ms)
+    ├── msb/                ← MartianBrain conditioning files (.msb)
+    ├── lineage/            ← genome ancestry + fitness history
     └── telemetry/          ← per-run fitness + failure telemetry
 ```
 

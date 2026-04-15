@@ -7,9 +7,9 @@ import {
   getModel,
   type AssistantMessage,
   type Context,
-  type TextContent,
 } from '@mariozechner/pi-ai';
 import { AGENT_MODELS, ALIENCLAW_PROVIDER }         from '../constants.js';
+import { extractText }                              from '../utils.js';
 import type {
   TaskEnvelope, AdviceRequest, SubGoal,
   Scheme, Campaign, SpecialistRole,
@@ -19,13 +19,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOUL_PATH  = join(__dirname, '..', 'prompts', 'bossbot.soul.md');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function extractText(msg: AssistantMessage): string {
-  return (msg.content as Array<{ type: string; text?: string }>)
-    .filter((c): c is TextContent => c.type === 'text')
-    .map(c => c.text)
-    .join('');
-}
 
 function parseSubGoals(raw: string): SubGoal[] {
   // Strip markdown code fences the LLM may add
@@ -70,7 +63,7 @@ function parseSchemeDraft(goalId: string, raw: string): Scheme {
           role:          string;
           domain:        string;
           knowledgeBase: string;
-          meeseeksTags?: string[];
+          martianTags?: string[];
         }>;
       }>;
     };
@@ -85,7 +78,7 @@ function parseSchemeDraft(goalId: string, raw: string): Scheme {
         role:          s.role,
         domain:        s.domain ?? 'general',
         knowledgeBase: s.knowledgeBase ?? '',
-        meeseeksTags:  s.meeseeksTags ?? [],
+        martianTags:  s.martianTags ?? [],
       }) satisfies SpecialistRole),
     }));
 
@@ -119,7 +112,7 @@ function parseSchemeDraft(goalId: string, raw: string): Scheme {
           role:          'Generalist',
           domain:        'general',
           knowledgeBase: '',
-          meeseeksTags:  [],
+          martianTags:   ['web_search', 'file_read', 'file_write'],
         }],
       }],
       advisorEndorsement: '',
@@ -137,10 +130,6 @@ export class BossBot {
 
   systemPrompt(): string {
     return this.soul;
-  }
-
-  buildAdviceRequest(context: string, question: string): AdviceRequest {
-    return { requesterId: 'BossBot', context, question };
   }
 
   buildTask(
@@ -164,7 +153,7 @@ export class BossBot {
    * Routes through OpenClaw's provider layer (anthropic provider, claude-opus-4-5).
    */
   async decompose(goalDescription: string): Promise<SubGoal[]> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot as 'MiniMax-M2.5');
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
     const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
     const context: Context = {
       systemPrompt:
@@ -191,7 +180,7 @@ export class BossBot {
   async classifyUserInput(
     input: string
   ): Promise<'new_subgoal' | 'constraint' | 'direction_change'> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot as 'MiniMax-M2.5');
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
     const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
     const context: Context = {
       systemPrompt:
@@ -219,12 +208,12 @@ export class BossBot {
    * Draft a Scheme (campaign plan) for a goal description.
    *
    * BossBot produces a full campaign breakdown: what campaigns are needed,
-   * what Specialist roles each campaign requires, and what Meeseeks tags
+   * what Specialist roles each campaign requires, and what Martian tags
    * each specialist will use. This is then handed to AdvisorBot for review
    * before being finalised in schemeWithAdvisor().
    */
   async draftScheme(goalId: string, goalDescription: string): Promise<Scheme> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot as 'MiniMax-M2.5');
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
     const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
     const context: Context = {
       systemPrompt:
@@ -232,7 +221,7 @@ export class BossBot {
         `## Scheme Planning\n` +
         `You are designing a Scheme — a full campaign plan to achieve a goal.\n` +
         `A Scheme contains Campaigns. Each Campaign has a name, objective, dependency edges,\n` +
-        `and a list of Specialist roles (each with a domain, knowledge base, and Meeseeks tags).\n\n` +
+        `and a list of Specialist roles (each with a domain, knowledge base, and Martian tags).\n\n` +
         `Respond ONLY with a valid JSON object matching this schema — no prose, no markdown fences:\n` +
         `{\n` +
         `  "rationale": "string",\n` +
@@ -246,14 +235,14 @@ export class BossBot {
         `          "role": "string",\n` +
         `          "domain": "string",\n` +
         `          "knowledgeBase": "string",\n` +
-        `          "meeseeksTags": ["string"]\n` +
+        `          "martianTags": ["string"]\n` +
         `        }\n` +
         `      ]\n` +
         `    }\n` +
         `  ]\n` +
         `}\n\n` +
         `Valid domain tags: analysis, implementation, testing, research, writing, configuration, review.\n` +
-        `Valid meeseeksTags: web_search, url_fetch, file_read, file_write (or any registered tool tag).\n` +
+        `Valid martianTags: web_search, url_fetch, file_read, file_write (or any registered tool tag).\n` +
         `Set dependsOn to [] for campaigns that can start immediately in parallel.\n` +
         `Campaigns that depend on others must list those campaign names in dependsOn.`,
       messages: [{
@@ -335,7 +324,7 @@ export class BossBot {
     current:         Scheme,
     feedback:        string
   ): Promise<Scheme> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot as 'MiniMax-M2.5');
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
     const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
     const context: Context = {
       systemPrompt:
@@ -363,7 +352,7 @@ export class BossBot {
    * Generate sub-goals from a user input string (new_subgoal or direction_change path).
    */
   async generateSubGoals(input: string): Promise<SubGoal[]> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot as 'MiniMax-M2.5');
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
     const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
     const context: Context = {
       systemPrompt:

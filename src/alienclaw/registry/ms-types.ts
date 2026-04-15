@@ -1,9 +1,9 @@
 /**
  * ms-types.ts
- * Shared types for .ms Meeseeks files and the registry.
+ * Shared types for .ms Martian files and the registry.
  */
 
-export type MeeseeksStatus = 'active' | 'retired' | 'graveyard';
+export type MartianStatus = 'active' | 'retired' | 'graveyard';
 
 export interface GraveyardEntry {
   fitnessScore: number;   // 0.0 – 1.0
@@ -11,12 +11,12 @@ export interface GraveyardEntry {
   genome:        string;   // 256-char Base62
 }
 
-export interface MeeseeksSpec {
+export interface MartianSpec {
   /** e.g. "MS_WEB00001" */
   id:          string;
   description: string;
   generation:  number;
-  status:      MeeseeksStatus;
+  status:      MartianStatus;
   fitness:     number;   // 0.0 – 1.0
 
   /** Tool names listed in [TOOLS] section (e.g. "web_search") */
@@ -34,16 +34,16 @@ export interface MeeseeksSpec {
   graveyard:   GraveyardEntry[];
 }
 
-export interface MeeseeksExecutionInput {
-  meeseeks:    MeeseeksSpec;
+export interface MartianExecutionInput {
+  martian:    MartianSpec;
   task:        string;
   context:     Record<string, unknown>;
 }
 
-export type MeeseeksOutcome = 'SUCCESS' | 'FAILURE' | 'ESCALATED';
+export type MartianOutcome = 'SUCCESS' | 'FAILURE' | 'ESCALATED';
 
-export interface MeeseeksExecutionResult {
-  outcome:     MeeseeksOutcome;
+export interface MartianExecutionResult {
+  outcome:     MartianOutcome;
   output:      unknown;
   error?:      string;
   failForward: boolean;

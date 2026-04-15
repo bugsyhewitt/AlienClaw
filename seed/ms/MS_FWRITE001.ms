@@ -8,7 +8,7 @@
 <assembled by seed-installer.ts using assembleGenome(identity, execution, behavior)>
 
 # MS_FWRITE001
-# description: File write Meeseeks — executes file_write tool
+# description: File write Martian — executes file_write tool
 # generation: 1
 # status: active
 # fitness: 0.00
