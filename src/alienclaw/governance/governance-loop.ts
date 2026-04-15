@@ -1,13 +1,14 @@
 import { EMPLOYEE_DEFAULT_MODEL } from '../constants.js';
 import type {
   GovernanceState, GovernanceEvent, TransitionHook,
-  Goal, SubGoal, GoalsFile,
+  Goal, SubGoal, Campaign,
 } from '../types.js';
 import type { BossBot }    from '../agents/bossbot.js';
 import type { AdvisorBot } from '../agents/advisorbot.js';
 import type { CreatorBot } from '../agents/creatorbot.js';
 import type { AgentRegistry } from '../agents/agent-registry.js';
-import { buildEmployee }       from '../agents/employee.js';
+import { buildEmployee, disposeCampaign } from '../agents/employee.js';
+import type { Employee }       from '../agents/employee.js';
 import type { GoalManager }        from './goal-manager.js';
 import type { TaskManager }        from './task-manager.js';
 import type { EscalationHandler }  from './escalation-handler.js';
@@ -17,12 +18,13 @@ import type { UserChannel }        from '../comms/user-channel.js';
 // ── Valid state transitions ───────────────────────────────────────────────────
 
 const VALID_TRANSITIONS: Record<GovernanceState, GovernanceState[]> = {
-  IDLE:                  ['DECOMPOSING'],
+  IDLE:                  ['SCHEMING'],
+  SCHEMING:              ['CREATOR_BUILDING', 'AWAITING_ADVICE'],
   DECOMPOSING:           ['EXECUTING', 'AWAITING_ADVICE'],
+  CREATOR_BUILDING:      ['EXECUTING'],
   EXECUTING:             ['AWAITING_ADVICE', 'CREATOR_BUILDING', 'CREATOR_INTERRUPT',
                           'AWAITING_USER_INPUT', 'REVIEWING_COMPLETION'],
-  AWAITING_ADVICE:       ['EXECUTING', 'CREATOR_BUILDING', 'DECOMPOSING'],
-  CREATOR_BUILDING:      ['EXECUTING'],
+  AWAITING_ADVICE:       ['EXECUTING', 'CREATOR_BUILDING', 'DECOMPOSING', 'SCHEMING'],
   CREATOR_INTERRUPT:     ['EXECUTING', 'AWAITING_ADVICE'],
   AWAITING_USER_INPUT:   ['EXECUTING', 'COMPLETE'],
   REVIEWING_COMPLETION:  ['AWAITING_USER_SIGNOFF'],
@@ -48,11 +50,19 @@ export interface GovernanceLoopDeps {
 // ── GovernanceLoop ────────────────────────────────────────────────────────────
 
 export class GovernanceLoop {
-  private state:          GovernanceState = 'IDLE';
-  private currentGoalId:  string | null   = null;
-  private eventQueue:     GovernanceEvent[] = [];
-  /** subGoalId → running job promise (for parallel tracking) */
-  private activeJobs      = new Map<string, Promise<void>>();
+  private state:         GovernanceState = 'IDLE';
+  private currentGoalId: string | null   = null;
+  private eventQueue:    GovernanceEvent[] = [];
+
+  /**
+   * Active jobs: campaignId → running Promise tracking the campaign's
+   * specialist work (one entry per active campaign).
+   */
+  private activeJobs     = new Map<string, Promise<void>>();
+
+  /** subGoalId → Promise for legacy/fallback sub-goal dispatch */
+  private legacyJobs     = new Map<string, Promise<void>>();
+
   private transitionHooks: TransitionHook[] = [];
   private running         = false;
 
@@ -88,20 +98,14 @@ export class GovernanceLoop {
     return this.state;
   }
 
-  /** Push a user goal onto the event queue. */
   submitGoal(description: string): void {
     this.pushEvent({ type: 'USER_GOAL', description });
   }
 
-  /** Push mid-execution user input onto the event queue. */
   submitUserInput(message: string): void {
     this.pushEvent({ type: 'USER_INPUT', message });
   }
 
-  /**
-   * Start the event-drain loop. Crash-recovers from goals.json before
-   * blocking. Resolves when `stop()` is called.
-   */
   async start(): Promise<void> {
     this.running = true;
     await this.recoverFromDisk();
@@ -113,10 +117,6 @@ export class GovernanceLoop {
     this.running = false;
   }
 
-  /**
-   * Re-dispatch an in-progress goal after a crash. Called by bootstrap
-   * when goals.json shows an active goal on startup.
-   */
   async resumeGoal(goalId: string): Promise<void> {
     const file = this.goalManager.load();
     const goal = file.goals.find(g => g.id === goalId);
@@ -124,20 +124,29 @@ export class GovernanceLoop {
 
     this.userChannel.required(`Resuming goal: "${goal.description}"`);
 
-    // Reset any sub-goals that were mid-flight when we crashed
-    for (const sg of goal.subGoals) {
-      if (sg.status === 'active') {
-        await this.goalManager.updateSubGoal(goalId, sg.id, {
-          status: 'pending',
-          taskId: undefined,
-        });
+    if (goal.scheme) {
+      // Scheme-based goal: reset any active campaigns to pending
+      for (const c of goal.scheme.campaigns) {
+        if (c.status === 'active') {
+          await this.goalManager.updateCampaign(goalId, c.id, { status: 'pending' });
+        }
+      }
+    } else {
+      // Legacy sub-goal goal
+      for (const sg of goal.subGoals) {
+        if (sg.status === 'active') {
+          await this.goalManager.updateSubGoal(goalId, sg.id, {
+            status: 'pending',
+            taskId: undefined,
+          });
+        }
       }
     }
 
     this.currentGoalId = goalId;
-    this.transition('DECOMPOSING', 'Crash recovery — plan loaded from disk');
-    this.transition('EXECUTING',   'Crash recovery — dispatching ready sub-goals');
-    await this.dispatchReadySubGoals(goalId);
+    this.transition('CREATOR_BUILDING', 'Crash recovery — rebuilding from plan');
+    this.transition('EXECUTING', 'Crash recovery — dispatching ready campaigns');
+    await this.dispatchReadyCampaigns(goalId);
   }
 
   // ── State machine ──────────────────────────────────────────────────────────
@@ -163,10 +172,8 @@ export class GovernanceLoop {
 
   private async drain(): Promise<void> {
     while (this.running) {
-      // 1. Check CreatorBot urgent queue after every iteration
       await this.checkUrgentQueue();
 
-      // 2. Process next event
       if (this.eventQueue.length > 0) {
         const event = this.eventQueue.shift()!;
         await this.processEvent(event);
@@ -178,122 +185,249 @@ export class GovernanceLoop {
 
   private async processEvent(event: GovernanceEvent): Promise<void> {
     switch (event.type) {
-      case 'USER_GOAL':    await this.handleUserGoal(event.description); break;
-      case 'USER_INPUT':   await this.handleUserInput(event.message);    break;
-      case 'JOB_COMPLETE': await this.handleJobComplete(event);           break;
-      case 'JOB_FAILED':   await this.handleJobFailed(event);             break;
+      case 'USER_GOAL':
+        await this.handleUserGoal(event.description);
+        break;
+      case 'USER_INPUT':
+        await this.handleUserInput(event.message);
+        break;
+      case 'SCHEME_READY':
+        // Governance-internal: handled inline in handleUserGoal; listed for completeness
+        break;
+      case 'CAMPAIGN_READY':
+        // Fired when a dependency completes and a blocked campaign becomes ready
+        await this.dispatchReadyCampaigns(event.goalId);
+        break;
+      case 'JOB_COMPLETE':
+        await this.handleJobComplete(event);
+        break;
+      case 'JOB_FAILED':
+        await this.handleJobFailed(event);
+        break;
     }
   }
 
-  // ── Event handlers ─────────────────────────────────────────────────────────
+  // ── New goal: SCHEMING phase ────────────────────────────────────────────────
 
   private async handleUserGoal(description: string): Promise<void> {
     if (this.state !== 'IDLE') {
-      // Already running — fold as user input instead
       this.userChannel.status(`New input while goal is active — folding into plan.`);
       await this.handleUserInput(description);
       return;
     }
 
     this.userChannel.status(`New goal received: "${description}"`);
-    this.transition('DECOMPOSING', 'User submitted goal');
+    this.transition('SCHEMING', 'User submitted goal — BossBot + AdvisorBot scheming');
 
-    // ── BossBot forms its own decomposition ──────────────────────────────────
-    const bossSubs = await this.bossBot.decompose(description);
-
-    // ── AdvisorBot's independent read ─────────────────────────────────────
-    this.transition('AWAITING_ADVICE', 'Consulting AdvisorBot on decomposition');
-    const adviceReq = {
-      requesterId: 'BossBot' as const,
-      context:     `Goal: "${description}"\nBossBot decomposition:\n` +
-                   bossSubs.map(s => `  - [${s.domain}] ${s.description}`).join('\n'),
-      question:    'How would you decompose this goal? What dependencies and domains do you see?',
-    };
-    const advice = await this.advisorBot.advise(adviceReq, description);
-    this.advisorBot.appendToSession('BossBot', description, {
-      from: 'BossBot', to: 'AdvisorBot', content: adviceReq.question, ts: Date.now(),
-    });
-    this.advisorBot.appendToSession('BossBot', description, {
-      from: 'AdvisorBot', to: 'BossBot', content: advice.verdict, ts: Date.now(),
-    });
-    this.userChannel.verbose(`AdvisorBot verdict: ${advice.verdict}`);
-
-    // ── BossBot synthesizes both views (stub: use BossBot's decomposition) ──
-    const subGoals: SubGoal[] = bossSubs;
-
-    const goal: Goal = {
-      id:          crypto.randomUUID(),
+    // ── BossBot + AdvisorBot iterate on a Scheme ─────────────────────────────
+    const goalId = crypto.randomUUID();
+    const scheme = await this.bossBot.schemeWithAdvisor(
+      goalId,
       description,
-      subGoals,
+      this.advisorBot,
+      2  // max 2 rounds of iteration
+    );
+
+    this.userChannel.verbose(
+      `Scheme agreed: ${scheme.campaigns.length} campaign(s)\n` +
+      scheme.campaigns.map((c, i) =>
+        `  ${i + 1}. ${c.name}: ${c.objective} ` +
+        `(${c.specialists.length} specialist(s))`
+      ).join('\n')
+    );
+    this.userChannel.verbose(
+      `AdvisorBot endorsement: ${scheme.advisorEndorsement || '(none recorded)'}`
+    );
+
+    // Persist goal with Scheme attached
+    const goal: Goal = {
+      id:          goalId,
+      description,
+      subGoals:    [],   // Scheme-based goals use campaigns instead
       status:      'active',
       createdAt:   Date.now(),
+      scheme,
     };
-
     await this.goalManager.addGoal(goal);
-    this.currentGoalId = goal.id;
+    this.currentGoalId = goalId;
 
-    this.transition('DECOMPOSING', 'Returning from advice');
-    this.transition('EXECUTING',   'Plan written — dispatching ready sub-goals');
-    await this.dispatchReadySubGoals(goal.id);
+    // ── CreatorBot builds all specialists ─────────────────────────────────────
+    this.transition('CREATOR_BUILDING',
+      `CreatorBot building ${scheme.campaigns.reduce((n, c) => n + c.specialists.length, 0)} specialist(s)`
+    );
+
+    const specialistMap = this.creatorBot.buildSchemeSpecialists(scheme);
+
+    // Register all specialists in the agent registry
+    for (const specialists of specialistMap.values()) {
+      for (const s of specialists) {
+        this.agentRegistry.registerEmployee(s);
+      }
+    }
+
+    // Persist specialist IDs back to the goal's scheme
+    await this.goalManager.attachScheme(goalId, scheme);
+
+    this.userChannel.status(
+      `All specialists built. Dispatching ready campaigns.`
+    );
+    this.transition('EXECUTING', 'Specialists ready — dispatching campaigns');
+    await this.dispatchReadyCampaigns(goalId);
   }
 
-  private async handleUserInput(message: string): Promise<void> {
-    if (!this.currentGoalId || this.state === 'IDLE') {
-      // No active goal — treat as a new goal
-      await this.handleUserGoal(message);
+  // ── Campaign dispatch ──────────────────────────────────────────────────────
+
+  /**
+   * Dispatch all campaigns whose dependencies are satisfied.
+   * Each campaign's specialists collectively execute tasks; the campaign
+   * is complete when all tasks return SUCCESS.
+   */
+  private async dispatchReadyCampaigns(goalId: string): Promise<void> {
+    const file  = this.goalManager.load();
+    const ready = this.goalManager.getReadyCampaigns(file, goalId);
+
+    for (const campaign of ready) {
+      if (this.activeJobs.has(campaign.id)) continue;
+      await this.spawnCampaign(goalId, campaign);
+    }
+
+    if (ready.length > 1) {
+      this.userChannel.verbose(
+        `Dispatched ${ready.length} campaign(s) in parallel: ` +
+        ready.map(c => `"${c.name}"`).join(', ')
+      );
+    }
+  }
+
+  /**
+   * Run a campaign by dispatching a task to each of its specialists.
+   * The campaign succeeds when all specialist tasks return SUCCESS.
+   */
+  private async spawnCampaign(goalId: string, campaign: Campaign): Promise<void> {
+    await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'active' });
+    this.userChannel.status(
+      `Campaign started: "${campaign.name}" — ${campaign.objective}`
+    );
+
+    // Build specialist task envelopes
+    const specialists = (campaign.specialistIds ?? [])
+      .map(id => this.agentRegistry.getEmployee(id))
+      .filter((s): s is Employee => s !== undefined);
+
+    if (specialists.length === 0) {
+      // No specialists found — may happen on crash recovery; escalate
+      this.userChannel.required(
+        `Campaign "${campaign.name}" has no built specialists. Escalating.`
+      );
+      await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'failed' });
       return;
     }
 
-    this.userChannel.status(`Folding user input into active plan.`);
+    // Each specialist gets a task scoped to the campaign objective
+    const taskPromises = specialists.map(specialist => {
+      const task = this.bossBot.buildTask(
+        `[Campaign: ${campaign.name}] ${campaign.objective}`,
+        specialist.domain,
+        'normal'
+      );
+      this.taskManager.register(task);
+      this.taskManager.assign(task.taskId, specialist.id);
 
-    const classification = await this.bossBot.classifyUserInput(message);
-    this.userChannel.verbose(`Input classified as: ${classification}`);
+      return specialist.executeTask(task).then(result => ({
+        specialistId: specialist.id,
+        task,
+        result,
+      }));
+    });
 
-    if (classification === 'new_subgoal') {
-      const newSubs = await this.bossBot.generateSubGoals(message);
-      await this.goalManager.foldUserInput(this.currentGoalId, newSubs);
-      this.userChannel.status(`Added ${newSubs.length} sub-goal(s) to the plan.`);
-      await this.dispatchReadySubGoals(this.currentGoalId);
-    } else if (classification === 'constraint') {
-      // Phase 3+: propagate constraint to assigned employees
-      this.userChannel.status(`Constraint noted. Will inform active Employees (Phase 3+).`);
-    } else {
-      // direction_change — treat as new sub-goals for Phase 2B
-      const newSubs = await this.bossBot.generateSubGoals(message);
-      await this.goalManager.foldUserInput(this.currentGoalId, newSubs);
-      await this.dispatchReadySubGoals(this.currentGoalId);
-    }
+    const campaignJob: Promise<void> = Promise.all(taskPromises)
+      .then(async results => {
+        const failed = results.filter(r => r.result.outcome !== 'SUCCESS');
+
+        if (failed.length === 0) {
+          // Campaign complete
+          await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'complete' });
+          this.userChannel.status(`Campaign complete: "${campaign.name}"`);
+
+          // Dispose campaign specialists — their work is done
+          disposeCampaign(campaign.id);
+
+          this.pushEvent({ type: 'JOB_COMPLETE',
+            subGoalId: campaign.id, goalId,
+            result: {
+              taskId:     campaign.id,
+              employeeId: campaign.name,
+              outcome:    'SUCCESS',
+              summary:    `Campaign "${campaign.name}" completed successfully.`,
+              ts:         Date.now(),
+            },
+          });
+        } else {
+          // At least one specialist failed — surface as campaign failure
+          const reasons = failed.map(f =>
+            `${f.specialistId}: ${f.result.failureReason ?? 'unknown'}`
+          ).join('; ');
+          this.pushEvent({ type: 'JOB_FAILED',
+            subGoalId: campaign.id, goalId,
+            error: `Campaign "${campaign.name}" failed: ${reasons}`,
+          });
+        }
+      })
+      .catch(err => {
+        this.pushEvent({
+          type: 'JOB_FAILED',
+          subGoalId: campaign.id,
+          goalId,
+          error: `Campaign "${campaign.name}" threw: ${err instanceof Error ? err.message : String(err)}`,
+        });
+      })
+      .finally(() => {
+        this.activeJobs.delete(campaign.id);
+      });
+
+    this.activeJobs.set(campaign.id, campaignJob);
   }
+
+  // ── JOB_COMPLETE / JOB_FAILED ─────────────────────────────────────────────
 
   private async handleJobComplete(
     event: GovernanceEvent & { type: 'JOB_COMPLETE' }
   ): Promise<void> {
     this.activeJobs.delete(event.subGoalId);
 
-    // Mark sub-goal complete
-    await this.goalManager.updateSubGoal(event.goalId, event.subGoalId, {
-      status: 'complete',
-    });
+    // Determine if this was a campaign or legacy sub-goal
+    const file = this.goalManager.load();
+    const goal = file.goals.find(g => g.id === event.goalId);
 
-    // Tear down task
-    const file    = this.goalManager.load();
-    const goal    = file.goals.find(g => g.id === event.goalId);
-    const subGoal = goal?.subGoals.find(s => s.id === event.subGoalId);
-    if (subGoal?.taskId) {
-      this.advisorBot.destroyTaskSessions(subGoal.taskId);
-      this.taskManager.deregister(subGoal.taskId);
-    }
+    const isCampaign = goal?.scheme?.campaigns.some(c => c.id === event.subGoalId);
 
-    this.userChannel.status(
-      `Sub-goal complete: "${subGoal?.description ?? event.subGoalId}"`
-    );
+    if (isCampaign) {
+      this.userChannel.status(
+        `Campaign complete: "${event.result.summary}"`
+      );
 
-    // Check if the overall goal is done
-    if (this.goalManager.isGoalComplete(this.goalManager.load(), event.goalId)) {
-      await this.runCompletionFlow(event.goalId);
+      // Check if all campaigns done
+      if (this.goalManager.isSchemeComplete(file, event.goalId)) {
+        await this.runCompletionFlow(event.goalId);
+      } else {
+        // Unblock next campaigns
+        this.pushEvent({ type: 'CAMPAIGN_READY', goalId: event.goalId, campaignId: event.subGoalId });
+      }
     } else {
-      // Dispatch any newly-unblocked sub-goals
-      await this.dispatchReadySubGoals(event.goalId);
+      // Legacy sub-goal completion
+      await this.goalManager.updateSubGoal(event.goalId, event.subGoalId, { status: 'complete' });
+      const subGoal = goal?.subGoals.find(s => s.id === event.subGoalId);
+      if (subGoal?.taskId) {
+        this.advisorBot.destroyTaskSessions(subGoal.taskId);
+        this.taskManager.deregister(subGoal.taskId);
+      }
+      this.userChannel.status(`Sub-goal complete: "${subGoal?.description ?? event.subGoalId}"`);
+
+      if (this.goalManager.isGoalComplete(file, event.goalId)) {
+        await this.runCompletionFlow(event.goalId);
+      } else {
+        await this.dispatchReadySubGoals(event.goalId);
+      }
     }
   }
 
@@ -302,11 +436,57 @@ export class GovernanceLoop {
   ): Promise<void> {
     this.activeJobs.delete(event.subGoalId);
 
-    const file    = this.goalManager.load();
-    const goal    = file.goals.find(g => g.id === event.goalId);
-    const subGoal = goal?.subGoals.find(s => s.id === event.subGoalId);
-    if (!subGoal || !subGoal.taskId) return;
+    const file = this.goalManager.load();
+    const goal = file.goals.find(g => g.id === event.goalId);
 
+    const isCampaign = goal?.scheme?.campaigns.some(c => c.id === event.subGoalId);
+
+    if (isCampaign) {
+      const campaign = goal!.scheme!.campaigns.find(c => c.id === event.subGoalId);
+      this.userChannel.required(
+        `Campaign failed: "${campaign?.name ?? event.subGoalId}" — ${event.error}`
+      );
+
+      this.transition('AWAITING_ADVICE', 'Campaign failure — consulting AdvisorBot');
+      const adviceReq = {
+        requesterId: 'BossBot' as const,
+        context:     `Campaign "${campaign?.name}" failed: ${event.error}`,
+        question:    'Should we rebuild specialists and retry, or surface to the user?',
+      };
+      const advice = await this.advisorBot.advise(adviceReq, event.goalId);
+      this.userChannel.verbose(`AdvisorBot on campaign failure: ${advice.verdict}`);
+
+      if (advice.recommendation.toLowerCase().includes('user') ||
+          advice.confidence === 'low') {
+        // Surface to user
+        this.transition('AWAITING_USER_INPUT', 'Campaign failure — surfacing to user');
+        this.userChannel.required(
+          `Campaign "${campaign?.name}" failed and needs your attention.\n` +
+          `Error: ${event.error}\n` +
+          `AdvisorBot: ${advice.verdict}`
+        );
+      } else {
+        // Rebuild specialists and retry
+        this.transition('CREATOR_BUILDING', `Rebuilding campaign "${campaign?.name}"`);
+        await this.goalManager.updateCampaign(event.goalId, event.subGoalId, { status: 'pending' });
+        // Re-build specialists for the campaign
+        if (campaign && goal?.scheme) {
+          const newMap = this.creatorBot.buildSchemeSpecialists(
+            { ...goal.scheme, campaigns: [campaign] }
+          );
+          for (const specialists of newMap.values()) {
+            for (const s of specialists) this.agentRegistry.registerEmployee(s);
+          }
+        }
+        this.transition('EXECUTING', `Campaign "${campaign?.name}" rebuilt — retrying`);
+        await this.dispatchReadyCampaigns(event.goalId);
+      }
+      return;
+    }
+
+    // Legacy sub-goal failure path (preserved from Phase 2B)
+    const subGoal = goal?.subGoals.find(s => s.id === event.subGoalId);
+    if (!subGoal?.taskId) return;
     const task = this.taskManager.get(subGoal.taskId);
     if (!task) return;
 
@@ -315,10 +495,8 @@ export class GovernanceLoop {
     );
 
     const willBeExhausted = (task.strikeCount + 1) >= 3;
-
     if (!willBeExhausted) {
-      this.transition('AWAITING_ADVICE',
-        `Strike ${task.strikeCount + 1} — consulting AdvisorBot`);
+      this.transition('AWAITING_ADVICE', `Strike ${task.strikeCount + 1} — consulting AdvisorBot`);
     }
 
     const strikeAction = await this.escalationHandler.handleFailure(
@@ -331,9 +509,7 @@ export class GovernanceLoop {
       const userResp = await this.escalationHandler.handleStrikeThree(task);
 
       if (userResp.outcome === 'abandon') {
-        await this.goalManager.updateSubGoal(event.goalId, event.subGoalId, {
-          status: 'failed',
-        });
+        await this.goalManager.updateSubGoal(event.goalId, event.subGoalId, { status: 'failed' });
         this.taskManager.deregister(task.taskId);
         this.userChannel.required(`Sub-goal abandoned: "${subGoal.description}"`);
         this.transition('EXECUTING', 'User abandoned task — continuing with others');
@@ -347,7 +523,6 @@ export class GovernanceLoop {
         this.transition('EXECUTING', 'User extended retry budget');
         await this.dispatchReadySubGoals(event.goalId);
       } else {
-        // new_instructions — reset and re-queue
         this.taskManager.resetStrikes(task.taskId);
         await this.goalManager.updateSubGoal(event.goalId, event.subGoalId, {
           status:      'pending',
@@ -359,38 +534,52 @@ export class GovernanceLoop {
         await this.dispatchReadySubGoals(event.goalId);
       }
     } else {
-      // REBUILD — escalationHandler already recorded the attempt
       this.transition('CREATOR_BUILDING', `Building generation-${strikeAction.spec.generation} employee`);
-
       const newEmployee = buildEmployee(strikeAction.spec);
       this.agentRegistry.registerEmployee(newEmployee);
       this.taskManager.assign(task.taskId, newEmployee.name);
-
       this.transition('EXECUTING', `New employee ${newEmployee.name} dispatched`);
 
-      // Relaunch the job with the same task envelope
       const job = newEmployee.executeTask(task)
         .then(result => {
-          this.pushEvent({
-            type: 'JOB_COMPLETE', subGoalId: event.subGoalId,
-            goalId: event.goalId, result,
-          });
+          this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: event.subGoalId, goalId: event.goalId, result });
         })
         .catch((err: unknown) => {
-          this.pushEvent({
-            type: 'JOB_FAILED', subGoalId: event.subGoalId,
-            goalId: event.goalId, error: String(err),
-          });
+          this.pushEvent({ type: 'JOB_FAILED', subGoalId: event.subGoalId, goalId: event.goalId, error: String(err) });
         });
+      this.legacyJobs.set(event.subGoalId, job);
+    }
+  }
 
-      this.activeJobs.set(event.subGoalId, job);
+  // ── User input mid-execution ───────────────────────────────────────────────
+
+  private async handleUserInput(message: string): Promise<void> {
+    if (!this.currentGoalId || this.state === 'IDLE') {
+      await this.handleUserGoal(message);
+      return;
+    }
+
+    this.userChannel.status(`Folding user input into active plan.`);
+    const classification = await this.bossBot.classifyUserInput(message);
+    this.userChannel.verbose(`Input classified as: ${classification}`);
+
+    if (classification === 'new_subgoal') {
+      const newSubs = await this.bossBot.generateSubGoals(message);
+      await this.goalManager.foldUserInput(this.currentGoalId, newSubs);
+      this.userChannel.status(`Added ${newSubs.length} sub-goal(s) to the plan.`);
+      await this.dispatchReadySubGoals(this.currentGoalId);
+    } else if (classification === 'constraint') {
+      this.userChannel.status(`Constraint noted. Will inform active specialists (next iteration).`);
+    } else {
+      const newSubs = await this.bossBot.generateSubGoals(message);
+      await this.goalManager.foldUserInput(this.currentGoalId, newSubs);
+      await this.dispatchReadySubGoals(this.currentGoalId);
     }
   }
 
   // ── Completion flow ────────────────────────────────────────────────────────
 
   private async runCompletionFlow(goalId: string): Promise<void> {
-    // Flush CreatorBot notable queue before reviewing
     const notable = this.creatorBot.flushNotable();
     if (notable.length > 0) {
       this.userChannel.verbose(
@@ -398,19 +587,25 @@ export class GovernanceLoop {
       );
     }
 
-    this.transition('REVIEWING_COMPLETION', 'All sub-goals complete — reviewing with AdvisorBot');
-
+    this.transition('REVIEWING_COMPLETION', 'All campaigns complete — reviewing with AdvisorBot');
     const review = await this.completionHandler.review(goalId);
 
     if (!review.proceed) {
-      // AdvisorBot flagged gaps — re-open affected sub-goals
       for (const id of review.reopenIds) {
-        await this.goalManager.updateSubGoal(goalId, id, { status: 'pending', taskId: undefined });
+        // reopenIds may be campaign IDs or legacy subGoalIds
+        const file = this.goalManager.load();
+        const goal = file.goals.find(g => g.id === goalId);
+        const isCampaign = goal?.scheme?.campaigns.some(c => c.id === id);
+        if (isCampaign) {
+          await this.goalManager.updateCampaign(goalId, id, { status: 'pending' });
+        } else {
+          await this.goalManager.updateSubGoal(goalId, id, { status: 'pending', taskId: undefined });
+        }
       }
-      this.userChannel.status(`AdvisorBot flagged gaps. Re-opening ${review.reopenIds.length} sub-goal(s).`);
-      this.transition('AWAITING_ADVICE',  'AdvisorBot flagged gaps');
-      this.transition('EXECUTING',        'Re-dispatching after gap identified');
-      await this.dispatchReadySubGoals(goalId);
+      this.userChannel.status(`AdvisorBot flagged gaps. Re-opening ${review.reopenIds.length} item(s).`);
+      this.transition('AWAITING_ADVICE', 'AdvisorBot flagged gaps');
+      this.transition('EXECUTING', 'Re-dispatching after gap identified');
+      await this.dispatchReadyCampaigns(goalId);
       return;
     }
 
@@ -426,7 +621,6 @@ export class GovernanceLoop {
       this.userChannel.required('Goal marked complete. ');
       this.transition('IDLE', 'Ready for next goal');
     } else {
-      // User wants changes — fold and continue
       this.userChannel.status('Changes requested. Folding into plan.');
       const newSubs = await this.bossBot.generateSubGoals(signoff.instructions);
       await this.goalManager.foldUserInput(goalId, newSubs);
@@ -435,39 +629,29 @@ export class GovernanceLoop {
     }
   }
 
-  // ── Parallel dispatch ──────────────────────────────────────────────────────
+  // ── Legacy sub-goal dispatch (folded user input, crash recovery) ───────────
 
   private async dispatchReadySubGoals(goalId: string): Promise<void> {
     const file  = this.goalManager.load();
     const ready = this.goalManager.getReadySubGoals(file, goalId);
 
     for (const subGoal of ready) {
-      if (this.activeJobs.has(subGoal.id)) continue; // already running
-      await this.spawnJob(goalId, subGoal);
-    }
-
-    if (ready.length > 1) {
-      this.userChannel.verbose(
-        `Dispatched ${ready.length} sub-goals in parallel: ` +
-        ready.map(s => `"${s.description}"`).join(', ')
-      );
+      if (this.legacyJobs.has(subGoal.id)) continue;
+      await this.spawnLegacyJob(goalId, subGoal);
     }
   }
 
-  private async spawnJob(goalId: string, subGoal: SubGoal): Promise<void> {
-    // Build employee
+  private async spawnLegacyJob(goalId: string, subGoal: SubGoal): Promise<void> {
     const spec     = this.creatorBot.buildEmployeeSpec(
       subGoal.domain, [subGoal.domain], EMPLOYEE_DEFAULT_MODEL
     );
     const employee = buildEmployee(spec);
     this.agentRegistry.registerEmployee(employee);
 
-    // Build and register task
     const task = this.bossBot.buildTask(subGoal.description, subGoal.domain);
     this.taskManager.register(task);
     this.taskManager.assign(task.taskId, employee.name);
 
-    // Update sub-goal in goals.json
     await this.goalManager.updateSubGoal(goalId, subGoal.id, {
       status: 'active',
       taskId: task.taskId,
@@ -475,16 +659,18 @@ export class GovernanceLoop {
 
     this.userChannel.status(`Dispatching [${subGoal.domain}]: "${subGoal.description}"`);
 
-    // Launch — completion/failure pushes events back to the queue
     const job = employee.executeTask(task)
       .then(result => {
         this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: subGoal.id, goalId, result });
       })
       .catch((err: unknown) => {
         this.pushEvent({ type: 'JOB_FAILED', subGoalId: subGoal.id, goalId, error: String(err) });
+      })
+      .finally(() => {
+        this.legacyJobs.delete(subGoal.id);
       });
 
-    this.activeJobs.set(subGoal.id, job);
+    this.legacyJobs.set(subGoal.id, job);
   }
 
   // ── CreatorBot urgent interrupt ────────────────────────────────────────────
@@ -493,7 +679,6 @@ export class GovernanceLoop {
     const urgent = this.creatorBot.peekUrgent();
     if (!urgent) return;
 
-    // Only interrupt if we are in a state that can transition to CREATOR_INTERRUPT
     if (!VALID_TRANSITIONS[this.state].includes('CREATOR_INTERRUPT')) return;
 
     const resumeState = this.state;
@@ -502,7 +687,6 @@ export class GovernanceLoop {
     this.transition('CREATOR_INTERRUPT', `CreatorBot urgent: ${urgent.observation}`);
     this.userChannel.required(`[CreatorBot URGENT] ${urgent.observation}`);
 
-    // BossBot decides action — may consult AdvisorBot
     if (VALID_TRANSITIONS['CREATOR_INTERRUPT'].includes('AWAITING_ADVICE')) {
       const adviceReq = {
         requesterId: 'BossBot' as const,

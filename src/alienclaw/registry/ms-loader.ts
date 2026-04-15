@@ -2,9 +2,27 @@
  * ms-loader.ts
  * READ-ONLY .ms file parser and validator.
  *
+ * .ms file format (in order):
+ *   [GENOME]
+ *   <256-char Base62 genome — 4 sections × 64 chars>
+ *
+ *   # MS_XXXXXXXX
+ *   # description: <text>
+ *   # generation: <int>
+ *   # status: active | retired | graveyard
+ *   # fitness: <float 0.0-1.0>
+ *
+ *   [TOOLS]
+ *   <tool_name> → <filename>.msb   (max 4 tools)
+ *   ...
+ *
+ *   [GRAVEYARD]
+ *   # <fitness> G<generation> <genome>
+ *
  * Hard rules enforced:
  *  - Only parses. Never writes. Writing is CreatorBot's exclusive domain.
  *  - Genome hard invariants checked via genome-codec.
+ *  - Max 4 tools per Meeseeks (MAX_MS_TOOLS).
  *  - Malformed files throw MsParseError — not silently ignored.
  */
 
@@ -12,6 +30,7 @@ import * as fs   from 'node:fs';
 import * as path from 'node:path';
 
 import { validateGenome, parseGenome } from './genome-codec.js';
+import { MAX_MS_TOOLS }                from '../constants.js';
 import type { MeeseeksSpec, MeeseeksStatus, GraveyardEntry } from './ms-types.js';
 
 // ---------------------------------------------------------------------------
@@ -29,17 +48,17 @@ export class MsParseError extends Error {
 // Section parsers
 // ---------------------------------------------------------------------------
 
-function parseHeader(lines: string[]): Partial<MeeseeksSpec> {
+function parseMetadata(lines: string[]): Partial<MeeseeksSpec> {
   const spec: Partial<MeeseeksSpec> = {};
   for (const line of lines) {
     const m = line.match(/^#\s*(\w+):\s*(.+)$/);
     if (!m) continue;
     const [, key, val] = m;
-    switch (key.toLowerCase()) {
-      case 'description': spec.description = val.trim();  break;
-      case 'generation':  spec.generation  = parseInt(val, 10); break;
-      case 'status':      spec.status      = val.trim() as MeeseeksStatus; break;
-      case 'fitness':     spec.fitness     = parseFloat(val); break;
+    switch (key!.toLowerCase()) {
+      case 'description': spec.description = val!.trim();  break;
+      case 'generation':  spec.generation  = parseInt(val!, 10); break;
+      case 'status':      spec.status      = val!.trim() as MeeseeksStatus; break;
+      case 'fitness':     spec.fitness     = parseFloat(val!); break;
     }
   }
   return spec;
@@ -59,9 +78,13 @@ function extractSection(raw: string, sectionName: string): string | undefined {
   return m ? m[1].trim() : undefined;
 }
 
-function parseTools(toolsSection: string): { tools: string[]; msbRefs: string[] } {
+function parseTools(
+  toolsSection: string,
+  filePath?: string,
+): { tools: string[]; msbRefs: string[] } {
   const tools:   string[] = [];
   const msbRefs: string[] = [];
+
   for (const line of toolsSection.split('\n')) {
     // Accept both numbered ("1. web_search → ...") and unnumbered ("web_search → ...")
     const m = line.match(/^(?:\d+\.\s+)?(\S+)\s*→\s*(\S+\.msb)\s*$/);
@@ -70,6 +93,14 @@ function parseTools(toolsSection: string): { tools: string[]; msbRefs: string[] 
       msbRefs.push(m[2]!);
     }
   }
+
+  if (tools.length > MAX_MS_TOOLS) {
+    throw new MsParseError(
+      `[TOOLS] declares ${tools.length} tools — maximum is ${MAX_MS_TOOLS}`,
+      filePath
+    );
+  }
+
   return { tools, msbRefs };
 }
 
@@ -102,6 +133,9 @@ function deriveToolTags(tools: string[]): string[] {
 /**
  * Parse a single .ms file from disk.
  * Throws MsParseError on any format violation or genome invariant breach.
+ *
+ * Expected file order:
+ *   [GENOME] → metadata comments → [TOOLS] → [GRAVEYARD]
  */
 export function loadMsFile(filePath: string): MeeseeksSpec {
   if (!fs.existsSync(filePath)) {
@@ -111,9 +145,23 @@ export function loadMsFile(filePath: string): MeeseeksSpec {
   const raw   = fs.readFileSync(filePath, 'utf-8');
   const lines = raw.split('\n');
 
-  // --- Header metadata ---
-  const headerLines = lines.filter(l => l.startsWith('#'));
-  const partialSpec = parseHeader(headerLines);
+  // --- [GENOME] — must be first meaningful section ---
+  const genomeSection = extractSection(raw, 'GENOME');
+  if (!genomeSection) throw new MsParseError('Missing [GENOME] section', filePath);
+
+  const genome     = genomeSection.trim();
+  const validation = validateGenome(genome);
+  if (!validation.valid) {
+    throw new MsParseError(
+      `Genome validation failed:\n  ${validation.errors.join('\n  ')}`,
+      filePath
+    );
+  }
+  void parseGenome(genome); // confirm parse is consistent (throws on bad format)
+
+  // --- Header metadata (comment lines) ---
+  const commentLines = lines.filter(l => l.startsWith('#'));
+  const partialSpec  = parseMetadata(commentLines);
 
   const id = parseFirstCommentId(lines);
   if (!id) throw new MsParseError('Missing Meeseeks ID comment (# MS_XXXXXXXX)', filePath);
@@ -126,23 +174,8 @@ export function loadMsFile(filePath: string): MeeseeksSpec {
   // --- [TOOLS] ---
   const toolsSection = extractSection(raw, 'TOOLS');
   if (!toolsSection) throw new MsParseError('Missing [TOOLS] section', filePath);
-  const { tools, msbRefs } = parseTools(toolsSection);
+  const { tools, msbRefs } = parseTools(toolsSection, filePath);
   if (tools.length === 0) throw new MsParseError('[TOOLS] section is empty', filePath);
-
-  // --- [GENOME] ---
-  const genomeSection = extractSection(raw, 'GENOME');
-  if (!genomeSection) throw new MsParseError('Missing [GENOME] section', filePath);
-
-  const genome     = genomeSection.trim();
-  const validation = validateGenome(genome);
-  if (!validation.valid) {
-    throw new MsParseError(
-      `Genome validation failed:\n  ${validation.errors.join('\n  ')}`,
-      filePath
-    );
-  }
-
-  void parseGenome(genome); // confirm parse is consistent (throws on bad format)
 
   // --- [GRAVEYARD] ---
   const graveyard = parseGraveyard(extractSection(raw, 'GRAVEYARD'));

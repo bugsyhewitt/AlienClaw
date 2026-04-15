@@ -1,3 +1,12 @@
+# NOTICE: This file is a reference template. The installer (seed-installer.ts)
+# assembles the actual .ms file with a freshly computed genome checksum.
+# Do not edit the genome string here — edit the SeedSpec in seed-installer.ts.
+#
+# Format reference only (genome at top, then metadata, then tools, then graveyard):
+
+[GENOME]
+<assembled by seed-installer.ts using assembleGenome(identity, execution, behavior)>
+
 # MS_FREAD0001
 # description: File read Meeseeks — executes file_read tool
 # generation: 1
@@ -7,9 +16,6 @@
 [TOOLS]
 file_read       → file_read.msb
 
-[GENOME]
-FREAD001G1AlienClaw1000000000000FileRead000000000000000000000000Sequential00000000000000000000002Retry00000000000000000000000000EscalateStd000000000000000000000PerfBalanced00000000000000000000OutputFileContent0000000000000005M4BeUdSoFken6UF4OxaU7ey7i4n6qdM
-
 [GRAVEYARD]
 # Top performing historical genomes. Restored by CreatorBot only.
-# format: <fitness_score> <generation> <genome>
+# format: <fitness_score> G<generation> <genome>

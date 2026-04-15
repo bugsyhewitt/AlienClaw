@@ -1,23 +1,31 @@
 /**
  * employee.ts
- * Employee agent — autonomous domain reasoner built by CreatorBot.
+ * Specialist agent — campaign-scoped domain expert built by CreatorBot.
  *
- * Phase 3: executeTask() now dispatches real Meeseeks from the registry
- * instead of returning the Phase 2B stub. The Phase 2B API (EmployeeSpec,
- * buildEmployee, TaskEnvelope) is preserved for governance-layer compatibility.
- *
- * Key invariants:
- *   - Cannot call tools directly — ALWAYS via Meeseeks
- *   - Cannot mutate genomes
- *   - Selects Meeseeks by tool_tag and fitness from the registry
+ * Design invariants:
+ *   - Cannot call tools directly — ALWAYS via summonMeeseeks()
+ *   - Cannot mutate Meeseeks genomes
+ *   - Holds deep campaign-specific knowledge in its soul (injected at build time)
+ *   - Is disposed when its Campaign ends (deregisterEmployee)
+ *   - summonMeeseeks() is an intentional act, not a passive registry lookup
  */
 
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { EMPLOYEE_DEFAULT_MODEL, FAILFORWARD_MAX_ATTEMPTS, MEESEEKS_REPORT_LEN } from '../constants.js';
-import type { EmployeeSpec, TaskEnvelope, TaskResult }                            from '../types.js';
+import {
+  EMPLOYEE_DEFAULT_MODEL,
+  FAILFORWARD_MAX_ATTEMPTS,
+  MEESEEKS_REPORT_LEN,
+} from '../constants.js';
+import type {
+  EmployeeSpec,
+  TaskEnvelope,
+  TaskResult,
+  SummonResult,
+  SpecialistRole,
+} from '../types.js';
 import { getRegistry }       from '../registry/registry.js';
 import { executeMeeseeks }   from '../msb/meeseeks-executor.js';
 import type { MeeseeksExecutionInput } from '../registry/ms-types.js';
@@ -25,12 +33,12 @@ import { telemetryWriter }   from '../telemetry/telemetry-writer.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASE_SOUL = readFileSync(
-  join(__dirname, '..', 'src', 'alienclaw', 'prompts', 'employee.soul.md'),
+  join(__dirname, '..', 'prompts', 'employee.soul.md'),
   'utf-8'
 );
 
 // ---------------------------------------------------------------------------
-// Employee class — Phase 2B API preserved, Phase 3 execution wired in
+// Employee / Specialist class
 // ---------------------------------------------------------------------------
 
 export class Employee {
@@ -39,22 +47,46 @@ export class Employee {
   readonly soul:   string;
   readonly spec:   EmployeeSpec;
 
-  // Phase 3 fields (aliases for governance compatibility)
+  // Governance compatibility aliases
   readonly id:     string;
   readonly domain: string;
 
-  constructor(spec: EmployeeSpec) {
-    this.spec   = spec;
-    this.name   = spec.employeeId;
-    this.id     = spec.employeeId;
-    this.domain = spec.domain;
-    this.model  = spec.model ?? EMPLOYEE_DEFAULT_MODEL;
-    this.soul   = BASE_SOUL
+  /** Campaign ID this specialist was built for (undefined for legacy generic employees) */
+  readonly campaignId?: string;
+
+  /** Which Meeseeks tool tags this specialist is authorised to summon */
+  readonly authorisedTags: ReadonlySet<string>;
+
+  constructor(spec: EmployeeSpec, role?: SpecialistRole, campaignId?: string) {
+    this.spec        = spec;
+    this.name        = spec.employeeId;
+    this.id          = spec.employeeId;
+    this.domain      = spec.domain;
+    this.model       = spec.model ?? EMPLOYEE_DEFAULT_MODEL;
+    this.campaignId  = campaignId;
+
+    // Build soul: start with the base template, inject spec fields, then
+    // append the campaign knowledge base if this is a true Specialist.
+    let soul = BASE_SOUL
       .replace(/\{\{EMPLOYEE_ID\}\}/g,          spec.employeeId)
       .replace(/\{\{DOMAIN\}\}/g,               spec.domain)
       .replace(/\{\{GENERATION\}\}/g,           String(spec.generation))
       .replace(/\{\{FAILFORWARD_ATTEMPTS\}\}/g, String(FAILFORWARD_MAX_ATTEMPTS))
-      .replace(/\{\{TASK_ID\}\}/g,              'PENDING');
+      .replace(/\{\{TASK_ID\}\}/g,              'PENDING')
+      .replace(/\{\{ROLE\}\}/g,                 role?.role ?? spec.domain)
+      .replace(/\{\{CAMPAIGN_ID\}\}/g,          campaignId ?? 'STANDALONE');
+
+    if (role?.knowledgeBase) {
+      soul += `\n\n---\n## Campaign Knowledge Base\n\n${role.knowledgeBase}`;
+    }
+
+    if (role?.meeseeksTags?.length) {
+      soul += `\n\n## Authorised Meeseeks Tags\n\n` +
+              role.meeseeksTags.map(t => `- ${t}`).join('\n');
+    }
+
+    this.soul           = soul;
+    this.authorisedTags = new Set(role?.meeseeksTags ?? spec.toolTags);
   }
 
   systemPrompt(): string {
@@ -66,80 +98,115 @@ export class Employee {
     return this.soul.replace(/PENDING/g, task.taskId);
   }
 
+  // ── summonMeeseeks ──────────────────────────────────────────────────────────
+
   /**
-   * Execute a task by selecting the best Meeseeks from the registry
-   * and dispatching to it.
+   * Intentionally summon a specific Meeseeks by tool tag to execute work.
    *
-   * Phase 3: real Meeseeks dispatch replaces the Phase 2B stub.
-   * Falls back gracefully when no Meeseeks matches the domain/tool tag.
+   * This is the specialist's only interface to tool execution — it is an
+   * explicit, intentional act. The specialist chooses WHICH Meeseeks to
+   * call and WHY, rather than passively waiting for a registry lookup.
+   *
+   * @param tag     - Meeseeks tool tag (must be in authorisedTags for specialists)
+   * @param task    - Natural language task description
+   * @param context - Key-value execution context (passed to the MSB executor)
    */
-  async executeTask(task: TaskEnvelope): Promise<TaskResult> {
+  async summonMeeseeks(
+    tag:     string,
+    task:    string,
+    context: Record<string, string> = {}
+  ): Promise<SummonResult> {
     const registry = getRegistry();
+    if (!registry.isLoaded) registry.load();
 
-    // Ensure registry is loaded (idempotent)
-    if (!registry.isLoaded) {
-      registry.load();
-    }
-
-    const toolTag  = task.domain;
-    const meeseeks = registry.bestForTool(toolTag);
+    const meeseeks = registry.bestForTool(tag);
 
     if (!meeseeks) {
-      // No suitable Meeseeks — return FAILURE so governance escalates
       return {
-        taskId:        task.taskId,
-        employeeId:    this.name,
-        outcome:       'FAILURE',
-        summary:       `No active Meeseeks found for tool tag "${toolTag}" ` +
-                       `(registry has ${registry.size} entries). Escalating to BossBot.`,
-        failureReason: `NO_MEESEEKS:${toolTag}`,
-        ts:            Date.now(),
+        tag,
+        outcome: 'FAILURE',
+        error:   `No active Meeseeks for tool tag "${tag}" (registry size: ${registry.size})`,
+        ts:      Date.now(),
       };
     }
 
-    const execInput: MeeseeksExecutionInput = {
-      meeseeks,
-      task:    task.description,
-      context: {},
-    };
+    const execInput: MeeseeksExecutionInput = { meeseeks, task, context };
 
     try {
-      const result    = await executeMeeseeks(execInput);
-      const succeeded = result.outcome === 'SUCCESS';
-      const taskResult: TaskResult = {
-        taskId:        task.taskId,
-        employeeId:    this.name,
-        outcome:       result.outcome,
-        summary:       succeeded
-          ? `Meeseeks ${meeseeks.id} completed: ${task.description.slice(0, 80)}`
-          : `Meeseeks ${meeseeks.id} failed: ${result.error ?? 'unknown error'}`,
-        failureReason: result.error,
-        ts:            Date.now(),
+      const result = await executeMeeseeks(execInput);
+
+      const summonResult: SummonResult = {
+        tag,
+        outcome: result.outcome,
+        output:  result.output,
+        error:   result.error,
+        ts:      Date.now(),
       };
 
-      // Telemetry: write Meeseeks execution report
+      // Telemetry
       const reportCode = meeseeks.id.slice(0, MEESEEKS_REPORT_LEN);
       void telemetryWriter.writeMeeseeksReport(reportCode, {
-        taskId:     task.taskId,
+        taskId:     `summon-${Date.now()}`,
         employeeId: this.name,
         meeseeksId: meeseeks.id,
-        domain:     task.domain,
-        outcome:    taskResult.outcome,
-        summary:    taskResult.summary,
+        domain:     tag,
+        outcome:    result.outcome,
+        summary:    result.outcome === 'SUCCESS'
+          ? `Meeseeks ${meeseeks.id} succeeded: ${task.slice(0, 80)}`
+          : `Meeseeks ${meeseeks.id} failed: ${result.error ?? 'unknown'}`,
       });
 
-      return taskResult;
+      return summonResult;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return {
-        taskId:        task.taskId,
-        employeeId:    this.name,
-        outcome:       'FAILURE',
-        summary:       `Meeseeks ${meeseeks.id} threw unexpectedly: ${msg}`,
-        failureReason: msg,
-        ts:            Date.now(),
+        tag,
+        outcome: 'FAILURE',
+        error:   `Meeseeks ${meeseeks.id} threw unexpectedly: ${msg}`,
+        ts:      Date.now(),
       };
     }
+  }
+
+  // ── executeTask ─────────────────────────────────────────────────────────────
+
+  /**
+   * Execute a task by summoning the appropriate Meeseeks.
+   *
+   * Uses the task's domain as the tool tag. For specialists with a defined
+   * set of authorised tags, the domain must match one of them — otherwise
+   * the specialist summons the closest match from its authorised set.
+   */
+  async executeTask(task: TaskEnvelope): Promise<TaskResult> {
+    // Determine which tag to summon
+    let tag = task.domain;
+    if (this.authorisedTags.size > 0 && !this.authorisedTags.has(tag)) {
+      // Fall back to the first authorised tag rather than failing cold
+      tag = [...this.authorisedTags][0];
+    }
+
+    const summon = await this.summonMeeseeks(tag, task.description, {
+      taskId:     task.taskId,
+      employeeId: this.name,
+      domain:     task.domain,
+      priority:   task.priority,
+    });
+
+    return {
+      taskId:        task.taskId,
+      employeeId:    this.name,
+      outcome:       summon.outcome,
+      summary:       summon.outcome === 'SUCCESS'
+        ? `Meeseeks [${tag}] completed: ${task.description.slice(0, 80)}`
+        : `Meeseeks [${tag}] failed: ${summon.error ?? 'unknown'}`,
+      failureReason: summon.error,
+      ts:            Date.now(),
+    };
+  }
+
+  /** Dispose this specialist — call when its campaign ends. */
+  dispose(): void {
+    deregisterEmployee(this.id);
   }
 }
 
@@ -151,8 +218,20 @@ export function buildEmployee(spec: EmployeeSpec): Employee {
   return new Employee(spec);
 }
 
+/**
+ * Build a Specialist (campaign-scoped Employee).
+ * Called by CreatorBot when it receives a Scheme and builds out each Campaign.
+ */
+export function buildSpecialist(
+  spec:       EmployeeSpec,
+  role:       SpecialistRole,
+  campaignId: string
+): Employee {
+  return new Employee(spec, role, campaignId);
+}
+
 // ---------------------------------------------------------------------------
-// Phase 3 global registration functions (mirrors governance AgentRegistry)
+// Global registration functions
 // ---------------------------------------------------------------------------
 
 const _employees = new Map<string, Employee>();
@@ -171,4 +250,16 @@ export function getEmployee(id: string): Employee | undefined {
 
 export function getAllEmployees(): Employee[] {
   return [..._employees.values()];
+}
+
+/** Return all specialists belonging to a given campaign. */
+export function getCampaignSpecialists(campaignId: string): Employee[] {
+  return [..._employees.values()].filter(e => e.campaignId === campaignId);
+}
+
+/** Dispose all specialists for a campaign once it ends. */
+export function disposeCampaign(campaignId: string): void {
+  for (const emp of getCampaignSpecialists(campaignId)) {
+    emp.dispose();
+  }
 }
