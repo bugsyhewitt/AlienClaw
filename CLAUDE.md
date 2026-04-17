@@ -17,7 +17,7 @@ AlienClaw is a thin add-on for OpenClaw (https://github.com/openclaw/openclaw, M
 
 ## Hard rules for Claude Code
 
-1. **Never modify `openclaw/`.** That folder is a pinned upstream snapshot. If OpenClaw needs patching, patch at install time via `install.sh` only.
+1. **Never add `agentId` to `agents.defaults` in `openclaw.json`.** OpenClaw 2026.4+ rejects `agentId` as invalid. Only set `agents.defaults.workspace` to the agent folder path.
 2. **Never modify `~/.openclaw/openclaw.json` without backing it up first.** Use `cp "$HOME/.openclaw/openclaw.json" "$HOME/.openclaw/openclaw.json.backup-$(date +%s)"` before any write.
 3. **Never use `env.argv`.** `env` is `process.env`; it has no `argv`. Use `process.argv`.
 4. **Never ship TypeScript that the installer assumes is pre-built** unless the install step actually builds it. AlienClaw v0.1 ships plain markdown + plain Node; no TypeScript at runtime.
