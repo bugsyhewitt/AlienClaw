@@ -13,6 +13,26 @@ set -uo pipefail
 
 ALIENCLAW_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SEED_DIR="$ALIENCLAW_REPO_ROOT/seed/agents"
+
+# If seed dir doesn't exist, the user probably downloaded install.sh standalone
+# instead of cloning the full repo. Detect and give clear instructions.
+if [ ! -d "$SEED_DIR" ]; then
+  echo ""
+  echo -e "  ${RED}✘ Seed files not found.${NC}"
+  echo ""
+  echo "  You appear to be running install.sh from a standalone download."
+  echo "  The installer needs the full AlienClaw repository, not just install.sh."
+  echo ""
+  echo "  Please clone the full repo:"
+  echo "    git clone https://github.com/AlienTool/AlienClaw.git"
+  echo "    cd AlienClaw"
+  echo "    bash install.sh"
+  echo ""
+  echo "  Or use the release package (contains install.sh + seed/):"
+  echo "    https://github.com/AlienTool/AlienClaw/releases"
+  echo ""
+  exit 1
+fi
 OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 AGENTS_ROOT="$OPENCLAW_HOME/agents"
 AGENT_IDS=(bossbot advisorbot creatorbot)
