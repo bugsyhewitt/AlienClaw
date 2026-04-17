@@ -1,0 +1,38 @@
+{
+  "$schema": "https://github.com/ScoopInstaller/Scoop/wiki/schema",
+  "version": "2026.3.7",
+  "description": "Three-agent AI governance layer for OpenClaw — BossBot, AdvisorBot, CreatorBot",
+  "homepage": "https://alienclaw.net",
+  "license": {
+    "identifier": "MIT"
+  },
+  "url": "https://github.com/AlienTool/AlienClaw/releases/download/v2026.3.7/alienclaw-2026.3.7.zip",
+  "hash": "sha256:TODO_UPDATE_AFTER_FIRST_RELEASE",
+  "suggest": {
+    "openclaw": {
+      "description": "OpenClaw is required. Install it first: scoop install openclaw",
+      "version": "2026.4.12"
+    }
+  },
+  "installer": {
+    "script": [
+      "Write-Host 'Installing AlienClaw...' -ForegroundColor Cyan",
+      "$env:OPENCLAW_HOME = \"$env:USERPROFILE\\.openclaw\"",
+      "$env:ALIENCLAW_HOME = \"$env:USERPROFILE\\.alienclaw\"",
+      "$REPO_ROOT = \"$PSScriptRoot\\..\"",
+      "bash \"$REPO_ROOT\\install.sh\""
+    ]
+  },
+  "uninstaller": {
+    "script": [
+      "Write-Host 'Uninstalling AlienClaw agents...' -ForegroundColor Yellow",
+      "$env:OPENCLAW_HOME = \"$env:USERPROFILE\\.openclaw\"",
+      "bash \"$PSScriptRoot\\..\\install.sh\" --uninstall"
+    ]
+  },
+  "notes": [
+    "AlienClaw has been installed!",
+    "Start chatting: openclaw chat",
+    "Uninstall agents: scoop uninstall alienclaw"
+  ]
+}
