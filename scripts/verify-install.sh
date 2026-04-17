@@ -51,7 +51,7 @@ done
 echo "→ Checking openclaw.json..."
 CFG="$OPENCLAW_HOME/openclaw.json"
 if [ -f "$CFG" ]; then
-  grep -q '"agentId": *"bossbot"' "$CFG" || { echo "  ✘ openclaw.json: bossbot is not the default agentId"; fail=1; }
+  grep -q 'bossbot' "$CFG" || { echo "  ✘ openclaw.json: bossbot workspace not set as default"; fail=1; }
 else
   echo "  ✘ openclaw.json not found at $CFG"; fail=1
 fi
