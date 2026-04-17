@@ -74,7 +74,7 @@ if $UNINSTALL; then
     fi
   done
   info "Review $AGENTS_ROOT/_uninstalled_*_${TIMESTAMP} to remove permanently."
-  info "You may also want to edit $OPENCLAW_HOME/openclaw.json to clear agents.defaults.agentId."
+  info "You may also want to edit $OPENCLAW_HOME/openclaw.json to clear agents.defaults.workspace."
   exit 0
 fi
 
@@ -175,7 +175,7 @@ step "Setting BossBot as the default agent"
 CFG="$OPENCLAW_HOME/openclaw.json"
 
 if $DRY_RUN; then
-  info "[dry-run] Would backup $CFG and set agents.defaults.agentId=bossbot"
+  info "[dry-run] Would backup $CFG and set agents.defaults.workspace to bossbot"
 else
   if [ -f "$CFG" ]; then
     cp "$CFG" "$CFG.backup-$TIMESTAMP"
@@ -212,7 +212,7 @@ if (Array.isArray(cfg.agents.list)) {
 
 fs.mkdirSync(path.dirname(cfgFile), { recursive: true });
 fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 2) + '\n');
-console.log('  ✔ openclaw.json updated: agents.defaults.agentId = bossbot');
+console.log('  ✔ openclaw.json updated: agents.defaults.workspace = bossbot');
 NODE_PATCH
 fi
 
@@ -241,7 +241,7 @@ else
   if grep -q 'agents.*bossbot' "$CFG" 2>/dev/null; then
     success "openclaw.json: BossBot workspace is set as default."
   else
-    warn "openclaw.json does not show agentId=bossbot. Inspect $CFG manually."
+    warn "openclaw.json does not show bossbot workspace. Inspect $CFG manually."
   fi
 
   # 6c. `openclaw agents list` (if available) shows the three.
