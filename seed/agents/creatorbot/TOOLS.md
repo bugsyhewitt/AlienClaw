@@ -1,3 +1,14 @@
-# TOOLS — CreatorBot uses none in v0.1
+# TOOLS — CreatorBot
 
-Build tools will be wired in v0.2. v0.1 returns acknowledgement stubs only.
+CreatorBot has access to the standard OpenClaw file write tool only.
+
+## Available tool
+
+- **Write specialist spec** — writes a markdown spec file to `~/.openclaw/agents/creatorbot/specialists/`.
+  - Input: specialist name, task class, tool set description.
+  - Output: file path of the created spec.
+- No other tools are wired in v0.1.
+
+## Usage
+
+When BossBot sends a build request, use the file write tool to create `~/.openclaw/agents/creatorbot/specialists/specialist-<timestamp>.md`, then respond with the file path.
