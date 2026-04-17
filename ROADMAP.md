@@ -1,3 +1,5 @@
+> **NOTE:** This file describes the parked governance-engine design (see `experimental/governance-engine/`). It does not describe v0.1 runtime behavior.
+
 # AlienClaw — Roadmap to Working System
 
 ## Status: WORKING — end-to-end test passes

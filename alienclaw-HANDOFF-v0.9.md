@@ -1,3 +1,5 @@
+> **NOTE:** This file describes the parked governance-engine design (see `experimental/governance-engine/`). It does not describe v0.1 runtime behavior.
+
 # AlienClaw — Master Handoff Document v0.9
 # For: New Claude chat session
 # Status: v0.1.0 RELEASE CANDIDATE — feature complete, tree clean, tagged.

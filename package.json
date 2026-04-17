@@ -331,6 +331,8 @@
     "ui:build": "node scripts/ui.js build",
     "ui:dev": "node scripts/ui.js dev",
     "ui:install": "node scripts/ui.js install",
+    "verify": "bash scripts/verify-install.sh",
+    "install-local": "bash install.sh",
     "dist:copy": "bash installer/scripts/copy-dist.sh",
     "dist:reskin": "bash installer/scripts/reskin.sh --target build --execute",
     "dist:overlay": "bash installer/scripts/overlay-dist.sh",

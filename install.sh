@@ -1,442 +1,245 @@
 #!/usr/bin/env bash
 # =============================================================================
-# AlienClaw Installer
-# Installs OpenClaw via npm, then layers AlienClaw agent system on top.
+# AlienClaw Installer — v0.1
+# Installs OpenClaw if missing, then provisions 3 agent workspaces
+# (BossBot, AdvisorBot, CreatorBot) with routing pre-wired.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/AlienTool/AlienClaw/main/install.sh | bash
-#   bash install.sh              # Local install
-#   bash install.sh --dryrun     # Preview all steps without making changes
+#   bash install.sh                      # normal install
+#   bash install.sh --dry-run            # print actions, make no changes
+#   bash install.sh --uninstall          # remove AlienClaw agents (leave OpenClaw)
 # =============================================================================
 set -uo pipefail
 
-ALIENCLAW_REPO="https://github.com/AlienTool/AlienClaw.git"
-ALIENCLAW_HOME="${ALIENCLAW_HOME:-$HOME/.alienclaw}"
-TMPDIR_AC=""
+ALIENCLAW_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SEED_DIR="$ALIENCLAW_REPO_ROOT/seed/agents"
+OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+AGENTS_ROOT="$OPENCLAW_HOME/agents"
+AGENT_IDS=(bossbot advisorbot creatorbot)
+TIMESTAMP="$(date +%s)"
 
-# Dry-run flag
-DRYRUN=false
+DRY_RUN=false
+UNINSTALL=false
 for arg in "$@"; do
-  case "$arg" in -dryrun|--dryrun) DRYRUN=true ;; esac
+  case "$arg" in
+    --dry-run|-n) DRY_RUN=true ;;
+    --uninstall)  UNINSTALL=true ;;
+    -h|--help)
+      sed -n '3,14p' "${BASH_SOURCE[0]}"
+      exit 0
+      ;;
+  esac
 done
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[38;2;0;255;136m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
-
-# Helpers
+GREEN='\033[38;2;0;255;136m'; RED='\033[0;31m'; YELLOW='\033[1;33m'
+BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
 info()    { echo -e "  ${GREEN}▸${NC} $*"; }
 success() { echo -e "  ${GREEN}✔${NC} $*"; }
 warn()    { echo -e "  ${YELLOW}⚠${NC} $*"; }
 fail()    { echo -e "  ${RED}✘${NC} $*" >&2; exit 1; }
-step()    { echo -e "\n${BOLD}${BLUE}==>${NC}${BOLD} $*${NC}"; }
-
-cleanup() {
-  if [[ -n "${TMPDIR_AC:-}" && -d "${TMPDIR_AC:-}" ]]; then
-    rm -rf "$TMPDIR_AC" &>/dev/null &
-    TMPDIR_AC=""
-  fi
-  printf '%b' '\033[?25h\033[0m'
-}
-trap cleanup EXIT
-trap 'echo ""; echo -e "\n  ${RED}Aborted.${NC}"; exit 1' INT TERM
-
-# =============================================================================
-# Platform detection
-# =============================================================================
-OS=""
-PKG_MANAGER=""
-
-detect_os() {
-  case "$(uname -s)" in
-    Linux)
-      OS="linux"
-      if   command -v apt-get &>/dev/null; then PKG_MANAGER="apt"
-      elif command -v dnf     &>/dev/null; then PKG_MANAGER="dnf"
-      elif command -v yum     &>/dev/null; then PKG_MANAGER="yum"
-      elif command -v pacman  &>/dev/null; then PKG_MANAGER="pacman"
-      elif command -v zypper  &>/dev/null; then PKG_MANAGER="zypper"
-      else fail "No supported package manager found."; fi
-      ;;
-    Darwin)
-      OS="macos"
-      PKG_MANAGER="brew"
-      ;;
-    *)
-      fail "Unsupported OS: $(uname -s). AlienClaw supports macOS, Linux, and WSL2."
-      ;;
-  esac
-  info "Platform: ${OS} (${PKG_MANAGER})"
+step()    { echo -e "\n${BOLD}${GREEN}==>${NC}${BOLD} $*${NC}"; }
+run() {
+  if $DRY_RUN; then echo "  [dry-run] $*"; else eval "$@"; fi
 }
 
-# =============================================================================
-# Package install
-# =============================================================================
-pkg_install() {
-  local pkg="$1"
-  case "$PKG_MANAGER" in
-    apt)    sudo apt-get install -y "$pkg" </dev/null ;;
-    dnf)    sudo dnf install -y "$pkg"     </dev/null ;;
-    yum)    sudo yum install -y "$pkg"     </dev/null ;;
-    pacman) sudo pacman -S --noconfirm "$pkg" </dev/null ;;
-    zypper) sudo zypper install -y "$pkg"  </dev/null ;;
-    brew)   brew install "$pkg" </dev/null ;;
-  esac
-}
-
-apt_update_once() {
-  if [[ "$PKG_MANAGER" == "apt" && "${APT_UPDATED:-0}" != "1" ]]; then
-    info "Updating package lists..."
-    sudo apt-get update -qq </dev/null || warn "apt-get update had warnings (continuing)."
-    APT_UPDATED=1
-  fi
-}
-
-require_cmd() {
-  local cmd="$1" pkg="${2:-$1}"
-  if command -v "$cmd" &>/dev/null; then
-    success "$cmd found"
-    return 0
-  fi
-  info "Installing $cmd..."
-  if $DRYRUN; then info "[DRYRUN] Would install $pkg"; return 0; fi
-  apt_update_once
-  if pkg_install "$pkg"; then
-    hash -r 2>/dev/null || true
-    if command -v "$cmd" &>/dev/null; then
-      success "$cmd installed"
-      return 0
+# ── Uninstall path ───────────────────────────────────────────────────────────
+if $UNINSTALL; then
+  step "Uninstalling AlienClaw agents (OpenClaw itself is left alone)"
+  for id in "${AGENT_IDS[@]}"; do
+    if [ -d "$AGENTS_ROOT/$id" ]; then
+      archive="$AGENTS_ROOT/_uninstalled_${id}_${TIMESTAMP}"
+      run "mv '$AGENTS_ROOT/$id' '$archive'"
+      success "Archived $id → $archive"
     fi
-  fi
-  fail "$cmd could not be installed."
-}
+  done
+  info "Review $AGENTS_ROOT/_uninstalled_*_${TIMESTAMP} to remove permanently."
+  info "You may also want to edit $OPENCLAW_HOME/openclaw.json to clear agents.defaults.agentId."
+  exit 0
+fi
 
-# =============================================================================
-# Node.js 22+
-# =============================================================================
-ensure_node() {
-  if command -v node &>/dev/null; then
-    local major
-    major=$(node -e 'process.stdout.write(String(process.versions.node.split(".")[0]))' 2>/dev/null || echo "0")
-    if [[ "$major" -ge 22 ]]; then
-      success "Node.js $(node --version)"
-      return 0
-    fi
-    info "Node.js $(node --version) found but v22+ required. Upgrading..."
+# ── 1. Check OpenClaw is installed ───────────────────────────────────────────
+step "Checking for OpenClaw"
+if ! command -v openclaw &>/dev/null; then
+  warn "OpenClaw is not installed."
+  echo "  Install it first:"
+  echo "    npm install -g openclaw"
+  echo "  Then re-run: bash install.sh"
+  fail "OpenClaw required."
+fi
+success "OpenClaw found: $(openclaw --version 2>/dev/null || echo 'unknown version')"
+
+# ── 2. Probe OpenClaw's exact workspace layout ───────────────────────────────
+step "Probing OpenClaw's agent workspace layout"
+PROBE_DIR="$AGENTS_ROOT/_probe_${TIMESTAMP}"
+if ! $DRY_RUN; then
+  # Use `openclaw setup --workspace` to create a reference workspace.
+  # If that subcommand doesn't exist on this OpenClaw version, fall back to
+  # creating files at the agent root directly (the documented default layout).
+  mkdir -p "$PROBE_DIR"
+  if openclaw setup --workspace "$PROBE_DIR" >/dev/null 2>&1; then
+    info "Using 'openclaw setup' layout."
   else
-    info "Node.js not found. Installing..."
+    warn "This OpenClaw version lacks 'openclaw setup --workspace'."
+    info "Falling back to documented default layout (files at agent root)."
+    touch "$PROBE_DIR/.layout-fallback"
+  fi
+fi
+
+# Determine whether files go at the agent root or under workspace/
+LAYOUT_SUBDIR=""
+if $DRY_RUN; then
+  LAYOUT_SUBDIR=""  # assume root for dry run
+elif [ -f "$PROBE_DIR/workspace/SOUL.md" ] || [ -f "$PROBE_DIR/workspace/README.md" ]; then
+  LAYOUT_SUBDIR="workspace"
+  info "Detected layout: files under <agent>/workspace/"
+else
+  LAYOUT_SUBDIR=""
+  info "Detected layout: files at <agent> root"
+fi
+
+run "rm -rf '$PROBE_DIR'"
+
+# ── 3. Archive any pre-existing default workspace ────────────────────────────
+step "Archiving any pre-existing default OpenClaw agent"
+for candidate in "$OPENCLAW_HOME/workspace" "$AGENTS_ROOT/main"; do
+  if [ -d "$candidate" ]; then
+    archive="$AGENTS_ROOT/_archived_$(basename "$candidate")_${TIMESTAMP}"
+    run "mkdir -p '$AGENTS_ROOT'"
+    run "mv '$candidate' '$archive'"
+    success "Archived $candidate → $archive (not deleted)"
+  fi
+done
+
+# ── 4. Provision the three AlienClaw agents ──────────────────────────────────
+step "Provisioning AlienClaw agents"
+run "mkdir -p '$AGENTS_ROOT'"
+
+for id in "${AGENT_IDS[@]}"; do
+  src="$SEED_DIR/$id"
+  if [ ! -d "$src" ]; then
+    fail "Seed folder not found: $src"
   fi
 
-  if $DRYRUN; then info "[DRYRUN] Would install Node.js 22"; return 0; fi
-
-  if [[ "$PKG_MANAGER" == "apt" ]]; then
-    local ns_tmp="$(mktemp)"
-    curl -fsSL https://deb.nodesource.com/setup_22.x -o "$ns_tmp" || fail "Could not download NodeSource setup."
-    sudo -E bash "$ns_tmp" </dev/null || fail "NodeSource setup failed."
-    rm -f "$ns_tmp"
-    sudo apt-get install -y nodejs </dev/null || fail "Could not install Node.js via apt."
-  elif [[ "$PKG_MANAGER" == "brew" ]]; then
-    brew install node@22 </dev/null || fail "Could not install Node.js via Homebrew."
-    brew link --overwrite node@22 2>/dev/null || true
-  elif [[ "$PKG_MANAGER" == "dnf" || "$PKG_MANAGER" == "yum" ]]; then
-    local ns_tmp="$(mktemp)"
-    curl -fsSL https://rpm.nodesource.com/setup_22.x -o "$ns_tmp" || fail "Could not download NodeSource setup."
-    sudo bash "$ns_tmp" </dev/null || fail "NodeSource setup failed."
-    rm -f "$ns_tmp"
-    sudo "${PKG_MANAGER}" install -y nodejs </dev/null || fail "Could not install Node.js."
-  else
-    fail "Could not install Node.js automatically. Install Node.js 22+ manually and re-run."
+  target="$AGENTS_ROOT/$id"
+  if [ -n "$LAYOUT_SUBDIR" ]; then
+    target="$target/$LAYOUT_SUBDIR"
   fi
 
-  hash -r 2>/dev/null || true
-  if ! command -v node &>/dev/null; then
-    fail "Node.js installation completed but 'node' is not on PATH."
-  fi
-  local installed_major
-  installed_major=$(node -e 'process.stdout.write(String(process.versions.node.split(".")[0]))' 2>/dev/null || echo "0")
-  if [[ "$installed_major" -lt 22 ]]; then
-    fail "Node.js installed but version is $(node --version) — need v22+."
-  fi
-  success "Node.js $(node --version)"
-}
-
-# =============================================================================
-# pnpm
-# =============================================================================
-ensure_pnpm() {
-  if command -v pnpm &>/dev/null; then success "pnpm found"; return 0; fi
-  info "Installing pnpm..."
-  if $DRYRUN; then info "[DRYRUN] Would install pnpm"; return 0; fi
-  npm install -g pnpm </dev/null || corepack enable pnpm </dev/null || true
-  hash -r 2>/dev/null || true
-  if command -v pnpm &>/dev/null; then
-    success "pnpm installed"
-  else
-    fail "Could not install pnpm."
-  fi
-}
-
-# =============================================================================
-# Banner
-# =============================================================================
-print_banner() {
-  echo ""
-  echo -e "${GREEN}${BOLD}"
-  cat <<'BANNER'
-     _    _ _            ____ _
-    / \  | (_) ___ _ __ / ___| | __ ___
-   / _ \ | | |/ _ \ '_ \ |   | |/ _` \ \ /\ / /
-  / ___ \| | |  __/ | | | |___| | (_| |\ V  V /
- /_/   \_\_|_|\___|_| |_|\____|_|\__,_| \_/\_/
-                                    Installer
-BANNER
-  echo -e "${NC}"
-  if $DRYRUN; then
-    echo -e "  ${YELLOW}${BOLD}DRY-RUN MODE — no changes will be made${NC}"
-    echo ""
-  fi
-}
-
-# =============================================================================
-# Main
-# =============================================================================
-main() {
-  if [[ ! -t 0 ]] && [[ -r /dev/tty ]]; then
-    exec </dev/tty
+  if [ -d "$target" ]; then
+    warn "Target $target already exists — archiving before overwrite."
+    archive="${target%/}_replaced_${TIMESTAMP}"
+    run "mv '$target' '$archive'"
   fi
 
-  print_banner
+  run "mkdir -p '$target'"
+  run "cp -r '$src/'* '$target/'"
+  success "Installed agent: $id → $target"
+done
 
-  # ── 1. Prerequisites ────────────────────────────────────────────────────────
-  step "Detecting platform"
-  detect_os
+# ── 5. Patch openclaw.json to make BossBot the default ───────────────────────
+step "Setting BossBot as the default agent"
+CFG="$OPENCLAW_HOME/openclaw.json"
 
-  step "Installing prerequisites"
-  require_cmd git
-  require_cmd curl
-  ensure_node
-  ensure_pnpm
-
-  # ── 2. Install OpenClaw ────────────────────────────────────────────────────
-  step "Installing OpenClaw"
-  if command -v openclaw &>/dev/null; then
-    info "OpenClaw already installed: $(openclaw --version 2>/dev/null)"
-    success "Skipping npm install."
-  elif $DRYRUN; then
-    info "[DRYRUN] Would run: npm install -g openclaw"
-  else
-    info "OpenClaw not found on PATH."
-    info "Install it with: npm install -g openclaw"
-    info "Then re-run: bash install.sh"
-    fail "OpenClaw is required but not installed."
+if $DRY_RUN; then
+  info "[dry-run] Would backup $CFG and set agents.defaults.agentId=bossbot"
+else
+  if [ -f "$CFG" ]; then
+    cp "$CFG" "$CFG.backup-$TIMESTAMP"
+    info "Backed up: $CFG → $CFG.backup-$TIMESTAMP"
   fi
 
-  # ── 3. Download AlienClaw source ───────────────────────────────────────────
-  step "Downloading AlienClaw"
-  TMPDIR_AC="$(mktemp -d)"
-  if $DRYRUN; then
-    info "[DRYRUN] Would clone $ALIENCLAW_REPO"
-  else
-    info "Cloning AlienClaw repository..."
-    if git clone --depth 1 "$ALIENCLAW_REPO" "$TMPDIR_AC/alienclaw"; then
-      success "AlienClaw downloaded."
-    else
-      fail "Could not clone AlienClaw repo."
-    fi
-  fi
-
-  # ── 4. Install AlienClaw agent system + write agents into OpenClaw config ─
-  step "Installing AlienClaw agent system"
-
-  if ! $DRYRUN; then
-    mkdir -p "$ALIENCLAW_HOME"
-    mkdir -p "$ALIENCLAW_HOME/registry/ms"
-    mkdir -p "$ALIENCLAW_HOME/registry/msb"
-    mkdir -p "$ALIENCLAW_HOME/registry/lineage"
-    mkdir -p "$ALIENCLAW_HOME/registry/telemetry"
-    mkdir -p "$ALIENCLAW_HOME/workspace/output"
-    mkdir -p "$ALIENCLAW_HOME/bin"
-
-    # Copy AlienClaw source (agent system + Meeseeks + installer)
-    cp -r "$TMPDIR_AC/alienclaw/src/alienclaw" "$ALIENCLAW_HOME/src-alienclaw"
-    cp -r "$TMPDIR_AC/alienclaw/installer" "$ALIENCLAW_HOME/installer"
-
-    # Copy node_modules so alienclaw can run via tsx without separate install
-    if [[ -d "$TMPDIR_AC/alienclaw/build/src-alienclaw-node_modules" ]]; then
-      cp -r "$TMPDIR_AC/alienclaw/build/src-alienclaw-node_modules" \
-        "$ALIENCLAW_HOME/node_modules"
-    fi
-
-    success "AlienClaw agent system installed to $ALIENCLAW_HOME"
-  fi
-
-  # ── 4b. Write BossBot / AdvisorBot / CreatorBot into OpenClaw config ─────────
-  step "Registering agents in OpenClaw"
-
-  if ! $DRYRUN; then
-    node -e "
-const fs   = require('fs');
+  node - <<'NODE_PATCH'
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const os   = require('os');
-const soulDir  = '${TMPDIR_AC}' + '/alienclaw/src/alienclaw/prompts';
-const openclaw = process.env.OPENCLAW_HOME || path.join(os.homedir(), '.openclaw');
-const cfgFile  = path.join(openclaw, 'openclaw.json');
 
-const readSoul = (name) => {
-  const p = path.join(soulDir, name);
-  if (!fs.existsSync(p)) throw new Error('Soul file not found: ' + p);
-  return fs.readFileSync(p, 'utf8');
-};
-
-const souls = {
-  bossbot:     readSoul('bossbot.soul.md'),
-  advisorbot:  readSoul('advisorbot.soul.md'),
-  creatorbot:  readSoul('creatorbot.soul.md'),
-};
-const agents = [
-  { id: 'bossbot',    default: true,  name: 'BossBot',    identity: { name: 'BossBot',    emoji: '👽' }, systemPromptOverride: souls.bossbot    },
-  { id: 'advisorbot', default: false, name: 'AdvisorBot', identity: { name: 'AdvisorBot', emoji: '🧠' }, systemPromptOverride: souls.advisorbot },
-  { id: 'creatorbot', default: false, name: 'CreatorBot', identity: { name: 'CreatorBot', emoji: '🔧' }, systemPromptOverride: souls.creatorbot },
-];
+const cfgFile = path.join(process.env.OPENCLAW_HOME || path.join(os.homedir(), '.openclaw'), 'openclaw.json');
 let cfg = {};
 if (fs.existsSync(cfgFile)) {
   try { cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8')); }
-  catch (e) { throw new Error('Failed to parse openclaw.json: ' + e.message); }
+  catch (e) {
+    console.error('Could not parse existing openclaw.json. Aborting.');
+    process.exit(1);
+  }
 }
-const existing = cfg.agents?.list ?? [];
-const alienIds  = new Set(['bossbot', 'advisorbot', 'creatorbot']);
-const others    = existing.filter(a => !alienIds.has(a.id));
-cfg = {
-  ...cfg,
-  gateway: { ...(cfg.gateway ?? {}), mode: 'local' },
-  agents: { ...(cfg.agents ?? {}), list: [...others, ...agents] },
-};
-try {
-  fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 2) + '\n');
-} catch (e) { throw new Error('Failed to write openclaw.json: ' + e.message); }
-console.log('Gateway mode set to local in ' + cfgFile);
-console.log('Agents registered in ' + cfgFile);
-" || fail "Agent registration failed — check openclaw.json permissions."
-    success "Agents registered in ~/.openclaw/openclaw.json"
-  fi
 
-  # ── 5. Create alienclaw wrapper ───────────────────────────────────────────
-  WRAPPER="$HOME/.alienclaw/bin/alienclaw"
+cfg.agents = cfg.agents || {};
+cfg.agents.defaults = cfg.agents.defaults || {};
 
-  if ! $DRYRUN; then
-    # Write wrapper script — uses tsx to run TypeScript directly
-    cat > "$WRAPPER" <<WRAPPER_SCRIPT
-#!/usr/bin/env bash
-# AlienClaw wrapper — routes "alienclaw run <goal>" to BossBot governance
-ALIENCLAW_HOME="\${ALIENCLAW_HOME:-\$HOME/.alienclaw}"
-TSX_BIN="\$ALIENCLAW_HOME/node_modules/.bin/tsx"
-ALIENCLAW_CLI="\$ALIENCLAW_HOME/src-alienclaw/cli/alienclaw.mjs"
+// Set both possible keys for broadest compatibility across OpenClaw versions.
+cfg.agents.defaults.agentId = 'bossbot';
+cfg.agents.defaults.workspace = path.join(os.homedir(), '.openclaw', 'agents', 'bossbot');
 
-case "\${1:-}" in
-  run)
-    shift
-    if [[ -f "\$TSX_BIN" ]]; then
-      exec node "\$TSX_BIN" "\$ALIENCLAW_CLI" "\$@"
-    else
-      exec node "\$ALIENCLAW_CLI" "\$@"
-    fi
-    ;;
-  *)
-    # Pass through to OpenClaw binary
-    exec openclaw "\$@"
-    ;;
-esac
-WRAPPER_SCRIPT
-    chmod +x "$WRAPPER"
-    success "Created $WRAPPER"
-  fi
+// Remove any legacy `agents.list[]` entries for bossbot/advisorbot/creatorbot —
+// in the new model those are per-folder workspaces, not flat config entries.
+if (Array.isArray(cfg.agents.list)) {
+  const alien = new Set(['bossbot','advisorbot','creatorbot']);
+  cfg.agents.list = cfg.agents.list.filter(a => !alien.has(a && a.id));
+  if (cfg.agents.list.length === 0) delete cfg.agents.list;
+}
 
-  # ── 6. Symlink alienclaw command ──────────────────────────────────────────
-  if ! $DRYRUN; then
-    mkdir -p "$HOME/.local/bin"
-    ln -sf "$WRAPPER" "$HOME/.local/bin/alienclaw"
-    # Persist PATH
-    for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
-      if [[ -f "$rc" ]] && ! grep -qF '.alienclaw/bin' "$rc"; then
-        echo "" >> "$rc"
-        echo '# AlienClaw' >> "$rc"
-        echo 'export PATH="$HOME/.alienclaw/bin:$PATH"' >> "$rc"
+fs.mkdirSync(path.dirname(cfgFile), { recursive: true });
+fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 2) + '\n');
+console.log('  ✔ openclaw.json updated: agents.defaults.agentId = bossbot');
+NODE_PATCH
+fi
+
+# ── 6. Verification ──────────────────────────────────────────────────────────
+step "Verifying install"
+
+if $DRY_RUN; then
+  info "[dry-run] Skipping verification."
+else
+  # 6a. All three agent folders exist and have all expected files.
+  EXPECTED=(SOUL.md IDENTITY.md AGENTS.md USER.md TOOLS.md HEARTBEAT.md MEMORY.md)
+  all_ok=true
+  for id in "${AGENT_IDS[@]}"; do
+    base="$AGENTS_ROOT/$id"
+    [ -n "$LAYOUT_SUBDIR" ] && base="$base/$LAYOUT_SUBDIR"
+    for f in "${EXPECTED[@]}"; do
+      if [ ! -f "$base/$f" ]; then
+        warn "Missing: $base/$f"
+        all_ok=false
       fi
     done
-    hash -r 2>/dev/null || true
-    success "Symlinked: alienclaw → $WRAPPER"
+  done
+  $all_ok && success "All 21 expected files present." || fail "File verification failed."
+
+  # 6b. openclaw.json has BossBot as default.
+  if grep -q '"agentId": *"bossbot"' "$CFG" 2>/dev/null; then
+    success "openclaw.json: BossBot is default agent."
+  else
+    warn "openclaw.json does not show agentId=bossbot. Inspect $CFG manually."
   fi
 
-  # ── 7. Abduction animation ─────────────────────────────────────────────────
-  if ! $DRYRUN; then
-    clear
-    local ANIM="$TMPDIR_AC/alienclaw/installer/animation/abduction.mjs"
-    if [[ -f "$ANIM" ]]; then
-      node "$ANIM" 2>/dev/null || true
-    fi
-  fi
-
-  # ── 8. First-run wizard ───────────────────────────────────────────────────
-  step "AlienClaw configuration"
-
-  if ! $DRYRUN; then
-    local WIZARD="$TMPDIR_AC/alienclaw/installer/setup/first-run.mjs"
-    if [[ -f "$WIZARD" ]]; then
-      node "$WIZARD" || warn "Wizard exited with non-zero status."
+  # 6c. `openclaw agents list` (if available) shows the three.
+  if openclaw agents list >/tmp/agents-list-$$.txt 2>&1; then
+    missing=""
+    for id in "${AGENT_IDS[@]}"; do
+      grep -q "$id" /tmp/agents-list-$$.txt || missing="$missing $id"
+    done
+    if [ -z "$missing" ]; then
+      success "'openclaw agents list' reports all three agents."
     else
-      warn "Wizard not found at $WIZARD"
+      warn "'openclaw agents list' does not show:$missing"
+      warn "Review /tmp/agents-list-$$.txt for details."
     fi
+  else
+    info "'openclaw agents list' not available on this version — skipping."
   fi
+  rm -f /tmp/agents-list-$$.txt
+fi
 
-  # ── 9. Done ────────────────────────────────────────────────────────────────
-  echo ""
-  echo -e "${GREEN}${BOLD}  👽 ALIENCLAW ONLINE${NC}"
-  echo -e "${GREEN}${BOLD}  ════════════════════════════════════════${NC}"
-  echo -e "${GREEN}${BOLD}  alienclaw run \"your first goal\"${NC}"
-  echo -e "${GREEN}${BOLD}  ════════════════════════════════════════${NC}"
-  echo ""
-
-  if $DRYRUN; then
-    echo -e "  ${YELLOW}${BOLD}Dry-run complete — no changes were made.${NC}"
-    return 0
-  fi
-
-  echo -e "  ${BOLD}What would you like to do?${NC}"
-  echo ""
-  echo -e "    ${GREEN}[T]${NC}UI  — open the OpenClaw terminal interface"
-  echo -e "    ${GREEN}[D]${NC}ashboard — open the web dashboard"
-  echo -e "    ${GREEN}[N]${NC}othing  — exit to shell"
-  echo ""
-  echo -e "  ${DIM}Note: if Dashboard fails, run: openclaw gateway start${NC}"
-  echo ""
-
-  if [[ -r /dev/tty && -w /dev/tty ]]; then
-    local launch=""
-    printf "  Choice: "
-    read -r -n 1 launch </dev/tty || true
-    echo ""
-    case "${launch:-n}" in
-      [Tt])
-        info "Launching TUI..."
-        openclaw tui </dev/tty
-        ;;
-      [Dd])
-        info "Opening dashboard..."
-        openclaw gateway start 2>/dev/null || true
-        openclaw dashboard </dev/tty || warn "Could not open dashboard."
-        ;;
-      *)
-        echo -e "  ${DIM}Open a new terminal, then run:${NC}"
-        echo -e "  ${BOLD}alienclaw run \"<goal>\"${NC}"
-        echo ""
-        ;;
-    esac
-  fi
-}
-
-main "$@"
+# ── 7. Done ──────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}${GREEN}  👽  ALIENCLAW INSTALLED${NC}"
+echo -e "${BOLD}${GREEN}  ═══════════════════════════════════════${NC}"
+echo -e "  Default agent : ${BOLD}BossBot${NC}"
+echo -e "  Peers         : AdvisorBot (🧠), CreatorBot (🔧)"
+echo -e "  Agents root   : ${DIM}$AGENTS_ROOT${NC}"
+echo ""
+echo -e "  Start a chat   : ${BOLD}openclaw chat${NC}   (BossBot answers)"
+echo -e "  List agents    : ${BOLD}openclaw agents list${NC}"
+echo -e "  Uninstall      : ${BOLD}bash install.sh --uninstall${NC}"
+echo ""
