@@ -61,11 +61,24 @@ fi
 # ── 1. Check OpenClaw is installed ───────────────────────────────────────────
 step "Checking for OpenClaw"
 if ! command -v openclaw &>/dev/null; then
-  warn "OpenClaw is not installed."
-  echo "  Install it first:"
-  echo "    npm install -g openclaw"
-  echo "  Then re-run: bash install.sh"
-  fail "OpenClaw required."
+  echo ""
+  echo -e "  ${RED}✘ OpenClaw is not installed.${NC}"
+  echo ""
+  echo "  ┌─────────────────────────────────────────────────────────────┐"
+  echo "  │  SETUP INSTRUCTIONS                                         │"
+  echo "  └─────────────────────────────────────────────────────────────┘"
+  echo ""
+  echo "  1. Install OpenClaw:"
+  echo "     npm install -g openclaw"
+  echo ""
+  echo "  2. Run the OpenClaw setup wizard:"
+  echo "     openclaw configure"
+  echo "     (follow the prompts to configure your API keys and preferences)"
+  echo ""
+  echo "  3. Once OpenClaw is configured, run this installer again:"
+  echo "     bash install.sh"
+  echo ""
+  exit 1
 fi
 success "OpenClaw found: $(openclaw --version 2>/dev/null || echo 'unknown version')"
 
