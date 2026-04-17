@@ -21,7 +21,7 @@ This file documents the three AlienClaw agents that the installer provisions in 
 
 ## CreatorBot (id: creatorbot, default: false)
 
-- **Role:** Silent builder. In v0.1, a placeholder. In v0.2+, builds purpose-built Specialists when BossBot requests.
+- **Role:** Silent builder. In v0.1, writes specialist spec files to `~/.openclaw/agents/creatorbot/specialists/` when BossBot requests. In v0.2+, builds purpose-built Specialists when BossBot requests.
 - **Called by:** BossBot.
 - **Does not initiate conversation.**
 - **Workspace:** `~/.openclaw/agents/creatorbot/`
@@ -33,7 +33,7 @@ Each agent's `AGENTS.md` (inside its own workspace) lists the other two. That is
 
 ## Default agent
 
-BossBot is set as the default agent at install time by writing `agents.defaults.agentId = "bossbot"` (or equivalent per installed OpenClaw version — verify with `openclaw --help` before writing) into `~/.openclaw/openclaw.json`.
+BossBot is set as the default agent at install time by writing `agents.defaults.workspace = "~/.openclaw/agents/bossbot"` into `~/.openclaw/openclaw.json`. The install script probes the installed OpenClaw version to detect the correct key name.
 
 ## The previously-default OpenClaw agent
 
