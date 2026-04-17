@@ -1,54 +1,61 @@
 #!/usr/bin/env node
 /**
- * alienclaw.mjs
- * Standalone AlienClaw entry point for the governance layer.
- * "alienclaw run <goal>" → BossBot governance loop.
- * Everything else passes through to OpenClaw.
+ * alienclaw.mjs — v0.1
  *
- * This is the repo-root convenience copy. The install.sh deploys
- * src-alienclaw/cli/alienclaw.mjs to ~/.alienclaw/ and that is the
- * canonical entry point used at runtime.
+ * AlienClaw is a configuration layer for OpenClaw. There is no independent
+ * CLI. All commands forward to the installed `openclaw` binary, which has
+ * been pre-configured by install.sh to use BossBot as the default agent.
+ *
+ * If a user types `alienclaw run "<goal>"`, we rewrite it to
+ * `openclaw run "<goal>"` (OpenClaw will dispatch to BossBot automatically).
  */
 
 import { spawn } from 'node:child_process';
-import { env }  from 'node:process';
-import { parseCliArgs } from './cli/args.js';
-import { runAlienClaw } from './cli/cli.js';
 
-const rawArgv = env.argv ?? [];
-const userArgv = (rawArgv[2] ?? '').startsWith('-') ? rawArgv : rawArgv.slice(2);
-const cmd = parseCliArgs(userArgv);
+const args = process.argv.slice(2);
 
-if (cmd.type === 'run') {
-  // ── BossBot governance mode ─────────────────────────────────────────────
-  await runAlienClaw(cmd.args.goal, cmd.args.verbosity);
-} else if (cmd.type === 'version') {
-  const pkg = await import('./package.json', { assert: { type: 'json' } });
-  console.log(`AlienClaw ${pkg.default.version}`);
-} else if (cmd.type === 'help') {
-  console.log(`AlienClaw — Run the agent hierarchy.
-
-alienclaw run "<goal>" [options]
-  Run the AlienClaw agent hierarchy toward a goal.
-
-Options:
-  --verbose   Enable verbose output
-  --silent    Suppress all non-essential output
-  --help      Show this help
-  --version   Show version
-
-alienclaw --help
-  Show OpenClaw help (gateway, channels, etc.)
-`);
-} else {
-  // ── Pass through to OpenClaw ─────────────────────────────────────────────
-  const openclaw = 'openclaw';
-  const args = env.argv?.slice(2) ?? [];
-  const child = spawn(openclaw, args, {
-    stdio: 'inherit',
-    shell: true,
-  });
-  child.on('exit', (code) => {
-    process.exitCode = code ?? 0;
-  });
+// Graceful --version / --help shortcuts so users don't see openclaw's banner
+// in the common case.
+if (args[0] === '--version' || args[0] === '-v') {
+  const fs = await import('node:fs/promises');
+  const pkgUrl = new URL('./package.json', import.meta.url);
+  const pkg = JSON.parse(await fs.readFile(pkgUrl, 'utf8'));
+  console.log(`AlienClaw ${pkg.version}`);
+  process.exit(0);
 }
+
+if (args[0] === '--help' || args[0] === '-h') {
+  console.log(`AlienClaw — three wired OpenClaw agents.
+
+Usage: alienclaw <openclaw-command> [args...]
+
+AlienClaw is a configuration layer over OpenClaw. The three agents
+(BossBot, AdvisorBot, CreatorBot) are regular OpenClaw agents under
+~/.openclaw/agents/. BossBot is the default.
+
+Common commands (all forwarded to openclaw):
+  alienclaw chat                 Start a chat with BossBot
+  alienclaw agents list          List all agents
+  alienclaw tui                  Launch the OpenClaw TUI
+
+For full OpenClaw help: openclaw --help
+`);
+  process.exit(0);
+}
+
+// Default: pass through to openclaw.
+const child = spawn('openclaw', args, {
+  stdio: 'inherit',
+  shell: false,
+});
+
+child.on('error', (err) => {
+  console.error(`alienclaw: failed to exec openclaw: ${err.message}`);
+  console.error(`Is openclaw installed? Try: npm install -g openclaw`);
+  process.exit(127);
+});
+
+child.on('exit', (code, signal) => {
+  if (signal) process.kill(process.pid, signal);
+  else process.exit(code ?? 0);
+});
