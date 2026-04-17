@@ -41,7 +41,7 @@ AlienClaw is a thin add-on for OpenClaw (https://github.com/openclaw/openclaw, M
 
 - The Meeseeks genome evolution system (parked in `experimental/`).
 - A separate `alienclaw` CLI (v0.1 uses `openclaw` directly; BossBot is just the default agent).
-- A community leaderboard at alienclaw.gg.
+- A community leaderboard at alienclaw.net (future v0.2).
 
 ## When in doubt
 
