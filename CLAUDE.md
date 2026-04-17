@@ -10,7 +10,7 @@ AlienClaw is a thin add-on for OpenClaw (https://github.com/openclaw/openclaw, M
 
 - `install.sh` — the installer. Installs OpenClaw via npm if missing, then provisions 3 agent workspaces under `~/.openclaw/agents/`.
 - `seed/agents/bossbot/`, `seed/agents/advisorbot/`, `seed/agents/creatorbot/` — the per-agent workspace files (SOUL.md, IDENTITY.md, AGENTS.md, USER.md, TOOLS.md, HEARTBEAT.md, MEMORY.md) that the installer copies.
-- `openclaw/` — vendored OpenClaw snapshot. **Never edit. Never commit changes to this folder.**
+- `openclaw/` — was a vendored OpenClaw snapshot, now removed (v0.1 installs OpenClaw via npm). Kept as placeholder for reference only.
 - `experimental/governance-engine/` — parked v0.2 work (Meeseeks genomes, governance loop). Not shipped in v0.1. Do not touch unless asked.
 - `docs/` — user-facing docs.
 - `scripts/` — maintenance scripts.

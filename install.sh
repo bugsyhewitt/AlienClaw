@@ -200,8 +200,6 @@ if (fs.existsSync(cfgFile)) {
 cfg.agents = cfg.agents || {};
 cfg.agents.defaults = cfg.agents.defaults || {};
 
-// Set both possible keys for broadest compatibility across OpenClaw versions.
-cfg.agents.defaults.agentId = 'bossbot';
 cfg.agents.defaults.workspace = path.join(os.homedir(), '.openclaw', 'agents', 'bossbot');
 
 // Remove any legacy `agents.list[]` entries for bossbot/advisorbot/creatorbot —
@@ -239,9 +237,9 @@ else
   done
   $all_ok && success "All 21 expected files present." || fail "File verification failed."
 
-  # 6b. openclaw.json has BossBot as default.
-  if grep -q '"agentId": *"bossbot"' "$CFG" 2>/dev/null; then
-    success "openclaw.json: BossBot is default agent."
+  # 6b. openclaw.json has BossBot as default workspace.
+  if grep -q 'agents.*bossbot' "$CFG" 2>/dev/null; then
+    success "openclaw.json: BossBot workspace is set as default."
   else
     warn "openclaw.json does not show agentId=bossbot. Inspect $CFG manually."
   fi

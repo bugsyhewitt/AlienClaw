@@ -1,56 +1,86 @@
-**v0.1 scope:** AlienClaw v0.1 is the OpenClaw configuration layer that ships three wired agents (BossBot, AdvisorBot, CreatorBot). The genome evolution and Meeseeks execution layer described below is v0.2 material and currently parked under `experimental/`. Install v0.1 with `bash install.sh`.
+# AlienClaw — Three Wired OpenClaw Agents
 
-# AlienClaw Remediation Bundle
+AlienClaw v0.1 configures OpenClaw with three pre-wired agents that talk to each other automatically. You talk to **BossBot**, which consults **AdvisorBot** for strategic thinking and can summon **CreatorBot** for building specialists.
 
-Drop-in replacement files for the AlienClaw v0.1 remediation.
-Pair this with `ALIENCLAW_REMEDIATION_PLAN.md` (the full playbook).
-
-## What's in this bundle
-
-| File in bundle                           | Goes to (relative to repo root)              |
-|------------------------------------------|----------------------------------------------|
-| `install.sh`                             | `install.sh`  *(overwrite)*                  |
-| `alienclaw.mjs`                          | `alienclaw.mjs`  *(overwrite)*               |
-| `CLAUDE.md`                              | `CLAUDE.md`  *(overwrite, was empty)*        |
-| `AGENTS.md`                              | `AGENTS.md`  *(overwrite, was wrong file)*   |
-| `scripts/verify-install.sh`              | `scripts/verify-install.sh`  *(new)*         |
-| `experimental/governance-engine/README.md` | `experimental/governance-engine/README.md`  *(new, after moving parked code here)* |
-| `seed/agents/bossbot/*.md` (7 files)     | `seed/agents/bossbot/`  *(new)*              |
-| `seed/agents/advisorbot/*.md` (7 files)  | `seed/agents/advisorbot/`  *(new)*           |
-| `seed/agents/creatorbot/*.md` (7 files)  | `seed/agents/creatorbot/`  *(new)*           |
-
-## Order of operations (for the Claude Code agent)
-
-Follow Parts 0 → 11 of `ALIENCLAW_REMEDIATION_PLAN.md`. The files here replace the "write this file with this content" blocks in the plan — copy each file directly instead of hand-typing from the spec.
-
-## Quick copy (assuming bundle is extracted at `/tmp/alienclaw-bundle/` and repo is at `$REPO`)
+## Quick Start
 
 ```bash
-cp /tmp/alienclaw-bundle/install.sh              "$REPO/install.sh"
-cp /tmp/alienclaw-bundle/alienclaw.mjs           "$REPO/alienclaw.mjs"
-cp /tmp/alienclaw-bundle/CLAUDE.md               "$REPO/CLAUDE.md"
-cp /tmp/alienclaw-bundle/AGENTS.md               "$REPO/AGENTS.md"
+# 1. Install OpenClaw (if not already installed)
+npm install -g openclaw
 
-mkdir -p "$REPO/scripts"
-cp /tmp/alienclaw-bundle/scripts/verify-install.sh "$REPO/scripts/verify-install.sh"
+# 2. Run OpenClaw's setup wizard
+openclaw configure
 
-mkdir -p "$REPO/experimental/governance-engine"
-cp /tmp/alienclaw-bundle/experimental/governance-engine/README.md "$REPO/experimental/governance-engine/README.md"
+# 3. Clone and install AlienClaw
+git clone https://github.com/AlienTool/AlienClaw.git
+cd AlienClaw
+bash install.sh
 
-mkdir -p "$REPO/seed/agents"
-cp -r /tmp/alienclaw-bundle/seed/agents/* "$REPO/seed/agents/"
-
-chmod +x "$REPO/install.sh" "$REPO/scripts/verify-install.sh"
+# 4. Start chatting with BossBot
+openclaw chat
 ```
 
-After copying: do the `git mv` of parked code into `experimental/governance-engine/` per Part 6 Step 3 of the plan.
+## The Three Agents
 
-## Sanity checks
+| Agent | Role | Emoji |
+|-------|------|-------|
+| **BossBot** | Your executive — receives goals, breaks them down, delegates | 👽 |
+| **AdvisorBot** | Strategist — consulted on every non-trivial decision | 🧠 |
+| **CreatorBot** | Builder — writes specialist spec files on request | 🔧 |
+
+BossBot consults AdvisorBot **frequently** — not just on big decisions. Ask it something and watch it delegate.
+
+## Package Managers
+
+If you have Homebrew, Scoop, or winget available:
 
 ```bash
-# 21 seed files, 7 per agent × 3 agents
-find seed/agents -name '*.md' | wc -l     # expect 21
+# Homebrew (macOS/Linux)
+brew install alienclaw   # after adding the AlienClaw tap
 
-# Bundle totals 28 files
-find . -type f | wc -l                     # expect 28 (including this README)
+# Scoop (Windows)
+scoop bucket add alienclaw https://github.com/AlienTool/scoop-alienclaw
+scoop install alienclaw
+
+# winget (Windows)
+winget install AlienTool.AlienClaw
 ```
+
+## Commands
+
+```bash
+openclaw chat                 # Start a chat with BossBot
+openclaw agents list          # List all agents
+bash install.sh --uninstall    # Remove AlienClaw agents (keeps OpenClaw)
+bash install.sh --dry-run      # Preview what install.sh would do
+```
+
+## Uninstall
+
+```bash
+bash install.sh --uninstall
+```
+
+This removes the three AlienClaw agents from `~/.openclaw/agents/` but leaves OpenClaw and your OpenClaw config intact.
+
+## Package Manager Installers
+
+| File | Purpose |
+|------|---------|
+| `scripts/homebrew-formula.rb` | Homebrew formula |
+| `scripts/scoop-alienclaw.json` | Scoop bucket manifest |
+| `scripts/winget-alienclaw.yaml` | winget manifest |
+| `scripts/install-alienclaw.ps1` | Standalone PowerShell installer |
+| `scripts/abduction.mjs` | Cosmetic animation at install time |
+
+## What v0.1 Ships
+
+- 3 preconfigured OpenClaw agents with personality, identity, and routing
+- An idempotent installer (`bash install.sh`) that leaves OpenClaw vanilla
+- BossBot as the default agent, AdvisorBot consulted frequently, CreatorBot on standby
+
+## What v0.1 Does NOT Ship
+
+- A Meeseeks/genome evolution system (parked in `experimental/governance-engine/`)
+- A community leaderboard at alienclaw.net
+- Architecture A's overlay pipeline (`pnpm dist:all`, `reskin.sh`) — those are parked too
