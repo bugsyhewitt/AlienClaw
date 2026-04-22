@@ -1,6 +1,6 @@
 import { normalizeInput } from '../utils.js';
 import { EMPLOYEE_DEFAULT_MODEL, DEFAULT_BUDGET_EXTENSION } from '../constants.js';
-import type { TaskEnvelope, EmployeeSpec } from '../types.js';
+import type { TaskEnvelope, EmployeeSpec, SpecialistRole } from '../types.js';
 import type { AdvisorBot } from '../agents/advisorbot.js';
 import type { CreatorBot }  from '../agents/creatorbot.js';
 import type { AgentChannel }  from '../comms/agent-channel.js';
@@ -43,6 +43,8 @@ export class EscalationHandler {
     failureReason: string,
     /** BossBot's advisory session key for this task */
     advisorTaskId: string,
+    /** Role to use when rebuilding a campaign-scoped specialist (preserves knowledgeBase) */
+    specialistRole?: SpecialistRole,
   ): Promise<StrikeAction> {
     if (this.taskManager.isExhausted(task.taskId)) {
       return { action: 'SURFACE_USER' };
@@ -95,12 +97,31 @@ export class EscalationHandler {
     });
 
     // ── Brief CreatorBot ────────────────────────────────────────────────────
-    const spec = this.creatorBot.buildEmployeeSpec(
-      domain,
-      toolTags,
-      EMPLOYEE_DEFAULT_MODEL,
-      task.strikeCount + 1,
-    );
+    let spec: EmployeeSpec;
+    if (specialistRole) {
+      // Campaign-scoped: rebuild with campaign knowledgeBase preserved
+      const specialist = this.creatorBot.buildSpecialistForRole(
+        specialistRole,
+        task.goalId,   // campaignId — the goalId serves as campaign identifier here
+        task.strikeCount + 1,
+      );
+      spec = {
+        employeeId:  specialist.id,
+        domain:      specialistRole.domain,
+        model:       EMPLOYEE_DEFAULT_MODEL,
+        toolTags:    specialistRole.martianTags,
+        createdBy:   'CreatorBot',
+        createdAt:   Date.now(),
+        generation:  task.strikeCount + 1,
+      };
+    } else {
+      spec = this.creatorBot.buildEmployeeSpec(
+        domain,
+        toolTags,
+        EMPLOYEE_DEFAULT_MODEL,
+        task.strikeCount + 1,
+      );
+    }
 
     return { action: 'REBUILD', spec };
   }
