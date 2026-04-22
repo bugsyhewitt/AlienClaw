@@ -46,27 +46,12 @@ async function webSearch(args: Record<string, unknown>): Promise<unknown> {
   }
 
   // Dynamic import of OpenClaw's web-search tool
+  // TODO v0.2: wire to globally-installed openclaw package tool exports
   // Path assumes we're running from the compiled alienclaw root
   // Dynamic import — cast to unknown so we're not bound to the module's static type.
   // The actual export shape may vary across OpenClaw versions.
-  const mod = await import('../../agents/tools/web-search.js').catch(() => {
-    throw new Error(
-      'web-search tool not available — ensure OpenClaw is built and src/agents/tools/web-search.ts is compiled'
-    );
-  }) as unknown as Record<string, unknown>;
-
-  // Walk known export names in priority order
-  const fn =
-    (mod['runWebSearch'] as ToolFn | undefined) ??
-    (mod['webSearch']    as ToolFn | undefined) ??
-    ((mod['default'] as Record<string, unknown> | undefined)?.['execute'] as ToolFn | undefined) ??
-    (mod['default']      as ToolFn | undefined);
-
-  if (typeof fn !== 'function') {
-    throw new Error('web-search module did not export a callable function');
-  }
-
-  return fn({ query, maxResults });
+  // stub pending OpenClaw global install wiring
+  throw new Error('web-search tool pending OpenClaw v0.2 global install wiring');
 }
 
 /**

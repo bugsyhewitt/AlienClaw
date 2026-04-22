@@ -51,13 +51,9 @@ const webSearchAdapter: ToolFn = async (input) => {
   if (!query) throw new Error('web_search: query is empty');
 
   // Resolve and cache the OpenClaw tool fn on first call
+  // TODO v0.2: wire to globally-installed openclaw package tool exports
   if (!_webSearchFn) {
-    try {
-      const mod = await import('../../agents/tools/web-search.js') as Record<string, unknown>;
-      _webSearchFn = (mod['webSearch'] ?? mod['default']) as ((arg: unknown) => Promise<unknown>) | undefined;
-    } catch {
-      // Tool unavailable — leave _webSearchFn undefined
-    }
+    _webSearchFn = undefined; // stub pending OpenClaw global install wiring
   }
 
   if (typeof _webSearchFn === 'function') {
@@ -69,7 +65,7 @@ const webSearchAdapter: ToolFn = async (input) => {
     query,
     results: [],
     _stub: true,
-    _note: 'web_search adapter not wired to OpenClaw tool. Register during wiring.',
+    _note: 'web_search adapter pending OpenClaw v0.2 wiring',
   };
 };
 
@@ -86,12 +82,7 @@ const urlFetchAdapter: ToolFn = async (input) => {
   }
 
   if (!_webFetchFn) {
-    try {
-      const mod = await import('../../agents/tools/web-fetch.js') as Record<string, unknown>;
-      _webFetchFn = (mod['webFetch'] ?? mod['default']) as ((arg: unknown) => Promise<unknown>) | undefined;
-    } catch {
-      // Tool unavailable
-    }
+    _webFetchFn = undefined; // TODO v0.2: wire to globally-installed openclaw package
   }
 
   if (typeof _webFetchFn === 'function') {
