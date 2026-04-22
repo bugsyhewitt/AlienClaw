@@ -1,4 +1,4 @@
-> **NOTE:** This file describes the parked governance-engine design (see `src/alienclaw/`). It does not describe v0.1 runtime behavior.
+> **NOTE:** This file describes the governance-engine design (see `src/alienclaw/`).
 
 # AlienClaw — Roadmap to Working System
 

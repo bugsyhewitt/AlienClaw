@@ -11,7 +11,7 @@ AlienClaw is a thin add-on for OpenClaw (https://github.com/openclaw/openclaw, M
 - `install.sh` — the installer. Installs OpenClaw via npm if missing, then provisions 3 agent workspaces under `~/.openclaw/agents/`.
 - `seed/agents/bossbot/`, `seed/agents/advisorbot/`, `seed/agents/creatorbot/` — the per-agent workspace files (SOUL.md, IDENTITY.md, AGENTS.md, USER.md, TOOLS.md, HEARTBEAT.md, MEMORY.md) that the installer copies.
 - `openclaw/` — was a vendored OpenClaw snapshot, now removed (v0.1 installs OpenClaw via npm). Kept as placeholder for reference only.
-- `experimental/governance-engine/` — parked v0.2 work (Martian genomes, governance loop). Not shipped in v0.1. Do not touch unless asked.
+- `src/alienclaw/` — the governance engine and Martian registry (Martian genomes, governance loop).
 - `docs/` — user-facing docs.
 - `scripts/` — maintenance scripts.
 
@@ -39,7 +39,7 @@ AlienClaw is a thin add-on for OpenClaw (https://github.com/openclaw/openclaw, M
 
 ## What v0.1 does NOT ship
 
-- The Martian genome evolution system (parked in `experimental/`).
+- The Martian genome evolution system (`src/alienclaw/`).
 - A separate `alienclaw` CLI (v0.1 uses `openclaw` directly; BossBot is just the default agent).
 - A community leaderboard at alienclaw.net (future v0.2).
 
