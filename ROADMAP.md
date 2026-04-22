@@ -524,6 +524,14 @@ The `files` array did not include `src/` or `scripts/`. Running `npm pack` would
 
 ---
 
+### Bug 81: 23 broken test files importing non-existent OpenClaw modules ✅ FIXED
+
+Post-restructure from OpenClaw left 23 test files importing from paths that no longer exist (`src/gateway/`, `src/channels/`, `src/utils.js`, `src/wizard/`, `src/terminal/`, `src/auto-reply/`, `src/infra/`, `src/memory/`, `src/shared/`, `scripts/`). All 23 deleted. Remaining 6 test files have clean imports.
+
+**Files removed**: appcast.test.ts, release-check.test.ts, ui.presenter-next-run.test.ts, gateway.multi.e2e.test.ts, setup.ts, 5 scripts/*.test.ts, 7 helpers (gateway-e2e-harness, envelope-timestamp, normalize-text, poll, wizard-prompter, inbound-contract, memory-tool-manager-mock, dispatch-inbound-capture, inbound-contract-capture, inbound-contract-dispatch-mock), global-setup.ts, test-env.ts, mocks/baileys.ts
+
+---
+
 ## Known Limitations
 
 ### 1. Employee/in-memory state not persisted across restarts
