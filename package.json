@@ -4,7 +4,12 @@
   "description": "AlienClaw — governed multi-agent overlay on OpenClaw",
   "private": true,
   "scripts": {
-    "install": "bash install.sh"
+    "install": "bash install.sh",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
   },
   "files": [
     "README.md",

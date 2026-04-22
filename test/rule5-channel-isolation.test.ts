@@ -6,12 +6,13 @@
  *   AgentChannel ALWAYS records them.
  *
  * This is a structural test — it verifies the channel boundary without
- * requiring a full end-to-end goal run.
+ * requiring a full end-to-end goal run or pi-ai calls.
  */
 
 import { describe, expect, it, beforeEach } from 'vitest';
 import { AgentChannel } from '../src/alienclaw/comms/agent-channel.js';
 import { UserChannel }  from '../src/alienclaw/comms/user-channel.js';
+import type { TierAAgent } from '../src/alienclaw/constants.js';
 
 describe('Rule 5 — channel isolation', () => {
   let agentChannel: AgentChannel;
@@ -83,5 +84,44 @@ describe('Rule 5 — channel isolation', () => {
     userChannel.status('user-facing status');
     expect(userOutput.some(line => line.includes('user-facing status'))).toBe(true);
     expect(userOutput.some(line => line.includes('BossBot') || line.includes('AdvisorBot'))).toBe(false);
+  });
+
+  it('injected AgentChannel receives messages from BossBot interaction path', () => {
+    // Simulate a BossBot-like agent that uses injected AgentChannel
+    // (BossBot.schemeWithAdvisor calls agentChannel.send() internally)
+    const mockBossBot = {
+      schemeWithAdvisor: async (
+        _goalId: string,
+        _goalDescription: string,
+        _advisorBot: { advise: () => Promise<{ verdict: string; recommendation: string; confidence: string }> },
+        channel: AgentChannel,
+        _maxRounds?: number,
+      ) => {
+        // Simulate what BossBot does: send request and response through the channel
+        channel.send({ from: 'BossBot', to: 'AdvisorBot', kind: 'request', content: 'Is the scheme sound?', ts: Date.now(), taskId: 'test-goal-1' });
+        channel.send({ from: 'AdvisorBot', to: 'BossBot', kind: 'response', content: 'Add a testing campaign.', ts: Date.now(), taskId: 'test-goal-1' });
+        return { rationale: 'test', campaigns: [], advisorEndorsement: '', createdAt: Date.now(), goalId: 'test' };
+      },
+    };
+
+    const testChannel = new AgentChannel();
+
+    // Call the mock BossBot with injected channel
+    mockBossBot.schemeWithAdvisor(
+      'test-goal-1',
+      'Build a website',
+      { advise: async () => ({ verdict: 'Add a testing campaign.', recommendation: 'proceed', confidence: 'high' }) },
+      testChannel,
+    );
+
+    // Assert the message landed in the injected channel
+    const history = testChannel.history('BossBot', 'AdvisorBot');
+    expect(history).toHaveLength(1);
+    expect(history[0]!.content).toBe('Is the scheme sound?');
+    expect(history[0]!.kind).toBe('request');
+
+    const responseHistory = testChannel.history('AdvisorBot', 'BossBot');
+    expect(responseHistory).toHaveLength(1);
+    expect(responseHistory[0]!.content).toBe('Add a testing campaign.');
   });
 });

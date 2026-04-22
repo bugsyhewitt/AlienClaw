@@ -14,7 +14,7 @@ import type {
   TaskEnvelope, AdviceRequest, SubGoal,
   Scheme, Campaign, SpecialistRole,
 } from '../types.js';
-import { agentChannel }                            from '../comms/agent-channel.js';
+import type { AgentChannel } from '../comms/agent-channel.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOUL_PATH  = join(__dirname, '..', 'prompts', 'bossbot.soul.md');
@@ -136,7 +136,8 @@ export class BossBot {
   buildTask(
     description: string,
     domain: string,
-    priority: TaskEnvelope['priority'] = 'normal'
+    priority: TaskEnvelope['priority'] = 'normal',
+    campaignId?: string,
   ): TaskEnvelope {
     return {
       taskId:      crypto.randomUUID(),
@@ -146,6 +147,7 @@ export class BossBot {
       createdAt:   Date.now(),
       strikeCount: 0,
       attempts:    [],
+      campaignId,
     };
   }
 
@@ -239,13 +241,15 @@ export class BossBot {
    * @param goalId          - The Goal ID this Scheme belongs to
    * @param goalDescription - The original user goal description
    * @param advisorBot      - AdvisorBot instance to consult
+   * @param agentChannel    - AgentChannel for inter-agent audit log
    * @param maxRounds       - Maximum back-and-forth iterations (default 2)
    */
   async schemeWithAdvisor(
     goalId:          string,
     goalDescription: string,
     advisorBot:      { advise(req: AdviceRequest, sessionId?: string): Promise<{ verdict: string; recommendation: string; confidence: string }> },
-    maxRounds        = 2
+    agentChannel:    AgentChannel,
+    maxRounds        = 2,
   ): Promise<Scheme> {
     let scheme = await this.draftScheme(goalId, goalDescription);
 

@@ -98,11 +98,11 @@ export class EscalationHandler {
 
     // ── Brief CreatorBot ────────────────────────────────────────────────────
     let spec: EmployeeSpec;
-    if (specialistRole) {
+    if (specialistRole && task.campaignId) {
       // Campaign-scoped: rebuild with campaign knowledgeBase preserved
       const specialist = this.creatorBot.buildSpecialistForRole(
         specialistRole,
-        task.goalId,   // campaignId — the goalId serves as campaign identifier here
+        task.campaignId,
         task.strikeCount + 1,
       );
       spec = {

@@ -14,7 +14,8 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join }              from 'node:path';
-import type { TierAAgent }    from '../constants.js';
+import { PATHS }             from '../constants.js';
+import type { TierAAgent }   from '../constants.js';
 
 // ── Message type ──────────────────────────────────────────────────────────────
 
@@ -41,8 +42,8 @@ export class AgentChannel {
   private readonly _baseDir: string;
 
   constructor(telemetryDir?: string) {
-    // Default to the telemetry root — caller injects the concrete path via deps
-    this._baseDir = telemetryDir ?? '~/.alienclaw/registry/telemetry';
+    // Default to the PATHS.telemetry path which does proper homedir() expansion
+    this._baseDir = telemetryDir ?? PATHS.telemetry;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -97,4 +98,4 @@ export class AgentChannel {
   }
 }
 
-export const agentChannel = new AgentChannel();
+export const agentChannel = new AgentChannel(PATHS.telemetry);
