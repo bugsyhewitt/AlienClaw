@@ -9,7 +9,7 @@
 ## THE ONE-LINE PITCH
 
 AlienClaw is an overlay distribution on top of OpenClaw (MIT) that keeps 100% of its
-engine and adds a governed multi-agent hierarchy on top — with a Meeseeks execution
+engine and adds a governed multi-agent hierarchy on top — with a Martian execution
 layer, genome-based evolution system, and community leaderboard at alienclaw.gg.
 
 ---
@@ -76,7 +76,7 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
 - Keep **literally everything** from OpenClaw — all channels, all media, browser, TTS,
   wizard, iOS/Android apps, every extension, every provider
 - **Reskin only at install time** via reskin.sh — never in committed source
-- **Add on top:** the AlienClaw agent hierarchy + Meeseeks layer
+- **Add on top:** the AlienClaw agent hierarchy + Martian layer
 - Future OpenClaw updates flow in by swapping `openclaw/` vendor snapshot
 - `--ignore-openclaw-updates` flag planned for a future installer release
 
@@ -129,16 +129,16 @@ Windows cmd.exe/bash ambiguity in pnpm inline scripts.
 **Employees** (`MiniMax-M2.5-highspeed`)
 - Autonomous reasoners, purpose-built per domain
 - Built by CreatorBot to BossBot's spec
-- Select Meeseeks from registry by tool_tags / fitness / compatibility
+- Select Martian from registry by tool_tags / fitness / compatibility
 - CANNOT call tools directly — ever
 - CANNOT mutate genomes
 
-**Meeseeks (.ms files)**
+**Martian (.ms files)**
 - NOT agents. Execution bots.
 - Defined entirely by 256-char genome code
-- Execute tools via .msb MeeseeksBrain
+- Execute tools via .msb MartianBrain
 - Fully terminate before returning control
-- CANNOT spawn other Meeseeks
+- CANNOT spawn other Martian
 
 ---
 
@@ -195,23 +195,23 @@ src/alienclaw/
 Key: atomic goals.json, parallel sub-goal dispatch, crash recovery,
 strike ladder, completion sign-off flow, verbosity modes.
 
-### ✅ Phase 3 — Meeseeks Registry
+### ✅ Phase 3 — Martian Registry
 Zero type errors. 35 files in src/alienclaw/.
 
 ```
 src/alienclaw/
 ├── registry/
 │   ├── genome-codec.ts       ← Base62 parse/validate/assemble, FNV checksum
-│   ├── ms-types.ts           ← MeeseeksSpec, GraveyardEntry, execution I/O types
+│   ├── ms-types.ts           ← MartianSpec, GraveyardEntry, execution I/O types
 │   ├── ms-loader.ts          ← read-only .ms file parser
-│   ├── meeseeks-registry.ts  ← in-memory registry singleton
+│   ├── martian-registry.ts  ← in-memory registry singleton
 │   ├── registry.ts           ← registry wrapper
 │   ├── seed-installer.ts     ← copies seed files to ~/.alienclaw/registry/
 │   └── index.ts
 ├── msb/
-│   ├── msb-types.ts          ← MeeseeksBrain type (conditioning text only)
+│   ├── msb-types.ts          ← MartianBrain type (conditioning text only)
 │   ├── msb-loader.ts         ← .msb parser + per-process cache
-│   ├── meeseeks-executor.ts  ← executeMeeseeks(), depth guard, retry/escalation
+│   ├── martian-executor.ts  ← executeMartian(), depth guard, retry/escalation
 │   ├── tool-adapters.ts      ← wireToolAdapters(): web_search, url_fetch, file_read, file_write
 │   ├── openclaw-tool-resolver.ts  ← bridge to OpenClaw tools (intentional name)
 │   └── index.ts
@@ -224,9 +224,9 @@ Seed files at repo root:
 ```
 seed/
 ├── ms/
-│   ├── MS_WEB00001.ms    ← web_search + url_fetch Meeseeks
-│   ├── MS_FREAD0001.ms   ← file_read Meeseeks
-│   └── MS_FWRITE001.ms   ← file_write Meeseeks
+│   ├── MS_WEB00001.ms    ← web_search + url_fetch Martian
+│   ├── MS_FREAD0001.ms   ← file_read Martian
+│   └── MS_FWRITE001.ms   ← file_write Martian
 └── msb/
     ├── web_search.msb
     ├── url_fetch.msb
@@ -252,9 +252,9 @@ Provider: **MiniMax** (`minimax`). Models: `MiniMax-M2.5` (power), `MiniMax-M2.5
 - `governance/governance-loop.ts` — all 6 stub call sites updated
 - `governance/escalation-handler.ts` — `advise()` + `writeFailforward()` telemetry wired
 - `governance/completion-handler.ts` — `advise()` wired
-- `agents/employee.ts` — `writeMeeseeksReport()` fires after every Meeseeks execution
+- `agents/employee.ts` — `writeMartianReport()` fires after every Martian execution
 - `telemetry/telemetry-writer.ts` — new file, writes JSON to `~/.alienclaw/registry/telemetry/<ISO-date>/`
-  - `writeMeeseeksReport()`, `writeFailforward()`, `writeAdvisory()`
+  - `writeMartianReport()`, `writeFailforward()`, `writeAdvisory()`
 - Build: clean. Zero type errors.
 
 ### ✅ Phase 5 — CLI
@@ -372,15 +372,15 @@ These are the priorities for v0.2.0 and beyond, in rough order:
 - WebSocket dashboard on port 18789
 - AlienClaw color scheme (replace OpenClaw defaults)
 - `onTransition` hooks already in place in governance-loop.ts
-- Integration with live sub-goal/Meeseeks status
+- Integration with live sub-goal/Martian status
 
 ### Employee Genomes
-- Extend genome system to Employee layer (currently Meeseeks-only)
+- Extend genome system to Employee layer (currently Martian-only)
 - Employee genome encodes domain specialization, tool preference, escalation tolerance
-- CreatorBot writes both Employee and Meeseeks genomes
+- CreatorBot writes both Employee and Martian genomes
 
 ### Report Codes
-- Structured telemetry codes for Meeseeks outcomes (currently raw JSON)
+- Structured telemetry codes for Martian outcomes (currently raw JSON)
 - Format: `MS_<TYPE>_<CODE>` — e.g. `MS_EXEC_001`, `MS_FAIL_404`
 - Feed into leaderboard + community fitness sharing
 
@@ -446,7 +446,7 @@ These are the priorities for v0.2.0 and beyond, in rough order:
 
 ```
 # MS_WEB00001
-# description: Web research Meeseeks
+# description: Web research Martian
 # generation: 1
 # status: active
 # fitness: 0.00
@@ -510,7 +510,7 @@ OUTPUT CONTRACT:
 ```
 
 Lives at `~/.alienclaw/registry/msb/<tool_name>.msb`.
-One file per tool, shared across all Meeseeks using that tool.
+One file per tool, shared across all Martian using that tool.
 MSB is conditioning text only — never control logic (hard invariant).
 
 ---
@@ -523,7 +523,7 @@ MSB is conditioning text only — never control logic (hard invariant).
 | AdvisorBot | `MiniMax-M2.5` | A |
 | CreatorBot | `MiniMax-M2.5-highspeed` | A |
 | Employees | `MiniMax-M2.5-highspeed` (configurable) | B |
-| Meeseeks | none — execution bots only | B |
+| Martian | none — execution bots only | B |
 
 To change provider: update `ALIENCLAW_PROVIDER` in `src/alienclaw/constants.ts`. One place.
 
@@ -532,14 +532,14 @@ To change provider: update `ALIENCLAW_PROVIDER` in `src/alienclaw/constants.ts`.
 ## HARD INVARIANTS (never violate)
 
 1. Only CreatorBot may write or mutate `.ms` genome files
-2. Employees never call tools directly — always via Meeseeks
-3. No nested Meeseeks execution (max depth = 1)
+2. Employees never call tools directly — always via Martian
+3. No nested Martian execution (max depth = 1)
 4. Genome is always exactly 256 chars, 8 blocks × 32 chars
 5. Blocks 0 (header) and 7 (checksum) are immutable
-6. Meeseeks execution is synchronous: SUCCESS | FAILURE | ESCALATED
-7. `.msb` MeeseeksBrain is conditioning text only — never control logic
+6. Martian execution is synchronous: SUCCESS | FAILURE | ESCALATED
+7. `.msb` MartianBrain is conditioning text only — never control logic
 8. Employees do not interpret genome directly
-9. No Meeseeks spawning other Meeseeks
+9. No Martian spawning other Martian
 10. Tools cannot call other tools
 11. Escalation to Tier A requires BossBot authorization
 12. CreatorBot does not initiate conversation — works silently
@@ -616,9 +616,9 @@ BossBot summarizes the direction. CreatorBot decides the spec himself.
 
 ## WHAT v0.1.0 SHIPS
 
-- All 5 agents running (BossBot, AdvisorBot, CreatorBot, Employees, Meeseeks)
+- All 5 agents running (BossBot, AdvisorBot, CreatorBot, Employees, Martian)
 - Full Tier A governance loop active with real LLM calls (MiniMax)
-- `web_search` + `file_read` + `file_write` Meeseeks with real .ms and .msb files
+- `web_search` + `file_read` + `file_write` Martian with real .ms and .msb files
 - Genome codec + .ms registry + graveyard working
 - Evolution/fitness tracking (JSON telemetry)
 - CLI entry: `alienclaw run "<goal>" [--verbose | --silent]`

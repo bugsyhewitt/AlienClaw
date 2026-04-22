@@ -1,4 +1,4 @@
-> **NOTE:** This file describes the parked governance-engine design (see `experimental/governance-engine/`). It does not describe v0.1 runtime behavior.
+> **NOTE:** This file describes the parked governance-engine design (see `src/alienclaw/`). It does not describe v0.1 runtime behavior.
 
 # AlienClaw — Roadmap to Working System
 
@@ -472,9 +472,9 @@ Both methods were defined but never called anywhere. Removed them along with the
 
 **File**: `src/alienclaw/governance/completion-handler.ts`
 
-### 3. Meeseeks → Martian rename not committed
+### 3. Martian naming convention
 
-The full rename of "Meeseeks" to "Martian" across all files is unstaged. The rename is complete and functional but has not been committed.
+The codebase uses "Martian" as the canonical term for the execution agents.
 
 ---
 

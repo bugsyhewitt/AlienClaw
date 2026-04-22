@@ -81,6 +81,6 @@ This removes the three AlienClaw agents from `~/.openclaw/agents/` but leaves Op
 
 ## What v0.1 Does NOT Ship
 
-- A Meeseeks/genome evolution system (parked in `experimental/governance-engine/`)
+- A Martian/genome evolution system (parked in `experimental/governance-engine/`)
 - A community leaderboard at alienclaw.net
 - Architecture A's overlay pipeline (`pnpm dist:all`, `reskin.sh`) — those are parked too
