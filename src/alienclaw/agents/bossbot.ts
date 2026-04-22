@@ -14,6 +14,7 @@ import type {
   TaskEnvelope, AdviceRequest, SubGoal,
   Scheme, Campaign, SpecialistRole,
 } from '../types.js';
+import { agentChannel }                            from '../comms/agent-channel.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOUL_PATH  = join(__dirname, '..', 'prompts', 'bossbot.soul.md');
@@ -268,6 +269,16 @@ export class BossBot {
       };
 
       const advice = await advisorBot.advise(adviceReq, goalId);
+
+      // Route through AgentChannel for the structural audit log (Rule 5)
+      agentChannel.send({
+        from: 'BossBot', to: 'AdvisorBot', kind: 'request',
+        content: adviceReq.question, ts: Date.now(), taskId: goalId,
+      });
+      agentChannel.send({
+        from: 'AdvisorBot', to: 'BossBot', kind: 'response',
+        content: advice.verdict, ts: Date.now(), taskId: goalId,
+      });
 
       // If AdvisorBot is confident and has no significant changes, we're done
       if (advice.confidence === 'high' && !normalizeInput(advice.recommendation).includes('should')) {
