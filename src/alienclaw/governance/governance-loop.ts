@@ -15,6 +15,7 @@ import type { TaskManager }        from './task-manager.js';
 import type { EscalationHandler }  from './escalation-handler.js';
 import type { CompletionHandler }  from './completion-handler.js';
 import type { UserChannel }        from '../comms/user-channel.js';
+import type { AgentChannel }        from '../comms/agent-channel.js';
 
 // ── Valid state transitions ───────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ export interface GovernanceLoopDeps {
   escalationHandler:  EscalationHandler;
   completionHandler:  CompletionHandler;
   userChannel:        UserChannel;
+  agentChannel:        AgentChannel;
 }
 
 // ── GovernanceLoop ────────────────────────────────────────────────────────────
@@ -79,6 +81,8 @@ export class GovernanceLoop {
   private readonly escalationHandler: EscalationHandler;
   private readonly completionHandler: CompletionHandler;
   private readonly userChannel:       UserChannel;
+  /** AgentChannel — structural gate for Boss↔Advisor↔Creator coordination (Rule 5) */
+  private readonly agentChannel:       AgentChannel;
 
   constructor(deps: GovernanceLoopDeps) {
     this.bossBot           = deps.bossBot;
@@ -90,6 +94,7 @@ export class GovernanceLoop {
     this.escalationHandler = deps.escalationHandler;
     this.completionHandler = deps.completionHandler;
     this.userChannel       = deps.userChannel;
+    this.agentChannel      = deps.agentChannel;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────

@@ -17,11 +17,15 @@ export interface UserPreferences {
 
 // ── Agent messages ────────────────────────────────────────────────────────────
 
+export type AgentMessageKind = 'request' | 'response' | 'notice';
+
 export interface AgentMessage {
   from:    string;
   to:      string;
   content: string;
   ts:      number;
+  kind?:   AgentMessageKind;
+  taskId?: string;
 }
 
 // ── Advisory ─────────────────────────────────────────────────────────────────

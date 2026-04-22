@@ -18,6 +18,8 @@ import { EscalationHandler } from '../governance/escalation-handler.js';
 import { CompletionHandler } from '../governance/completion-handler.js';
 import { GovernanceLoop }    from '../governance/governance-loop.js';
 import { UserChannel }       from '../comms/user-channel.js';
+import { AgentChannel,
+         agentChannel }       from '../comms/agent-channel.js';
 
 export interface BootstrapResult {
   /** The BossBot governance loop — call loop.start() to begin processing goals */
@@ -59,11 +61,11 @@ export function bootstrap(): BootstrapResult {
   const taskManager   = new TaskManager();
 
   const escalationHandler = new EscalationHandler(
-    advisorBot, creatorBot, taskManager, userChannel
+    advisorBot, creatorBot, taskManager, userChannel, agentChannel
   );
 
   const completionHandler = new CompletionHandler(
-    advisorBot, goalManager, userChannel
+    advisorBot, goalManager, userChannel, agentChannel
   );
 
   const loop = new GovernanceLoop({
@@ -76,6 +78,7 @@ export function bootstrap(): BootstrapResult {
     escalationHandler,
     completionHandler,
     userChannel,
+    agentChannel,
   });
 
   // ── CreatorBot scheduled jobs ─────────────────────────────────────────────

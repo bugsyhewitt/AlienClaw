@@ -34,6 +34,7 @@ export { TaskManager }       from './governance/task-manager.js';
 export { EscalationHandler } from './governance/escalation-handler.js';
 export { CompletionHandler } from './governance/completion-handler.js';
 export { UserChannel }       from './comms/user-channel.js';
+export { AgentChannel, agentChannel } from './comms/agent-channel.js';
 export { bootstrap }         from './wiring/hierarchy-bootstrap.js';
 
 // Registry (Phase 3)

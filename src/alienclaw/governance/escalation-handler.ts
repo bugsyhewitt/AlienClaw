@@ -3,6 +3,7 @@ import { EMPLOYEE_DEFAULT_MODEL, DEFAULT_BUDGET_EXTENSION } from '../constants.j
 import type { TaskEnvelope, EmployeeSpec } from '../types.js';
 import type { AdvisorBot } from '../agents/advisorbot.js';
 import type { CreatorBot }  from '../agents/creatorbot.js';
+import type { AgentChannel }  from '../comms/agent-channel.js';
 import type { TaskManager } from './task-manager.js';
 import type { UserChannel }  from '../comms/user-channel.js';
 import { telemetryWriter }   from '../telemetry/telemetry-writer.js';
@@ -22,6 +23,7 @@ export class EscalationHandler {
     private creatorBot:   CreatorBot,
     private taskManager:  TaskManager,
     private userChannel:  UserChannel,
+    private agentChannel: AgentChannel,
   ) {}
 
   /**
@@ -62,6 +64,15 @@ export class EscalationHandler {
     });
     this.advisorBot.appendToSession('BossBot', advisorTaskId, {
       from: 'AdvisorBot', to: 'BossBot', content: advice.verdict, ts: Date.now(),
+    });
+    // Route through AgentChannel for the structural audit log (Rule 5)
+    this.agentChannel.send({
+      from: 'BossBot', to: 'AdvisorBot', kind: 'request',
+      content: adviceReq.question, ts: Date.now(), taskId: advisorTaskId,
+    });
+    this.agentChannel.send({
+      from: 'AdvisorBot', to: 'BossBot', kind: 'response',
+      content: advice.verdict, ts: Date.now(), taskId: advisorTaskId,
     });
 
     // Record attempt with the AdvisorBot verdict and post-increment strike count

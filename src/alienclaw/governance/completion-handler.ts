@@ -1,5 +1,6 @@
 import { normalizeInput } from '../utils.js';
 import type { AdvisorBot }  from '../agents/advisorbot.js';
+import type { AgentChannel } from '../comms/agent-channel.js';
 import type { GoalManager } from './goal-manager.js';
 import type { UserChannel } from '../comms/user-channel.js';
 import type { SubGoal }     from '../types.js';
@@ -34,9 +35,10 @@ function goalDoneLines(goal: { subGoals: SubGoal[]; scheme?: { campaigns: Array<
 
 export class CompletionHandler {
   constructor(
-    private advisorBot:  AdvisorBot,
-    private goalManager: GoalManager,
-    private userChannel: UserChannel,
+    private advisorBot:   AdvisorBot,
+    private goalManager:   GoalManager,
+    private userChannel:   UserChannel,
+    private agentChannel:  AgentChannel,
   ) {}
 
   /**
@@ -70,6 +72,15 @@ export class CompletionHandler {
     });
     this.advisorBot.appendToSession('BossBot', goalId, {
       from: 'AdvisorBot', to: 'BossBot', content: verdict.verdict, ts: Date.now(),
+    });
+    // Route through AgentChannel for the structural audit log (Rule 5)
+    this.agentChannel.send({
+      from: 'BossBot', to: 'AdvisorBot', kind: 'request',
+      content: adviceReq.question, ts: Date.now(), taskId: goalId,
+    });
+    this.agentChannel.send({
+      from: 'AdvisorBot', to: 'BossBot', kind: 'response',
+      content: verdict.verdict, ts: Date.now(), taskId: goalId,
     });
 
     // Low-confidence: flag the first incomplete item to re-exercise the state machine
