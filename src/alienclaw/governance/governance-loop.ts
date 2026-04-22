@@ -520,6 +520,7 @@ export class GovernanceLoop {
     const strikeAction = await this.escalationHandler.handleFailure(
       task, subGoal.domain, subGoal.domain ? [subGoal.domain] : [],
       event.error, task.taskId,
+      undefined, // legacy sub-goals don't have campaign-scoped SpecialistRole
     );
 
     if (strikeAction.action === 'SURFACE_USER') {
