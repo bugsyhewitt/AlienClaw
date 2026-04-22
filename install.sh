@@ -80,7 +80,7 @@ fi
 
 # ── 1. Check OpenClaw is installed ───────────────────────────────────────────
 step "Checking for OpenClaw"
-if ! command -v openclaw &>/dev/null; then
+if ! $DRY_RUN && ! command -v openclaw &>/dev/null; then
   echo ""
   echo -e "  ${RED}✘ OpenClaw is not installed.${NC}"
   echo ""
@@ -100,7 +100,11 @@ if ! command -v openclaw &>/dev/null; then
   echo ""
   exit 1
 fi
-success "OpenClaw found: $(openclaw --version 2>/dev/null || echo 'unknown version')"
+if $DRY_RUN; then
+  info "[dry-run] Skipping OpenClaw version check."
+else
+  success "OpenClaw found: $(openclaw --version 2>/dev/null || echo 'unknown version')"
+fi
 
 # ── 2. Probe OpenClaw's exact workspace layout ───────────────────────────────
 step "Probing OpenClaw's agent workspace layout"
