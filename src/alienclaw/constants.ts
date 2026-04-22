@@ -10,7 +10,7 @@ export const ALIENCLAW_MODELS = {
 export const TIER_A_AGENTS = ['BossBot', 'AdvisorBot', 'CreatorBot'] as const;
 export type TierAAgent = typeof TIER_A_AGENTS[number];
 
-export const AGENT_MODELS: Record<TierAAgent, string> = {
+export const AGENT_MODELS: Record<TierAAgent, typeof ALIENCLAW_MODELS[keyof typeof ALIENCLAW_MODELS]> = {
   BossBot:    ALIENCLAW_MODELS.POWER,
   AdvisorBot: ALIENCLAW_MODELS.POWER,
   CreatorBot: ALIENCLAW_MODELS.FAST,
