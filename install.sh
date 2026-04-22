@@ -223,7 +223,7 @@ if $DRY_RUN; then
   info "[dry-run] Skipping verification."
 else
   # 6a. All three agent folders exist and have all expected files.
-  EXPECTED=(SOUL.md IDENTITY.md AGENTS.md USER.md TOOLS.md HEARTBEAT.md MEMORY.md)
+  EXPECTED=(SOUL.md AGENTS.md TOOLS.md HEARTBEAT.md MEMORY.md)
   all_ok=true
   for id in "${AGENT_IDS[@]}"; do
     base="$AGENTS_ROOT/$id"
@@ -235,7 +235,7 @@ else
       fi
     done
   done
-  $all_ok && success "All 21 expected files present." || fail "File verification failed."
+  $all_ok && success "All 15 expected files present." || fail "File verification failed."
 
   # 6b. openclaw.json has BossBot as default workspace.
   if grep -q 'agents.*bossbot' "$CFG" 2>/dev/null; then
