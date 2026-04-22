@@ -26,3 +26,8 @@ export function errorMessage(err: unknown): string {
 export function normalizeInput(str: string): string {
   return str.trim().toLowerCase();
 }
+
+/** Generate an 8-char uppercase hex suffix suitable for unique IDs. */
+export function generateIdSuffix(): string {
+  return crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
+}

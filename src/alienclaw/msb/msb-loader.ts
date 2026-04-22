@@ -161,7 +161,7 @@ export function loadMsbCached(
   const key = `${msbDir}:${toolName}`;
   if (_cache.has(key)) return _cache.get(key)!;
   if (_cache.size >= MAX_CACHE_SIZE) {
-    const oldest = _cache.keys().next().value;
+    const oldest = _cache.keys().next().value as string;
     _cache.delete(oldest);
   }
   const filePath = path.join(msbDir, `${toolName}.msb`);

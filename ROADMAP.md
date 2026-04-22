@@ -460,6 +460,54 @@ Both methods were defined but never called anywhere. Removed them along with the
 
 ---
 
+### Bug 73: `specs` undeclared in `loadMsDirectory` — ReferenceError ✅ FIXED
+
+`loadMsDirectory` called `specs.push(loadMsFile(fullPath))` but `specs` was never declared. Every call that found `.ms` files threw `ReferenceError: specs is not defined`, making the entire registry system non-functional.
+
+**File**: `src/alienclaw/registry/ms-loader.ts`
+
+---
+
+### Bug 74: `PATHS.workspace` missing — path safety bypass in `file_read` ✅ FIXED
+
+`fileReadAdapter` called `assertInsideBoundary(rawPath, PATHS.workspace)` but `PATHS.workspace` did not exist in `constants.ts`. TypeScript compile error AND `undefined` passed as the boundary string, silently bypassing the path traversal guard.
+
+**Files**: `src/alienclaw/constants.ts` (added `workspace` key), `src/alienclaw/msb/tool-adapters.ts` (already correct once key exists)
+
+---
+
+### Bug 75: `openSync` fd leak in `GoalManager.load()` ✅ FIXED
+
+`load()` opened a file descriptor via `openSync` for a stat+read, but never called `closeSync`. Every dirty-cache reload leaked one fd. Also tracked `_mtime` which was written but never read — vestigial state from an abandoned mtime-based cache check.
+
+**File**: `src/alienclaw/governance/goal-manager.ts`
+
+---
+
+### Bug 76: Dynamic `import('fs')` inside `acquireLock` ✅ FIXED
+
+`acquireLock` used `await import('fs').then(m => m.promises.open(...))` — a dynamic re-import of a built-in module on every lock attempt. The file already has `import * as fs from 'fs'` at the top. Replaced with `await fs.promises.open(...)`.
+
+**File**: `src/alienclaw/governance/goal-manager.ts`
+
+---
+
+### Bug 77: Timestamp suffix collision in specialist/employee ID generation ✅ FIXED
+
+`buildSpecialistForRole` and `buildEmployeeSpec` generated ID suffixes using `Date.now().toString(36)`. When multiple specialists with the same domain are built in the same millisecond (likely in `buildSchemeSpecialists` loops), they produced identical IDs — the second registration silently overwrote the first in the employee registry. Replaced with `generateIdSuffix()` (8 uppercase hex chars from `crypto.randomUUID()`), extracted to `utils.ts`.
+
+**Files**: `src/alienclaw/utils.ts`, `src/alienclaw/agents/creatorbot.ts`
+
+---
+
+### Bug 78: `_cache.keys().next().value` untyped in MSB cache eviction ✅ FIXED
+
+LRU eviction in `loadMsbCached` called `_cache.keys().next().value` which TypeScript infers as `string | undefined`. Used directly in `_cache.delete()` without assertion. Added `as string` — safe because size is checked against `MAX_CACHE_SIZE = 64 > 0` immediately above.
+
+**File**: `src/alienclaw/msb/msb-loader.ts`
+
+---
+
 ## Known Limitations
 
 ### 1. Employee/in-memory state not persisted across restarts

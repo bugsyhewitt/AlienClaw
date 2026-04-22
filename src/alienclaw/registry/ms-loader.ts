@@ -211,6 +211,7 @@ export function loadMsDirectory(
   dir:     string,
   options: { strict?: boolean } = {}
 ): { specs: MartianSpec[]; errors: { file: string; error: string }[] } {
+  const specs:  MartianSpec[] = [];
   const errors: { file: string; error: string }[] = [];
 
   let files: string[];
