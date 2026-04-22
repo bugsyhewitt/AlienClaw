@@ -8,12 +8,11 @@
  */
 
 import { spawn } from 'node:child_process';
-import { env }  from 'node:process';
 import { parseCliArgs } from './args.js';
 import { runAlienClaw } from './cli.js';
 
 // Pass raw argv to parseCliArgs — it handles interpreter vs direct detection internally.
-const rawArgv = env.argv ?? [];
+const rawArgv = process.argv;
 const cmd = parseCliArgs(rawArgv);
 
 if (cmd.type === 'run') {
@@ -40,7 +39,7 @@ alienclaw --help
 } else {
   // ── Pass through to OpenClaw ─────────────────────────────────────────────
   const openclaw = 'openclaw';
-  const args = env.argv?.slice(2) ?? [];
+  const args = process.argv.slice(2);
   const child = spawn(openclaw, args, {
     stdio: 'inherit',
     shell: true,

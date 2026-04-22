@@ -508,6 +508,22 @@ LRU eviction in `loadMsbCached` called `_cache.keys().next().value` which TypeSc
 
 ---
 
+### Bug 79: `env.argv` non-standard in Node 22 — CLI broken on modern Node ✅ FIXED
+
+`alienclaw.mjs` used `env.argv` (a non-standard, now-removed Node.js property) on lines 16 and 43. On Node 22 it is `undefined`, so `parseCliArgs([])` always returned `type: 'unknown'` and every `alienclaw run <goal>` fell through to the OpenClaw passthrough. Replaced with `process.argv`.
+
+**File**: `src/alienclaw/cli/alienclaw.mjs`
+
+---
+
+### Bug 80: `src/` missing from `package.json` `files` — `npm pack` produces empty package ✅ FIXED
+
+The `files` array did not include `src/` or `scripts/`. Running `npm pack` would produce a tarball missing the entire TypeScript governance engine and the pre-commit hook helpers. Added both directories.
+
+**File**: `package.json`
+
+---
+
 ## Known Limitations
 
 ### 1. Employee/in-memory state not persisted across restarts

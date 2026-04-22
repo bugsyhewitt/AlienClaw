@@ -22,11 +22,13 @@
     "install.sh",
     "installer/",
     "seed/",
+    "src/",
     "docs/",
     "skills/",
     "test/",
     "assets/",
     "git-hooks/",
+    "scripts/",
     ".github/"
   ]
 }
