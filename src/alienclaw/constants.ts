@@ -50,6 +50,12 @@ export const FAILFORWARD_MAX_ATTEMPTS = 2;
 export const REGISTRY_HEALTH_INTERVAL_MS = 5 * 60 * 1000;   // 5 minutes
 export const GENOME_AUDIT_INTERVAL_MS    = 15 * 60 * 1000;  // 15 minutes
 
+// Fitness loop
+export const FITNESS_UPDATE_INTERVAL_MS       = 5 * 60 * 1000;  // 5 minutes
+export const ADVISE_FROM_TELEMETRY_INTERVAL_MS  = 60 * 60 * 1000; // 1 hour
+export const FITNESS_EMA_ALPHA                  = 0.3;
+export const FITNESS_EVOLUTION_THRESHOLD         = 0.4;
+
 // Lock/retry
 export const LOCK_RETRY_MS   = 50;
 export const LOCK_MAX_TRIES  = 10;
