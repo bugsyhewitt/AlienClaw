@@ -63,6 +63,8 @@ export interface TaskEnvelope {
   assignedTo?: string;
   strikeCount: number;
   attempts:    TaskAttempt[];
+  /** Populated when this task belongs to a campaign's Specialist */
+  campaignId?: string;
 }
 
 export interface TaskAttempt {

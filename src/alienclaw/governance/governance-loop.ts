@@ -238,6 +238,7 @@ export class GovernanceLoop {
       goalId,
       description,
       this.advisorBot,
+      this.agentChannel,
       2  // max 2 rounds of iteration
     );
 
@@ -340,7 +341,8 @@ export class GovernanceLoop {
       const task = this.bossBot.buildTask(
         `[Campaign: ${campaign.name}] ${campaign.objective}`,
         specialist.domain,
-        'normal'
+        'normal',
+        campaign.id,
       );
       this.taskManager.register(task);
       this.taskManager.assign(task.taskId, specialist.id);
