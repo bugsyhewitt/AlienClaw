@@ -3,6 +3,7 @@
   "version": "2026.4.10",
   "description": "AlienClaw — governed multi-agent overlay on OpenClaw",
   "private": true,
+  "type": "module",
   "scripts": {
     "install": "bash install.sh",
     "typecheck": "tsc -p tsconfig.json"
