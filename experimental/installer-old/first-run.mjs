@@ -293,7 +293,7 @@ export async function runFirstRun() {
   row += 2;
 
   const optInLines = [
-    GRAY + '  Your Meeseeks learn from every run.' + RESET,
+    GRAY + '  Your Martians learn from every run.' + RESET,
     '',
     WHITE + '  Sharing anonymous genome fitness data with' + RESET,
     CYAN  + '  alienclaw.gg' + RESET + WHITE + ' in exchange for:' + RESET,
