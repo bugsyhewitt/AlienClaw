@@ -75,6 +75,7 @@ export const ALIENCLAW_HOME = process.env['ALIENCLAW_HOME']
 
 export const PATHS = {
   home:        ALIENCLAW_HOME,
+  workspace:   `${ALIENCLAW_HOME}/workspace`,
   config:      `${ALIENCLAW_HOME}/alienclaw.json`,
   preferences: `${ALIENCLAW_HOME}/preferences.json`,
   goals:       `${ALIENCLAW_HOME}/workspace/goals.json`,

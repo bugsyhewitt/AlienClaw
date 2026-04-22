@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import {
   readFileSync, writeFileSync,
-  mkdirSync, renameSync, unlinkSync, openSync,
+  mkdirSync, renameSync, unlinkSync,
 } from 'fs';
 import { dirname } from 'path';
 import { errorMessage, sleep } from '../utils.js';
@@ -20,7 +20,7 @@ function ensureGoalsDir(): void {
 async function acquireLock(): Promise<void> {
   for (let i = 0; i < LOCK_MAX_TRIES; i++) {
     try {
-      const handle = await import('fs').then(m => m.promises.open(LOCK_PATH, 'wx'));
+      const handle = await fs.promises.open(LOCK_PATH, 'wx');
       await handle.close();
       return;
     } catch (err) {
@@ -38,7 +38,6 @@ function releaseLock(): void {
 export class GoalManager {
   private _cached: GoalsFile | null = null;
   private _dirty  = false;
-  private _mtime  = -1;
 
   load(): GoalsFile {
     // Clean cache — return without any syscall
@@ -48,16 +47,12 @@ export class GoalManager {
     // Stale or absent — read from disk
     ensureGoalsDir();
     try {
-      const stat   = openSync(GOALS_PATH, 'r');  // reuse fd for stat+read
-      const { mtimeMs } = fs.fstatSync(stat);
-      this._cached = JSON.parse(readFileSync(stat, 'utf-8')) as GoalsFile;
-      this._mtime  = mtimeMs;
+      this._cached = JSON.parse(readFileSync(GOALS_PATH, 'utf-8')) as GoalsFile;
       this._dirty  = false;
       return this._cached;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         this._cached = { version: '1', activeGoalId: null, goals: [] };
-        this._mtime  = -1;
         this._dirty  = false;
         return this._cached;
       }

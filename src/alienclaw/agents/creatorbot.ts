@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { AGENT_MODELS, EMPLOYEE_DEFAULT_MODEL, DOMAIN_SLUG_MAX, CREATOR_QUEUE_MAX } from '../constants.js';
-import { errorMessage } from '../utils.js';
+import { errorMessage, generateIdSuffix } from '../utils.js';
 import type {
   EmployeeSpec, CreatorQueueItem, CreatorQueuePriority,
   Campaign, Scheme, SpecialistRole,
@@ -187,7 +187,7 @@ export class CreatorBot {
     model: string,
     generation = 1,
   ): EmployeeSpec {
-    const suffix     = Date.now().toString(36).toUpperCase();
+    const suffix     = generateIdSuffix();
     const employeeId = `EMP_${domain.toUpperCase().slice(0, DOMAIN_SLUG_MAX)}_${suffix}`;
     return {
       employeeId,
@@ -213,7 +213,7 @@ export class CreatorBot {
     campaignId: string,
     generation  = 1
   ): Employee {
-    const suffix     = Date.now().toString(36).toUpperCase();
+    const suffix     = generateIdSuffix();
     const roleSlug   = role.domain.toUpperCase().slice(0, DOMAIN_SLUG_MAX);
     const employeeId = `SPEC_${roleSlug}_${suffix}`;
 
