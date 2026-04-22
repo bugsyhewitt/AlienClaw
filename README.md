@@ -1,58 +1,72 @@
-# AlienClaw — Three Wired OpenClaw Agents
+# AlienClaw — Three Agents, One Mission
 
-AlienClaw v0.1 configures OpenClaw with three pre-wired agents that talk to each other automatically. You talk to **BossBot**, which consults **AdvisorBot** for strategic thinking and can summon **CreatorBot** for building specialists.
+AlienClaw is an overlay distribution on [OpenClaw](https://github.com/openclaw/openclaw) that adds a governed multi-agent hierarchy. You talk to **BossBot** — it coordinates everything else behind the scenes.
 
 ## Quick Start
 
 ```bash
-# 1. Install OpenClaw (if not already installed)
+# 1. Install OpenClaw
 npm install -g openclaw
 
-# 2. Run OpenClaw's setup wizard
+# 2. Configure OpenClaw
 openclaw configure
 
-# 3. Clone and install AlienClaw
+# 3. Install AlienClaw
 git clone https://github.com/AlienTool/AlienClaw.git
 cd AlienClaw
 bash install.sh
 
-# 4. Start chatting with BossBot
+# 4. Talk to BossBot
 openclaw chat
 ```
 
 ## The Three Agents
 
-| Agent | Role | Emoji |
-|-------|------|-------|
-| **BossBot** | Your executive — receives goals, breaks them down, delegates | 👽 |
-| **AdvisorBot** | Strategist — consulted on every non-trivial decision | 🧠 |
-| **CreatorBot** | Builder — writes specialist spec files on request | 🔧 |
+| Agent | Role |
+|-------|------|
+| **BossBot** 👽 | The only agent you talk to. Receives your goal, breaks it into campaigns, delegates. |
+| **AdvisorBot** 🧠 | Stateless strategist. BossBot and CreatorBot consult it before major decisions. |
+| **CreatorBot** 🔧 | Silent builder. Constructs Specialists per campaign, authors Martian genome files. |
 
-BossBot consults AdvisorBot **frequently** — not just on big decisions. Ask it something and watch it delegate.
+**BossBot consults AdvisorBot before any non-trivial decision.** This is baked into both its SOUL and its AGENTS routing — it can't be bypassed by accident.
 
-## Package Managers
+## How It Works
 
-If you have Homebrew, Scoop, or winget available:
-
-```bash
-# Homebrew (macOS/Linux)
-brew install alienclaw   # after adding the AlienClaw tap
-
-# Scoop (Windows)
-scoop bucket add alienclaw https://github.com/AlienTool/scoop-alienclaw
-scoop install alienclaw
-
-# winget (Windows)
-winget install AlienTool.AlienClaw
 ```
+You → BossBot → AdvisorBot (consult)
+           ↓
+      CreatorBot → builds Specialist per campaign
+           ↓
+      Specialist → uses Martian execution agents (Martians)
+           ↓
+      Fitness reports → AdvisorBot + CreatorBot
+           ↓
+      AdvisorBot signs off → BossBot surfaces result to you
+```
+
+BossBot, AdvisorBot, and CreatorBot share a private inter-agent channel the user never sees.
+
+## Martian Genome System
+
+Martians are execution agents defined by 256-char Base62 genome files. CreatorBot evolves low-fitness genomes over time. The genome registry lives at `~/.alienclaw/registry/`.
 
 ## Commands
 
 ```bash
-openclaw chat                 # Start a chat with BossBot
-openclaw agents list          # List all agents
+openclaw chat                  # Start a chat with BossBot
+openclaw agents list            # List all agents
+bash install.sh --dry-run      # Preview what install would do
 bash install.sh --uninstall    # Remove AlienClaw agents (keeps OpenClaw)
-bash install.sh --dry-run      # Preview what install.sh would do
+```
+
+## Project Structure
+
+```
+seed/agents/           # Per-agent workspace files (SOUL, AGENTS, TOOLS, HEARTBEAT, MEMORY)
+src/alienclaw/         # Governance engine: state machine, Martian registry, CLI
+installer/             # Install scripts
+skills/                # Bundled skills
+docs/                  # Documentation
 ```
 
 ## Uninstall
@@ -61,26 +75,4 @@ bash install.sh --dry-run      # Preview what install.sh would do
 bash install.sh --uninstall
 ```
 
-This removes the three AlienClaw agents from `~/.openclaw/agents/` but leaves OpenClaw and your OpenClaw config intact.
-
-## Package Manager Installers
-
-| File | Purpose |
-|------|---------|
-| `scripts/homebrew-formula.rb` | Homebrew formula |
-| `scripts/scoop-alienclaw.json` | Scoop bucket manifest |
-| `scripts/winget-alienclaw.yaml` | winget manifest |
-| `scripts/install-alienclaw.ps1` | Standalone PowerShell installer |
-| `scripts/abduction.mjs` | Cosmetic animation at install time |
-
-## What v0.1 Ships
-
-- 3 preconfigured OpenClaw agents with personality, identity, and routing
-- An idempotent installer (`bash install.sh`) that leaves OpenClaw vanilla
-- BossBot as the default agent, AdvisorBot consulted frequently, CreatorBot on standby
-
-## What v0.1 Does NOT Ship
-
-- A Martian/genome evolution system (`src/alienclaw/`)
-- A community leaderboard at alienclaw.net
-- Architecture A's overlay pipeline (`pnpm dist:all`, `reskin.sh`) — those are parked too
+Removes the three AlienClaw agents from `~/.openclaw/agents/` but leaves OpenClaw and your config intact.
