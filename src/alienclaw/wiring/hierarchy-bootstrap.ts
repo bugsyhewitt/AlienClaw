@@ -10,6 +10,11 @@ import { installSeeds }     from '../registry/seed-installer.js';
 import {
   REGISTRY_HEALTH_INTERVAL_MS,
   GENOME_AUDIT_INTERVAL_MS,
+  FITNESS_UPDATE_INTERVAL_MS,
+  ADVISE_FROM_TELEMETRY_INTERVAL_MS,
+  FITNESS_EMA_ALPHA,
+  FITNESS_EVOLUTION_THRESHOLD,
+  PATHS,
 } from '../constants.js';
 import type { MartianSpec } from '../registry/ms-types.js';
 import { GoalManager }       from '../governance/goal-manager.js';
@@ -20,6 +25,11 @@ import { GovernanceLoop }    from '../governance/governance-loop.js';
 import { UserChannel }       from '../comms/user-channel.js';
 import { AgentChannel,
          agentChannel }       from '../comms/agent-channel.js';
+import { readRecentMartianReports, summarizeFitness } from '../telemetry/telemetry-reader.js';
+import type { AdviceRequest } from '../types.js';
+import * as fsSync            from 'node:fs';
+import { writeFile, mkdir }   from 'node:fs/promises';
+import { join }               from 'node:path';
 
 export interface BootstrapResult {
   /** The BossBot governance loop — call loop.start() to begin processing goals */
@@ -114,6 +124,110 @@ export function bootstrap(): BootstrapResult {
     return undefined;
   });
 
+  // ── Fitness loop — close the report → .ms fitness feedback cycle ──────────
+
+  /** fitness-update: reads recent Martian reports, computes EMA fitness, updates .ms files */
+  creatorBot.registerScheduledJob({
+    label: 'fitness-update',
+    intervalMs: FITNESS_UPDATE_INTERVAL_MS,
+    fn: async () => {
+      const sinceMs = Date.now() - FITNESS_UPDATE_INTERVAL_MS;
+      const reports = await readRecentMartianReports(sinceMs);
+      if (reports.length === 0) return;
+
+      // Group by martianId
+      const byMartian = new Map<string, typeof reports>();
+      for (const r of reports) {
+        const arr = byMartian.get(r.martianId) ?? [];
+        arr.push(r);
+        byMartian.set(r.martianId, arr);
+      }
+
+      for (const [martianId, martianReports] of byMartian) {
+        const ms = registry.get(martianId);
+        if (!ms) continue;
+
+        const total = martianReports.length;
+        const successes = martianReports.filter(r => r.outcome === 'SUCCESS').length;
+        const successRate = total > 0 ? successes / total : 0;
+        const newFitness = FITNESS_EMA_ALPHA * successRate + (1 - FITNESS_EMA_ALPHA) * ms.fitness;
+
+        // Update in-memory registry
+        ms.fitness = newFitness;
+
+        // Atomically rewrite the .ms file
+        const msPath = join(PATHS.ms, `${martianId}.ms`);
+        try {
+          const raw = fsSync.readFileSync(msPath, 'utf-8');
+          const updated = raw.replace(
+            /^# fitness:.*$/m,
+            `# fitness: ${newFitness.toFixed(2)}`,
+          );
+          const tmpPath = msPath + '.tmp';
+          fsSync.writeFileSync(tmpPath, updated, 'utf-8');
+          fsSync.renameSync(tmpPath, msPath);
+        } catch {
+          // Non-fatal: keep in-memory updated
+        }
+
+        if (newFitness < FITNESS_EVOLUTION_THRESHOLD) {
+          creatorBot.enqueue(
+            'URGENT',
+            `evolve genome ${martianId} — fitness ${newFitness.toFixed(2)} below threshold ${FITNESS_EVOLUTION_THRESHOLD}`,
+            'fitness-update',
+          );
+        }
+      }
+    },
+  });
+
+  /** advise-from-telemetry: hourly AdvisorBot read on worst-performing Martian */
+  creatorBot.registerScheduledJob({
+    label: 'advise-from-telemetry',
+    intervalMs: ADVISE_FROM_TELEMETRY_INTERVAL_MS,
+    fn: async () => {
+      const sinceMs = Date.now() - ADVISE_FROM_TELEMETRY_INTERVAL_MS;
+      const reports = await readRecentMartianReports(sinceMs);
+      if (reports.length === 0) return;
+
+      // Find worst performer (lowest success rate with at least 3 runs)
+      const byMartian = new Map<string, { total: number; successes: number }>();
+      for (const r of reports) {
+        const e = byMartian.get(r.martianId) ?? { total: 0, successes: 0 };
+        e.total++;
+        if (r.outcome === 'SUCCESS') e.successes++;
+        byMartian.set(r.martianId, e);
+      }
+
+      let worst: { id: string; rate: number } | null = null;
+      for (const [id, { total, successes }] of byMartian) {
+        if (total < 3) continue;
+        const rate = successes / total;
+        if (!worst || rate < worst.rate) worst = { id, rate };
+      }
+
+      if (!worst) return;
+
+      const adviceReq: AdviceRequest = {
+        requesterId: 'CreatorBot',
+        context: `Over the last hour, Martian ${worst.id} ran ${byMartian.get(worst.id)?.total ?? 0} times with a ${(worst.rate * 100).toFixed(0)}% success rate.`,
+        question: `What might be causing ${worst.id} to underperform? Should we evolve its genome or adjust its tools?`,
+      };
+
+      const advice = await advisorBot.advise(adviceReq);
+
+      // Log through AgentChannel — this closes the telemetry → AdvisorBot → AgentChannel loop
+      agentChannel.send({
+        from: 'CreatorBot', to: 'AdvisorBot', kind: 'request',
+        content: adviceReq.question, ts: Date.now(),
+      });
+      agentChannel.send({
+        from: 'AdvisorBot', to: 'CreatorBot', kind: 'response',
+        content: advice.verdict, ts: Date.now(),
+      });
+    },
+  });
+
   // ── Start all three agents simultaneously ─────────────────────────────────
   // AdvisorBot: stateless between calls — ready immediately.
   // CreatorBot: scheduler starts now, runs independently of GovernanceLoop.
@@ -124,7 +238,7 @@ export function bootstrap(): BootstrapResult {
     '[Bootstrap] All 3 Tier-A agents online:\n' +
     '  BossBot    — awaiting loop.start()\n' +
     '  AdvisorBot — ready\n' +
-    `  CreatorBot — scheduler running (2 jobs registered)`
+    `  CreatorBot — scheduler running (4 jobs registered)`
   );
 
   // ── Shutdown handle ───────────────────────────────────────────────────────
