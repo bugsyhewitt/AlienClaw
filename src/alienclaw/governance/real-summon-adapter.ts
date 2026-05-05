@@ -27,13 +27,20 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
     const bridgeRequest = JSON.stringify({
       bridge_version: BRIDGE_VERSION,
       request_id: randomUUID(),
-      request: {
-        kind: 'summon',
-        genome: request.genome,
-        martian_type: request.martian_type,
-        inputs: request.inputs,
-        timeout_ms: request.timeout_ms,
-      },
+      request: request.fromPopulation
+        ? {
+            kind: 'summon-from-population',
+            martian_type: request.martian_type,
+            inputs: request.inputs,
+            timeout_ms: request.timeout_ms,
+          }
+        : {
+            kind: 'summon',
+            genome: request.genome,
+            martian_type: request.martian_type,
+            inputs: request.inputs,
+            timeout_ms: request.timeout_ms,
+          },
     });
 
     const timeoutMs = request.timeout_ms;
