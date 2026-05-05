@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About — AlienClaw</title>
+  <meta name="description" content="AlienClaw architecture, environmental thesis, and why it's open source." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="favicon.ico" />
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html" class="brand">AlienClaw</a>
+      <ul>
+        <li><a href="about.html" aria-current="page">About</a></li>
+        <li><a href="leaderboard.html">Leaderboard</a></li>
+        <li><a href="api.html">API</a></li>
+        <li><a href="donate.html">Donate</a></li>
+        <li><a href="https://github.com/AlienTool/AlienClaw" rel="noopener">GitHub</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section>
+      <h2>The architecture</h2>
+      <p>
+        AlienClaw runs three fixed Tier-A agents: <strong>BossBot</strong> receives
+        goals from the user. <strong>AdvisorBot</strong> is consulted by BossBot on
+        every non-trivial decision. <strong>CreatorBot</strong> runs campaigns —
+        spawning ephemeral <strong>Specialists</strong>, each scoped to one campaign,
+        each erased after it completes.
+      </p>
+      <p>
+        Specialists summon <strong>Martians</strong> — the actual tool workers.
+        Every Martian is defined by a 256-character Base62 genome string. Genomes
+        encode identity, execution parameters, behavior rules, and a checksum. The
+        genome is the Martian's DNA.
+      </p>
+      <pre>
+ User
+  │
+  ▼
+BossBot ─────────────→ AdvisorBot
+  │           (consult)
+  ▼
+CreatorBot
+  │
+  ▼
+Specialist (ephemeral, campaign-scoped)
+  │
+  ▼
+Martian (ephemeral, genome-bearing)
+  │  tool: http_get / compute / file_read / …
+  ▼
+fitness score → local population → evolution</pre>
+
+      <h3>The genome</h3>
+      <p>
+        256 characters, Base62 alphabet
+        (<code>0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz</code>),
+        four sections of 64 characters each:
+      </p>
+      <ul>
+        <li><strong>IDENTITY</strong> (chars 0–63) — Martian ID tag, generation marker, tool family</li>
+        <li><strong>EXECUTION</strong> (chars 64–127) — flow type, retry config, performance mode</li>
+        <li><strong>BEHAVIOR</strong> (chars 128–191) — escalation policy, output contract</li>
+        <li><strong>CHECKSUM</strong> (chars 192–255) — FNV-1a-inspired 64-char hash of sections 0–2</li>
+      </ul>
+      <p>
+        Mutation operates on one character at a time (rate: 1/256 per character per
+        generation). Crossover is section-boundary: each of the three mutable sections
+        is inherited from one parent or the other. The checksum is always recomputed
+        after any change — produced genomes are always valid.
+      </p>
+
+      <h3>Cross-language compliance</h3>
+      <p>
+        The governance layer is TypeScript. The genome, brain, fitness, bridge, and
+        evolution layers are Python. Every cross-boundary behavior — genome checksums,
+        brain registry parsing, bridge wire protocol — is validated against shared JSON
+        fixture files. Both language runners load the same fixture, run the same cases,
+        and CI fails on any disagreement. This discipline has caught six bugs to date.
+      </p>
+    </section>
+
+    <section>
+      <h2>The environmental thesis</h2>
+      <p>
+        AI inference has a real environmental cost: electricity, cooling water, hardware
+        manufacturing. The cost scales with compute — more tool calls, more tokens, more
+        energy. A system that rewards efficiency is a system that rewards less harm.
+      </p>
+      <p>
+        AlienClaw's fitness formula rewards Martians that accomplish tasks with fewer
+        tool calls:
+      </p>
+      <pre>fitness = correctness × (1 / max(1, tool_calls))</pre>
+      <p>
+        A Martian that completes a task in one tool call scores 1.0. One that uses five
+        calls scores 0.2, even if the result is equally correct. Selection pressure
+        propagates the efficient genomes; inefficient ones die off.
+      </p>
+      <p>
+        The community genome network (coming with Packet 10) extends this across
+        operators. When your AlienClaw install discovers a high-fitness genome from
+        another operator, it adds it to your local population. The network aggregates
+        the selection signal from thousands of runs. Over time, the globally-evolved
+        population approaches maximum efficiency on shared tasks.
+      </p>
+    </section>
+
+    <section>
+      <h2>Why open source</h2>
+      <p>
+        Best case: AlienClaw gets acquired and the environmental thesis gets funded at
+        scale. Acceptable case: open-source recognition, with the project and its ideas
+        living on. The code and the specs are what matter. Making them freely available
+        is how they survive.
+      </p>
+      <p>
+        The project is MIT-licensed. No contributor agreement. The genome codec and
+        fitness formula are in the public domain of ideas — anyone can implement them,
+        fork them, or build competing infrastructure that uses the same genome format.
+        Interoperability between genome network operators is the point.
+      </p>
+      <p>
+        <a href="https://github.com/AlienTool/AlienClaw" rel="noopener">github.com/AlienTool/AlienClaw</a>
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>AlienClaw is free and open source under
+      <a href="https://github.com/AlienTool/AlienClaw/blob/main/LICENSE" rel="noopener">MIT</a>.
+      No trackers, no frameworks, no third-party JavaScript.
+    </p>
+  </footer>
+</body>
+</html>

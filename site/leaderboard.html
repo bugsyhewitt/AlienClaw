@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Leaderboard — AlienClaw</title>
+  <meta name="description" content="Community genome leaderboard — top genomes per Martian type, ranked by fitness." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="favicon.ico" />
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html" class="brand">AlienClaw</a>
+      <ul>
+        <li><a href="about.html">About</a></li>
+        <li><a href="leaderboard.html" aria-current="page">Leaderboard</a></li>
+        <li><a href="api.html">API</a></li>
+        <li><a href="donate.html">Donate</a></li>
+        <li><a href="https://github.com/AlienTool/AlienClaw" rel="noopener">GitHub</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section>
+      <h2>Community genome leaderboard</h2>
+      <p>
+        When the community genome network ships with Packet 10, this page will
+        show the top genomes per Martian type, updated daily from
+        <code>api.alienclaw.net/v1/genomes/top</code>.
+      </p>
+      <p style="color:var(--muted)">
+        Status: <strong style="color:var(--accent)">placeholder</strong> — data layer lands with Packet 10.
+      </p>
+    </section>
+
+    <section>
+      <h2>compute</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Genome (first 24 chars)</th>
+            <th>Fitness</th>
+            <th>Runs</th>
+            <th>Last seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="coming" colspan="5">Data coming with Packet 10 — api.alienclaw.net not yet live</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>http_get</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Genome (first 24 chars)</th>
+            <th>Fitness</th>
+            <th>Runs</th>
+            <th>Last seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="coming" colspan="5">Data coming with Packet 10</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>web_search</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Genome (first 24 chars)</th>
+            <th>Fitness</th>
+            <th>Runs</th>
+            <th>Last seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="coming" colspan="5">Data coming with Packet 10</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>All Martian types</h2>
+      <p>
+        The leaderboard tracks genomes for all eight registered Martian types:
+        <code>compute</code>, <code>extract_json</code>, <code>file_read</code>,
+        <code>file_write</code>, <code>http_get</code>, <code>search_text</code>,
+        <code>url_fetch</code>, <code>web_search</code>.
+      </p>
+      <p>
+        Fitness is computed as
+        <code>correctness × (1 / max(1, tool_calls))</code>.
+        A genome that solves a task in one tool call with perfect correctness
+        scores 1.0. The leaderboard shows the highest-fitness genomes observed
+        across all operator installs that participate in the network.
+      </p>
+      <p>
+        To run the local evolution loop without connecting to the network:
+        <a href="https://github.com/AlienTool/AlienClaw#readme" rel="noopener">see the README</a>.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>AlienClaw is free and open source under
+      <a href="https://github.com/AlienTool/AlienClaw/blob/main/LICENSE" rel="noopener">MIT</a>.
+      No trackers, no frameworks, no third-party JavaScript.
+    </p>
+  </footer>
+</body>
+</html>
