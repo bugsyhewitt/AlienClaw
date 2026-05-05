@@ -70,12 +70,19 @@ def handle(raw: bytes) -> dict:
     if not isinstance(req, dict):
         return _error_response(request_id, "MALFORMED_REQUEST", "Missing or invalid 'request' field", {"missing_fields": ["request"]})
 
+    kind = req.get("kind")
+
+    # ── summon-from-population (v1.x extension) ────────────────────────────
+    if kind == "summon-from-population":
+        return _handle_summon_from_population(request_id, req, t0)
+
+    # ── summon (v1.0 original) ─────────────────────────────────────────────
     missing = [f for f in ("kind", "genome", "martian_type", "inputs", "timeout_ms") if f not in req]
     if missing:
         return _error_response(request_id, "MALFORMED_REQUEST", f"Missing required fields: {missing}", {"missing_fields": missing})
 
-    if req["kind"] != "summon":
-        return _error_response(request_id, "MALFORMED_REQUEST", f"request.kind must be 'summon', got '{req['kind']}'", {"missing_fields": []})
+    if kind != "summon":
+        return _error_response(request_id, "MALFORMED_REQUEST", f"request.kind must be 'summon' or 'summon-from-population', got '{kind}'", {"missing_fields": []})
 
     genome = req["genome"]
     validation = validate_genome(genome)
@@ -113,6 +120,80 @@ def handle(raw: bytes) -> dict:
 
     fitness_result = evaluate(FitnessInputs(correctness=run_result.correctness, tool_calls=run_result.tool_calls))
     return _success_response(request_id, run_result.output, fitness_result, wall_ms)
+
+
+def _handle_summon_from_population(request_id: str | None, req: dict, t0: float) -> dict:
+    """Handle kind='summon-from-population' — selects genome from population via tournament."""
+    import random
+    from alienclaw.evolution.population import Population
+    from alienclaw.evolution.selection import tournament
+    from alienclaw.evolution.types import EvolutionConfig
+
+    for field in ("martian_type", "inputs", "timeout_ms"):
+        if field not in req:
+            return _error_response(request_id, "MALFORMED_REQUEST", f"Missing field: {field}", {"missing_fields": [field]})
+
+    martian_type = req["martian_type"]
+    inputs = req.get("inputs", {})
+    timeout_ms = req.get("timeout_ms", 30_000)
+
+    if martian_type not in RUNNER_REGISTRY:
+        return _error_response(
+            request_id, "UNKNOWN_MARTIAN_TYPE",
+            f"No brain for martian_type='{martian_type}'",
+            {"available": sorted(RUNNER_REGISTRY.keys())},
+        )
+
+    # Load or create population for this martian_type
+    config = EvolutionConfig(martian_type=martian_type)
+    try:
+        pop = Population.load_or_create(config)
+    except Exception as exc:
+        return _error_response(request_id, "INTERNAL", f"Population error: {exc}", {"exception": str(exc)})
+
+    rng = random.Random()
+    try:
+        selected = tournament(pop, config.tournament_k, rng)
+        genome = selected.genome
+    except RuntimeError as exc:
+        return _error_response(request_id, "INTERNAL", f"Selection error: {exc}", {"exception": str(exc)})
+
+    # Run the martian with the selected genome
+    runner = RUNNER_REGISTRY[martian_type]
+    try:
+        run_result = runner(inputs)
+    except Exception as exc:
+        wall_ms = int((time.monotonic() - t0) * 1000)
+        return _error_response(request_id, "TOOL_RUNNER_FAILED", f"Runner exception: {exc}", {"output_partial": None}, wall_ms)
+
+    wall_ms = int((time.monotonic() - t0) * 1000)
+
+    if not run_result.ok:
+        fitness_result = evaluate(FitnessInputs(correctness=0.0, tool_calls=run_result.tool_calls, error=run_result.error))
+        # Feed fitness back to population even on failure
+        try:
+            pop.add(genome=genome, fitness=0.0, generation=pop.current_generation(),
+                    parent_ids=(selected.entry_id,), run_metadata={"error": run_result.error, "re_evaluated": True})
+        except Exception:
+            pass
+        return _error_response(request_id, "TOOL_RUNNER_FAILED", run_result.error or "Runner failed",
+                                {"output_partial": run_result.output, "genome_used": genome}, wall_ms)
+
+    fitness_result = evaluate(FitnessInputs(correctness=run_result.correctness, tool_calls=run_result.tool_calls))
+
+    # Feed fitness back into the population
+    try:
+        pop.add(genome=genome, fitness=fitness_result.fitness, generation=pop.current_generation(),
+                parent_ids=(selected.entry_id,), run_metadata={
+                    "tool_calls": 1, "wall_clock_ms": wall_ms,
+                    "correctness": fitness_result.correctness, "re_evaluated": True,
+                })
+    except Exception:
+        pass
+
+    resp = _success_response(request_id, run_result.output, fitness_result, wall_ms)
+    resp["response"]["genome_used"] = genome
+    return resp
 
 
 def main() -> None:

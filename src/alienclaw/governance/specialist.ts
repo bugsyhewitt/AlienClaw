@@ -16,15 +16,22 @@ import { randomUUID } from 'node:crypto';
 
 export interface SpecialistOptions {
   /** Campaign ID this Specialist belongs to. */
-  campaignId:    string;
+  campaignId:       string;
   /** Martian type to summon (must be in brain registry). */
-  martianType:   string;
+  martianType:      string;
   /** Inputs forwarded to the Martian. */
-  inputs:        Record<string, unknown>;
+  inputs:           Record<string, unknown>;
   /** Timeout in ms. */
-  timeoutMs:     number;
-  /** Override genome (for deterministic tests). */
-  genome?:       string;
+  timeoutMs:        number;
+  /** Override genome (for deterministic tests). Ignored when fromPopulation=true. */
+  genome?:          string;
+  /**
+   * When true, the RealMartianSummonAdapter sends kind='summon-from-population'
+   * and the Python bridge selects a genome via tournament selection from the
+   * population for this martian_type. The genome used is returned in the response.
+   * Defaults to false (use locally-generated random genome) for backward compat.
+   */
+  fromPopulation?:  boolean;
 }
 
 export interface SpecialistReport {
@@ -53,11 +60,12 @@ export class Specialist {
     if (this._erased) throw new Error(`Specialist ${this.specialistId} has been erased`);
 
     const result = await this.adapter.summon({
-      summon_id:    this.specialistId,
-      genome:       this.genome,
-      martian_type: this.opts.martianType,
-      inputs:       this.opts.inputs,
-      timeout_ms:   this.opts.timeoutMs,
+      summon_id:      this.specialistId,
+      genome:         this.genome,
+      martian_type:   this.opts.martianType,
+      inputs:         this.opts.inputs,
+      timeout_ms:     this.opts.timeoutMs,
+      fromPopulation: this.opts.fromPopulation,
     });
 
     return {

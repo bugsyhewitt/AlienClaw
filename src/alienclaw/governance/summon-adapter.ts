@@ -22,7 +22,13 @@ export interface MartianSummonRequest {
   /** Inputs from the summoner (Specialist or, in Packet 6, CreatorBot directly). */
   inputs:       Record<string, unknown>;
   /** Hard wall on how long the Martian may run (ms). */
-  timeout_ms:   number;
+  timeout_ms:     number;
+  /**
+   * When true, RealMartianSummonAdapter sends kind='summon-from-population'
+   * so the Python bridge samples a genome via tournament selection (Packet 8).
+   * MockMartianSummonAdapter ignores this field.
+   */
+  fromPopulation?: boolean;
 }
 
 export interface MartianSummonResult {
