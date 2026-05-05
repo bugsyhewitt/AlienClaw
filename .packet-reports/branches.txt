@@ -1,0 +1,12 @@
+* main
+  remotes/origin/HEAD -> origin/main
+  remotes/origin/dependabot/github_actions/actions/checkout-6
+  remotes/origin/dependabot/github_actions/actions/create-github-app-token-2.2.1
+  remotes/origin/dependabot/github_actions/actions/setup-node-6.3.0
+  remotes/origin/dependabot/github_actions/actions/upload-artifact-7
+  remotes/origin/dependabot/github_actions/docker/login-action-4
+  remotes/origin/dependabot/gradle/apps/android/androidx.test.uiautomator-uiautomator-2.4.0-beta01
+  remotes/origin/dependabot/swift/Swabble/github.com/apple/swift-testing-6.2.4
+  remotes/origin/dependabot/swift/apps/macos/swift-deps-9d312ea49a
+  remotes/origin/main
+  remotes/origin/remediation/v0.1-install-rework

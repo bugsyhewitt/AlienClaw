@@ -1,0 +1,37 @@
+
+[1m[38;2;0;255;136m==>[0m[1m Checking for OpenClaw[0m
+  [38;2;0;255;136m▸[0m [dry-run] Skipping OpenClaw version check.
+
+[1m[38;2;0;255;136m==>[0m[1m Probing OpenClaw's agent workspace layout[0m
+  [dry-run] rm -rf '/home/xil/.openclaw/agents/_probe_1777999352'
+
+[1m[38;2;0;255;136m==>[0m[1m Archiving any pre-existing default OpenClaw agent[0m
+
+[1m[38;2;0;255;136m==>[0m[1m Provisioning AlienClaw agents[0m
+  [dry-run] mkdir -p '/home/xil/.openclaw/agents'
+  [dry-run] mkdir -p '/home/xil/.openclaw/agents/bossbot'
+  [dry-run] cp -r '/home/xil/Desktop/alienclaw/seed/agents/bossbot/'* '/home/xil/.openclaw/agents/bossbot/'
+  [38;2;0;255;136m✔[0m Installed agent: bossbot → /home/xil/.openclaw/agents/bossbot
+  [dry-run] mkdir -p '/home/xil/.openclaw/agents/advisorbot'
+  [dry-run] cp -r '/home/xil/Desktop/alienclaw/seed/agents/advisorbot/'* '/home/xil/.openclaw/agents/advisorbot/'
+  [38;2;0;255;136m✔[0m Installed agent: advisorbot → /home/xil/.openclaw/agents/advisorbot
+  [dry-run] mkdir -p '/home/xil/.openclaw/agents/creatorbot'
+  [dry-run] cp -r '/home/xil/Desktop/alienclaw/seed/agents/creatorbot/'* '/home/xil/.openclaw/agents/creatorbot/'
+  [38;2;0;255;136m✔[0m Installed agent: creatorbot → /home/xil/.openclaw/agents/creatorbot
+
+[1m[38;2;0;255;136m==>[0m[1m Setting BossBot as the default agent[0m
+  [38;2;0;255;136m▸[0m [dry-run] Would backup /home/xil/.openclaw/openclaw.json and set agents.defaults.workspace to bossbot
+
+[1m[38;2;0;255;136m==>[0m[1m Verifying install[0m
+  [38;2;0;255;136m▸[0m [dry-run] Skipping verification.
+
+[1m[38;2;0;255;136m  👽  ALIENCLAW INSTALLED[0m
+[1m[38;2;0;255;136m  ═══════════════════════════════════════[0m
+  Default agent : [1mBossBot[0m
+  Peers         : AdvisorBot (🧠), CreatorBot (🔧)
+  Agents root   : [2m/home/xil/.openclaw/agents[0m
+
+  Start a chat   : [1mopenclaw chat[0m   (BossBot answers)
+  List agents    : [1mopenclaw agents list[0m
+  Uninstall      : [1mbash install.sh --uninstall[0m
+

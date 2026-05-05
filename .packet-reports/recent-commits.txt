@@ -1,0 +1,20 @@
+95e8748c fix: tighten AGENT_MODELS value type so pi-ai getModel() accepts it
+be3ee155 fix: declare ESM in package.json + remove orphaned test + stub orphaned tool-adapter imports
+209cbc75 fix: close 3 Turn-3 defects + add tsconfig/typecheck gate
+aef0e6c2 fix: first-person SOUL rewrite + campaign-scoped specialist rebuild preserving knowledgeBase
+6b0be75f feat: close the fitness loop — reports feed .ms fitness + trigger evolution
+1960c5c2 feat: AgentChannel primitive + route all inter-agent coordination through it
+0df6f26c docs: add Bug 81 to ROADMAP — 23 broken test files removed
+3bb3f71e fix: remove 23 broken test files orphaned by OpenClaw→AlienClaw restructure
+c931af83 fix: env.argv broken in Node 22 + add src/ to npm pack files
+d3e083d0 fix: 6 bugs found in post-roadmap audit (bugs 73-78)
+cb1ee2de fix: per-agent first-person rule statements + drop stale experimental entry
+fc9f8558 docs: rewrite README and CLAUDE.md to reflect post-restructure state
+9f52cc41 spec: rewrite seed SOULs and AGENTS routing to encode the six AlienClaw rules
+44b62ed1 fix: install.sh verification matches actual seed file set (5 files × 3 agents = 15)
+cde3940d promote: governance-engine → src/alienclaw/ as the shipping agent layer
+11c4ed2e remove: vendored OpenClaw tree and dead build configs — AlienClaw piggybacks on npm openclaw
+b76bd83e rename: complete Meeseeks → Martian across codebase and docs
+e0626351 fix: remove all remaining agentId references from install.sh output messages
+f50c3613 fix: replace stale openclaw/ rule with agentId prohibition in CLAUDE.md
+92b86d64 fix: update AGENTS.md for v0.1 CreatorBot reality and correct default agent config
