@@ -167,3 +167,60 @@ language only tested against itself.
 | Languages sharing same fixture files | 2 (Python, TypeScript) |
 | Subprocess spawn per summon | 1 (stateless) |
 | Lines of spec (SUMMON_BRIDGE_SPEC.md) | 305 |
+
+---
+
+## Packet 8: the neutral-evolution finding
+
+Packet 8 successfully built the local evolution loop: population storage,
+tournament selection, generational mutation/crossover, and a 50-generation
+experiment driver. All infrastructure works as designed.
+
+But the 50-generation experiment on the `compute` Martian type produced
+**neutral evolution** — mean fitness did not improve. The population maintained
+10–16 distinct genomes across 800 bridge calls, but no selection pressure pushed
+the population toward higher fitness.
+
+The infrastructure is correct. The signal isn't.
+
+Plausible root causes (one or more, to be investigated in a follow-up packet):
+
+1. **Tool-runner correctness heuristics aren't sensitive to genome variation.**
+   If `compute` returns `correctness=1.0` for every genome that doesn't crash,
+   fitness is constant across all genomes regardless of genome content, and
+   tournament selection degrades to random sampling.
+2. **The `1/tool_calls` efficiency term is constant.** Every tool runner is
+   single-shot (exactly 1 tool call). Efficiency is always 1.0. Only correctness
+   varies — and it doesn't.
+3. **Brain `parameter_schema` isn't wired into tool runner behavior.** The decoder
+   reads genome bytes into parameters; the runners may ignore those parameters or
+   apply them only weakly.
+
+Almost certainly some combination of all three.
+
+### What this implies for the leaderboard
+
+There's no point shipping a community genome network (Packet 10) until the local
+fitness signal is meaningful. A leaderboard built on noise propagates noise. A
+tool-runner sensitivity audit ("Packet 8.5") should land before Packet 10 ships
+publicly:
+
+- Pick one tool runner (`compute` or `extract_json`)
+- Walk through: brain spec → parameter decoder → runner → correctness scoring
+- Find the breakage points where genome variation stops affecting outcome
+- Fix them under the same identical-in-both-languages discipline
+
+### What this does NOT imply
+
+The architecture is wrong. The genome is wrong. Evolution is wrong.
+
+The infrastructure does the right thing — it just has nothing to act on. The fix
+is at the boundary between brain spec and tool runner implementation, not at the
+architectural layer.
+
+### A meta-note
+
+The fact that this surfaced cleanly is a win for the discipline. Packet 8 ran a
+real experiment and reported the actual result rather than a polished one. That
+honesty is what makes follow-up packets buildable. The next contributor to touch
+the evolution layer will see this note and know exactly what they're stepping into.
