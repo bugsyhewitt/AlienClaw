@@ -10,8 +10,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseMsbContent, validateMsb } from '../../src/alienclaw/msb/msb-loader.js';
@@ -136,8 +136,6 @@ describe('brain registry spec compliance — cross-language fixture', () => {
       } else if (c.kind === 'catalog') {
         // TypeScript side: load each brain file individually (no full registry class yet)
         // Validate catalog expectations using parseMsbContent per-file
-        const { readdirSync } = require('node:fs');
-        const { join }        = require('node:path');
         const dir = resolve(__dirname, '../..', c.seed_dir ?? 'seed/msb/');
         const files = readdirSync(dir)
           .filter((f: string) => f.endsWith('.msb'))
