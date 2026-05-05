@@ -1,11 +1,64 @@
-# AlienClaw — Three Agents, One Mission
+# AlienClaw
 
-AlienClaw is an overlay distribution on [OpenClaw](https://github.com/openclaw/openclaw) that adds a governed multi-agent hierarchy. You talk to **BossBot** — it coordinates everything else behind the scenes.
+Open-source agent infrastructure built around an evolutionary genome system.
+You give BossBot a goal. It coordinates everything else behind the scenes.
+
+**Status:** active development. Core architecture is in place. Genome evolution
+loop and community network are in flight. See [ROADMAP.md](./ROADMAP.md).
+
+## What is AlienClaw
+
+AlienClaw is an overlay distribution on [OpenClaw](https://github.com/openclaw/openclaw).
+Three fixed governance agents coordinate silently. You talk to one of them.
+
+You give BossBot a goal in natural language. BossBot consults AdvisorBot
+to refine the plan, then asks CreatorBot to build a Specialist tailored to
+the campaign. The Specialist runs the campaign — when it needs a tool, it
+summons a Martian. The Martian executes one task, reports its fitness, and
+erases itself. The Specialist gives a brief campaign report to BossBot and
+erases itself when the campaign ends.
+
+Martians are defined by 256-character Base62 genomes. The genomes mutate,
+crossover, and compete on fitness. CreatorBot evolves the local genome
+population over time. The community genome network (in development) syncs
+top-performing genomes globally so efficient agents propagate.
+
+## Architecture
+
+```
+User
+  ↓
+BossBot ←→ AdvisorBot         (planning consults, every non-trivial decision)
+  ↓
+CreatorBot                    (builds Specialists per campaign)
+  ↓
+Specialist                    (ephemeral, custom-built per campaign)
+  ↓
+Martian                       (ephemeral, defined by 256-char Base62 genome)
+  ↓
+[result returns up the stack; fitness reported to AdvisorBot + CreatorBot]
+```
+
+Communication graph (enforced in `src/alienclaw/`):
+
+- User talks only to BossBot
+- BossBot consults AdvisorBot for every non-trivial decision
+- BossBot delegates campaigns to CreatorBot
+- CreatorBot creates Specialists; Specialists summon Martians
+- Martians return data to Specialist; Specialists report to BossBot
+- Martians report fitness to AdvisorBot and CreatorBot (not BossBot)
+- Specialists and Martians self-erase when their work is done
+
+| Layer | Agents | Lifecycle | Genome |
+| --- | --- | --- | --- |
+| Governance | BossBot, AdvisorBot, CreatorBot | Persistent | No |
+| Campaign | Specialists | Ephemeral — per campaign | No (current scope) |
+| Tool execution | Martians | Ephemeral — per tool task | Yes — 256-char Base62 |
 
 ## Quick Start
 
 ```bash
-# 1. Install OpenClaw
+# 1. Install OpenClaw (npm prerequisite)
 npm install -g openclaw
 
 # 2. Configure OpenClaw
@@ -20,59 +73,34 @@ bash install.sh
 openclaw chat
 ```
 
-## The Three Agents
+Preview the installer without running it: `bash install.sh --dry-run`
 
-| Agent | Role |
-|-------|------|
-| **BossBot** 👽 | The only agent you talk to. Receives your goal, breaks it into campaigns, delegates. |
-| **AdvisorBot** 🧠 | Stateless strategist. BossBot and CreatorBot consult it before major decisions. |
-| **CreatorBot** 🔧 | Silent builder. Constructs Specialists per campaign, authors Martian genome files. |
-
-**BossBot consults AdvisorBot before any non-trivial decision.** This is baked into both its SOUL and its AGENTS routing — it can't be bypassed by accident.
-
-## How It Works
-
-```
-You → BossBot → AdvisorBot (consult)
-           ↓
-      CreatorBot → builds Specialist per campaign
-           ↓
-      Specialist → uses Martian execution agents (Martians)
-           ↓
-      Fitness reports → AdvisorBot + CreatorBot
-           ↓
-      AdvisorBot signs off → BossBot surfaces result to you
-```
-
-BossBot, AdvisorBot, and CreatorBot share a private inter-agent channel the user never sees.
-
-## Martian Genome System
-
-Martians are execution agents defined by 256-char Base62 genome files. CreatorBot evolves low-fitness genomes over time. The genome registry lives at `~/.alienclaw/registry/`.
-
-## Commands
-
-```bash
-openclaw chat                  # Start a chat with BossBot
-openclaw agents list            # List all agents
-bash install.sh --dry-run      # Preview what install would do
-bash install.sh --uninstall    # Remove AlienClaw agents (keeps OpenClaw)
-```
+Uninstall (leaves OpenClaw and your config intact): `bash install.sh --uninstall`
 
 ## Project Structure
 
 ```
-seed/agents/           # Per-agent workspace files (SOUL, AGENTS, TOOLS, HEARTBEAT, MEMORY)
-src/alienclaw/         # Governance engine: state machine, Martian registry, CLI
-installer/             # Install scripts
-skills/                # Bundled skills
-docs/                  # Documentation
+src/alienclaw/     Governance engine: agents, registry, genome codec, CLI
+seed/agents/       Per-agent workspace files (SOUL, AGENTS, TOOLS, HEARTBEAT, MEMORY)
+seed/ms/           Martian Spec reference files
+seed/msb/          Martian brain files (tool execution logic)
+installer/         Install scripts
+test/              Tests
+.github/           CI workflows
 ```
 
-## Uninstall
+## Documentation
 
-```bash
-bash install.sh --uninstall
-```
+- [VISION.md](./VISION.md) — what AlienClaw is for and why
+- [ROADMAP.md](./ROADMAP.md) — what is done, in flight, and next
+- [CLAUDE.md](./CLAUDE.md) — rules for Claude Code contributors
+- [SECURITY.md](./SECURITY.md) — security policy
 
-Removes the three AlienClaw agents from `~/.openclaw/agents/` but leaves OpenClaw and your config intact.
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md). One PR per issue; clean commit messages;
+no bundled unrelated changes.
+
+## License
+
+See [LICENSE](./LICENSE).

@@ -1,110 +1,74 @@
-## AlienClaw Vision
+# Vision
 
-AlienClaw is the AI that actually does things.
-It runs on your devices, in your channels, with your rules.
+AlienClaw exists to test one bet: that agents using fewer tool calls produce real
+environmental savings, and that genome-based evolution plus a community-shared
+leaderboard is the mechanism that makes those savings propagate.
 
-This document explains the current state and direction of the project.
-We are still early, so iteration is fast.
-Project overview and developer docs: [`README.md`](README.md)
-Contribution guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+## The thesis
 
-AlienClaw started as a personal playground to learn AI and build something genuinely useful:
-an assistant that can run real tasks on a real computer.
-It evolved through several names and shells: Warelay -> Clawdbot -> Moltbot -> AlienClaw.
+Most agent frameworks sprawl. They make 50 tool calls when they could make 5.
+Each unnecessary call costs compute — which costs data center water (cooling) and
+energy. At scale, that is a real environmental cost, invisible to the operator.
 
-The goal: a personal assistant that is easy to use, supports a wide range of platforms, and respects privacy and security.
+AlienClaw selects against sprawl. The fitness function rewards correct output
+divided by tool calls. Genomes that produce equivalent results with fewer tool
+calls win selection rounds. Over generations, the population gets dramatically
+more efficient.
 
-The current focus is:
+The community genome network propagates winning genomes globally. One efficient
+genome, evolved on one operator's instance, propagates to every other instance
+running the same Martian type. The mass-ML effect: millions of operators each
+contribute fitness data; everyone benefits from the efficiencies anyone discovers.
 
-Priority:
+## Why three layers, not one
 
-- Security and safe defaults
-- Bug fixes and stability
-- Setup reliability and first-run UX
+A single agent that has to do everything has a complex genome with many constraints.
+Mutation navigates a high-dimensional search space. Evolution gets stuck.
 
-Next priorities:
+Splitting work across three layers keeps each layer's search space narrow:
 
-- Supporting all major model providers
-- Improving support for major messaging channels (and adding a few high-demand ones)
-- Performance and test infrastructure
-- Better computer-use and agent harness capabilities
-- Ergonomics across CLI and web frontend
-- Companion apps on macOS, iOS, Android, Windows, and Linux
+- **Governance** (BossBot, AdvisorBot, CreatorBot) is fixed code, not evolved.
+  The complexity is in planning, not execution. LLM flexibility is the right
+  tool here.
+- **Specialists** are ephemeral and custom-built per campaign. They hold
+  campaign-specific knowledge that would bloat a persistent agent. They erase
+  when the campaign ends — no accumulated cruft.
+- **Martians** are narrow tool-callers. Their genome only encodes decisions about
+  how to use a small number of tools well. The search space is small enough that
+  evolution converges fast.
 
-Contribution rules:
+## Why open source
 
-- One PR = one issue/topic. Do not bundle multiple unrelated fixes/features.
-- PRs over ~5,000 changed lines are reviewed only in exceptional circumstances.
-- Do not open large batches of tiny PRs at once; each PR has review cost.
-- For very small related fixes, grouping into one focused PR is encouraged.
+The bet only works at scale. One operator's evolved genomes cannot prove much;
+thousands of operators contributing fitness data each can. Open source plus a
+public leaderboard plus a community genome network is how that scale gets reached.
 
-## Security
+The work matters even if AlienClaw never reaches acquisition. Best case is
+big-tech recognition of the genome evolution mechanism. Acceptable outcomes
+include open-source recognition as a respected research project or merge into a
+larger ecosystem. The genome evolution mechanism is the contribution.
 
-Security in AlienClaw is a deliberate tradeoff: strong defaults without killing capability.
-The goal is to stay powerful for real work while making risky paths explicit and operator-controlled.
+## What is not the vision
 
-Canonical security policy and reporting:
+- A general-purpose agent runtime (use OpenClaw for that — AlienClaw is a layer
+  on top, not a replacement)
+- A replacement for human review (governance includes a Specialist-to-BossBot
+  report so the user always sees a summary)
+- A profit-extracting commercial product (free on GitHub, donations optional,
+  no paid tiers planned)
+- A walled-garden ecosystem (community genome network is open API, open source,
+  open documentation)
 
-- [`SECURITY.md`](SECURITY.md)
+## Future directions (explicitly labeled as future)
 
-We prioritize secure defaults, but also expose clear knobs for trusted high-power workflows.
+The current scope — 256-char Base62 Martian genomes, ephemeral non-evolved
+Specialists — is what is being built now. After the initial loop is proven:
 
-## Plugins & Memory
+- **Specialist evolution**: longer genomes (512+ char) for the broader
+  campaign-scale search space. End-game, not near-term.
+- **Leaderboard depth**: domain-specific rankings, human-curated sets,
+  operator-trust weights.
+- **Governance extension**: finer-grained roles if fitness data shows clear gains.
 
-AlienClaw has an extensive plugin API.
-Core stays lean; optional capability should usually ship as plugins.
-
-Preferred plugin path is npm package distribution plus local extension loading for development.
-If you build a plugin, host and maintain it in your own repository.
-The bar for adding optional plugins to core is intentionally high.
-Plugin docs: [`docs/tools/plugin.md`](docs/tools/plugin.md)
-Community plugin listing + PR bar: https://docs.alienclaw.ai/plugins/community
-
-Memory is a special plugin slot where only one memory plugin can be active at a time.
-Today we ship multiple memory options; over time we plan to converge on one recommended default path.
-
-### Skills
-
-We still ship some bundled skills for baseline UX.
-New skills should be published to ClawHub first (`clawhub.ai`), not added to core by default.
-Core skill additions should be rare and require a strong product or security reason.
-
-### MCP Support
-
-AlienClaw supports MCP through `mcporter`: https://github.com/steipete/mcporter
-
-This keeps MCP integration flexible and decoupled from core runtime:
-
-- add or change MCP servers without restarting the gateway
-- keep core tool/context surface lean
-- reduce MCP churn impact on core stability and security
-
-For now, we prefer this bridge model over building first-class MCP runtime into core.
-If there is an MCP server or feature `mcporter` does not support yet, please open an issue there.
-
-### Setup
-
-AlienClaw is currently terminal-first by design.
-This keeps setup explicit: users see docs, auth, permissions, and security posture up front.
-
-Long term, we want easier onboarding flows as hardening matures.
-We do not want convenience wrappers that hide critical security decisions from users.
-
-### Why TypeScript?
-
-AlienClaw is primarily an orchestration system: prompts, tools, protocols, and integrations.
-TypeScript was chosen to keep AlienClaw hackable by default.
-It is widely known, fast to iterate in, and easy to read, modify, and extend.
-
-## What We Will Not Merge (For Now)
-
-- New core skills when they can live on ClawHub
-- Full-doc translation sets for all docs (deferred; we plan AI-generated translations later)
-- Commercial service integrations that do not clearly fit the model-provider category
-- Wrapper channels around already supported channels without a clear capability or security gap
-- First-class MCP runtime in core when `mcporter` already provides the integration path
-- Agent-hierarchy frameworks (manager-of-managers / nested planner trees) as a default architecture
-- Heavy orchestration layers that duplicate existing agent and tool infrastructure
-
-This list is a roadmap guardrail, not a law of physics.
-Strong user demand and strong technical rationale can change it.
+These are explicitly not in current scope. They are documented so contributors
+can see where the project might go — not so anyone builds toward them today.
