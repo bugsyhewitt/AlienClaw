@@ -62,9 +62,13 @@ describe('Rule 5 — channel isolation', () => {
     agentChannel.send({ from: 'AdvisorBot', to: 'BossBot', kind: 'response', content: 'A-A', ts: ts + 1, taskId: 'task-A' });
     agentChannel.send({ from: 'BossBot', to: 'AdvisorBot', kind: 'request', content: 'Q-B', ts: ts + 2, taskId: 'task-B' });
 
+    // history() is bidirectional — task-A includes both Q-A (Boss→Advisor) and A-A (Advisor→Boss)
     const taskA = agentChannel.history('BossBot', 'AdvisorBot', 'task-A');
-    expect(taskA).toHaveLength(1);
-    expect(taskA[0]!.content).toBe('Q-A');
+    expect(taskA).toHaveLength(2);
+    expect(taskA.some(m => m.content === 'Q-A')).toBe(true);
+    expect(taskA.some(m => m.content === 'A-A')).toBe(true);
+    // task-B message is excluded
+    expect(taskA.some(m => m.content === 'Q-B')).toBe(false);
   });
 
   it('agentChannel.subscribe() notifies observers of new messages', () => {
@@ -114,14 +118,17 @@ describe('Rule 5 — channel isolation', () => {
       testChannel,
     );
 
-    // Assert the message landed in the injected channel
+    // history() is bidirectional — both 'BossBot','AdvisorBot' and 'AdvisorBot','BossBot'
+    // return the same conversation (all messages between the two agents)
     const history = testChannel.history('BossBot', 'AdvisorBot');
-    expect(history).toHaveLength(1);
-    expect(history[0]!.content).toBe('Is the scheme sound?');
-    expect(history[0]!.kind).toBe('request');
+    expect(history).toHaveLength(2);
+    const request  = history.find(m => m.kind === 'request');
+    const response = history.find(m => m.kind === 'response');
+    expect(request?.content).toBe('Is the scheme sound?');
+    expect(response?.content).toBe('Add a testing campaign.');
 
+    // Symmetric call returns the same conversation
     const responseHistory = testChannel.history('AdvisorBot', 'BossBot');
-    expect(responseHistory).toHaveLength(1);
-    expect(responseHistory[0]!.content).toBe('Add a testing campaign.');
+    expect(responseHistory).toHaveLength(2);
   });
 });
