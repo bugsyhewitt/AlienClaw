@@ -21,6 +21,8 @@ jobs:
         run: npm install
       - name: Typecheck
         run: npx tsc --noEmit
+      - name: Cross-language genome spec compliance (TypeScript side)
+        run: npx vitest run test/genome/ts-fixture-runner.test.ts
 
   test:
     name: Unit tests
@@ -38,33 +40,37 @@ jobs:
         run: npx vitest run --reporter=verbose
 
   python:
-    name: Python lint + test
+    name: Python lint + test + genome coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install Python tooling
+      - name: Install Python dev dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff pytest
+          pip install -r requirements-dev.txt
+      - name: Validate fixture file
+        run: |
+          python3 -c "
+          import json, sys
+          with open('test/fixtures/genome-spec-fixtures.json') as f:
+              data = json.load(f)
+          assert 'cases' in data, 'fixture missing cases array'
+          assert len(data['cases']) >= 50, f'fewer than 50 cases: {len(data[\"cases\"])}'
+          assert data.get('\$schema_version') == '1.0', 'fixture schema version unexpected'
+          print(f'Fixture OK: {len(data[\"cases\"])} cases')
+          "
       - name: Lint Python files
+        run: ruff check src/alienclaw/genome/ test/genome/
+      - name: Test genome module with coverage
         run: |
-          PY_FILES=$(find . -name '*.py' -not -path './node_modules/*')
-          if [ -n "$PY_FILES" ]; then
-            ruff check $PY_FILES
-          else
-            echo "No Python files found, skipping lint"
-          fi
-      - name: Test Python files
-        run: |
-          PY_TESTS=$(find . -name 'test_*.py' -not -path './node_modules/*')
-          if [ -n "$PY_TESTS" ]; then
-            pytest -q $PY_TESTS
-          else
-            echo "No Python test files found, skipping"
-          fi
+          PYTHONPATH=src pytest test/genome/ \
+            --cov=alienclaw.genome \
+            --cov-report=term-missing \
+            --cov-fail-under=95 \
+            -q
 
   shell:
     name: Shell script lint
