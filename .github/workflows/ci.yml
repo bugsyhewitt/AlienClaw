@@ -113,6 +113,34 @@ jobs:
               print(f'FAIL: {e}')
               sys.exit(1)
           "
+      - name: Lint evolution module
+        run: ruff check src/alienclaw/evolution/ test/evolution/
+      - name: Run evolution tests with coverage
+        env:
+          PYTHONPATH: src
+        run: |
+          rm -rf ~/.alienclaw/populations/
+          pytest test/evolution/ \
+            --cov=alienclaw.evolution \
+            --cov-report=term-missing \
+            --cov-fail-under=85 \
+            -q
+      - name: Verify no leak directories
+        run: |
+          if [ -d "$HOME/.alienclaw/populations/" ]; then
+            echo "FAIL: tests left ~/.alienclaw/populations/ behind"
+            ls -la "$HOME/.alienclaw/populations/"
+            exit 1
+          fi
+          if [ -d "$HOME/.alienclaw/specialists/" ]; then
+            REMAINING=$(ls "$HOME/.alienclaw/specialists/" | wc -l | tr -d ' ')
+            if [ "$REMAINING" -gt 0 ]; then
+              echo "FAIL: $REMAINING specialist directories left behind"
+              ls "$HOME/.alienclaw/specialists/"
+              exit 1
+            fi
+          fi
+          echo "Leak check: OK — no leftover directories"
 
   shell:
     name: Shell script lint
