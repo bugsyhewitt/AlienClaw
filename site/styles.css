@@ -1,0 +1,174 @@
+/* AlienClaw — single stylesheet, no external deps */
+:root {
+  --bg:       #0a0a0a;
+  --fg:       #c8d0c8;
+  --accent:   #00ff88;
+  --accent2:  #00ffcc;
+  --muted:    #556055;
+  --border:   #1e2a1e;
+  --max-w:    820px;
+  --font:     "Courier New", Courier, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.65;
+  min-height: 100vh;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Nav ── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+}
+nav {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+}
+.brand {
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+nav ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+nav ul li a {
+  color: var(--fg);
+  font-size: 0.9rem;
+}
+nav ul li a:hover { color: var(--accent); }
+nav ul li a[aria-current="page"] { color: var(--accent); }
+
+/* ── Main ── */
+main {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+/* ── Hero ── */
+.hero { padding: 3.5rem 0 2rem; text-align: center; }
+.hero h1 {
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  margin-bottom: 1.25rem;
+}
+.lede {
+  font-size: 1.05rem;
+  color: var(--fg);
+  max-width: 640px;
+  margin: 0 auto 1rem;
+}
+.cta {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Buttons ── */
+.btn-primary, .btn-secondary {
+  display: inline-block;
+  padding: 0.55rem 1.4rem;
+  border: 1px solid;
+  font-family: var(--font);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.btn-primary:hover { background: var(--accent2); border-color: var(--accent2); text-decoration: none; }
+.btn-secondary {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.btn-secondary:hover { background: var(--accent); color: var(--bg); text-decoration: none; }
+
+/* ── Sections ── */
+section { margin-top: 3.5rem; }
+h2 {
+  font-size: 1.2rem;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+h3 { font-size: 1rem; color: var(--accent2); margin: 1.25rem 0 0.5rem; }
+p { margin-bottom: 0.9rem; }
+ul, ol { padding-left: 1.4rem; margin-bottom: 0.9rem; }
+li { margin-bottom: 0.4rem; }
+
+/* ── Status list ── */
+.status ul { list-style: none; padding: 0; }
+.status li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg);
+}
+.status li::before { content: "▸ "; color: var(--accent); }
+
+/* ── Code / pre ── */
+pre, code {
+  font-family: var(--font);
+  font-size: 0.88rem;
+  background: #0f1a0f;
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+code { padding: 0.1em 0.35em; border-radius: 2px; }
+pre { padding: 1rem; overflow-x: auto; margin-bottom: 1rem; }
+
+/* ── Tables ── */
+table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.9rem; }
+th { color: var(--accent); border-bottom: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: left; }
+td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); color: var(--muted); }
+td.coming { color: var(--muted); font-style: italic; }
+
+/* ── Donate ── */
+.donate-hero { text-align: center; padding: 2rem 0; }
+.donate-hero h1 { color: var(--accent); font-size: 1.8rem; margin-bottom: 1rem; }
+
+/* ── Footer ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+footer a { color: var(--muted); }
+footer a:hover { color: var(--accent); }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .hero h1 { font-size: 1.6rem; }
+  .cta { flex-direction: column; align-items: center; }
+  nav { justify-content: space-between; }
+}

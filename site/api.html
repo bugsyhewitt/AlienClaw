@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>API — AlienClaw</title>
+  <meta name="description" content="api.alienclaw.net documentation — community genome network API, coming with Packet 10." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="favicon.ico" />
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html" class="brand">AlienClaw</a>
+      <ul>
+        <li><a href="about.html">About</a></li>
+        <li><a href="leaderboard.html">Leaderboard</a></li>
+        <li><a href="api.html" aria-current="page">API</a></li>
+        <li><a href="donate.html">Donate</a></li>
+        <li><a href="https://github.com/AlienTool/AlienClaw" rel="noopener">GitHub</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section>
+      <h2>api.alienclaw.net</h2>
+      <p>
+        The AlienClaw API serves the community genome network. It accepts fitness
+        reports from operator installs, stores high-fitness genomes, and serves the
+        global leaderboard.
+      </p>
+      <p style="color:var(--muted)">
+        Status: <strong style="color:var(--accent)">not yet live</strong> —
+        <code>api.alienclaw.net</code> launches with Packet 10.
+        The spec is locked; the server is not yet deployed.
+      </p>
+      <p>
+        Full spec:
+        <a href="https://github.com/AlienTool/AlienClaw/blob/main/docs/specs/LEADERBOARD_API_SPEC.md" rel="noopener">
+          docs/specs/LEADERBOARD_API_SPEC.md
+        </a>
+      </p>
+    </section>
+
+    <section>
+      <h2>Planned endpoints</h2>
+
+      <h3>GET /v1/genomes/top</h3>
+      <p>Return the top genomes per Martian type, ranked by fitness.</p>
+      <pre>GET /v1/genomes/top?martian_type=compute&limit=50</pre>
+
+      <h3>POST /v1/genomes/submit</h3>
+      <p>Submit a genome + fitness score from your local population. Requires an operator token.</p>
+      <pre>POST /v1/genomes/submit
+Content-Type: application/json
+
+{
+  "genome": "&lt;256-char Base62&gt;",
+  "martian_type": "compute",
+  "fitness": 0.92,
+  "run_count": 14,
+  "operator_id": "&lt;your-operator-token&gt;"
+}</pre>
+
+      <h3>GET /v1/leaderboard</h3>
+      <p>Global leaderboard per Martian type, updated daily. This is the data source for the leaderboard page.</p>
+      <pre>GET /v1/leaderboard?martian_type=compute&limit=50</pre>
+
+      <h3>GET /v1/health</h3>
+      <p>API health check.</p>
+      <pre>GET /v1/health
+→ {"status": "ok", "version": "1.0"}</pre>
+    </section>
+
+    <section>
+      <h2>Authentication</h2>
+      <p>
+        Read endpoints (<code>GET /v1/genomes/top</code>, <code>GET /v1/leaderboard</code>)
+        are unauthenticated — anyone can read the global leaderboard.
+      </p>
+      <p>
+        Write endpoints (<code>POST /v1/genomes/submit</code>) require an operator token
+        sent in the <code>Authorization: Bearer &lt;token&gt;</code> header. Operator
+        tokens will be available when the API launches.
+      </p>
+    </section>
+
+    <section>
+      <h2>Data format</h2>
+      <p>
+        All responses are JSON. Genomes are 256-character Base62 strings
+        (alphabet: <code>0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz</code>).
+        Fitness scores are floats in <code>[0.0, 1.0]</code>.
+      </p>
+      <p>
+        The genome format is defined in
+        <a href="https://github.com/AlienTool/AlienClaw/blob/main/docs/specs/GENOME_SPEC.md" rel="noopener">GENOME_SPEC.md</a>.
+        The wire protocol between the local bridge and the API is defined in
+        <a href="https://github.com/AlienTool/AlienClaw/blob/main/docs/specs/LEADERBOARD_API_SPEC.md" rel="noopener">LEADERBOARD_API_SPEC.md</a>.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>AlienClaw is free and open source under
+      <a href="https://github.com/AlienTool/AlienClaw/blob/main/LICENSE" rel="noopener">MIT</a>.
+      No trackers, no frameworks, no third-party JavaScript.
+    </p>
+  </footer>
+</body>
+</html>
