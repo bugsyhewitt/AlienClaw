@@ -145,7 +145,8 @@ describe('genome spec compliance — cross-language fixture', () => {
 
           if (inv['valid_genome']) {
             const result = validateGenome(pyOutput);
-            expect(result.valid).withContext(
+            expect(
+              result.valid,
               `${c.name}: Python output should be valid per TS validator. errors=${result.errors}`
             ).toBe(true);
           }
@@ -163,7 +164,8 @@ describe('genome spec compliance — cross-language fixture', () => {
               const paSection = parent_a.slice(i * SECTION_LENGTH, (i + 1) * SECTION_LENGTH);
               const pbSection = parent_b.slice(i * SECTION_LENGTH, (i + 1) * SECTION_LENGTH);
               const fromEither = section === paSection || section === pbSection;
-              expect(fromEither).withContext(
+              expect(
+                fromEither,
                 `${c.name}: section ${i} not from either parent`
               ).toBe(true);
             }
