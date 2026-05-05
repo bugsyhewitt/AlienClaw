@@ -1,0 +1,466 @@
+{
+  "version": "1.0",
+  "description": "Bridge protocol compliance fixture (25 cases)",
+  "cases": [
+    {
+      "description": "compute: 7 + 35 = 42",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000001",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000000G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZXa6dgQrCiFyy3m4nu634mzYIHgkDS4fsulgwJ4ypg2TUGF0UdK8dSyvmIhEMb0Kr",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "7 + 35"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "result",
+      "expected_output_value": 42
+    },
+    {
+      "description": "compute: 2 ** 10 = 1024",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000002",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000000G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZXa6dgQrCiFyy3m4nu634mzYIHgkDS4fsulgwJ4ypg2TUGF0UdK8dSyvmIhEMb0Kr",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "2 ** 10"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "result",
+      "expected_output_value": 1024
+    },
+    {
+      "description": "compute: abs(-99) = 99",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000003",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000000G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZXa6dgQrCiFyy3m4nu634mzYIHgkDS4fsulgwJ4ypg2TUGF0UdK8dSyvmIhEMb0Kr",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "abs(-99)"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "result",
+      "expected_output_value": 99
+    },
+    {
+      "description": "compute: sqrt(144) = 12.0",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000004",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000001G1AlienClaw1TmoB6QQSjfz6OLrFBRQHFvRrY3zpyvqAUDO3NzGmSQxzYi9IyZXk3aVq9x4BafE7tFacPaWvCiEOfIJk4Szz4DGvssM9phbze0oIfw876YGbiCdGUuq5QH0ldGjYQ04suXpa97JtnrtDF6msPc9vryos1jKvnroGm6srDoSInE1BAZkKbwyNoqNMKJicRm2LsulIEVyEnQYH6CRMo7yqp8QlYenUS9KoDU69KKLSgLqQ",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "sqrt(144)"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "result",
+      "expected_output_value": 12.0
+    },
+    {
+      "description": "compute: min(5,3,8) = 3",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000005",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000001G1AlienClaw1TmoB6QQSjfz6OLrFBRQHFvRrY3zpyvqAUDO3NzGmSQxzYi9IyZXk3aVq9x4BafE7tFacPaWvCiEOfIJk4Szz4DGvssM9phbze0oIfw876YGbiCdGUuq5QH0ldGjYQ04suXpa97JtnrtDF6msPc9vryos1jKvnroGm6srDoSInE1BAZkKbwyNoqNMKJicRm2LsulIEVyEnQYH6CRMo7yqp8QlYenUS9KoDU69KKLSgLqQ",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "min(5,3,8)"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "result",
+      "expected_output_value": 3
+    },
+    {
+      "description": "compute: 100/4 = 25.0",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000006",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000001G1AlienClaw1TmoB6QQSjfz6OLrFBRQHFvRrY3zpyvqAUDO3NzGmSQxzYi9IyZXk3aVq9x4BafE7tFacPaWvCiEOfIJk4Szz4DGvssM9phbze0oIfw876YGbiCdGUuq5QH0ldGjYQ04suXpa97JtnrtDF6msPc9vryos1jKvnroGm6srDoSInE1BAZkKbwyNoqNMKJicRm2LsulIEVyEnQYH6CRMo7yqp8QlYenUS9KoDU69KKLSgLqQ",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "100/4"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "result",
+      "expected_output_value": 25.0
+    },
+    {
+      "description": "compute: 1/0 = TOOL_RUNNER_FAILED",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000007",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000002G1AlienClaw1KrxHdOyXw7yBxG6QjJbVNZFh0vXikfM4fKJqiIJPOI7QwftcIX0HQZeSRDTtnA5VdKokfDC1FTq4PdChUFe0kl6QAxW3FqSnfzawtbiVpXtkTGFdlWcH4HGJX8Ehh3PXPCQuahrlN0LkqxPkXbDDR1KgPAS7c1OY1d8S3NDKlNkpm2PSyLyUtYcDWKlwYhCwRSmD4YTgkHk6ZuoNAI3I6x4EjU8F0KviOLuWjYaHautS",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "1/0"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": false,
+      "expected_error_code": "TOOL_RUNNER_FAILED"
+    },
+    {
+      "description": "extract_json: top-level key",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000008",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000003G1AlienClaw1F51XzLemekwC197fYDhlAbk7ox61JfxOi4gc6lqb7ymLQMVLqo6xdphRjxGoXTRjGqp5sFSbN1qBDnLshH0w5iUlgeUn5DgIaTWQkKhGF7B7XlBDUiyWH6CEB0XHyYh7rUsZTRB3wToO4d39YIz7lbnDWRRrzIcbjwCDe9A40RaIVEWtY4LeCPqoJAkVS69CgnASJiSrQCz4yNi6Xgc1usLI8XMYdUczmoROe7E0Pk6N",
+          "martian_type": "extract_json",
+          "inputs": {
+            "json": "{\"name\": \"alice\"}",
+            "path": "name"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "value",
+      "expected_output_value": "alice"
+    },
+    {
+      "description": "extract_json: nested key",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000009",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000003G1AlienClaw1F51XzLemekwC197fYDhlAbk7ox61JfxOi4gc6lqb7ymLQMVLqo6xdphRjxGoXTRjGqp5sFSbN1qBDnLshH0w5iUlgeUn5DgIaTWQkKhGF7B7XlBDUiyWH6CEB0XHyYh7rUsZTRB3wToO4d39YIz7lbnDWRRrzIcbjwCDe9A40RaIVEWtY4LeCPqoJAkVS69CgnASJiSrQCz4yNi6Xgc1usLI8XMYdUczmoROe7E0Pk6N",
+          "martian_type": "extract_json",
+          "inputs": {
+            "json": "{\"user\": {\"id\": 99}}",
+            "path": "user.id"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "value",
+      "expected_output_value": 99
+    },
+    {
+      "description": "extract_json: array index",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000010",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000003G1AlienClaw1F51XzLemekwC197fYDhlAbk7ox61JfxOi4gc6lqb7ymLQMVLqo6xdphRjxGoXTRjGqp5sFSbN1qBDnLshH0w5iUlgeUn5DgIaTWQkKhGF7B7XlBDUiyWH6CEB0XHyYh7rUsZTRB3wToO4d39YIz7lbnDWRRrzIcbjwCDe9A40RaIVEWtY4LeCPqoJAkVS69CgnASJiSrQCz4yNi6Xgc1usLI8XMYdUczmoROe7E0Pk6N",
+          "martian_type": "extract_json",
+          "inputs": {
+            "json": "{\"items\": [\"first\", \"second\"]}",
+            "path": "items[0]"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "value",
+      "expected_output_value": "first"
+    },
+    {
+      "description": "extract_json: bad JSON = TOOL_RUNNER_FAILED",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000011",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000004G1AlienClaw1EhhSgvmcevQXeup4AJkZH7ghwVU42QJF5xpZwzfG2kTeuBadU5LKfrKhHwoYSJKyPVzeXPBMkclCYvRh7ybE9YY5zuS7pUiVGpyFYNvVsrHmPvVoHIazU9XLYXSJBhZEm2khoNfoyU2VarsRWSiPe9TyKgeqqrNJils24dvzkQ6d19RdVXnLj1fBZ3D3l9fRrlVX93RndRLnzZVr5x51lH1ZtzvHHX1jJNdNb9VjdTlh",
+          "martian_type": "extract_json",
+          "inputs": {
+            "json": "not_json",
+            "path": "x"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": false,
+      "expected_error_code": "TOOL_RUNNER_FAILED"
+    },
+    {
+      "description": "search_text: two matches",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000012",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000005G1AlienClaw1sRhu2nIN9WZnA4rcEu8SFF0ntg9RLadQFqCNTEZZzIyeHZgk3bUuHnbLdcgiepcueJRZj5IkA8XyWupFpTokL7x8xriyxnMn0XSffaow6E1sYuD3puIP8wIU6t8SfkwPk9P6UPw2MRwr6gXyMOB7qSfdb1mF7Z4lCDrK9t0r88FAPEEZsSXw2LywtuafEYhOgLCwBCmNQGJU2ROIxyWpAGPmyJkChquxWkDY6z0kFsa7",
+          "martian_type": "search_text",
+          "inputs": {
+            "text": "foo bar\nfoo baz\nno match",
+            "pattern": "foo"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "match_count",
+      "expected_output_value": 2
+    },
+    {
+      "description": "search_text: case insensitive",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000013",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000005G1AlienClaw1sRhu2nIN9WZnA4rcEu8SFF0ntg9RLadQFqCNTEZZzIyeHZgk3bUuHnbLdcgiepcueJRZj5IkA8XyWupFpTokL7x8xriyxnMn0XSffaow6E1sYuD3puIP8wIU6t8SfkwPk9P6UPw2MRwr6gXyMOB7qSfdb1mF7Z4lCDrK9t0r88FAPEEZsSXw2LywtuafEYhOgLCwBCmNQGJU2ROIxyWpAGPmyJkChquxWkDY6z0kFsa7",
+          "martian_type": "search_text",
+          "inputs": {
+            "text": "Hello World",
+            "pattern": "hello",
+            "case_sensitive": false
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "match_count",
+      "expected_output_value": 1
+    },
+    {
+      "description": "search_text: no matches = ok with 0",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000014",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000005G1AlienClaw1sRhu2nIN9WZnA4rcEu8SFF0ntg9RLadQFqCNTEZZzIyeHZgk3bUuHnbLdcgiepcueJRZj5IkA8XyWupFpTokL7x8xriyxnMn0XSffaow6E1sYuD3puIP8wIU6t8SfkwPk9P6UPw2MRwr6gXyMOB7qSfdb1mF7Z4lCDrK9t0r88FAPEEZsSXw2LywtuafEYhOgLCwBCmNQGJU2ROIxyWpAGPmyJkChquxWkDY6z0kFsa7",
+          "martian_type": "search_text",
+          "inputs": {
+            "text": "abc def",
+            "pattern": "xyz"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_output_field": "match_count",
+      "expected_output_value": 0
+    },
+    {
+      "description": "VERSION_MISMATCH: bridge_version=99.0",
+      "request": {
+        "bridge_version": "99.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000015",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000000G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZXa6dgQrCiFyy3m4nu634mzYIHgkDS4fsulgwJ4ypg2TUGF0UdK8dSyvmIhEMb0Kr",
+          "martian_type": "compute",
+          "inputs": {},
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": false,
+      "expected_error_code": "VERSION_MISMATCH"
+    },
+    {
+      "description": "INVALID_GENOME: too short",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000016",
+        "request": {
+          "kind": "summon",
+          "genome": "TOOSHORT",
+          "martian_type": "compute",
+          "inputs": {},
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": false,
+      "expected_error_code": "INVALID_GENOME"
+    },
+    {
+      "description": "INVALID_GENOME: wrong checksum",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000017",
+        "request": {
+          "kind": "summon",
+          "genome": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "martian_type": "compute",
+          "inputs": {},
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": false,
+      "expected_error_code": "INVALID_GENOME"
+    },
+    {
+      "description": "UNKNOWN_MARTIAN_TYPE",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000018",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000006G1AlienClaw1e10mEKA3jWkTmV6Vw2mrWSx3TOgUu45b4HdXKzWSb6hqeliDRELSP5QfN9v4p55joYaYK7LfkriybLZDeD6qMlZoqyocd1vpGBhJL0rZO8d1kDQLMimZ539cfGfURGk7QHgUf2Ob0ID8FK0kANhVpn4r21vrZZhP71Kncpv5qFaWZP9Xt3XXhn9rjPxjDd1DJ1FHZfNBR9DFF5VvR5rZFRDpPnlPRdv5rhrjfrXhlpH5",
+          "martian_type": "nonexistent_brain",
+          "inputs": {},
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": false,
+      "expected_error_code": "UNKNOWN_MARTIAN_TYPE"
+    },
+    {
+      "description": "MALFORMED_REQUEST: missing kind",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000019",
+        "request": {
+          "genome": "FX000000G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZXa6dgQrCiFyy3m4nu634mzYIHgkDS4fsulgwJ4ypg2TUGF0UdK8dSyvmIhEMb0Kr",
+          "martian_type": "compute",
+          "inputs": {},
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": false,
+      "expected_error_code": "MALFORMED_REQUEST"
+    },
+    {
+      "description": "MALFORMED_REQUEST: timeout_ms=0",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000020",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000007G1AlienClaw1OJLKAV7VuLjooE9CbleAlUklRvYdcrc94RIH3VJS3p4rrcVSYntRoeJT936tLiVAFRRW9NHPKbme45gHieusKa8LxhOawJNnofpjgWeQMMBDwUE84q6lps2Kl8NAploARPfERHkRXJoTpMwzSHNWxon8FdsY6qqHlGu9RwDRL13VBwcl6898CbIQxoS1gSFiAHUEjIC5C012QhcMPCEVcalqUBQsF82NqwtwOn28VY6x",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "1"
+          },
+          "timeout_ms": 0
+        }
+      },
+      "expected_ok": false,
+      "expected_error_code": "MALFORMED_REQUEST"
+    },
+    {
+      "description": "protocol: bridge_version echoed",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000021",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000008G1AlienClaw1EzN1vqen8Hph8hR04FpYjW6HI2QnS6ua1VF8QcEPf5y4WVzYOTdyF1mLjcljK2XoAmShdo3mSI2C2vVzXFkBMmrK7MtktNyUUvWnj4boXJ4eJbQgL2rLzHyw4dMngx8bm24mMNZbgwNlZWOeF7jUNYGGRzHuU7qStR5gqJL4XtqiGEBQQ3gcBoWLIylaC36GlgqPc4bGo5SyRYK9WkfQ8j2wDmWRwgHuUTEwPWI3yE1G",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "42"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_bridge_version": "1.0"
+    },
+    {
+      "description": "protocol: request_id echoed",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000022",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000009G1AlienClaw1vdnV7C8n1YMnYb5JziWlp4ydRgLsmdBxQu379AKhLwtqFdY7IXVAw9eibqYp12dZelPdUcHxTngI43RUCbJijry8MYJSGF6HNcFr9KZJlUVUJ1wVxDL3UseTXqQsjlMOZCY4VlHzg7yOnLwkCVV28KTSbVKcAzjIKpXhIoMfyaniqVKgHMoRCi5y2lWE5Swda05gUdEGBwmNQ8jci9uWx0IH0QhMejmQ7GuhoW5UoFaY",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "1"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_request_id_echoed": true
+    },
+    {
+      "description": "protocol: fitness=1.0 for 1 call",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000023",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000010G1AlienClaw1g1TxmmZiaAccq9g1w61J9gPmvsj38CKfWJAuLLlidgbBFYDyIHChJLvnG7fNyoxnIHiLRFTCXvh8caFfWd3Pi6l0YvPvsTCxJeu5ZXiwuAsAvzOUwxvs0Z6yHzXUwqTB6ASFBjnZkArtpV5fB8KFGEkxIi0eg37JPVthJ7uIcD89QFCob0c9eclmWNScxY6Ve2pO8psgPE2bSyrSK3A8fCqzQYpKG1GsnCaLQYxI61aY",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "1"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_fitness": 1.0
+    },
+    {
+      "description": "protocol: run_metadata.tool_calls present",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000024",
+        "request": {
+          "kind": "summon",
+          "genome": "FX000011G1AlienClaw1kbPYTXfDFks5Rh4Y3XVZ9KW7Ca5VoSVS3SoiOokZ2L3zv4v1PllyeQzNruNgfXeLBXWjD01IfXWpFLHwi6oPls0C62bh3jOEDr3VHojJbfJI8eDI3wsucQUywfmJP9NkTqIhnuYyY8FCevq5iBGfbsBliYTrKx0wx7zTFbCuYmNX1Hjhd1jLrlZXvBl5hvpx1XNp1JJfLNzbbXLpjR5nNdbJz5pLzxNXrJbntzp1ZfTv",
+          "martian_type": "compute",
+          "inputs": {
+            "input": "1"
+          },
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": true,
+      "expected_metadata_keys": [
+        "tool_calls",
+        "wall_clock_ms"
+      ]
+    },
+    {
+      "description": "protocol: fitness=0.0 on error",
+      "request": {
+        "bridge_version": "1.0",
+        "request_id": "550e8400-e29b-41d4-a716-000000000025",
+        "request": {
+          "kind": "summon",
+          "genome": "TOOSHORT",
+          "martian_type": "compute",
+          "inputs": {},
+          "timeout_ms": 5000
+        }
+      },
+      "expected_ok": false,
+      "expected_fitness": 0.0
+    }
+  ]
+}
