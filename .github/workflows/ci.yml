@@ -23,6 +23,8 @@ jobs:
         run: npx tsc --noEmit
       - name: Cross-language genome spec compliance (TypeScript side)
         run: npx vitest run test/genome/ts-fixture-runner.test.ts
+      - name: Cross-language brain registry compliance (TypeScript side)
+        run: npx vitest run test/brains/ts-fixture-runner.test.ts
 
   test:
     name: Unit tests
@@ -62,8 +64,19 @@ jobs:
           assert data.get('\$schema_version') == '1.0', 'fixture schema version unexpected'
           print(f'Fixture OK: {len(data[\"cases\"])} cases')
           "
+      - name: Validate brain registry fixture
+        run: |
+          python3 -c "
+          import json, sys
+          with open('test/fixtures/brain-registry-fixtures.json') as f:
+              data = json.load(f)
+          assert 'cases' in data, 'fixture missing cases array'
+          assert len(data['cases']) >= 30, f'fewer than 30 cases: {len(data[\"cases\"])}'
+          assert data.get('\$schema_version') == '1.0', 'fixture schema version unexpected'
+          print(f'Brain fixture OK: {len(data[\"cases\"])} cases')
+          "
       - name: Lint Python files
-        run: ruff check src/alienclaw/genome/ test/genome/
+        run: ruff check src/alienclaw/genome/ test/genome/ src/alienclaw/brains/ test/brains/
       - name: Test genome module with coverage
         run: |
           PYTHONPATH=src pytest test/genome/ \
@@ -71,6 +84,28 @@ jobs:
             --cov-report=term-missing \
             --cov-fail-under=95 \
             -q
+      - name: Test brain registry with coverage
+        run: |
+          PYTHONPATH=src pytest test/brains/ \
+            --cov=alienclaw.brains \
+            --cov-report=term-missing \
+            --cov-fail-under=90 \
+            -q
+      - name: Lint seed/msb/ brains
+        run: |
+          PYTHONPATH=src python3 -c "
+          from alienclaw.brains.registry import BrainRegistry
+          import sys
+          try:
+              reg = BrainRegistry.load('seed/msb/')
+              print(f'OK: {len(reg.all_brains())} brains loaded.')
+              if reg.warnings:
+                  for w in reg.warnings:
+                      print(f'  warn: {w}')
+          except Exception as e:
+              print(f'FAIL: {e}')
+              sys.exit(1)
+          "
 
   shell:
     name: Shell script lint
