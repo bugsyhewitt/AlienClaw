@@ -63,13 +63,13 @@ export class AgentChannel {
   }
 
   /**
-   * Return the message history between two agents.
+   * Return the message history between two agents (bidirectional).
+   * Returns all messages where either agent is the sender and the other is the receiver.
    * Optionally filter by taskId.
    */
-  history(from: TierAAgent, to: TierAAgent, taskId?: string): AgentMessage[] {
+  history(agentA: TierAAgent, agentB: TierAAgent, taskId?: string): AgentMessage[] {
     return this._log.filter(m =>
-      m.from === from &&
-      m.to   === to &&
+      ((m.from === agentA && m.to === agentB) || (m.from === agentB && m.to === agentA)) &&
       (taskId === undefined || m.taskId === taskId)
     );
   }
