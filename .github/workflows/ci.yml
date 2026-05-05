@@ -25,6 +25,13 @@ jobs:
         run: npx vitest run test/genome/ts-fixture-runner.test.ts
       - name: Cross-language brain registry compliance (TypeScript side)
         run: npx vitest run test/brains/ts-fixture-runner.test.ts
+      - name: Governance loop tests with coverage
+        run: |
+          npx vitest run test/governance/ \
+            --coverage --coverage.provider=v8 \
+            --coverage.thresholds.lines=95 \
+            --coverage.thresholds.branches=90 \
+            --coverage.include="src/alienclaw/governance/*.ts"
 
   test:
     name: Unit tests
