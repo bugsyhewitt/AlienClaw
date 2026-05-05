@@ -141,6 +141,21 @@ jobs:
             fi
           fi
           echo "Leak check: OK — no leftover directories"
+      - name: Verify site/ structural integrity
+        run: |
+          for F in index.html about.html api.html leaderboard.html donate.html styles.css; do
+            test -f "site/$F" || { echo "MISSING: site/$F"; exit 1; }
+          done
+          for F in site/*.html; do
+            head -1 "$F" | grep -qi '<!doctype html' \
+              || { echo "FAIL: $F missing doctype"; exit 1; }
+          done
+          if grep -rqE 'src="https://|src="http://|href="https://[^"]+\.css|href="http://[^"]+\.css' site/; then
+            echo "FAIL: external script/CSS references found in site/"
+            grep -rE 'src="https://|src="http://' site/ || true
+            exit 1
+          fi
+          echo "site/ structural check: OK"
 
   shell:
     name: Shell script lint
