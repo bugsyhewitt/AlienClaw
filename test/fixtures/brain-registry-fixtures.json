@@ -1,0 +1,447 @@
+{
+  "$schema_version": "1.0",
+  "$schema_doc": "Cross-language brain registry compliance fixture. Both Python and TypeScript consume this. CI fails on any disagreement.",
+  "$generated": "2026-05-06 by packet-05 implementation",
+  "$martianbrain_spec_version": "1.0",
+  "cases": [
+    {
+      "name": "parse-web_search",
+      "kind": "parse",
+      "input_file": "seed/msb/web_search.msb",
+      "expected": {
+        "tool": "web_search",
+        "version": "1.1",
+        "capabilities_first_line": "Searches the web for current information using a query string.",
+        "capabilities_line_count": 4,
+        "limitations_nonempty": true,
+        "failure_modes_nonempty": true,
+        "execution_order_count": 6,
+        "execution_order_first": "Validate that query is a non-empty string",
+        "output_contract_nonempty": true,
+        "genome_identity_contains": "Chars 0-7 = Martian ID tag (WE",
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "genome_checksum_nonempty": true,
+        "variables_keys": [
+          "task",
+          "query",
+          "context",
+          "maxResults"
+        ]
+      }
+    },
+    {
+      "name": "parse-file_read",
+      "kind": "parse",
+      "input_file": "seed/msb/file_read.msb",
+      "expected": {
+        "tool": "file_read",
+        "version": "1.0",
+        "capabilities_first_line": "Reads the contents of a file at an absolute or relative path.",
+        "capabilities_line_count": 4,
+        "limitations_nonempty": true,
+        "failure_modes_nonempty": true,
+        "execution_order_count": 4,
+        "execution_order_first": "Validate path argument is a non-empty string",
+        "output_contract_nonempty": true,
+        "genome_identity_contains": "Chars 0-7 = Martian ID tag (FR",
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "genome_checksum_nonempty": true,
+        "variables_keys": [
+          "task",
+          "path",
+          "encoding",
+          "context"
+        ]
+      }
+    },
+    {
+      "name": "parse-file_write",
+      "kind": "parse",
+      "input_file": "seed/msb/file_write.msb",
+      "expected": {
+        "tool": "file_write",
+        "version": "1.0",
+        "capabilities_first_line": "Writes a string to a file at the specified path.",
+        "capabilities_line_count": 5,
+        "limitations_nonempty": true,
+        "failure_modes_nonempty": true,
+        "execution_order_count": 5,
+        "execution_order_first": "Validate path and content arguments",
+        "output_contract_nonempty": true,
+        "genome_identity_contains": "Chars 0-7 = Martian ID tag (FW",
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "genome_checksum_nonempty": true,
+        "variables_keys": [
+          "task",
+          "path",
+          "content",
+          "encoding",
+          "context"
+        ]
+      }
+    },
+    {
+      "name": "parse-url_fetch",
+      "kind": "parse",
+      "input_file": "seed/msb/url_fetch.msb",
+      "expected": {
+        "tool": "url_fetch",
+        "version": "1.0",
+        "capabilities_first_line": "Fetches the full text content of a URL.",
+        "capabilities_line_count": 4,
+        "limitations_nonempty": true,
+        "failure_modes_nonempty": true,
+        "execution_order_count": 4,
+        "execution_order_first": "Validate URL format (must start with https://)",
+        "output_contract_nonempty": true,
+        "genome_identity_contains": "Chars 0-7 = Martian ID tag. Ch",
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "genome_checksum_nonempty": true,
+        "variables_keys": [
+          "task",
+          "url",
+          "context",
+          "maxBytes"
+        ]
+      }
+    },
+    {
+      "name": "parse-http_get",
+      "kind": "parse",
+      "input_file": "seed/msb/http_get.msb",
+      "expected": {
+        "tool": "http_get",
+        "version": "1.0",
+        "capabilities_first_line": "Performs an HTTP GET request to a given HTTPS URL and returns the response body.",
+        "capabilities_line_count": 4,
+        "limitations_nonempty": true,
+        "failure_modes_nonempty": true,
+        "execution_order_count": 9,
+        "execution_order_first": "Validate URL format \u2014 must start with https:// or http://",
+        "output_contract_nonempty": true,
+        "genome_identity_contains": "Chars 0-7 = Martian ID tag (HT",
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "genome_checksum_nonempty": true,
+        "variables_keys": [
+          "task",
+          "url",
+          "maxBytes",
+          "context"
+        ]
+      }
+    },
+    {
+      "name": "parse-compute",
+      "kind": "parse",
+      "input_file": "seed/msb/compute.msb",
+      "expected": {
+        "tool": "compute",
+        "version": "1.0",
+        "capabilities_first_line": "Executes a deterministic computation on a given input value.",
+        "capabilities_line_count": 4,
+        "limitations_nonempty": true,
+        "failure_modes_nonempty": true,
+        "execution_order_count": 6,
+        "execution_order_first": "Validate input type and value (within declared range)",
+        "output_contract_nonempty": true,
+        "genome_identity_contains": "Chars 0-7 = Martian ID tag (CO",
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "genome_checksum_nonempty": true,
+        "variables_keys": [
+          "task",
+          "input",
+          "operation",
+          "context"
+        ]
+      }
+    },
+    {
+      "name": "parse-search_text",
+      "kind": "parse",
+      "input_file": "seed/msb/search_text.msb",
+      "expected": {
+        "tool": "search_text",
+        "version": "1.0",
+        "capabilities_first_line": "Searches a text body for a pattern and returns all matching spans.",
+        "capabilities_line_count": 4,
+        "limitations_nonempty": true,
+        "failure_modes_nonempty": true,
+        "execution_order_count": 6,
+        "execution_order_first": "Validate text body size (must be <= 10 MB)",
+        "output_contract_nonempty": true,
+        "genome_identity_contains": "Chars 0-7 = Martian ID tag (SR",
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "genome_checksum_nonempty": true,
+        "variables_keys": [
+          "task",
+          "text",
+          "pattern",
+          "flavor",
+          "caseSensitive",
+          "maxMatches",
+          "contextLines",
+          "context"
+        ]
+      }
+    },
+    {
+      "name": "parse-extract_json",
+      "kind": "parse",
+      "input_file": "seed/msb/extract_json.msb",
+      "expected": {
+        "tool": "extract_json",
+        "version": "1.0",
+        "capabilities_first_line": "Extracts one or more values from a JSON string using dot-path notation.",
+        "capabilities_line_count": 4,
+        "limitations_nonempty": true,
+        "failure_modes_nonempty": true,
+        "execution_order_count": 5,
+        "execution_order_first": "Validate input is a non-empty string",
+        "output_contract_nonempty": true,
+        "genome_identity_contains": "Chars 0-7 = Martian ID tag (EX",
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "genome_checksum_nonempty": true,
+        "variables_keys": [
+          "task",
+          "json",
+          "paths",
+          "context"
+        ]
+      }
+    },
+    {
+      "name": "validate-pass-web_search",
+      "kind": "validate",
+      "input_file": "seed/msb/web_search.msb",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-pass-http_get",
+      "kind": "validate",
+      "input_file": "seed/msb/http_get.msb",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-pass-compute",
+      "kind": "validate",
+      "input_file": "seed/msb/compute.msb",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-fail-missing-tool",
+      "kind": "validate",
+      "input_content": "VERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "TOOL"
+    },
+    {
+      "name": "validate-fail-missing-version",
+      "kind": "validate",
+      "input_content": "TOOL: test_minimal\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "VERSION"
+    },
+    {
+      "name": "validate-fail-missing-capabilities",
+      "kind": "validate",
+      "input_content": "TOOL: test_minimal\nVERSION: 1.0\n\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "CAPABILITIES"
+    },
+    {
+      "name": "validate-fail-missing-limitations",
+      "kind": "validate",
+      "input_content": "TOOL: test_minimal\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "LIMITATIONS"
+    },
+    {
+      "name": "validate-fail-missing-failure-modes",
+      "kind": "validate",
+      "input_content": "TOOL: test_minimal\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "FAILURE MODES"
+    },
+    {
+      "name": "validate-fail-missing-best-practices",
+      "kind": "validate",
+      "input_content": "TOOL: test_minimal\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "BEST PRACTICES"
+    },
+    {
+      "name": "validate-fail-missing-execution-order",
+      "kind": "validate",
+      "input_content": "TOOL: test_minimal\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "EXECUTION ORDER"
+    },
+    {
+      "name": "validate-fail-missing-output-contract",
+      "kind": "validate",
+      "input_content": "TOOL: test_minimal\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "OUTPUT CONTRACT"
+    },
+    {
+      "name": "validate-fail-missing-genome-sections",
+      "kind": "validate",
+      "input_content": "TOOL: test_minimal\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "GENOME SECTIONS"
+    },
+    {
+      "name": "validate-fail-missing-variables",
+      "kind": "validate",
+      "input_content": "TOOL: test_minimal\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\ntask: The task description\ninput: The input value",
+      "expected_pass": false,
+      "expected_error_contains": "VARIABLES"
+    },
+    {
+      "name": "catalog-seed-dir-count",
+      "kind": "catalog",
+      "seed_dir": "seed/msb/",
+      "expected": {
+        "brain_count": 8,
+        "tool_names": [
+          "compute",
+          "extract_json",
+          "file_read",
+          "file_write",
+          "http_get",
+          "search_text",
+          "url_fetch",
+          "web_search"
+        ],
+        "versions": {
+          "compute": "1.0",
+          "extract_json": "1.0",
+          "file_read": "1.0",
+          "file_write": "1.0",
+          "http_get": "1.0",
+          "search_text": "1.0",
+          "url_fetch": "1.0",
+          "web_search": "1.1"
+        }
+      }
+    },
+    {
+      "name": "catalog-seed-dir-alphabetical-order",
+      "kind": "catalog",
+      "seed_dir": "seed/msb/",
+      "expected": {
+        "tool_names_in_load_order": [
+          "compute",
+          "extract_json",
+          "file_read",
+          "file_write",
+          "http_get",
+          "search_text",
+          "url_fetch",
+          "web_search"
+        ]
+      }
+    },
+    {
+      "name": "parse-web-search-capabilities-multiline",
+      "kind": "parse",
+      "input_file": "seed/msb/web_search.msb",
+      "expected": {
+        "capabilities_line_count": 4,
+        "capabilities_line_1": "Searches the web for current information using a query string.",
+        "capabilities_line_2": "Returns structured results containing titles, URLs, and excerpts."
+      }
+    },
+    {
+      "name": "parse-web-search-variables-all-keys",
+      "kind": "parse",
+      "input_file": "seed/msb/web_search.msb",
+      "expected": {
+        "variables_keys": [
+          "task",
+          "query",
+          "context",
+          "maxResults"
+        ],
+        "variables_count": 4
+      }
+    },
+    {
+      "name": "parse-web-search-genome-sections-all-4",
+      "kind": "parse",
+      "input_file": "seed/msb/web_search.msb",
+      "expected": {
+        "genome_identity_nonempty": true,
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "genome_checksum_nonempty": true
+      }
+    },
+    {
+      "name": "parse-file-read-execution-order-all-steps",
+      "kind": "parse",
+      "input_file": "seed/msb/file_read.msb",
+      "expected": {
+        "execution_order_count": 4,
+        "execution_order_first": "Validate path argument is a non-empty string",
+        "execution_order_last": "Return content in OutputContract format"
+      }
+    },
+    {
+      "name": "parse-inline-minimal",
+      "kind": "parse_inline",
+      "input_content": "TOOL: test_minimal\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas some limits.\n\nFAILURE MODES:\nFails sometimes.\n\nBEST PRACTICES:\nDo things right.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: Chars 0-7 = ID tag. Chars 8-9 = gen. Chars 10-19 = ns. Chars 20-63 = family.\nEXECUTION: Char 0 = retry. Char 1 = backoff. Chars 2-63 = flow + padding.\nBEHAVIOR: Char 0 = escalation mode. Chars 1-63 = label + contract.\nCHECKSUM: FNV-1a hash of sections 0-2.\n\nVARIABLES:\ntask: The task description\ninput: The input value\n",
+      "expected": {
+        "tool": "test_minimal",
+        "version": "1.0",
+        "capabilities_nonempty": true,
+        "execution_order_count": 2,
+        "variables_keys": [
+          "task",
+          "input"
+        ]
+      }
+    },
+    {
+      "name": "parse-http-get-genome-sections",
+      "kind": "parse",
+      "input_file": "seed/msb/http_get.msb",
+      "expected": {
+        "tool": "http_get",
+        "version": "1.0",
+        "genome_identity_nonempty": true,
+        "genome_execution_nonempty": true,
+        "genome_behavior_nonempty": true,
+        "execution_order_count": 9
+      }
+    },
+    {
+      "name": "parse-search-text-variables",
+      "kind": "parse",
+      "input_file": "seed/msb/search_text.msb",
+      "expected": {
+        "tool": "search_text",
+        "variables_keys": [
+          "task",
+          "text",
+          "pattern",
+          "flavor",
+          "caseSensitive",
+          "maxMatches",
+          "contextLines",
+          "context"
+        ],
+        "limitations_nonempty": true,
+        "best_practices_nonempty": true
+      }
+    }
+  ]
+}

@@ -43,7 +43,7 @@ function extractField(raw: string, fieldName: string): string {
 function extractSection(raw: string, sectionName: string): string {
   // Matches: SECTION NAME:\n<content until next ALL-CAPS heading or end>
   const re = new RegExp(
-    `^${sectionName}:\\s*\\n([\\s\\S]*?)(?=\\n[A-Z ]+:|$)`,
+    `^${sectionName}:\\s*\\n([\\s\\S]*?)(?=\\n[A-Z ]+:|(?![\\s\\S]))`,
     'm'
   );
   const m = raw.match(re);
@@ -61,6 +61,12 @@ function extractExecutionOrder(raw: string): string[] {
 
 /**
  * Parse GENOME SECTIONS block.
+ *
+ * Sub-keys (IDENTITY, EXECUTION, BEHAVIOR, CHECKSUM) are themselves ALL-CAPS
+ * patterns and would prematurely terminate the extractSection() regex.
+ * Instead, find the GENOME SECTIONS header position in raw and search
+ * the tail for each sub-key directly.
+ *
  * Expected format:
  *   GENOME SECTIONS:
  *   IDENTITY: <description>
@@ -69,9 +75,11 @@ function extractExecutionOrder(raw: string): string[] {
  *   CHECKSUM: <description>
  */
 function extractGenomeSections(raw: string): GenomeSectionDocs {
-  const block = extractSection(raw, 'GENOME SECTIONS');
+  const headerRe = /^GENOME SECTIONS:\s*\n/m;
+  const headerMatch = raw.match(headerRe);
+  const tail = headerMatch ? raw.slice((headerMatch.index ?? 0) + headerMatch[0].length) : '';
   const get = (key: string): string => {
-    const m = block.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
+    const m = tail.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
     return m ? m[1]!.trim() : '';
   };
   return {
