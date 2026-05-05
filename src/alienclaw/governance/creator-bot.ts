@@ -17,7 +17,8 @@ import type { CampaignRequestMessage, CampaignReportMessage } from './messages.j
 import { nowIso } from './messages.js';
 import { assertLegalSend } from './comm-graph.js';
 import type { Logger } from './logger.js';
-import type { MartianSummonAdapter, MartianSummonRequest } from './summon-adapter.js';
+import type { MartianSummonAdapter } from './summon-adapter.js';
+import { Specialist } from './specialist.js';
 
 export class CreatorBot {
   constructor(
@@ -40,21 +41,22 @@ export class CreatorBot {
 
     const martian_type = request.payload.allowed_tools?.[0] ?? 'compute';
 
-    const summonReq: MartianSummonRequest = {
-      summon_id:    request.payload.campaign_id,
-      genome:       _placeholderGenome(),
-      martian_type,
-      inputs:       { plan: request.payload.plan, success_criteria: request.payload.success_criteria },
-      timeout_ms:   30_000,
-    };
+    const specialist = new Specialist(this.summonAdapter, {
+      campaignId:  request.payload.campaign_id,
+      martianType: martian_type,
+      inputs:      { plan: request.payload.plan, success_criteria: request.payload.success_criteria },
+      timeoutMs:   30_000,
+    });
 
     this.logger.info(
       'summon-issued',
-      { martian_type, summon_id: summonReq.summon_id },
+      { martian_type, summon_id: specialist.specialistId },
       request.correlation_id,
     );
 
-    const result = await this.summonAdapter.summon(summonReq);
+    const specialistReport = await specialist.execute();
+    const result = specialistReport.result;
+    specialist.erase();
 
     this.logger.info(
       'summon-complete',
@@ -87,13 +89,3 @@ export class CreatorBot {
   }
 }
 
-/**
- * 256-char Base62 placeholder genome for Packet 6.
- *
- * This is NOT a valid genome (checksum will fail) — the mock adapter doesn't
- * validate it, but Packet 7's real adapter will. Packet 7 generates a real
- * valid seed genome using assembleGenome() from genome-codec.ts.
- */
-function _placeholderGenome(): string {
-  return 'A'.repeat(256);
-}
