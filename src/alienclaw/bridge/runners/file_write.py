@@ -22,5 +22,6 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     return RunResult(
         ok=True,
         output={"path": str(path), "bytes_written": len(repeated.encode("utf-8")), "repeat_count": repeat_count},
+        tool_calls=repeat_count,
         correctness=1.0,
     )
