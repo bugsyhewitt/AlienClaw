@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 
-from .types import BrainSpec, GenomeSectionDocs, ValidationResult
+from .types import BrainSpec, GenomeSectionDocs, ParameterSchemaField, ValidationResult
 
 # ---------------------------------------------------------------------------
 # Required sections — must match TypeScript REQUIRED_SECTIONS array exactly
@@ -112,6 +112,59 @@ def _extract_genome_sections(raw: str) -> GenomeSectionDocs:
     )
 
 
+def _parse_default(value: str, type_: str) -> object:
+    """Convert a string default to the appropriate Python type."""
+    v = value.strip().lower()
+    if type_ == "bool":
+        return v in ("true", "yes", "1")
+    if type_ == "float":
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0
+    # int
+    try:
+        return int(value)
+    except ValueError:
+        return 0
+
+
+def _extract_parameter_schema(raw: str) -> tuple[ParameterSchemaField, ...]:
+    """Parse the PARAMETER_SCHEMA section from an MSB file.
+
+    Format (one field per line, pipe-separated):
+        name|section|byte_offset|encoding|type|default
+
+    Lines starting with '#' or blank are ignored. Missing section → empty tuple.
+    """
+    block = _extract_section(raw, "PARAMETER_SCHEMA")
+    if not block:
+        return ()
+    fields: list[ParameterSchemaField] = []
+    for line in block.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) < 6:
+            continue
+        name, section, byte_offset_s, encoding, type_, default_s = parts[:6]
+        try:
+            byte_offset = int(byte_offset_s)
+        except ValueError:
+            continue
+        default = _parse_default(default_s, type_)
+        fields.append(ParameterSchemaField(
+            name=name,
+            section=section,
+            byte_offset=byte_offset,
+            encoding=encoding,
+            type=type_,
+            default=default,
+        ))
+    return tuple(fields)
+
+
 def _extract_variables(raw: str) -> dict[str, str]:
     """Extract the VARIABLES block as a name→description dict.
 
@@ -193,5 +246,6 @@ def parse_msb(content: str, source_path: str = "<string>") -> BrainSpec:
         output_contract=_extract_section(content, "OUTPUT CONTRACT"),
         genome_sections=_extract_genome_sections(content),
         variables=_extract_variables(content),
+        parameter_schema=_extract_parameter_schema(content),
         source_path=source_path,
     )

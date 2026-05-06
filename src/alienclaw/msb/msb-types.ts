@@ -11,6 +11,25 @@
  */
 
 /**
+ * One machine-readable parameter declaration from a brain's PARAMETER_SCHEMA.
+ * Mirrors Python ParameterSchemaField in brains/types.py.
+ */
+export interface ParameterSchemaField {
+  /** Parameter name, e.g. 'max_attempts' */
+  name:        string;
+  /** Which genome section: 'EXECUTION' or 'BEHAVIOR' */
+  section:     'EXECUTION' | 'BEHAVIOR';
+  /** Byte within that section (0..63) */
+  byteOffset:  number;
+  /** How to decode the raw character into a typed value */
+  encoding:    string;
+  /** Return type */
+  type:        'int' | 'float' | 'bool';
+  /** Value used when decoding fails */
+  default:     number | boolean;
+}
+
+/**
  * Documents what each genome section (0–3) encodes for a specific tool.
  * Written by CreatorBot; read by humans and AdvisorBot for debugging/tuning.
  */
@@ -47,6 +66,12 @@ export interface MartianBrain {
    * Key: variable name. Value: description of what it contains.
    */
   variables: Record<string, string>;
+  /**
+   * Machine-readable parameter schema — typed field definitions that the
+   * Python decoder reads to extract behavioral parameters from a genome.
+   * Empty array for brains that haven't yet declared a schema.
+   */
+  parameterSchema: ParameterSchemaField[];
 }
 
 export interface MsbValidationResult {

@@ -63,3 +63,8 @@ task: The natural language task description passed to this Martian
 url: The validated HTTPS URL to fetch
 maxBytes: Maximum response size in bytes (from context, default 5242880)
 context: Additional key-value pairs from the execution context
+
+PARAMETER_SCHEMA:
+max_attempts|EXECUTION|0|mod5_plus1|int|1
+fail_forward|BEHAVIOR|0|char_eq_F|bool|false
+include_headers|BEHAVIOR|1|char_code_even|bool|false
