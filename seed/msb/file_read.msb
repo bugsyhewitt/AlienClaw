@@ -51,3 +51,8 @@ task: The natural language task description passed to this Martian
 path: Absolute or relative path to the file to read
 encoding: Text encoding to use (default: utf-8)
 context: Additional key-value pairs from the execution context
+
+PARAMETER_SCHEMA:
+max_attempts|EXECUTION|0|mod5_plus1|int|1
+fail_forward|BEHAVIOR|0|char_eq_F|bool|false
+max_lines|BEHAVIOR|1|mod10_plus1|int|100

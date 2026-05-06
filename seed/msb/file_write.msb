@@ -54,3 +54,8 @@ path: Absolute path to the file to write (must be within workspace/output/)
 content: String content to write to the file
 encoding: Text encoding to use (default: utf-8)
 context: Additional key-value pairs from the execution context
+
+PARAMETER_SCHEMA:
+max_attempts|EXECUTION|0|mod5_plus1|int|1
+fail_forward|BEHAVIOR|0|char_eq_F|bool|false
+create_parents|BEHAVIOR|1|char_code_even|bool|true

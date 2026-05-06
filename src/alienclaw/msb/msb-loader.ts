@@ -107,6 +107,32 @@ function extractVariables(raw: string): Record<string, string> {
   return result;
 }
 
+function parseDefault(value: string, type: 'int' | 'float' | 'bool'): number | boolean {
+  const v = value.trim().toLowerCase();
+  if (type === 'bool') return v === 'true' || v === 'yes' || v === '1';
+  if (type === 'float') { const n = parseFloat(value); return isNaN(n) ? 0 : n; }
+  const n = parseInt(value, 10); return isNaN(n) ? 0 : n;
+}
+
+function extractParameterSchema(raw: string): import('./msb-types.js').ParameterSchemaField[] {
+  const block = extractSection(raw, 'PARAMETER_SCHEMA');
+  if (!block) return [];
+  const fields: import('./msb-types.js').ParameterSchemaField[] = [];
+  for (const line of block.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const parts = trimmed.split('|').map(p => p.trim());
+    if (parts.length < 6) continue;
+    const [name, section, byteOffsetStr, encoding, type, defaultStr] = parts as [string,string,string,string,string,string];
+    if (section !== 'EXECUTION' && section !== 'BEHAVIOR') continue;
+    if (type !== 'int' && type !== 'float' && type !== 'bool') continue;
+    const byteOffset = parseInt(byteOffsetStr, 10);
+    if (isNaN(byteOffset)) continue;
+    fields.push({ name, section, byteOffset, encoding, type, default: parseDefault(defaultStr, type) });
+  }
+  return fields;
+}
+
 export function validateMsb(raw: string): MsbValidationResult {
   const errors: string[] = [];
   for (const section of REQUIRED_SECTIONS) {
@@ -136,8 +162,9 @@ export function parseMsbContent(raw: string, sourcePath?: string): MartianBrain 
     bestPractices:  extractSection(raw, 'BEST PRACTICES'),
     executionOrder: extractExecutionOrder(raw),
     outputContract: extractSection(raw, 'OUTPUT CONTRACT'),
-    genomeSections: extractGenomeSections(raw),
-    variables:      extractVariables(raw),
+    genomeSections:  extractGenomeSections(raw),
+    variables:       extractVariables(raw),
+    parameterSchema: extractParameterSchema(raw),
   };
 }
 
