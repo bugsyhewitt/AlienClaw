@@ -1,0 +1,416 @@
+{
+  "version": "1.0",
+  "description": "AlienClaw API contract fixtures — consumed by Python and TypeScript test runners",
+  "constants": {
+    "api_key_length": 43,
+    "machine_hash_length": 64,
+    "genome_length": 256,
+    "base62_alphabet": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+    "rate_limit_per_hour": 100
+  },
+  "valid_genomes": {
+    "compute_a": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
+    "compute_b": "COMPUT01G1AlienClaw1TmoB6QQSjfz6OLrFBRQHFvRrY3zpyvqAUDO3NzGmSQxzYi9IyZXk3aVq9x4BafE7tFacPaWvCiEOfIJk4Szz4DGvssM9phbze0oIfw876YGbiCdGUuq5QH0ldGjYQ04suXpa97JtnrtDF6msPc9vryos1jKvnroGm6srDoSInE1B61sKjyeXIqHm8BCe3WCtQsBOShgCjI4deg1G6328TEKzS4zkerIObSKbmQHMizwm",
+    "compute_c": "COMPUT01G1AlienClaw1KrxHdOyXw7yBxG6QjJbVNZFh0vXikfM4fKJqiIJPOI7QwftcIX0HQZeSRDTtnA5VdKokfDC1FTq4PdChUFe0kl6QAxW3FqSnfzawtbiVpXtkTGFdlWcH4HGJX8Ehh3PXPCQuahrlN0LkqxPkXbDDR1KgPAS7c1OY1d8S3NDKlNkpdoyNccZwqtAIfECJiC3so5gwxGGFWgheqtSi3sqJ8QtWiBGkDys9oy1yAjWwj4KD",
+    "search_text_a": "SRCTXT01G1AlienClaw1F51XzLemekwC197fYDhlAbk7ox61JfxOi4gc6lqb7ymLQMVLqo6xdphRjxGoXTRjGqp5sFSbN1qBDnLshH0w5iUlgeUn5DgIaTWQkKhGF7B7XlBDUiyWH6CEB0XHyYh7rUsZTRB3wToO4d39YIz7lbnDWRRrzIcbjwCDe9A40RaIHSI90ENUklCEPagx0M92yHgOBksV8Ml2wTIwpo8f0ODiOH0ivkuv4Kn6ExyCLUS9",
+    "web_search_a": "WEBSRC01G1AlienClaw1EhhSgvmcevQXeup4AJkZH7ghwVU42QJF5xpZwzfG2kTeuBadU5LKfrKhHwoYSJKyPVzeXPBMkclCYvRh7ybE9YY5zuS7pUiVGpyFYNvVsrHmPvVoHIazU9XLYXSJBhZEm2khoNfoyU2VarsRWSiPe9TyKgeqqrNJils24dvzkQ6d2ViqviULMcZcqPM0B2ujU8Xg6b8Iv8qVMcLAihgynaI72w1UebqcpqGfquJ0udyk",
+    "file_read_a": "FILRED01G1AlienClaw1sRhu2nIN9WZnA4rcEu8SFF0ntg9RLadQFqCNTEZZzIyeHZgk3bUuHnbLdcgiepcueJRZj5IkA8XyWupFpTokL7x8xriyxnMn0XSffaow6E1sYuD3puIP8wIU6t8SfkwPk9P6UPw2MRwr6gXyMOB7qSfdb1mF7Z4lCDrK9t0r88FARigPyozuaTYwjU89q4JM8F4insaRQCJcMLeuz8mPOclYMT0U788BK8hoqVyGRYEx"
+  },
+  "cases": [
+    {
+      "id": "key-001",
+      "category": "api_key_format",
+      "description": "Valid 43-char Base62 key is accepted",
+      "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGukQAP",
+      "expected": {"valid": true}
+    },
+    {
+      "id": "key-002",
+      "category": "api_key_format",
+      "description": "All-zeros 43-char key is valid Base62",
+      "input": "0000000000000000000000000000000000000000000",
+      "expected": {"valid": true}
+    },
+    {
+      "id": "key-003",
+      "category": "api_key_format",
+      "description": "42-char key is too short — rejected",
+      "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGukQA",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "key-004",
+      "category": "api_key_format",
+      "description": "44-char key is too long — rejected",
+      "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGukQAPX",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "key-005",
+      "category": "api_key_format",
+      "description": "Empty string is rejected",
+      "input": "",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "key-006",
+      "category": "api_key_format",
+      "description": "Key with non-Base62 char (dash) is rejected",
+      "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGuk-AP",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "key-007",
+      "category": "api_key_format",
+      "description": "Key with space is rejected",
+      "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGuk AP",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "key-008",
+      "category": "api_key_format",
+      "description": "Literal string 'short' is rejected",
+      "input": "short",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "hash-001",
+      "category": "machine_hash",
+      "description": "64 lowercase hex chars is valid",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {"valid": true}
+    },
+    {
+      "id": "hash-002",
+      "category": "machine_hash",
+      "description": "64 hex chars mixing all valid hex digits is valid",
+      "input": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "expected": {"valid": true}
+    },
+    {
+      "id": "hash-003",
+      "category": "machine_hash",
+      "description": "Uppercase hex chars are rejected",
+      "input": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "hash-004",
+      "category": "machine_hash",
+      "description": "63-char hash is too short",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "hash-005",
+      "category": "machine_hash",
+      "description": "65-char hash is too long",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "hash-006",
+      "category": "machine_hash",
+      "description": "Non-hex char 'g' is rejected",
+      "input": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "hash-007",
+      "category": "machine_hash",
+      "description": "Empty string is rejected",
+      "input": "",
+      "expected": {"valid": false}
+    },
+    {
+      "id": "genome-001",
+      "category": "genome_validation",
+      "description": "Valid 256-char Base62 genome with correct checksum passes",
+      "input": {
+        "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
+        "martian_type": "compute",
+        "fitness": 0.85
+      },
+      "expected": {"valid": true, "error_code": null}
+    },
+    {
+      "id": "genome-002",
+      "category": "genome_validation",
+      "description": "Genome shorter than 256 chars returns INVALID_GENOME_LENGTH",
+      "input": {
+        "genome": "TOOSHORT",
+        "martian_type": "compute",
+        "fitness": 0.5
+      },
+      "expected": {"valid": false, "error_code": "INVALID_GENOME_LENGTH"}
+    },
+    {
+      "id": "genome-003",
+      "category": "genome_validation",
+      "description": "Genome longer than 256 chars returns INVALID_GENOME_LENGTH",
+      "input": {
+        "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxsXXXXXX",
+        "martian_type": "compute",
+        "fitness": 0.5
+      },
+      "expected": {"valid": false, "error_code": "INVALID_GENOME_LENGTH"}
+    },
+    {
+      "id": "genome-004",
+      "category": "genome_validation",
+      "description": "Genome with non-Base62 chars returns INVALID_GENOME_ALPHABET",
+      "input": {
+        "genome": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "martian_type": "compute",
+        "fitness": 0.5
+      },
+      "expected": {"valid": false, "error_code": "INVALID_GENOME_ALPHABET"}
+    },
+    {
+      "id": "genome-005",
+      "category": "genome_validation",
+      "description": "fitness = 0.0 is valid (boundary)",
+      "input": {
+        "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
+        "martian_type": "compute",
+        "fitness": 0.0
+      },
+      "expected": {"valid": true, "error_code": null}
+    },
+    {
+      "id": "genome-006",
+      "category": "genome_validation",
+      "description": "fitness = 1.0 is valid (boundary)",
+      "input": {
+        "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
+        "martian_type": "compute",
+        "fitness": 1.0
+      },
+      "expected": {"valid": true, "error_code": null}
+    },
+    {
+      "id": "genome-007",
+      "category": "genome_validation",
+      "description": "fitness > 1.0 returns INVALID_FITNESS_RANGE",
+      "input": {
+        "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
+        "martian_type": "compute",
+        "fitness": 1.5
+      },
+      "expected": {"valid": false, "error_code": "INVALID_FITNESS_RANGE"}
+    },
+    {
+      "id": "genome-008",
+      "category": "genome_validation",
+      "description": "fitness < 0.0 returns INVALID_FITNESS_RANGE",
+      "input": {
+        "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
+        "martian_type": "compute",
+        "fitness": -0.1
+      },
+      "expected": {"valid": false, "error_code": "INVALID_FITNESS_RANGE"}
+    },
+    {
+      "id": "genome-009",
+      "category": "genome_validation",
+      "description": "Unknown martian_type returns UNKNOWN_MARTIAN_TYPE",
+      "input": {
+        "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
+        "martian_type": "nonexistent",
+        "fitness": 0.5
+      },
+      "expected": {"valid": false, "error_code": "UNKNOWN_MARTIAN_TYPE"}
+    },
+    {
+      "id": "genome-010",
+      "category": "genome_validation",
+      "description": "Corrupted checksum (last char changed) returns INVALID_GENOME_CHECKSUM",
+      "input": {
+        "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxX",
+        "martian_type": "compute",
+        "fitness": 0.5
+      },
+      "expected": {"valid": false, "error_code": "INVALID_GENOME_CHECKSUM"}
+    },
+    {
+      "id": "endpoint-001",
+      "category": "response_schema",
+      "description": "GET /v1/health response has required fields",
+      "endpoint": "GET /v1/health",
+      "expected_status": 200,
+      "required_fields": ["status", "version", "uptime_seconds"],
+      "field_types": {
+        "status": "string",
+        "version": "string",
+        "uptime_seconds": "number"
+      },
+      "field_values": {
+        "status": "ok"
+      }
+    },
+    {
+      "id": "endpoint-002",
+      "category": "response_schema",
+      "description": "POST /v1/install new key returns 201 with install_id and rate_limit",
+      "endpoint": "POST /v1/install",
+      "expected_status": 201,
+      "required_fields": ["status", "install_id", "rate_limit"],
+      "field_types": {
+        "status": "string",
+        "install_id": "string",
+        "rate_limit": "object"
+      },
+      "field_values": {
+        "status": "registered"
+      },
+      "nested_required": {
+        "rate_limit": ["submissions_per_hour"]
+      },
+      "nested_values": {
+        "rate_limit.submissions_per_hour": 100
+      }
+    },
+    {
+      "id": "endpoint-003",
+      "category": "response_schema",
+      "description": "POST /v1/install known key returns 200 with status=known",
+      "endpoint": "POST /v1/install (repeat)",
+      "expected_status": 200,
+      "required_fields": ["status", "install_id"],
+      "field_values": {
+        "status": "known"
+      }
+    },
+    {
+      "id": "endpoint-004",
+      "category": "response_schema",
+      "description": "POST /v1/genomes success returns 201 with submission_id, rank, is_new_top",
+      "endpoint": "POST /v1/genomes",
+      "expected_status": 201,
+      "required_fields": ["submission_id", "rank", "is_new_top"],
+      "field_types": {
+        "submission_id": "string",
+        "rank": "number",
+        "is_new_top": "boolean"
+      }
+    },
+    {
+      "id": "endpoint-005",
+      "category": "response_schema",
+      "description": "POST /v1/genomes duplicate returns 200 with same submission_id",
+      "endpoint": "POST /v1/genomes (duplicate)",
+      "expected_status": 200,
+      "required_fields": ["submission_id"],
+      "note": "submission_id must equal the first submission's id"
+    },
+    {
+      "id": "endpoint-006",
+      "category": "response_schema",
+      "description": "GET /v1/genomes/top returns correct structure",
+      "endpoint": "GET /v1/genomes/top?martian_type=compute",
+      "expected_status": 200,
+      "required_fields": ["martian_type", "genomes", "total_for_type"],
+      "field_types": {
+        "martian_type": "string",
+        "genomes": "array",
+        "total_for_type": "number"
+      },
+      "field_values": {
+        "martian_type": "compute"
+      }
+    },
+    {
+      "id": "endpoint-007",
+      "category": "response_schema",
+      "description": "GET /v1/genomes/top genome entry has required fields",
+      "endpoint": "GET /v1/genomes/top (entry fields)",
+      "required_entry_fields": ["genome", "fitness", "rank", "submission_id", "martian_type"],
+      "note": "Each entry in genomes array must have these fields"
+    },
+    {
+      "id": "endpoint-008",
+      "category": "response_schema",
+      "description": "GET /v1/martian-types returns all 8 types",
+      "endpoint": "GET /v1/martian-types",
+      "expected_status": 200,
+      "required_fields": ["martian_types", "total"],
+      "field_values": {
+        "total": 8
+      },
+      "required_names": ["compute", "web_search", "search_text", "file_read", "file_write", "http_get", "url_fetch", "extract_json"]
+    },
+    {
+      "id": "endpoint-009",
+      "category": "response_schema",
+      "description": "GET /v1/stats returns all 4 required counter fields",
+      "endpoint": "GET /v1/stats",
+      "expected_status": 200,
+      "required_fields": ["total_genomes", "total_installs", "total_fitness_evaluations", "top_fitness_by_type"]
+    },
+    {
+      "id": "error-001",
+      "category": "error_schema",
+      "description": "All 4xx/5xx responses have error envelope with code and message",
+      "required_fields": ["error"],
+      "nested_required": {
+        "error": ["code", "message"]
+      },
+      "field_types": {
+        "error.code": "string",
+        "error.message": "string"
+      }
+    },
+    {
+      "id": "error-002",
+      "category": "error_codes",
+      "description": "Canonical error codes — must be used verbatim by all implementations",
+      "codes": [
+        "INVALID_API_KEY_FORMAT",
+        "INVALID_MACHINE_HASH",
+        "INVALID_GENOME_LENGTH",
+        "INVALID_GENOME_ALPHABET",
+        "INVALID_GENOME_CHECKSUM",
+        "INVALID_FITNESS_RANGE",
+        "UNKNOWN_MARTIAN_TYPE",
+        "METADATA_TOO_LARGE",
+        "UNAUTHORIZED",
+        "RATE_LIMIT_EXCEEDED"
+      ]
+    },
+    {
+      "id": "auth-001",
+      "category": "authentication",
+      "description": "Missing Authorization header returns 401",
+      "endpoint": "POST /v1/genomes (no auth)",
+      "expected_status": 401,
+      "expected_error_code": "UNAUTHORIZED"
+    },
+    {
+      "id": "auth-002",
+      "category": "authentication",
+      "description": "Bearer token must be a key registered via /v1/install",
+      "note": "Unregistered key format is valid but not authorized"
+    },
+    {
+      "id": "rate-001",
+      "category": "rate_limiting",
+      "description": "Rate limit is 100 submissions per hour per install",
+      "limit": 100,
+      "window_seconds": 3600,
+      "expected_status_when_exceeded": 429,
+      "expected_error_code": "RATE_LIMIT_EXCEEDED"
+    },
+    {
+      "id": "sort-001",
+      "category": "ordering",
+      "description": "Top genomes are sorted by fitness descending (highest first)",
+      "note": "If two genomes have equal fitness, ordering is implementation-defined but stable"
+    },
+    {
+      "id": "sort-002",
+      "category": "ordering",
+      "description": "rank field is 1-indexed (first place = rank 1)",
+      "note": "Rank 1 is the genome with the highest fitness for that martian_type"
+    }
+  ]
+}
