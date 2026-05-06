@@ -408,7 +408,7 @@
       "expected_request_id_echoed": true
     },
     {
-      "description": "protocol: fitness=1.0 for 1 call",
+      "description": "protocol: fitness scales with tool_calls (validation_count=3 \u2192 0.333)",
       "request": {
         "bridge_version": "1.0",
         "request_id": "550e8400-e29b-41d4-a716-000000000023",
@@ -423,7 +423,7 @@
         }
       },
       "expected_ok": true,
-      "expected_fitness": 1.0
+      "expected_fitness": 0.3333333333333333
     },
     {
       "description": "protocol: run_metadata.tool_calls present",
