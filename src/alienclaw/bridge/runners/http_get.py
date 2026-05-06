@@ -13,22 +13,29 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         return RunResult(ok=False, error="Missing 'url' field", correctness=0.0)
     field_count = max(1, min(5, int(params.get("field_count", 3))))
     body_preview = max(1, min(10, int(params.get("body_preview", 5))))
+    # request_count: make N sequential GET requests (reliability/freshness pattern); tool_calls=N
+    request_count = max(1, min(5, int(params.get("request_count", 1))))
     headers = inputs.get("headers", {}) or {}
-    req = urllib.request.Request(url, headers=headers, method="GET")
-    try:
-        with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
-            status = resp.status
-            body = resp.read(_MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
-            content_type = resp.headers.get("Content-Type", "")
-    except urllib.error.HTTPError as exc:
-        return RunResult(
-            ok=False,
-            error=f"HTTP {exc.code}: {exc.reason}",
-            output={"status_code": exc.code},
-            correctness=0.0,
-        )
-    except Exception as exc:
-        return RunResult(ok=False, error=f"Request failed: {exc}", correctness=0.0)
+    status = 0
+    body = ""
+    content_type = ""
+    for i in range(request_count):
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
+                status = resp.status
+                body = resp.read(_MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
+                content_type = resp.headers.get("Content-Type", "")
+        except urllib.error.HTTPError as exc:
+            return RunResult(
+                ok=False,
+                error=f"HTTP {exc.code}: {exc.reason}",
+                output={"status_code": exc.code},
+                tool_calls=i + 1,
+                correctness=0.0,
+            )
+        except Exception as exc:
+            return RunResult(ok=False, error=f"Request failed: {exc}", tool_calls=i + 1, correctness=0.0)
     # field_count: 1=url only, 2=+status_code, 3=+body, 4=+body_length, 5=+content_type
     output: dict[str, Any] = {}
     if field_count >= 1: output["url"] = url
@@ -39,4 +46,4 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     # body_preview: include first N lines of body as a "preview" field (distinct for each 1-10)
     body_lines = body.splitlines()
     output["body_preview"] = "\n".join(body_lines[:body_preview])
-    return RunResult(ok=True, output=output, correctness=1.0)
+    return RunResult(ok=True, output=output, tool_calls=request_count, correctness=1.0)
