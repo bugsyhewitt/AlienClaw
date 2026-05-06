@@ -1,0 +1,1 @@
+77e47250717e55d746bac5a1dd49c22bf56b655e 2026-05-06 12:48:11 -0400 governance(specialist): 5-file workspace — birth, heartbeat, memory, erase

@@ -25,7 +25,7 @@ from .rate_limit import RateLimiter
 from .storage import GlobalStats, InstallStore, SubmissionStore
 from .types import APIError, InstallRequest, SubmissionRequest
 
-_RATE_LIMITER = RateLimiter()
+_RATE_LIMITER: RateLimiter = RateLimiter()
 _START_UP_REGISTRY: BrainRegistry | None = None
 _REGISTERED_TYPES: set[str] = set()
 _SUBMISSION_STORE: SubmissionStore | None = None
@@ -36,9 +36,11 @@ _GLOBAL_STATS: GlobalStats | None = None
 def configure(data_root: Path | None = None, msb_dir: str = "seed/msb/") -> None:
     """Initialize global server state (call once before serving)."""
     global _START_UP_REGISTRY, _REGISTERED_TYPES
-    global _SUBMISSION_STORE, _INSTALL_STORE, _GLOBAL_STATS
+    global _SUBMISSION_STORE, _INSTALL_STORE, _GLOBAL_STATS, _RATE_LIMITER
     if data_root:
         os.environ["ALIENCLAW_API_DATA_ROOT"] = str(data_root)
+    resolved_root = Path(data_root) if data_root else None
+    _RATE_LIMITER = RateLimiter(data_root=resolved_root)
     _START_UP_REGISTRY = BrainRegistry.load(msb_dir)
     _REGISTERED_TYPES = {b.tool for b in _START_UP_REGISTRY.all_brains()}
     _SUBMISSION_STORE = SubmissionStore()
