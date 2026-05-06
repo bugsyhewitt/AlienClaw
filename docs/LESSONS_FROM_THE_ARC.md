@@ -224,3 +224,46 @@ The fact that this surfaced cleanly is a win for the discipline. Packet 8 ran a
 real experiment and reported the actual result rather than a polished one. That
 honesty is what makes follow-up packets buildable. The next contributor to touch
 the evolution layer will see this note and know exactly what they're stepping into.
+
+---
+
+## Packet 8.5: how the neutral-evolution finding was diagnosed
+
+Packet 8.5 ran a per-runner sensitivity audit against all 8 tool runners with seed=42.
+
+**Result: 8/8 runners BLIND. 0/8 with any signal.**
+
+| Runner | Output sensitivity | Fitness sensitivity |
+| --- | --- | --- |
+| compute | 0.00 | 0.00 |
+| extract_json | 0.00 | 0.00 |
+| file_read | 0.00 | 0.00 |
+| file_write | 0.00 | 0.00 |
+| http_get | 0.00 | 0.00 |
+| search_text | 0.00 | 0.00 |
+| url_fetch | 0.00 | 0.00 |
+| web_search | 0.00 | 0.00 |
+
+**Root cause (confirmed by data):** The genome is validated
+(`validate_genome(genome)`) and then discarded. `runner(req["inputs"])` receives
+only the `inputs` dict — the genome string never reaches any runner. This single
+fact explains neutral evolution completely. The three other MUST FIX items
+(no machine-readable `parameter_schema`, binary correctness, constant `tool_calls=1`)
+compound the problem but the first one alone suffices.
+
+**What this implies for Packet 10:** Gated. A leaderboard on a signal that is
+provably zero propagates noise. Packet 8.6 must land first.
+
+**What worked methodologically.** Code reading caught 7 of the previous bugs
+in this arc. This was a different class of bug — "infrastructure correct, signal
+dead". The technique that cracked it was: instrument the data flow, run
+paired-comparison experiments (same inputs, different genomes), measure whether
+output varies. It didn't. That measurement is what made the root cause
+unambiguous.
+
+The diagnostics module at `src/alienclaw/diagnostics/` is now permanent
+infrastructure. Re-run the audit after Packet 8.6 to confirm the fix works:
+```bash
+PYTHONPATH=src python3 -m alienclaw.diagnostics audit --seed 42
+```
+Success criterion: at least 3 runners show output_sensitivity > 0.2.

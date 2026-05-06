@@ -141,6 +141,20 @@ jobs:
             fi
           fi
           echo "Leak check: OK — no leftover directories"
+      - name: Run diagnostics tests with coverage
+        env:
+          PYTHONPATH: src
+        run: |
+          rm -rf ~/.alienclaw/diagnostics/
+          pytest test/diagnostics/ \
+            --cov=alienclaw.diagnostics \
+            --cov-report=term-missing \
+            --cov-fail-under=90 \
+            -q
+          if [ -d "$HOME/.alienclaw/diagnostics/" ]; then
+            echo "FAIL: diagnostics tests left ~/.alienclaw/diagnostics/ behind"
+            exit 1
+          fi
       - name: Verify site/ structural integrity
         run: |
           for F in index.html about.html api.html leaderboard.html donate.html styles.css; do
