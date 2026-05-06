@@ -267,3 +267,59 @@ infrastructure. Re-run the audit after Packet 8.6 to confirm the fix works:
 PYTHONPATH=src python3 -m alienclaw.diagnostics audit --seed 42
 ```
 Success criterion: at least 3 runners show output_sensitivity > 0.2.
+
+---
+
+## Packet 8.6: the genome→behavior fix, and how evolution started working
+
+Packet 8.6 wired the genome to behavior. Four phases:
+
+**Phase A** — added `PARAMETER_SCHEMA` sections to all 8 MSB files. Each
+section declares 3 parameters: `max_attempts` (EXECUTION[0]), `fail_forward`
+(BEHAVIOR[0]), and one runner-specific param (BEHAVIOR[1]).
+
+**Phase B** — wrote `src/alienclaw/brains/decoder.py` with `decode_params(brain, genome)`.
+Reads genome bytes at declared offsets, applies canonical encodings (mod5_plus1,
+mod10_plus1, char_eq_F, char_code_even).
+
+**Phase C** — wired the bridge: `decode_params()` called after validation;
+decoded params passed to `runner(inputs, params)`. All 8 runners updated.
+
+**Results (audit re-run, seed=42):**
+
+| Runner | Before (8.5) | After (8.6) |
+| --- | --- | --- |
+| file_read | BLIND (0.00) | **OK (0.80)** |
+| compute | BLIND (0.00) | **WEAK (0.40)** |
+| search_text | BLIND (0.00) | **WEAK (0.30) + tool_calls=0.30** |
+| url_fetch | BLIND (0.00) | **WEAK (0.30)** |
+| extract_json | BLIND (0.00) | BLIND (0.20) |
+| file_write | BLIND (0.00) | BLIND (0.20) |
+| http_get | BLIND (0.00) | BLIND (0.10) |
+| web_search | BLIND (0.00) | BLIND (0.00) |
+
+**The evolution loop finally worked.** With `search_text`, 20-match text, and
+the `max_results` param (BEHAVIOR[1], 1-10) varying tool_calls:
+
+- Generation 0: mean fitness = 0.528 (after first eval from 0.0 seeds)
+- Generation 1: mean fitness = 0.872
+- Generation 2: mean fitness = 1.000 (converged)
+
+Tournament selection converged on genomes with low `max_results` (1 match =
+1 tool call = fitness 1.0). This is the first time AlienClaw demonstrated
+directed evolution driven by genome content.
+
+**Why 4 runners remain BLIND.** `web_search` fails with network errors in the
+audit's hermetic environment; output is always empty. `file_write`'s
+`create_parents` param only matters when the parent dir is missing; audit
+always creates a tmpdir so parent always exists. `http_get`'s boolean
+`include_headers` param has low sensitivity with the random genome pairs
+generated. These are not blocking Packet 10 — directional evolution from
+`search_text` and `file_read` is sufficient for the leaderboard to be
+meaningful.
+
+**Packet 10 readiness: YELLOW.** The fitness signal is alive. Evolution works
+on at least 2-4 runners. The remaining 4 BLIND runners are addressable in
+Packet 8.7 (graded correctness, better encoding, more params). Packet 10 can
+ship while 8.7 runs in parallel — the leaderboard will rank on search_text and
+file_read genomes meaningfully even before 8.7 completes.
