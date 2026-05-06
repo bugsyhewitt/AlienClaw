@@ -55,7 +55,7 @@ class TestCaptureHook:
         assert trace.correctness == pytest.approx(1.0)
         assert trace.tool_calls == 1
         assert trace.fitness == pytest.approx(1.0)
-        assert trace.genome_passed_to_runner is False  # CRITICAL: genome not passed
+        assert trace.genome_passed_to_runner is True  # Packet 8.6: genome decoded and reaches runner
 
     def test_trace_empty_when_disabled(self, monkeypatch):
         monkeypatch.delenv("ALIENCLAW_DIAGNOSTICS", raising=False)
@@ -88,10 +88,10 @@ class TestCaptureHook:
         record_runner_result({}, None, 0.5, 1)
         record_fitness(0.5)
 
-    def test_genome_passed_to_runner_always_false(self, monkeypatch):
-        """Confirms the genome-not-passed finding diagnostically."""
+    def test_decoded_params_reach_runner(self, monkeypatch):
+        """Packet 8.6: genome is decoded and params reach the runner (MUST FIX #1 resolved)."""
         monkeypatch.setenv("ALIENCLAW_DIAGNOSTICS", "1")
         genome = _valid_genome(4)
         with CaptureHook() as hook:
             handle(_compute_req(genome))
-        assert hook.trace().genome_passed_to_runner is False
+        assert hook.trace().genome_passed_to_runner is True

@@ -7,11 +7,12 @@ from .types import RunResult
 _TIMEOUT_S = 20
 
 
-def run(inputs: dict[str, Any]) -> RunResult:
+def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     query = inputs.get("query", inputs.get("task", ""))
     if not query:
         return RunResult(ok=False, error="Missing 'query' field", correctness=0.0)
-    num_results = min(int(inputs.get("num_results", 5)), 10)
+    max_results = max(1, min(int(params.get("max_results", 5)), 10))
+    num_results = min(int(inputs.get("num_results", max_results)), max_results)
     encoded = urllib.parse.quote_plus(str(query))
     url = f"https://ddg-webapp-aagd.vercel.app/search?q={encoded}&max_results={num_results}"
     try:
@@ -20,7 +21,7 @@ def run(inputs: dict[str, Any]) -> RunResult:
         results = [
             {"title": r.get("title", ""), "url": r.get("href", ""), "snippet": r.get("body", "")}
             for r in (data if isinstance(data, list) else data.get("results", []))
-        ][:num_results]
+        ][:max_results]
     except Exception as exc:
         return RunResult(
             ok=False,

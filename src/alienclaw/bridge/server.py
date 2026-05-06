@@ -8,8 +8,18 @@ from typing import Any
 
 from alienclaw.genome.validation import validate as validate_genome
 from alienclaw.fitness import evaluate, FitnessInputs
+from alienclaw.brains.registry import BrainRegistry
+from alienclaw.brains.decoder import decode_params
 from .runners import RUNNER_REGISTRY
 from alienclaw.diagnostics import instrumentation as _diag
+
+_brain_registry: BrainRegistry | None = None
+
+def _get_registry() -> BrainRegistry:
+    global _brain_registry
+    if _brain_registry is None:
+        _brain_registry = BrainRegistry.load("seed/msb/")
+    return _brain_registry
 
 _SUPPORTED_VERSION = "1.0"
 _MAX_BYTES = 1_048_576  # 1 MiB
@@ -108,10 +118,15 @@ def handle(raw: bytes) -> dict:
 
     _diag.record_genome(genome, martian_type, req["inputs"])
 
+    # Decode genome → behavioral parameters per the brain's parameter_schema
+    brains = _get_registry().all_brains()
+    brain = next((b for b in brains if b.tool == martian_type), None)
+    decoded = decode_params(brain, genome) if brain else {}
+
     runner = RUNNER_REGISTRY[martian_type]
-    _diag.record_runner_call(genome_passed=False)  # genome never passed to runner in v1.0
+    _diag.record_runner_call(genome_passed=True)  # decoded params now reach runner
     try:
-        run_result = runner(req["inputs"])
+        run_result = runner(req["inputs"], decoded)
     except Exception as exc:
         wall_ms = int((time.monotonic() - t0) * 1000)
         return _error_response(request_id, "TOOL_RUNNER_FAILED", f"Runner raised exception: {exc}", {"output_partial": None}, wall_ms)

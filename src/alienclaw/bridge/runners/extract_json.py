@@ -23,7 +23,7 @@ def _get_path(obj: Any, path: str) -> Any:
     return cur
 
 
-def run(inputs: dict[str, Any]) -> RunResult:
+def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     raw = inputs.get("json", inputs.get("input", ""))
     path = inputs.get("path", "")
     if not raw:
@@ -36,8 +36,12 @@ def run(inputs: dict[str, Any]) -> RunResult:
         return RunResult(ok=False, error=f"JSON parse error: {exc}", correctness=0.0)
     if not path:
         return RunResult(ok=True, output={"value": parsed, "type": type(parsed).__name__}, correctness=1.0)
+    include_type = bool(params.get("include_type", True))
     try:
         value = _get_path(parsed, path)
     except KeyError as exc:
         return RunResult(ok=False, error=f"Path not found: {exc}", correctness=0.0)
-    return RunResult(ok=True, output={"path": path, "value": value, "type": type(value).__name__}, correctness=1.0)
+    output: dict[str, Any] = {"path": path, "value": value}
+    if include_type:
+        output["type"] = type(value).__name__
+    return RunResult(ok=True, output=output, correctness=1.0)
