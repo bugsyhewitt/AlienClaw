@@ -1,3 +1,4 @@
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -19,17 +20,44 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if size > _MAX_BYTES:
         return RunResult(ok=False, error=f"File exceeds 1 MiB ({size} bytes)", correctness=0.0)
     try:
-        content = path.read_text(encoding="utf-8", errors="replace")
+        raw = path.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         return RunResult(ok=False, error=f"Read error: {exc}", correctness=0.0)
+
+    all_lines = raw.splitlines(keepends=True)
+    total_lines = len(all_lines)
     max_lines = max(1, int(params.get("max_lines", 100)))
     # skip_lines: skip first N-1 lines (1→skip 0, 2→skip 1, ... 10→skip 9)
     skip = max(0, int(params.get("skip_lines", 1)) - 1)
-    lines = content.splitlines(keepends=True)
-    lines = lines[skip:][:max_lines]
-    content = "".join(lines)
+    # chunk_count: read file in N sequential chunks (tool_calls=N)
+    chunk_count = max(1, min(5, int(params.get("chunk_count", 1))))
+
+    available = all_lines[skip:]
+    lines_per_chunk = max(1, math.ceil(len(available) / chunk_count))
+    result_lines: list[str] = []
+    for chunk_idx in range(chunk_count):
+        start = chunk_idx * lines_per_chunk
+        end = start + lines_per_chunk
+        result_lines.extend(available[start:end])
+
+    # Apply max_lines limit after chunking
+    result_lines = result_lines[:max_lines]
+    content = "".join(result_lines)
+
+    lines_returned = len(result_lines)
+    # Graded correctness: fraction of total file lines returned
+    correctness = min(1.0, lines_returned / total_lines) if total_lines > 0 else 1.0
+
     return RunResult(
         ok=True,
-        output={"path": str(path), "content": content, "size_bytes": size, "max_lines": max_lines, "skip_lines": skip},
-        correctness=1.0,
+        output={
+            "path": str(path),
+            "content": content,
+            "size_bytes": size,
+            "lines_returned": lines_returned,
+            "total_lines": total_lines,
+            "chunk_count": chunk_count,
+        },
+        tool_calls=chunk_count,
+        correctness=correctness,
     )
