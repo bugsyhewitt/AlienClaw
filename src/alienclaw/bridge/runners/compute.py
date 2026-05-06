@@ -10,25 +10,44 @@ _SAFE_NAMES = {
 }
 
 
-def run(inputs: dict[str, Any]) -> RunResult:
+def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     task = inputs.get("task", "")
     expression = inputs.get("input", task)
     if not expression:
         return RunResult(ok=False, error="Missing 'input' or 'task' field", correctness=0.0)
-    try:
-        result = eval(str(expression), {"__builtins__": {}}, _SAFE_NAMES)  # noqa: S307
-    except ZeroDivisionError:
-        return RunResult(ok=False, error="Division by zero", correctness=0.0)
-    except Exception as exc:
-        return RunResult(ok=False, error=f"Compute error: {exc}", correctness=0.0)
-    result_type = type(result).__name__
+
+    max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
+    precision_digits = max(1, min(10, int(params.get("precision_digits", 6))))
+
+    last_error: str | None = None
+    for attempt in range(max_attempts):
+        try:
+            result = eval(str(expression), {"__builtins__": {}}, _SAFE_NAMES)  # noqa: S307
+            # Apply precision rounding for float results
+            if isinstance(result, float):
+                result = round(result, precision_digits)
+            result_type = type(result).__name__
+            return RunResult(
+                ok=True,
+                output={
+                    "input": expression,
+                    "operation": "eval",
+                    "result": result,
+                    "resultType": result_type,
+                    "precision_digits": precision_digits,
+                },
+                tool_calls=attempt + 1,
+                correctness=1.0,
+            )
+        except ZeroDivisionError:
+            return RunResult(ok=False, error="Division by zero", tool_calls=attempt + 1, correctness=0.0)
+        except Exception as exc:
+            last_error = str(exc)
+            continue
+
     return RunResult(
-        ok=True,
-        output={
-            "input": expression,
-            "operation": "eval",
-            "result": result,
-            "resultType": result_type,
-        },
-        correctness=1.0,
+        ok=False,
+        error=f"Failed after {max_attempts} attempts: {last_error}",
+        tool_calls=max_attempts,
+        correctness=0.0,
     )

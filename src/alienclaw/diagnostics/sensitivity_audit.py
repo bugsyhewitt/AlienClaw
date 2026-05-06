@@ -110,27 +110,43 @@ def _id_tag_for(martian_type: str) -> str:
 
 
 def _make_inputs_for(martian_type: str, stub_base_url: str, tmpdir: Path) -> dict[str, Any]:
-    """Return stable test inputs appropriate for each runner type."""
+    """Return stable test inputs appropriate for each runner type.
+
+    Updated in Packet 8.6 to exercise the new genome-derived params:
+    - compute uses float division so precision_digits param changes output
+    - file_read uses a 20-line file so max_lines param truncates differently
+    - search_text uses a 20-match text so max_results param truncates differently
+    """
     m = martian_type
     if m == "compute":
-        return {"input": "7 + 35"}
+        # Float result: precision_digits affects rounding → different outputs
+        return {"input": "7 / 3"}
     if m == "extract_json":
+        # include_type param adds/removes the "type" key
         return {"json": '{"name": "Alice", "score": 99}', "path": "name"}
     if m == "file_read":
+        # 20-line file: max_lines truncates to 1-10 lines → different outputs
         p = tmpdir / "test_read.txt"
-        p.write_text("hello from file_read audit", encoding="utf-8")
+        lines = "\n".join(f"Line {i}: data for file_read audit" for i in range(1, 21))
+        p.write_text(lines, encoding="utf-8")
         return {"path": str(p)}
     if m == "file_write":
+        # create_parents param affects mkdir behavior
         p = tmpdir / "test_write.txt"
         return {"path": str(p), "content": "audit write test"}
     if m == "http_get":
+        # include_headers param adds/removes headers from output
         return {"url": stub_base_url + "/test"}
     if m == "url_fetch":
+        # include_headers param adds/removes headers from output
         return {"url": stub_base_url + "/test", "method": "GET"}
     if m == "search_text":
-        return {"text": "the quick brown fox jumps over the lazy dog", "pattern": "fox"}
+        # 20 matching lines: max_results truncates to 1-10 → different match_count + tool_calls
+        text = "\n".join(f"The fox was spotted on line {i}" for i in range(1, 21))
+        return {"text": text, "pattern": "fox"}
     if m == "web_search":
-        return {"query": "alienclaw genome evolution", "num_results": 2}
+        # max_results param limits output; but web_search hits external URL → may fail
+        return {"query": "alienclaw genome evolution", "num_results": 5}
     return {}
 
 

@@ -23,29 +23,38 @@ class TestRunAudit:
         for s in results.sensitivities:
             assert s.pairs_tested == PAIRS_PER_RUNNER
 
-    def test_genome_never_passed_to_any_runner(self):
-        """Confirms the root-cause finding: genome discarded after validation."""
+    def test_decoded_params_reach_all_runners(self):
+        """Packet 8.6: genome decoded params now reach all runners (MUST FIX #1 resolved)."""
         results = run_audit(seed=42)
         for s in results.sensitivities:
-            assert not s.genome_ever_passed_to_runner, (
-                f"Runner '{s.martian_type}' received genome — unexpected!"
+            assert s.genome_ever_passed_to_runner, (
+                f"Runner '{s.martian_type}' did not receive decoded genome params!"
             )
 
-    def test_compute_is_blind(self):
-        """compute with stable input '7+35' must have zero output sensitivity."""
+    def test_compute_shows_sensitivity(self):
+        """Packet 8.6: compute now has precision_digits param → output sensitivity > 0."""
         results = run_audit(seed=42)
         compute = next(s for s in results.sensitivities if s.martian_type == "compute")
-        assert compute.output_sensitivity == 0.0
-        assert compute.fitness_sensitivity == 0.0
-        assert compute.classification == "BLIND"
+        assert compute.output_sensitivity > 0.0, (
+            f"compute still BLIND: output_sensitivity = {compute.output_sensitivity}"
+        )
 
-    def test_all_tool_calls_sensitivity_zero(self):
-        """tool_calls is always 1 — efficiency never varies."""
+    def test_search_text_tool_calls_sensitivity(self):
+        """Packet 8.6: search_text max_results param varies tool_calls."""
         results = run_audit(seed=42)
-        for s in results.sensitivities:
-            assert s.tool_calls_sensitivity == 0.0, (
-                f"Runner '{s.martian_type}' had varying tool_calls — unexpected!"
-            )
+        search = next(s for s in results.sensitivities if s.martian_type == "search_text")
+        assert search.tool_calls_sensitivity > 0.0, (
+            f"search_text tool_calls still constant: {search.tool_calls_sensitivity}"
+        )
+
+    def test_at_least_three_runners_show_sensitivity(self):
+        """Success criterion: ≥3 runners show output_sensitivity > 0.2."""
+        results = run_audit(seed=42)
+        runners_above = [s for s in results.sensitivities if s.output_sensitivity > 0.2]
+        assert len(runners_above) >= 3, (
+            f"Only {len(runners_above)} runners above 0.2: "
+            + ", ".join(f"{s.martian_type}={s.output_sensitivity:.2f}" for s in results.sensitivities)
+        )
 
     def test_deterministic_with_seed(self):
         r1 = run_audit(seed=99)
