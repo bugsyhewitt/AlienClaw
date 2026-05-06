@@ -23,11 +23,13 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     except OSError as exc:
         return RunResult(ok=False, error=f"Read error: {exc}", correctness=0.0)
     max_lines = max(1, int(params.get("max_lines", 100)))
+    # skip_lines: skip first N-1 lines (1→skip 0, 2→skip 1, ... 10→skip 9)
+    skip = max(0, int(params.get("skip_lines", 1)) - 1)
     lines = content.splitlines(keepends=True)
-    if len(lines) > max_lines:
-        content = "".join(lines[:max_lines])
+    lines = lines[skip:][:max_lines]
+    content = "".join(lines)
     return RunResult(
         ok=True,
-        output={"path": str(path), "content": content, "size_bytes": size, "max_lines": max_lines},
+        output={"path": str(path), "content": content, "size_bytes": size, "max_lines": max_lines, "skip_lines": skip},
         correctness=1.0,
     )

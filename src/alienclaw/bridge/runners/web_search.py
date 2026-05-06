@@ -1,3 +1,4 @@
+import os
 import urllib.parse
 import urllib.request
 import json
@@ -5,6 +6,12 @@ from typing import Any
 from .types import RunResult
 
 _TIMEOUT_S = 20
+# Allow test/audit environments to override the search URL so audits stay hermetic.
+# Production: always uses the real DDG endpoint.
+_SEARCH_BASE = os.environ.get(
+    "ALIENCLAW_SEARCH_URL",
+    "https://ddg-webapp-aagd.vercel.app/search",
+)
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -13,8 +20,9 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         return RunResult(ok=False, error="Missing 'query' field", correctness=0.0)
     max_results = max(1, min(int(params.get("max_results", 5)), 10))
     num_results = min(int(inputs.get("num_results", max_results)), max_results)
+    search_base = os.environ.get("ALIENCLAW_SEARCH_URL", _SEARCH_BASE)
     encoded = urllib.parse.quote_plus(str(query))
-    url = f"https://ddg-webapp-aagd.vercel.app/search?q={encoded}&max_results={num_results}"
+    url = f"{search_base}?q={encoded}&max_results={num_results}"
     try:
         with urllib.request.urlopen(url, timeout=_TIMEOUT_S) as resp:
             data = json.loads(resp.read())

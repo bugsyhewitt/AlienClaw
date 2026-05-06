@@ -53,6 +53,7 @@ def _apply_encoding(char: str, field: ParameterSchemaField) -> Any:
     """Apply the field's canonical encoding to a single genome character.
 
     Canonical encodings (subtract 48 from ord to align '0'→0):
+      mod3_plus1       ((ord-48) % 3) + 1  → int [1..3]
       mod5_plus1       ((ord-48) % 5) + 1  → int [1..5]
       mod10_plus1      ((ord-48) % 10) + 1 → int [1..10]
       mod10_times500   ((ord-48) % 10) * 500 → int [0..4500]
@@ -63,6 +64,8 @@ def _apply_encoding(char: str, field: ParameterSchemaField) -> Any:
     rel = code - 48  # relative to '0'
 
     enc = field.encoding
+    if enc == "mod3_plus1":
+        return (rel % 3) + 1
     if enc == "mod5_plus1":
         return (rel % 5) + 1
     if enc == "mod10_plus1":

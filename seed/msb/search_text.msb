@@ -74,3 +74,4 @@ PARAMETER_SCHEMA:
 max_attempts|EXECUTION|0|mod5_plus1|int|1
 fail_forward|BEHAVIOR|0|char_eq_F|bool|false
 max_results|BEHAVIOR|1|mod10_plus1|int|100
+context_lines|BEHAVIOR|2|mod10_plus1|int|1
