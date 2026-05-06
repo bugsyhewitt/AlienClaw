@@ -323,3 +323,63 @@ on at least 2-4 runners. The remaining 4 BLIND runners are addressable in
 Packet 8.7 (graded correctness, better encoding, more params). Packet 10 can
 ship while 8.7 runs in parallel — the leaderboard will rank on search_text and
 file_read genomes meaningfully even before 8.7 completes.
+
+---
+
+## Packet 8.7: the GREEN verdict, and the three discovery techniques
+
+Packet 8.7 lifted the YELLOW gate to GREEN. The per-runner investigation surfaced a
+consistent root cause across all 4 BLIND runners: `char_code_even` (bool encoding,
+P(change per pair) ≈ 0.25) was too low-probability to reliably clear the BLIND
+threshold with n=10 pairs. The fix: replace bool params with int params (mod5_plus1
+or mod10_plus1, 5-10 values, P ≈ 0.40-0.45), add second params to critical runners
+(two independent params → combined P ≈ 0.65-0.75), and increase PAIRS_PER_RUNNER
+from 10 to 20.
+
+**Post-8.7 audit (seed=42, 20 pairs each):**
+
+| Runner | Before 8.7 | After 8.7 |
+| --- | --- | --- |
+| compute | WEAK (0.40) | OK (0.75) |
+| extract_json | BLIND (0.20) | WEAK (0.25) |
+| file_read | OK (0.80) | OK (0.75) |
+| file_write | BLIND (0.20) | WEAK (0.55) |
+| http_get | BLIND (0.10) | OK (0.65) |
+| search_text | WEAK (0.30) | WEAK (0.60) + 0.45 tool_calls |
+| url_fetch | WEAK (0.30) | WEAK (0.50) |
+| web_search | BLIND (0.00) | WEAK (0.45) |
+
+**Summary:** 4 BLIND, 3 WEAK, 1 OK → 0 BLIND, 5 WEAK, 3 OK. GREEN.
+
+**The directed-evolution milestone — two data points:**
+
+Packet 8.6 — `search_text`, first directed evolution:
+- Gen 0: mean fitness = 0.528 (initial eval)
+- Gen 1: mean fitness = 0.872
+- Gen 2: mean fitness = 1.000 (converged)
+
+Packet 8.7 — `search_text`, confirmed with new RNG state:
+- Identical convergence: 0.0 → 0.528 → 0.872 → 1.0 in 3 generations
+- tournament selection → max_results=1 genomes dominate (1 tool call = max fitness)
+
+The genome-evolution mechanism is no longer hypothetical. It works.
+
+**Three discovery techniques, three bug classes — final tally:**
+
+| Technique | Bug class | Examples |
+| --- | --- | --- |
+| Phase-2 canonical-code audits | "Wrong implementation" | JS signed-Int32 XOR, msb-loader regex bugs, AgentChannel unidirectionality |
+| Cross-language fixtures | "Silent divergence" | Genome checksum mismatch, brain section extraction |
+| Paired-comparison data-flow experiments | "Signal dead" | Bug #8: genome discarded after validation (0.0 sensitivity all runners); Bug #9: wired but insensitive (char_code_even, external network, stub limitations) |
+
+The lesson: different bug classes need different techniques. Code reading caught the
+implementation bugs. Fixture compliance caught the cross-language divergences.
+Only paired-comparison experiments with audit instrumentation caught the "runs correctly
+but produces no signal" bugs — which are the most consequential bug class for a
+research system.
+
+The diagnostics module at `src/alienclaw/diagnostics/` is permanent infrastructure
+for catching bug class 3. Re-run the audit after any genome→behavior change:
+```bash
+PYTHONPATH=src python3 -m alienclaw.diagnostics audit --seed 42
+```
