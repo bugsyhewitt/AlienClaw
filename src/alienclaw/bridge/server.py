@@ -9,6 +9,7 @@ from typing import Any
 from alienclaw.genome.validation import validate as validate_genome
 from alienclaw.fitness import evaluate, FitnessInputs
 from .runners import RUNNER_REGISTRY
+from alienclaw.diagnostics import instrumentation as _diag
 
 _SUPPORTED_VERSION = "1.0"
 _MAX_BYTES = 1_048_576  # 1 MiB
@@ -105,7 +106,10 @@ def handle(raw: bytes) -> dict:
     if not isinstance(req["inputs"], dict):
         return _error_response(request_id, "MALFORMED_REQUEST", "inputs must be an object", {"missing_fields": ["inputs"]})
 
+    _diag.record_genome(genome, martian_type, req["inputs"])
+
     runner = RUNNER_REGISTRY[martian_type]
+    _diag.record_runner_call(genome_passed=False)  # genome never passed to runner in v1.0
     try:
         run_result = runner(req["inputs"])
     except Exception as exc:
@@ -116,9 +120,13 @@ def handle(raw: bytes) -> dict:
 
     if not run_result.ok:
         fitness_result = evaluate(FitnessInputs(correctness=0.0, tool_calls=run_result.tool_calls, error=run_result.error))
+        _diag.record_runner_result(run_result.output, run_result.error, 0.0, run_result.tool_calls)
+        _diag.record_fitness(0.0)
         return _error_response(request_id, "TOOL_RUNNER_FAILED", run_result.error or "Runner failed", {"output_partial": run_result.output}, wall_ms)
 
     fitness_result = evaluate(FitnessInputs(correctness=run_result.correctness, tool_calls=run_result.tool_calls))
+    _diag.record_runner_result(run_result.output, None, run_result.correctness, run_result.tool_calls)
+    _diag.record_fitness(fitness_result.fitness)
     return _success_response(request_id, run_result.output, fitness_result, wall_ms)
 
 
