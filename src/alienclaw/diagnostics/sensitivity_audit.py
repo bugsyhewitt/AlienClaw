@@ -30,7 +30,7 @@ from alienclaw.diagnostics.instrumentation import CaptureHook
 from alienclaw.diagnostics.stub_servers import StubServer
 from alienclaw.bridge.server import handle
 
-PAIRS_PER_RUNNER = 10
+PAIRS_PER_RUNNER = 20
 
 # Sensitivity classification thresholds
 BLIND_THRESHOLD = 0.2   # [0.0, 0.2] → BLIND
@@ -251,20 +251,37 @@ def run_audit(seed: int = 42) -> AuditResults:
     from alienclaw.bridge.runners.registry import RUNNER_REGISTRY
     rng = random.Random(seed)
 
+    # Serve 15 results so web_search max_results (1-10) actually truncates
+    _search_results = [
+        {"title": f"AlienClaw result {i}", "href": f"https://example.com/{i}", "body": f"Result {i} for alienclaw query"}
+        for i in range(1, 16)
+    ]
+    import json as _json
+    # 12-line text response so url_fetch content_preview (1-10) produces 10 distinct previews
+    _multiline_body = "\n".join(
+        f"L{i:02d}: audit stub data chunk {i:02d}" for i in range(1, 13)
+    ).encode()
     canned = {
-        "/test": (200, b'{"result": "stub response", "status": "ok"}', "application/json"),
-        "/search": (200, b'[{"title":"AlienClaw","href":"https://github.com/AlienTool/AlienClaw","body":"open source"}]', "application/json"),
+        "/test": (200, _multiline_body, "text/plain"),
+        "/search": (200, _json.dumps(_search_results).encode(), "application/json"),
     }
 
     with StubServer(canned) as stub_url:
+        # Point web_search at stub so max_results has something to truncate
+        os.environ["ALIENCLAW_SEARCH_URL"] = stub_url + "/search"
         with tempfile.TemporaryDirectory(prefix="alienclaw-diag-") as tmpdir_str:
             tmpdir = Path(tmpdir_str)
             sensitivities = []
             for martian_type in sorted(RUNNER_REGISTRY.keys()):
-                result = _audit_runner(martian_type, rng, stub_url, tmpdir)
+                # Each runner gets its own sub-RNG seeded from main RNG.
+                # This isolates runners from each other — changing PAIRS_PER_RUNNER
+                # does not affect the genome pairs generated for other runners.
+                runner_rng = random.Random(rng.randint(0, 2**32))
+                result = _audit_runner(martian_type, runner_rng, stub_url, tmpdir)
                 sensitivities.append(result)
 
     os.environ.pop("ALIENCLAW_DIAGNOSTICS", None)
+    os.environ.pop("ALIENCLAW_SEARCH_URL", None)
     return AuditResults(
         seed=seed,
         runners_audited=sorted(RUNNER_REGISTRY.keys()),
