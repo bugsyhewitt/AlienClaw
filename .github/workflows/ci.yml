@@ -155,6 +155,31 @@ jobs:
             echo "FAIL: diagnostics tests left ~/.alienclaw/diagnostics/ behind"
             exit 1
           fi
+      - name: Run API tests with coverage
+        env:
+          PYTHONPATH: src
+        run: |
+          pytest test/api/ \
+            --cov=alienclaw.api \
+            --cov-report=term-missing \
+            --cov-fail-under=85 \
+            -q
+      - name: Rate limiter persistence smoke test
+        env:
+          PYTHONPATH: src
+        run: |
+          rm -rf /tmp/alienclaw-rate-test/
+          pytest test/api/test_rate_limit_persistence.py -v
+      - name: Audit log smoke test
+        env:
+          PYTHONPATH: src
+        run: |
+          pytest test/api/test_audit_log.py test/api/test_handler_genomes_audit_integration.py -v
+      - name: Web search backend test
+        env:
+          PYTHONPATH: src
+        run: |
+          pytest test/bridge/runners/test_web_search_backend.py -v
       - name: Verify site/ structural integrity
         run: |
           for F in index.html about.html api.html leaderboard.html donate.html styles.css; do
