@@ -6,12 +6,11 @@ from typing import Any
 from .types import RunResult
 
 _TIMEOUT_S = 20
-# Allow test/audit environments to override the search URL so audits stay hermetic.
-# Production: always uses the real DDG endpoint.
-_SEARCH_BASE = os.environ.get(
-    "ALIENCLAW_SEARCH_URL",
-    "https://ddg-webapp-aagd.vercel.app/search",
-)
+
+# No default backend — operators must configure ALIENCLAW_SEARCH_URL.
+# See seed/msb/web_search.msb for configuration guidance.
+# The diagnostics audit and tests set this to a stub server URL.
+_SEARCH_BASE: str = ""
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -22,7 +21,17 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     num_results = min(int(inputs.get("num_results", max_results)), max_results)
     # page_count: fetch N pages of results (pagination); tool_calls=N
     page_count = max(1, min(3, int(params.get("page_count", 1))))
-    search_base = os.environ.get("ALIENCLAW_SEARCH_URL", _SEARCH_BASE)
+    search_base = os.environ.get("ALIENCLAW_SEARCH_URL", _SEARCH_BASE).strip()
+
+    if not search_base:
+        return RunResult(
+            ok=False,
+            error="web_search backend not configured. Set ALIENCLAW_SEARCH_URL env var.",
+            output={"query": query, "results": []},
+            tool_calls=1,
+            correctness=0.0,
+        )
+
     encoded = urllib.parse.quote_plus(str(query))
     all_results: list[dict] = []
     for page in range(page_count):
