@@ -8,6 +8,10 @@ Supports natural language queries of arbitrary complexity.
 Best for: research, fact-finding, news, documentation lookup.
 
 LIMITATIONS:
+Requires ALIENCLAW_SEARCH_URL environment variable to be set to a search backend URL.
+Without it, all web_search calls return FAILURE with "backend not configured" error.
+Operators may use any JSON-compatible search API that returns results as a list with
+title, href, and body fields (or results.title/href/body for nested responses).
 Cannot access pages behind authentication or paywalls.
 Results are limited to publicly indexed content.
 Not suitable for real-time data (stock prices, live scores) unless the index is current.
