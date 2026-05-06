@@ -383,3 +383,34 @@ for catching bug class 3. Re-run the audit after any genome→behavior change:
 ```bash
 PYTHONPATH=src python3 -m alienclaw.diagnostics audit --seed 42
 ```
+
+---
+
+## Packet 10 — Community network launch
+
+Packet 10 closed the arc by shipping the infrastructure for distributed genome
+sharing. Three design decisions proved durable:
+
+**Cross-language contract fixture as first-class deliverable.** The 41-case
+`api-contract-fixtures.json` enforces that any future implementation (Go, Rust,
+a rewrite) stays compatible with the Python server without re-reading the spec.
+The fixture is the spec, machine-readable.
+
+**port=0 for integration tests.** Binding to `HTTPServer("127.0.0.1", 0)` lets
+the OS assign an ephemeral port — zero flakiness from port conflicts, no mocking,
+real HTTP. All 17 server integration tests run against a live server in the same
+process. This technique generalizes to any stdlib-based HTTP server.
+
+**Scheduler.unref() for background sync.** Node.js will not prevent process exit
+when the only remaining timer is `unref()`'d. `SyncScheduler` calls
+`this._timer.unref?.()` so AlienClaw installations don't stay alive just because
+the sync timer is running — the timer fires if the process is still up, but never
+keeps it up alone.
+
+**The arc is complete.** Ten packets from bare scaffolding to:
+- 3-agent governance with governed comm graph
+- 8-runner Python bridge with JSON-over-stdio protocol
+- Evolutionary search with tournament selection
+- Full genome→behavior wiring and sensitivity verification
+- Community genome network with REST API, auth, rate limiting, and live leaderboard
+

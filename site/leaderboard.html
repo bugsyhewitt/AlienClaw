@@ -7,6 +7,28 @@
   <meta name="description" content="Community genome leaderboard — top genomes per Martian type, ranked by fitness." />
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" href="favicon.ico" />
+  <style>
+    .lb-section { margin-bottom: 2.5rem; }
+    .lb-section h2 { color: var(--accent); margin-bottom: 0.75rem; font-size: 1.1rem; }
+    .lb-status { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .lb-status.loading { color: var(--accent2); }
+    .lb-status.error   { color: #ff5555; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; }
+    th { color: var(--accent); font-weight: normal; }
+    td.rank { color: var(--muted); width: 2.5rem; }
+    td.genome { font-size: 0.78rem; letter-spacing: 0.02em; word-break: break-all; }
+    td.fitness { color: var(--accent2); }
+    tr.top1 td.rank { color: var(--accent); font-weight: bold; }
+    .stats-bar { display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .stat { }
+    .stat-label { color: var(--muted); font-size: 0.8rem; }
+    .stat-value { color: var(--accent); font-size: 1.4rem; font-weight: bold; }
+    #type-select { background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+                   padding: 0.3rem 0.6rem; font-family: var(--font); cursor: pointer;
+                   margin-bottom: 1.5rem; }
+    #type-select:focus { outline: 2px solid var(--accent); }
+  </style>
 </head>
 <body>
   <header>
@@ -26,74 +48,54 @@
     <section>
       <h2>Community genome leaderboard</h2>
       <p>
-        When the community genome network ships with Packet 10, this page will
-        show the top genomes per Martian type, updated daily from
-        <code>api.alienclaw.net/v1/genomes/top</code>.
-      </p>
-      <p style="color:var(--muted)">
-        Status: <strong style="color:var(--accent)">placeholder</strong> — data layer lands with Packet 10.
+        Top-performing genomes submitted by AlienClaw operators worldwide.
+        Ranked by fitness: <code>correctness × (1 / max(1, tool_calls))</code>.
+        A perfect genome scores 1.0 — solves its task in one tool call.
       </p>
     </section>
 
-    <section>
-      <h2>compute</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Genome (first 24 chars)</th>
-            <th>Fitness</th>
-            <th>Runs</th>
-            <th>Last seen</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="coming" colspan="5">Data coming with Packet 10 — api.alienclaw.net not yet live</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+    <div class="stats-bar" id="stats-bar">
+      <div class="stat">
+        <div class="stat-label">total genomes</div>
+        <div class="stat-value" id="stat-genomes">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">installs</div>
+        <div class="stat-value" id="stat-installs">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">evaluations</div>
+        <div class="stat-value" id="stat-evals">—</div>
+      </div>
+    </div>
 
-    <section>
-      <h2>http_get</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Genome (first 24 chars)</th>
-            <th>Fitness</th>
-            <th>Runs</th>
-            <th>Last seen</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="coming" colspan="5">Data coming with Packet 10</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+    <div>
+      <label for="type-select" style="color:var(--muted);font-size:0.85rem;margin-right:0.5rem">martian type:</label>
+      <select id="type-select">
+        <option value="compute">compute</option>
+        <option value="search_text">search_text</option>
+        <option value="http_get">http_get</option>
+        <option value="url_fetch">url_fetch</option>
+        <option value="web_search">web_search</option>
+        <option value="file_read">file_read</option>
+        <option value="file_write">file_write</option>
+        <option value="extract_json">extract_json</option>
+      </select>
+    </div>
 
-    <section>
-      <h2>web_search</h2>
-      <table>
+    <div class="lb-section" id="lb-section">
+      <div class="lb-status loading" id="lb-status">Loading…</div>
+      <table id="lb-table" style="display:none">
         <thead>
           <tr>
             <th>#</th>
-            <th>Genome (first 24 chars)</th>
+            <th>Genome (first 32 chars)</th>
             <th>Fitness</th>
-            <th>Runs</th>
-            <th>Last seen</th>
           </tr>
         </thead>
-        <tbody>
-          <tr>
-            <td class="coming" colspan="5">Data coming with Packet 10</td>
-          </tr>
-        </tbody>
+        <tbody id="lb-body"></tbody>
       </table>
-    </section>
+    </div>
 
     <section>
       <h2>All Martian types</h2>
@@ -102,13 +104,6 @@
         <code>compute</code>, <code>extract_json</code>, <code>file_read</code>,
         <code>file_write</code>, <code>http_get</code>, <code>search_text</code>,
         <code>url_fetch</code>, <code>web_search</code>.
-      </p>
-      <p>
-        Fitness is computed as
-        <code>correctness × (1 / max(1, tool_calls))</code>.
-        A genome that solves a task in one tool call with perfect correctness
-        scores 1.0. The leaderboard shows the highest-fitness genomes observed
-        across all operator installs that participate in the network.
       </p>
       <p>
         To run the local evolution loop without connecting to the network:
@@ -123,5 +118,67 @@
       No trackers, no frameworks, no third-party JavaScript.
     </p>
   </footer>
+
+  <script>
+    const API = 'https://api.alienclaw.net';
+
+    async function loadStats() {
+      try {
+        const r = await fetch(`${API}/v1/stats`);
+        if (!r.ok) return;
+        const d = await r.json();
+        document.getElementById('stat-genomes').textContent  = d.total_genomes ?? '—';
+        document.getElementById('stat-installs').textContent = d.total_installs ?? '—';
+        document.getElementById('stat-evals').textContent    = d.total_fitness_evaluations ?? '—';
+      } catch { /* server not yet live — fail silently */ }
+    }
+
+    async function loadLeaderboard(martianType) {
+      const status = document.getElementById('lb-status');
+      const table  = document.getElementById('lb-table');
+      const tbody  = document.getElementById('lb-body');
+      status.textContent = 'Loading…';
+      status.className = 'lb-status loading';
+      table.style.display = 'none';
+      tbody.innerHTML = '';
+      try {
+        const r = await fetch(`${API}/v1/genomes/top?martian_type=${encodeURIComponent(martianType)}&n=20`);
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          status.textContent = `Error: ${err.error?.code ?? r.status}`;
+          status.className = 'lb-status error';
+          return;
+        }
+        const d = await r.json();
+        if (d.genomes.length === 0) {
+          status.textContent = `No genomes submitted yet for ${martianType}.`;
+          status.className = 'lb-status';
+          return;
+        }
+        status.textContent = `${d.total_for_type} genome${d.total_for_type !== 1 ? 's' : ''} — showing top ${d.genomes.length}`;
+        status.className = 'lb-status';
+        for (const entry of d.genomes) {
+          const tr = document.createElement('tr');
+          if (entry.rank === 1) tr.className = 'top1';
+          tr.innerHTML = `
+            <td class="rank">${entry.rank}</td>
+            <td class="genome">${entry.genome.slice(0, 32)}…</td>
+            <td class="fitness">${Number(entry.fitness).toFixed(4)}</td>`;
+          tbody.appendChild(tr);
+        }
+        table.style.display = '';
+      } catch (e) {
+        status.textContent = 'api.alienclaw.net not reachable — check back soon.';
+        status.className = 'lb-status error';
+      }
+    }
+
+    document.getElementById('type-select').addEventListener('change', e => {
+      loadLeaderboard(e.target.value);
+    });
+
+    loadStats();
+    loadLeaderboard('compute');
+  </script>
 </body>
 </html>
