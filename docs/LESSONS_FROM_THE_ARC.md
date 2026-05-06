@@ -451,3 +451,30 @@ generations. The pattern generalizes to any runner — the design template is:
 
 That's all it takes to produce directed evolution on any runner.
 
+---
+
+## Packet 11 — Spec wins over implementation proposals
+
+Packet 11 implemented the Specialist 5-file workspace. The key lesson: when a
+locked spec and implementation instructions conflict, the spec is authoritative.
+
+The packet instructions proposed JSONL-append HEARTBEAT.md (an event log).
+SPECIALIST_SPEC.md (locked) defines HEARTBEAT.md as a markdown status file
+BossBot polls for State/Progress fields. The markdown format was implemented.
+
+**The structure enables future LLM backing.** The 5 files are not just persistence
+— they are the prompt substrate. When Specialists get LLM reasoning:
+- SOUL.md → identity prompt
+- CAMPAIGN.md → task context
+- TOOLS.md → allowed tools list
+- MEMORY.md → accumulated context from prior summons
+- HEARTBEAT.md → current state summary
+
+Without the structure, LLM backing means re-engineering Specialist internals.
+With it, LLM backing means writing prompts that consume the existing files.
+
+**Workspace base dir injection for tests.** The `specialistsBaseDir` option on
+`SpecialistOptions` lets tests write to `mkdtempSync()` instead of `~/.alienclaw/`.
+This pattern — injecting the storage root as a constructor option — generalizes to
+any component that writes to disk. Zero test filesystem leaks result.
+

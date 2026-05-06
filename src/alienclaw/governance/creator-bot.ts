@@ -8,6 +8,8 @@
  * Packet 6 implementation: summons ONE Martian directly via the injected
  * MartianSummonAdapter. No Specialists yet — Packet 7 adds that layer.
  *
+ * Packet 11: writes Specialist 5-file workspace at birth via SpecialistBrief.
+ *
  * NOTE: This class is a simplified wrapper for the Packet 6 governance loop.
  * It is distinct from src/alienclaw/agents/creatorbot.ts, which has the full
  * campaign/scheme building, scheduler, and subagent spawning.
@@ -19,11 +21,13 @@ import { assertLegalSend } from './comm-graph.js';
 import type { Logger } from './logger.js';
 import type { MartianSummonAdapter } from './summon-adapter.js';
 import { Specialist } from './specialist.js';
+import type { SpecialistBrief } from './specialist.js';
 
 export class CreatorBot {
   constructor(
     private readonly logger:        Logger,
     private readonly summonAdapter: MartianSummonAdapter,
+    private readonly specialistsBaseDir?: string,
   ) {}
 
   /**
@@ -31,6 +35,7 @@ export class CreatorBot {
    *
    * In Packet 6: no Specialists, one Martian, placeholder genome.
    * Packet 7: real genome sampling + Specialist layer between Creator and Martian.
+   * Packet 11: Specialist 5-file workspace written at birth.
    */
   async runCampaign(request: CampaignRequestMessage): Promise<CampaignReportMessage> {
     this.logger.info(
@@ -42,11 +47,30 @@ export class CreatorBot {
     const martian_type = request.payload.allowed_tools?.[0] ?? 'compute';
 
     const specialist = new Specialist(this.summonAdapter, {
-      campaignId:  request.payload.campaign_id,
-      martianType: martian_type,
-      inputs:      { plan: request.payload.plan, success_criteria: request.payload.success_criteria },
-      timeoutMs:   30_000,
+      campaignId:          request.payload.campaign_id,
+      martianType:         martian_type,
+      inputs:              { plan: request.payload.plan, success_criteria: request.payload.success_criteria },
+      timeoutMs:           30_000,
+      specialistsBaseDir:  this.specialistsBaseDir,
     });
+
+    // Build birth brief from campaign request
+    const brief: SpecialistBrief = {
+      campaignId:        request.payload.campaign_id,
+      role:              `${martian_type} Specialist`,
+      domain:            martian_type,
+      objective:         request.payload.plan,
+      scope:             request.payload.success_criteria ?? 'Complete the campaign plan.',
+      successCriteria:   request.payload.success_criteria ?? 'Task complete.',
+      allowedTools:      request.payload.allowed_tools ?? [martian_type],
+      deliverables:      'Campaign report to BossBot.',
+      backgroundContext: '',
+      communicationStyle: 'structured',
+      knowledgeBase:     '',
+      constraints:       'None',
+    };
+
+    specialist.birth(brief);
 
     this.logger.info(
       'summon-issued',
@@ -56,6 +80,9 @@ export class CreatorBot {
 
     const specialistReport = await specialist.execute();
     const result = specialistReport.result;
+
+    const ok = result.ok;
+    specialist.finalize(ok ? 'COMPLETE' : 'FAILED', ok ? 'Campaign complete.' : `Campaign failed: ${result.error ?? 'unknown'}`);
     specialist.erase();
 
     this.logger.info(
@@ -88,4 +115,3 @@ export class CreatorBot {
     return report;
   }
 }
-
