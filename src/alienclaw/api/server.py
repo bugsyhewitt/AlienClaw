@@ -21,11 +21,13 @@ from .handlers.health import handle_health
 from .handlers.install import handle_install
 from .handlers.martian_types import handle_martian_types
 from .handlers.stats import handle_stats
+from .audit_log import AuditLog
 from .rate_limit import RateLimiter
 from .storage import GlobalStats, InstallStore, SubmissionStore
 from .types import APIError, InstallRequest, SubmissionRequest
 
 _RATE_LIMITER: RateLimiter = RateLimiter()
+_AUDIT_LOG: AuditLog = AuditLog()
 _START_UP_REGISTRY: BrainRegistry | None = None
 _REGISTERED_TYPES: set[str] = set()
 _SUBMISSION_STORE: SubmissionStore | None = None
@@ -36,11 +38,12 @@ _GLOBAL_STATS: GlobalStats | None = None
 def configure(data_root: Path | None = None, msb_dir: str = "seed/msb/") -> None:
     """Initialize global server state (call once before serving)."""
     global _START_UP_REGISTRY, _REGISTERED_TYPES
-    global _SUBMISSION_STORE, _INSTALL_STORE, _GLOBAL_STATS, _RATE_LIMITER
+    global _SUBMISSION_STORE, _INSTALL_STORE, _GLOBAL_STATS, _RATE_LIMITER, _AUDIT_LOG
     if data_root:
         os.environ["ALIENCLAW_API_DATA_ROOT"] = str(data_root)
     resolved_root = Path(data_root) if data_root else None
     _RATE_LIMITER = RateLimiter(data_root=resolved_root)
+    _AUDIT_LOG = AuditLog(data_root=resolved_root)
     _START_UP_REGISTRY = BrainRegistry.load(msb_dir)
     _REGISTERED_TYPES = {b.tool for b in _START_UP_REGISTRY.all_brains()}
     _SUBMISSION_STORE = SubmissionStore()
@@ -199,7 +202,11 @@ class APIHandler(BaseHTTPRequestHandler):
                     fitness=float(body["fitness"]),
                     run_metadata=body.get("run_metadata", {}),
                 )
-                status, resp = handle_submit_genome(req, khash, _SUBMISSION_STORE, _REGISTERED_TYPES)
+                client_ip = self.client_address[0] if self.client_address else "unknown"
+                status, resp = handle_submit_genome(
+                    req, khash, _SUBMISSION_STORE, _REGISTERED_TYPES,
+                    audit_log=_AUDIT_LOG, client_ip=client_ip,
+                )
                 self._send(status, resp)
             except (ValueError, TypeError) as exc:
                 if exc.args and isinstance(exc.args[0], APIError):

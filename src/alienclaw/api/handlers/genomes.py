@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from ..storage import SubmissionStore
 from ..types import (GenomeEntry, SubmissionRequest, SubmissionResponse,
                      TopGenomesResponse)
 from ..validation import validate_submission
+
+if TYPE_CHECKING:
+    from ..audit_log import AuditLog
 
 
 def handle_submit_genome(
@@ -11,16 +16,39 @@ def handle_submit_genome(
     api_key_hash: str,
     store: SubmissionStore,
     registered_types: set[str],
+    audit_log: "AuditLog | None" = None,
+    client_ip: str = "unknown",
 ) -> tuple[int, SubmissionResponse]:
     """POST /v1/genomes — submit a genome."""
     v = validate_submission(req, registered_types)
     if not v.valid:
+        # Log rejected submission before raising
+        if audit_log is not None:
+            audit_log.record(
+                api_key_hash=api_key_hash,
+                martian_type=req.martian_type,
+                genome=req.genome,
+                fitness=req.fitness,
+                result="rejected",
+                rejection_code=v.error.code if v.error else "UNKNOWN",
+                client_ip=client_ip,
+            )
         raise ValueError(v.error)
 
     # Duplicate suppression (24-hour window)
     dup = store.find_duplicate(req.genome, req.martian_type, req.fitness, api_key_hash)
     if dup:
         rank = store.rank_for_fitness(req.martian_type, req.fitness)
+        if audit_log is not None:
+            audit_log.record(
+                api_key_hash=api_key_hash,
+                martian_type=req.martian_type,
+                genome=req.genome,
+                fitness=req.fitness,
+                result="accepted",
+                rejection_code=None,
+                client_ip=client_ip,
+            )
         return 200, SubmissionResponse(
             submission_id=dup["submission_id"],
             submitted_at=dup["submitted_at"],
@@ -34,6 +62,18 @@ def handle_submit_genome(
         api_key_hash, req.run_metadata,
     )
     rank = store.rank_for_fitness(req.martian_type, req.fitness)
+
+    if audit_log is not None:
+        audit_log.record(
+            api_key_hash=api_key_hash,
+            martian_type=req.martian_type,
+            genome=req.genome,
+            fitness=req.fitness,
+            result="accepted",
+            rejection_code=None,
+            client_ip=client_ip,
+        )
+
     return 201, SubmissionResponse(
         submission_id=sid,
         submitted_at=submitted_at,
