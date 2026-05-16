@@ -7,11 +7,30 @@ from alienclaw.diagnostics.instrumentation import (
 )
 from alienclaw.bridge.server import handle
 from alienclaw.genome.operators import random_genome
+from alienclaw.genome.codec import encode_xcode, param_value_to_xcode
+from alienclaw.genome.checksum import compute_checksum
 import random
 
 
 def _valid_genome(seed: int = 1) -> str:
-    return random_genome(random.Random(seed), "COMPUT01")
+    """Genome where compute decodes to max_attempts=1 and validation_count=1.
+
+    This mirrors the prior behavior expected by the diagnostics test
+    (tool_calls == 1) under the new Xcode encoding (Packet 15).
+    """
+    g = random_genome(random.Random(seed), "COMPUT01")
+    chars = list(g[:192])
+    # compute: xcode_index 0 = max_attempts [1,5]; xcode_index 4 = validation_count [1,3]
+    for xidx, (vmin, vmax, target) in (
+        (0, (1, 5, 1)),
+        (4, (1, 3, 1)),
+    ):
+        v = param_value_to_xcode(target, vmin, vmax)
+        e = encode_xcode(v)
+        base = 64 + 1 + xidx * 2
+        chars[base], chars[base + 1] = e[0], e[1]
+    body = "".join(chars)
+    return body + compute_checksum(body)
 
 
 def _compute_req(genome: str) -> bytes:
