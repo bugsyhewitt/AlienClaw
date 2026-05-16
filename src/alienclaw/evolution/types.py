@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from alienclaw.brains.types import BrainSpec
 
 
 @dataclass(frozen=True)
@@ -52,3 +55,4 @@ class EvolutionConfig:
     crossover_rate: float = 0.5
     elitism_count: int = 2
     seed: int | None = None
+    brain: "BrainSpec | None" = None

@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from alienclaw.genome.operators import crossover, mutate
+from alienclaw.genome.operators import crossover, mutate, mutate_directed
 
 from .population import Population
 from .selection import tournament
@@ -97,7 +97,10 @@ def evaluate_and_evolve(
             child_genome = crossover(pa, pb, rng)
         else:
             parent_genome = tournament(pop, config.tournament_k, rng).genome
-            child_genome = mutate(parent_genome, rng, config.mutation_rate)
+            if config.brain is not None:
+                child_genome = mutate_directed(parent_genome, [None, config.brain, None, None], rng)
+            else:
+                child_genome = mutate(parent_genome, rng, config.mutation_rate)
         child_entry = _make_entry(
             genome=child_genome,
             fitness=0.0,
