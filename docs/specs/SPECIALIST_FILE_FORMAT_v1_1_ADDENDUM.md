@@ -1,3 +1,7 @@
+> **Historical record (post-Packet-17).** Superseded by `SUBAGENT_FILE_FORMAT_v1_3_ADDENDUM.md`. This addendum uses the prior "Specialist" name. Preserved as historical reference.
+
+---
+
 ---
 spec: SPECIALIST_FILE_FORMAT_v1_1_ADDENDUM
 version: "1.1"
