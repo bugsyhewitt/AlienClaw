@@ -408,13 +408,13 @@
       "expected_request_id_echoed": true
     },
     {
-      "description": "protocol: fitness scales with tool_calls (validation_count=3 \u2192 0.333)",
+      "description": "protocol: fitness scales with tool_calls (validation_count=3, slot_count=1, excess=2 \u2192 1/1.2\u22480.833 under Option C-prime)",
       "request": {
         "bridge_version": "1.0",
         "request_id": "550e8400-e29b-41d4-a716-000000000023",
         "request": {
           "kind": "summon",
-          "genome": "FX000010G1AlienClaw1g1TxmmZiaAccq9g1w61J9gPmvsj38CKfWJAuLLlidgbBFYDyIHChJLvnG7fNyoxnIHiLRFTCXvh8caFfWd3Pi6l0YvPvsTCxJeu5ZXiwuAsAvzOUwxvs0Z6yHzXUwqTB6ASFBjnZkArtpV5fB8KFGEkxIi0eg37JPVthJ7uIcD89QFCob0c9eclmWNScxY6Ve2pO8psgPE2bSyrSK3A8fCqzQYpKG1GsnCaLQYxI61aY",
+          "genome": "FX000010G1AlienClaw1g1TxmmZiaAccq9g1w61J9gPmvsj38CKfWJAuLLlidgbBF00yIHChJfLnG7fNyoxnIHiLRFTCXvh8caFfWd3Pi6l0YvPvsTCxJeu5ZXiwuAsAvzOUwxvs0Z6yHzXUwqTB6ASFBjnZkArtpV5fB8KFGEkxIi0eg37JPVthJ7uIcD89H7vpLbRjB3ljDLRP3XtlJvrhLhJhrlh7fH5Xjnnx7fpjPXTrnjFNZtPz5FjTtHzd",
           "martian_type": "compute",
           "inputs": {
             "input": "1"
@@ -423,7 +423,7 @@
         }
       },
       "expected_ok": true,
-      "expected_fitness": 0.3333333333333333
+      "expected_fitness": 0.8333333333333334
     },
     {
       "description": "protocol: run_metadata.tool_calls present",
