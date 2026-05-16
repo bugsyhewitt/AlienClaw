@@ -1,3 +1,7 @@
+> **Historical record (post-Packet-17).** This spec uses the prior name "Specialist" for what the codebase now calls "Subagent". The rename was for clarity in usage; the architectural concept is unchanged. See `SUBAGENT_SPEC.md` for the canonical going-forward spec. This file is preserved as historical reference only.
+
+---
+
 ---
 spec: SPECIALIST_SPEC
 version: "1.0"
