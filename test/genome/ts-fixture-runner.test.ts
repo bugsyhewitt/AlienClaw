@@ -35,6 +35,10 @@ import {
   parseGenome,
   validateGenome,
   assembleGenome,
+  decodeXcode,
+  encodeXcode,
+  xcodeToParamValue,
+  paramValueToXcode,
 } from '../../src/alienclaw/registry/genome-codec.js';
 
 // ---------------------------------------------------------------------------
@@ -47,9 +51,11 @@ const __dirname  = dirname(__filename);
 interface FixtureCase {
   name:                    string;
   kind:                    string;
-  input?:                  string | Record<string, string>;
-  expected?:               string | Record<string, unknown>;
+  input?:                  string | number | Record<string, string | number>;
+  expected?:               string | number | Record<string, unknown>;
   expected_genome?:        string;
+  expected_xcode?:         number;
+  expected_decoded_value?: number;
   expected_pass?:          boolean;
   expected_error_contains?: string;
   python_output?:          string;
@@ -96,7 +102,7 @@ describe('genome spec compliance — cross-language fixture', () => {
         }
 
         case 'assemble': {
-          const { identity, execution, behavior } = c.input as Record<string, string>;
+          const { identity, execution, behavior } = c.input as unknown as Record<string, string>;
           const actual = assembleGenome(identity, execution, behavior);
           expect(actual).toBe(c.expected_genome);
           break;
@@ -158,7 +164,7 @@ describe('genome spec compliance — cross-language fixture', () => {
             expect(pyOutput.slice(0, 8)).toBe(original.slice(0, 8));
           }
           if (inv['sections_from_parents'] && c.kind === 'crossover_invariant') {
-            const { parent_a, parent_b } = c.input as Record<string, string>;
+            const { parent_a, parent_b } = c.input as unknown as Record<string, string>;
             for (let i = 0; i < 3; i++) {
               const section   = pyOutput.slice(i * SECTION_LENGTH, (i + 1) * SECTION_LENGTH);
               const paSection = parent_a.slice(i * SECTION_LENGTH, (i + 1) * SECTION_LENGTH);
@@ -170,6 +176,47 @@ describe('genome spec compliance — cross-language fixture', () => {
               ).toBe(true);
             }
           }
+          break;
+        }
+
+        case 'xcode_decode': {
+          const inp = c.input as Record<string, string | number>;
+          const actual = decodeXcode(
+            inp['genome'] as string,
+            inp['slot_index'] as number,
+            inp['xcode_index'] as number,
+          );
+          expect(actual).toBe(c.expected as number);
+          break;
+        }
+
+        case 'xcode_encode': {
+          const actual = encodeXcode(c.input as number);
+          expect(actual).toBe(c.expected as string);
+          break;
+        }
+
+        case 'xcode_to_param': {
+          const inp = c.input as Record<string, number>;
+          const actual = xcodeToParamValue(
+            inp['xcode_value']!,
+            inp['range_min']!,
+            inp['range_max']!,
+          );
+          expect(actual).toBe(c.expected as number);
+          break;
+        }
+
+        case 'param_to_xcode_roundtrip': {
+          const inp = c.input as Record<string, number>;
+          const xcode = paramValueToXcode(
+            inp['param_value']!,
+            inp['range_min']!,
+            inp['range_max']!,
+          );
+          expect(xcode).toBe(c.expected_xcode);
+          const decoded = xcodeToParamValue(xcode, inp['range_min']!, inp['range_max']!);
+          expect(decoded).toBe(c.expected_decoded_value);
           break;
         }
 
