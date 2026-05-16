@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "install": "bash install.sh",
+    "setup": "bash install.sh",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
