@@ -1,5 +1,4 @@
 """Tests for the experiment driver, including the critical convergence test."""
-import random
 import pytest
 
 from alienclaw.evolution.experiment import run_experiment
@@ -68,8 +67,9 @@ class TestRunExperiment:
     def test_deterministic_with_seed(self):
         config = EvolutionConfig(martian_type="compute", population_size=4, seed=77)
         _, stats1 = run_experiment(config, fixed_runner(0.5), 3)
-        Population = __import__("alienclaw.evolution.population", fromlist=["Population"]).Population
-        Population("compute").clear() if False else None
+        mod = __import__("alienclaw.evolution.population", fromlist=["Population"])
+        pop_cls = mod.Population
+        pop_cls("compute").clear() if False else None
 
         # Same config + same seed → same stats
         config2 = EvolutionConfig(martian_type="http_get", population_size=4, seed=77)

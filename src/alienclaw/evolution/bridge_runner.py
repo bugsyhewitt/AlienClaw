@@ -10,10 +10,13 @@ import uuid
 from typing import Any
 
 from alienclaw.bridge.server import handle
+
 from .generation import FitnessReport
 
 
-def _call_bridge(martian_type: str, genome: str, inputs: dict[str, Any], timeout_ms: int) -> FitnessReport:
+def _call_bridge(
+    martian_type: str, genome: str, inputs: dict[str, Any], timeout_ms: int
+) -> FitnessReport:
     req = json.dumps({
         "bridge_version": "1.0",
         "request_id": str(uuid.uuid4()),
