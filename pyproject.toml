@@ -9,4 +9,7 @@ select = ["E", "F", "W", "I", "N"]
 omit = [
     "src/alienclaw/brains/decoder.py",
     "src/alienclaw/evolution/__main__.py",
+    "src/alienclaw/diagnostics/scaling_experiment.py",
+    "src/alienclaw/diagnostics/__main__.py",
+    "src/alienclaw/diagnostics/per_genome_capture.py",
 ]

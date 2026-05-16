@@ -3,3 +3,4 @@ pytest-cov>=4.1,<8.0
 ruff>=0.1,<1.0
 PyYAML>=6.0
 numpy>=1.24
+scikit-learn>=1.3
