@@ -1,4 +1,13 @@
-"""Bridge server: reads one JSON request from stdin, writes one JSON response to stdout."""
+"""Bridge server: reads one JSON request from stdin, writes one JSON response to stdout.
+
+Packet 16: dispatches via MartianRegistry. Each Martian declares 1-2 ordered
+tool slots. The bridge walks slots, resolves wired inputs from prior slot
+outputs, decodes per-slot genome params (slot_index = martian_slot_index + 1),
+runs the tool, aggregates fitness (correctness = min, tool_calls = sum), and
+returns the final slot's output. Single-slot Martians keep their pre-Packet-16
+behavior; the registry registers ``<tool>`` as an alias for ``<tool>_alone``
+to preserve the old wire protocol.
+"""
 from __future__ import annotations
 
 import json
@@ -10,10 +19,14 @@ from alienclaw.genome.validation import validate as validate_genome
 from alienclaw.fitness import evaluate, FitnessInputs
 from alienclaw.brains.registry import BrainRegistry
 from alienclaw.brains.decoder import decode_params
-from .runners import RUNNER_REGISTRY
+from alienclaw.tools import TOOL_REGISTRY
+from alienclaw.martians.registry import MartianRegistry
+from alienclaw.martians.substitution import resolve_inputs
 from alienclaw.diagnostics import instrumentation as _diag
 
 _brain_registry: BrainRegistry | None = None
+_martian_registry: MartianRegistry | None = None
+
 
 def _get_registry() -> BrainRegistry:
     global _brain_registry
@@ -21,11 +34,19 @@ def _get_registry() -> BrainRegistry:
         _brain_registry = BrainRegistry.load("seed/msb/")
     return _brain_registry
 
+
+def _get_martian_registry() -> MartianRegistry:
+    global _martian_registry
+    if _martian_registry is None:
+        _martian_registry = MartianRegistry.load("seed/martians/", _get_registry())
+    return _martian_registry
+
+
 _SUPPORTED_VERSION = "1.0"
 _MAX_BYTES = 1_048_576  # 1 MiB
 
 
-def _error_response(request_id: str | None, code: str, message: str, details: dict[str, Any], wall_clock_ms: int = 0) -> dict:
+def _error_response(request_id: str | None, code: str, message: str, details: dict[str, Any], wall_clock_ms: int = 0, tool_calls: int = 0) -> dict:
     return {
         "bridge_version": _SUPPORTED_VERSION,
         "request_id": request_id,
@@ -33,12 +54,12 @@ def _error_response(request_id: str | None, code: str, message: str, details: di
             "ok": False,
             "error": {"code": code, "message": message, "details": details},
             "fitness": 0.0,
-            "run_metadata": {"tool_calls": 0, "wall_clock_ms": wall_clock_ms},
+            "run_metadata": {"tool_calls": tool_calls, "wall_clock_ms": wall_clock_ms},
         },
     }
 
 
-def _success_response(request_id: str, output: dict, fitness_result: Any, wall_clock_ms: int) -> dict:
+def _success_response(request_id: str, output: dict, fitness_result: Any, wall_clock_ms: int, tool_calls: int = 1) -> dict:
     return {
         "bridge_version": _SUPPORTED_VERSION,
         "request_id": request_id,
@@ -47,7 +68,7 @@ def _success_response(request_id: str, output: dict, fitness_result: Any, wall_c
             "output": output,
             "fitness": fitness_result.fitness,
             "run_metadata": {
-                "tool_calls": 1,
+                "tool_calls": tool_calls,
                 "wall_clock_ms": wall_clock_ms,
                 "correctness": fitness_result.correctness,
                 "efficiency": fitness_result.efficiency,
@@ -55,6 +76,103 @@ def _success_response(request_id: str, output: dict, fitness_result: Any, wall_c
             },
         },
     }
+
+
+def _execute_martian(
+    martian_spec: Any,
+    genome: str,
+    campaign_inputs: dict[str, Any],
+    brains: BrainRegistry,
+    t0: float,
+    request_id: str | None,
+) -> tuple[dict, dict | None, int, float, int]:
+    """Walk a Martian's slots and execute each tool in order.
+
+    Returns:
+        (response_dict, final_output_or_none, total_tool_calls, martian_correctness, wall_ms)
+
+    The first element is the full response dict to return to the caller.
+    """
+    slot_outputs: list[dict] = []
+    total_tool_calls = 0
+    slot_correctnesses: list[float] = []
+
+    for slot_decl in martian_spec.slots:
+        # 1. Resolve inputs for this slot
+        try:
+            resolved_inputs = resolve_inputs(
+                slot_decl.inputs_from,
+                slot_outputs,
+                campaign_inputs,
+            )
+        except Exception as exc:
+            wall_ms = int((time.monotonic() - t0) * 1000)
+            return (
+                _error_response(
+                    request_id, "TOOL_RUNNER_FAILED",
+                    f"Slot {slot_decl.slot_index} input resolution failed: {exc}",
+                    {"output_partial": None, "slot_index": slot_decl.slot_index},
+                    wall_ms, total_tool_calls,
+                ),
+                None, total_tool_calls, 0.0, wall_ms,
+            )
+
+        # 2. Decode genome params for this slot (slot_index = martian_slot_index + 1)
+        brain = brains.lookup_by_name(slot_decl.tool_name)
+        genome_section = slot_decl.slot_index + 1
+        decoded = decode_params(brain, genome, slot_index=genome_section) if brain else {}
+
+        # 3. Execute the tool
+        tool = TOOL_REGISTRY[slot_decl.tool_name]
+        _diag.record_runner_call(genome_passed=True)
+        try:
+            run_result = tool(resolved_inputs, decoded)
+        except Exception as exc:
+            wall_ms = int((time.monotonic() - t0) * 1000)
+            return (
+                _error_response(
+                    request_id, "TOOL_RUNNER_FAILED",
+                    f"Slot {slot_decl.slot_index} runner raised exception: {exc}",
+                    {"output_partial": None, "slot_index": slot_decl.slot_index},
+                    wall_ms, total_tool_calls,
+                ),
+                None, total_tool_calls, 0.0, wall_ms,
+            )
+
+        total_tool_calls += run_result.tool_calls
+        slot_correctnesses.append(run_result.correctness if run_result.ok else 0.0)
+        slot_outputs.append(run_result.output or {})
+
+        # Slot failure → Martian fails
+        if not run_result.ok:
+            wall_ms = int((time.monotonic() - t0) * 1000)
+            _diag.record_runner_result(run_result.output, run_result.error, 0.0, total_tool_calls)
+            _diag.record_fitness(0.0)
+            return (
+                _error_response(
+                    request_id, "TOOL_RUNNER_FAILED",
+                    f"Slot {slot_decl.slot_index} failed: {run_result.error or 'Runner failed'}",
+                    {"output_partial": run_result.output, "slot_index": slot_decl.slot_index},
+                    wall_ms, total_tool_calls,
+                ),
+                run_result.output, total_tool_calls, 0.0, wall_ms,
+            )
+
+    # All slots succeeded
+    wall_ms = int((time.monotonic() - t0) * 1000)
+    martian_correctness = min(slot_correctnesses) if slot_correctnesses else 0.0
+    fitness_result = evaluate(FitnessInputs(
+        correctness=martian_correctness,
+        tool_calls=total_tool_calls,
+        slot_count=len(martian_spec.slots),
+    ))
+    final_output = slot_outputs[-1] if slot_outputs else {}
+    _diag.record_runner_result(final_output, None, martian_correctness, total_tool_calls)
+    _diag.record_fitness(fitness_result.fitness)
+    return (
+        _success_response(request_id, final_output, fitness_result, wall_ms, tool_calls=total_tool_calls),
+        final_output, total_tool_calls, martian_correctness, wall_ms,
+    )
 
 
 def handle(raw: bytes) -> dict:
@@ -101,12 +219,13 @@ def handle(raw: bytes) -> dict:
         return _error_response(request_id, "INVALID_GENOME", f"Genome validation failed: {validation.errors[0]}", {"errors": validation.errors})
 
     martian_type = req["martian_type"]
-    if martian_type not in RUNNER_REGISTRY:
+    registry = _get_martian_registry()
+    if not registry.has(martian_type):
         return _error_response(
             request_id,
             "UNKNOWN_MARTIAN_TYPE",
-            f"No brain for martian_type='{martian_type}'",
-            {"available": sorted(RUNNER_REGISTRY.keys())},
+            f"No Martian for martian_type='{martian_type}'",
+            {"available": sorted(m.martian_type for m in registry.all())},
         )
 
     timeout_ms = req["timeout_ms"]
@@ -116,33 +235,14 @@ def handle(raw: bytes) -> dict:
     if not isinstance(req["inputs"], dict):
         return _error_response(request_id, "MALFORMED_REQUEST", "inputs must be an object", {"missing_fields": ["inputs"]})
 
+    martian_spec = registry.get(martian_type)
     _diag.record_genome(genome, martian_type, req["inputs"])
 
-    # Decode genome → behavioral parameters per the brain's parameter_schema
-    brains = _get_registry().all_brains()
-    brain = next((b for b in brains if b.tool == martian_type), None)
-    decoded = decode_params(brain, genome) if brain else {}
-
-    runner = RUNNER_REGISTRY[martian_type]
-    _diag.record_runner_call(genome_passed=True)  # decoded params now reach runner
-    try:
-        run_result = runner(req["inputs"], decoded)
-    except Exception as exc:
-        wall_ms = int((time.monotonic() - t0) * 1000)
-        return _error_response(request_id, "TOOL_RUNNER_FAILED", f"Runner raised exception: {exc}", {"output_partial": None}, wall_ms)
-
-    wall_ms = int((time.monotonic() - t0) * 1000)
-
-    if not run_result.ok:
-        fitness_result = evaluate(FitnessInputs(correctness=0.0, tool_calls=run_result.tool_calls, error=run_result.error))
-        _diag.record_runner_result(run_result.output, run_result.error, 0.0, run_result.tool_calls)
-        _diag.record_fitness(0.0)
-        return _error_response(request_id, "TOOL_RUNNER_FAILED", run_result.error or "Runner failed", {"output_partial": run_result.output}, wall_ms)
-
-    fitness_result = evaluate(FitnessInputs(correctness=run_result.correctness, tool_calls=run_result.tool_calls))
-    _diag.record_runner_result(run_result.output, None, run_result.correctness, run_result.tool_calls)
-    _diag.record_fitness(fitness_result.fitness)
-    return _success_response(request_id, run_result.output, fitness_result, wall_ms)
+    brains = _get_registry()
+    response, _final_output, _tool_calls, _correctness, _wall_ms = _execute_martian(
+        martian_spec, genome, req["inputs"], brains, t0, request_id,
+    )
+    return response
 
 
 def _handle_summon_from_population(request_id: str | None, req: dict, t0: float) -> dict:
@@ -158,14 +258,19 @@ def _handle_summon_from_population(request_id: str | None, req: dict, t0: float)
 
     martian_type = req["martian_type"]
     inputs = req.get("inputs", {})
+    if not isinstance(inputs, dict):
+        return _error_response(request_id, "MALFORMED_REQUEST", "inputs must be an object", {"missing_fields": ["inputs"]})
     timeout_ms = req.get("timeout_ms", 30_000)
 
-    if martian_type not in RUNNER_REGISTRY:
+    registry = _get_martian_registry()
+    if not registry.has(martian_type):
         return _error_response(
             request_id, "UNKNOWN_MARTIAN_TYPE",
-            f"No brain for martian_type='{martian_type}'",
-            {"available": sorted(RUNNER_REGISTRY.keys())},
+            f"No Martian for martian_type='{martian_type}'",
+            {"available": sorted(m.martian_type for m in registry.all())},
         )
+
+    martian_spec = registry.get(martian_type)
 
     # Load or create population for this martian_type
     config = EvolutionConfig(martian_type=martian_type)
@@ -181,42 +286,47 @@ def _handle_summon_from_population(request_id: str | None, req: dict, t0: float)
     except RuntimeError as exc:
         return _error_response(request_id, "INTERNAL", f"Selection error: {exc}", {"exception": str(exc)})
 
-    # Run the martian with the selected genome
-    runner = RUNNER_REGISTRY[martian_type]
-    try:
-        run_result = runner(inputs)
-    except Exception as exc:
-        wall_ms = int((time.monotonic() - t0) * 1000)
-        return _error_response(request_id, "TOOL_RUNNER_FAILED", f"Runner exception: {exc}", {"output_partial": None}, wall_ms)
+    # Run the Martian with the selected genome
+    brains = _get_registry()
+    response, final_output, total_tool_calls, correctness, wall_ms = _execute_martian(
+        martian_spec, genome, inputs, brains, t0, request_id,
+    )
 
-    wall_ms = int((time.monotonic() - t0) * 1000)
-
-    if not run_result.ok:
-        fitness_result = evaluate(FitnessInputs(correctness=0.0, tool_calls=run_result.tool_calls, error=run_result.error))
-        # Feed fitness back to population even on failure
+    if not response["response"]["ok"]:
+        # Feed failure fitness back to population
         try:
-            pop.add(genome=genome, fitness=0.0, generation=pop.current_generation(),
-                    parent_ids=(selected.entry_id,), run_metadata={"error": run_result.error, "re_evaluated": True})
+            pop.add(
+                genome=genome, fitness=0.0,
+                generation=pop.current_generation(),
+                parent_ids=(selected.entry_id,),
+                run_metadata={
+                    "error": response["response"]["error"]["message"],
+                    "re_evaluated": True,
+                },
+            )
         except Exception:
             pass
-        return _error_response(request_id, "TOOL_RUNNER_FAILED", run_result.error or "Runner failed",
-                                {"output_partial": run_result.output, "genome_used": genome}, wall_ms)
+        # Annotate with genome_used and partial output for backward compat
+        response["response"]["error"]["details"]["genome_used"] = genome
+        return response
 
-    fitness_result = evaluate(FitnessInputs(correctness=run_result.correctness, tool_calls=run_result.tool_calls))
-
-    # Feed fitness back into the population
+    # Success: feed fitness back
+    fitness = response["response"]["fitness"]
     try:
-        pop.add(genome=genome, fitness=fitness_result.fitness, generation=pop.current_generation(),
-                parent_ids=(selected.entry_id,), run_metadata={
-                    "tool_calls": 1, "wall_clock_ms": wall_ms,
-                    "correctness": fitness_result.correctness, "re_evaluated": True,
-                })
+        pop.add(
+            genome=genome, fitness=fitness,
+            generation=pop.current_generation(),
+            parent_ids=(selected.entry_id,),
+            run_metadata={
+                "tool_calls": total_tool_calls, "wall_clock_ms": wall_ms,
+                "correctness": correctness, "re_evaluated": True,
+            },
+        )
     except Exception:
         pass
 
-    resp = _success_response(request_id, run_result.output, fitness_result, wall_ms)
-    resp["response"]["genome_used"] = genome
-    return resp
+    response["response"]["genome_used"] = genome
+    return response
 
 
 def main() -> None:
