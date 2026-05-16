@@ -1,13 +1,9 @@
 """Decode genome bytes into typed runtime parameters per a BrainSpec.
 
 decode_params(brain, genome) is the bridge between genome content and
-runner behavior. It reads bytes from the EXECUTION and BEHAVIOR sections
-at the offsets declared in the brain's parameter_schema and applies the
-declared encoding to produce a typed Python value.
-
-Cross-language: the TypeScript decoder in governance/genome-decoder.ts
-must produce identical dicts for the same (brain, genome) inputs.
-Both are validated by test/fixtures/decoder-fixtures.json.
+runner behavior. As of Packet 15, parameters are encoded as Xcodes (2-char
+Base62 pairs) within slot 1 (EXECUTION section). The Xcode value is mapped
+linearly to the declared natural range [range_min, range_max].
 
 Decode errors NEVER raise — they fall back to the field's declared
 default. This keeps the summon path safe even if a genome has unusual
@@ -17,21 +13,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from alienclaw.genome.alphabet import SECTION_IDENTITY, SECTION_EXECUTION, SECTION_BEHAVIOR, SECTION_LENGTH
-from .types import BrainSpec, ParameterSchemaField
+from alienclaw.genome.codec import decode_xcode, xcode_to_param_value
 
-_SECTION_OFFSETS: dict[str, int] = {
-    "IDENTITY":  SECTION_IDENTITY  * SECTION_LENGTH,   # 0
-    "EXECUTION": SECTION_EXECUTION * SECTION_LENGTH,   # 64
-    "BEHAVIOR":  SECTION_BEHAVIOR  * SECTION_LENGTH,   # 128
-}
+from .types import BrainSpec
 
 
-def decode_params(brain: BrainSpec, genome: str) -> dict[str, Any]:
+def decode_params(brain: BrainSpec, genome: str, slot_index: int = 1) -> dict[str, Any]:
     """Extract behavioral parameters from a genome per the brain's schema.
 
-    Returns an empty dict if the brain has no parameter_schema. Returns
-    the field's default on any decode error. Never raises.
+    slot_index: which genome section to read Xcodes from.
+                Default=1 (EXECUTION section) for backward compat.
+                Martian bridge uses slot_index = martian_slot_index + 1.
+
+    Each parameter is read at the field's xcode_index. Xcode value mapped to
+    natural range via xcode_to_param_value. Returns {} if no parameter_schema.
+    Falls back to field.default on any error.
     """
     if len(genome) != 256:
         raise ValueError(f"genome must be 256 chars, got {len(genome)}")
@@ -40,41 +36,8 @@ def decode_params(brain: BrainSpec, genome: str) -> dict[str, Any]:
     params: dict[str, Any] = {}
     for field in brain.parameter_schema:
         try:
-            section_start = _SECTION_OFFSETS[field.section]
-            abs_pos = section_start + field.byte_offset
-            char = genome[abs_pos]
-            params[field.name] = _apply_encoding(char, field)
+            xcode_val = decode_xcode(genome, slot_index, field.xcode_index)
+            params[field.name] = xcode_to_param_value(xcode_val, field.range_min, field.range_max)
         except Exception:
             params[field.name] = field.default
     return params
-
-
-def _apply_encoding(char: str, field: ParameterSchemaField) -> Any:
-    """Apply the field's canonical encoding to a single genome character.
-
-    Canonical encodings (subtract 48 from ord to align '0'→0):
-      mod3_plus1       ((ord-48) % 3) + 1  → int [1..3]
-      mod5_plus1       ((ord-48) % 5) + 1  → int [1..5]
-      mod10_plus1      ((ord-48) % 10) + 1 → int [1..10]
-      mod10_times500   ((ord-48) % 10) * 500 → int [0..4500]
-      char_eq_F        char == 'F'          → bool
-      char_code_even   ord(char) % 2 == 0  → bool
-    """
-    code = ord(char)
-    rel = code - 48  # relative to '0'
-
-    enc = field.encoding
-    if enc == "mod3_plus1":
-        return (rel % 3) + 1
-    if enc == "mod5_plus1":
-        return (rel % 5) + 1
-    if enc == "mod10_plus1":
-        return (rel % 10) + 1
-    if enc == "mod10_times500":
-        return (rel % 10) * 500
-    if enc == "char_eq_F":
-        return char == "F"
-    if enc == "char_code_even":
-        return code % 2 == 0
-    # Unknown encoding → return default
-    return field.default
