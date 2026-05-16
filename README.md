@@ -55,6 +55,29 @@ Communication graph (enforced in `src/alienclaw/`):
 | Campaign | Specialists | Ephemeral — per campaign | No (current scope) |
 | Tool execution | Martians | Ephemeral — per tool task | Yes — 256-char Base62 |
 
+## Before You Start: API Key
+
+AlienClaw's agents call an LLM to think. You need an API key from at least one
+of these providers:
+
+| Provider | Environment variable |
+| --- | --- |
+| Anthropic (Claude) | `ANTHROPIC_API_KEY` |
+| OpenAI (GPT) | `OPENAI_API_KEY` |
+| Google (Gemini) | `GEMINI_API_KEY` |
+| OpenRouter | `OPENROUTER_API_KEY` |
+
+Set the variable in your shell before running anything:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."   # or whichever provider you use
+```
+
+If you skip this, `openclaw configure` will complete but BossBot will fail to
+respond when you first chat. The error will say something like `No model provider
+configured` or `API key missing`. See [.env.example](./.env.example) for the full
+list of supported variables.
+
 ## Quick Start
 
 ```bash
@@ -71,6 +94,26 @@ bash install.sh
 
 # 4. Talk to BossBot
 openclaw chat
+```
+
+### What `openclaw configure` asks
+
+Step 2 opens an interactive setup wizard. Here is what it covers:
+
+**Gateway location** — choose *Local (this machine)*. This is the default; just
+press Enter.
+
+**Model provider** — this is where you set your API key. Select your provider
+(Anthropic, OpenAI, Gemini, etc.) and paste the key when prompted. If you already
+set the environment variable above, the wizard will detect it automatically.
+
+**Other sections** (workspace, web, daemon, channels) — safe to skip on first run.
+Press Ctrl+C or answer the "skip?" prompts to move past them.
+
+To configure only the model/API key without going through all sections:
+
+```bash
+openclaw configure --section model
 ```
 
 Preview the installer without running it: `bash install.sh --dry-run`
