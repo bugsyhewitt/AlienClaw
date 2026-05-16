@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 TOOL_NAMES = {
     "compute", "extract_json", "file_read", "file_write",
     "http_get", "search_text", "url_fetch", "web_search",

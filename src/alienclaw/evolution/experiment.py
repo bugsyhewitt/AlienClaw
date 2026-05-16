@@ -8,7 +8,7 @@ from __future__ import annotations
 import random
 from typing import Callable
 
-from .generation import FitnessReport, RunMartianCallback, evaluate_and_evolve
+from .generation import RunMartianCallback, evaluate_and_evolve
 from .population import Population
 from .stats import compute_from_entries
 from .types import EvolutionConfig, GenerationStats
