@@ -1,0 +1,29 @@
+# Override added 2026-05-08 by Packet 21 diagnostic.
+#
+# Auto-gen produced a 1-line JSON file. With file_read's skip_lines parameter
+# (range [0,9], decoded from genome Xcode), the runner does:
+#   skip = max(0, skip_lines - 1)
+# So skip_lines=0 or 1 -> no lines skipped -> content == full JSON -> success.
+# skip_lines>=2 -> 1-8 lines skipped -> on a 1-line file -> content == ""
+# -> extract_json fails with "Missing 'json' or 'input' field".
+#
+# Because random genomes uniformly sample skip_lines in [0,9], roughly 80%
+# of pairs pick a skip_lines value that empties the content. Empirically:
+# 4/40 random genomes succeed (10%) on the auto-generated 1-line stub.
+#
+# This override bypasses file_read's truncation issue to test whether
+# extract_json's own parameters drive sensitivity when given valid JSON
+# input. It provides pre-computed slot 0 output with complete valid JSON
+# content. NOTE: there is no current loader for stub overrides; this file
+# documents the desired behavior. Phase 3 simulated the override by
+# patching TOOL_REGISTRY["file_read"] to return this output regardless of
+# parameters.
+slots:
+  0:
+    output:
+      path: "/tmp/read_then_extract_audit_stub.json"
+      content: '{"title": "audit test", "value": 42, "score": 99, "tags": ["a", "b", "c"]}'
+      size_bytes: 79
+      lines_returned: 1
+      total_lines: 1
+      chunk_count: 1

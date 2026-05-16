@@ -1,0 +1,14 @@
+martian_type: write_then_verify
+description: "Write content to a file, then read it back to verify."
+use_cases:
+  - "Write-verify pattern for critical data persistence"
+  - "Checking that a file write succeeded by confirming readability"
+slots:
+  - slot_index: 0
+    tool_name: file_write
+    inputs_from: null
+  - slot_index: 1
+    tool_name: file_read
+    inputs_from:
+      fields:
+        path: "${slot[0].output.path}"

@@ -1,0 +1,15 @@
+martian_type: fetch_then_parse
+description: "HTTP GET a URL, then parse the JSON response body."
+use_cases:
+  - "Hitting a JSON API endpoint and extracting a specific field"
+  - "Validating that a URL returns well-formed JSON"
+slots:
+  - slot_index: 0
+    tool_name: http_get
+    inputs_from: null
+  - slot_index: 1
+    tool_name: extract_json
+    inputs_from:
+      fields:
+        json: "${slot[0].output.body}"
+        path: "${campaign.extract_path}"

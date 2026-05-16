@@ -1,0 +1,166 @@
+{
+  "$schema_version": "1.0",
+  "$schema_doc": "Martian substitution fixture cases — exercises the ${...} substitution engine. Expected values use Python json.dumps formatting (spaces after commas/colons).",
+  "cases": [
+    {
+      "name": "campaign-string",
+      "kind": "substitute",
+      "template": "${campaign.query}",
+      "slot_outputs": [],
+      "campaign_inputs": {"query": "hello"},
+      "expected": "hello"
+    },
+    {
+      "name": "slot-output-string",
+      "kind": "substitute",
+      "template": "${slot[0].output.body}",
+      "slot_outputs": [{"body": "content"}],
+      "campaign_inputs": {},
+      "expected": "content"
+    },
+    {
+      "name": "int-auto-json",
+      "kind": "substitute",
+      "template": "${slot[0].output.count}",
+      "slot_outputs": [{"count": 42}],
+      "campaign_inputs": {},
+      "expected": "42"
+    },
+    {
+      "name": "bool-true-json",
+      "kind": "substitute",
+      "template": "${slot[0].output.ok}",
+      "slot_outputs": [{"ok": true}],
+      "campaign_inputs": {},
+      "expected": "true"
+    },
+    {
+      "name": "list-json-serialized",
+      "kind": "substitute",
+      "template": "${slot[0].output.matches}",
+      "slot_outputs": [{"matches": [1, 2, 3]}],
+      "campaign_inputs": {},
+      "expected": "[1, 2, 3]"
+    },
+    {
+      "name": "null-json-serialized",
+      "kind": "substitute",
+      "template": "${slot[0].output.val}",
+      "slot_outputs": [{"val": null}],
+      "campaign_inputs": {},
+      "expected": "null"
+    },
+    {
+      "name": "no-tokens-passthrough",
+      "kind": "substitute",
+      "template": "plain text",
+      "slot_outputs": [],
+      "campaign_inputs": {},
+      "expected": "plain text"
+    },
+    {
+      "name": "multiple-tokens",
+      "kind": "substitute",
+      "template": "${campaign.a} and ${slot[0].output.b}",
+      "slot_outputs": [{"b": "B"}],
+      "campaign_inputs": {"a": "A"},
+      "expected": "A and B"
+    },
+    {
+      "name": "dict-json-serialized",
+      "kind": "substitute",
+      "template": "${slot[0].output.meta}",
+      "slot_outputs": [{"meta": {"x": 1}}],
+      "campaign_inputs": {},
+      "expected": "{\"x\": 1}"
+    },
+    {
+      "name": "slot-1-from-slot-0",
+      "kind": "substitute",
+      "template": "${slot[0].output.result}",
+      "slot_outputs": [{"result": "42"}, {}],
+      "campaign_inputs": {},
+      "expected": "42"
+    },
+    {
+      "name": "forward-ref-error",
+      "kind": "substitute_error",
+      "template": "${slot[2].output.x}",
+      "slot_outputs": [{"y": 1}],
+      "campaign_inputs": {},
+      "expected_error": "slot"
+    },
+    {
+      "name": "missing-slot-field-error",
+      "kind": "substitute_error",
+      "template": "${slot[0].output.missing}",
+      "slot_outputs": [{"other": 1}],
+      "campaign_inputs": {},
+      "expected_error": "missing"
+    },
+    {
+      "name": "missing-campaign-field-error",
+      "kind": "substitute_error",
+      "template": "${campaign.gone}",
+      "slot_outputs": [],
+      "campaign_inputs": {"present": 1},
+      "expected_error": "gone"
+    },
+    {
+      "name": "float-json-serialized",
+      "kind": "substitute",
+      "template": "${slot[0].output.ratio}",
+      "slot_outputs": [{"ratio": 3.14}],
+      "campaign_inputs": {},
+      "expected": "3.14"
+    },
+    {
+      "name": "empty-string-passthrough",
+      "kind": "substitute",
+      "template": "${campaign.empty}",
+      "slot_outputs": [],
+      "campaign_inputs": {"empty": ""},
+      "expected": ""
+    },
+    {
+      "name": "nested-dict-json",
+      "kind": "substitute",
+      "template": "${slot[0].output.data}",
+      "slot_outputs": [{"data": {"a": [1, 2], "b": true}}],
+      "campaign_inputs": {},
+      "expected": "{\"a\": [1, 2], \"b\": true}"
+    },
+    {
+      "name": "zero-int-json",
+      "kind": "substitute",
+      "template": "${slot[0].output.n}",
+      "slot_outputs": [{"n": 0}],
+      "campaign_inputs": {},
+      "expected": "0"
+    },
+    {
+      "name": "campaign-integer",
+      "kind": "substitute",
+      "template": "${campaign.limit}",
+      "slot_outputs": [],
+      "campaign_inputs": {"limit": 10},
+      "expected": "10"
+    },
+    {
+      "name": "template-with-text-before-token",
+      "kind": "substitute",
+      "template": "Query: ${campaign.q}",
+      "slot_outputs": [],
+      "campaign_inputs": {"q": "test"},
+      "expected": "Query: test"
+    },
+    {
+      "name": "template-with-text-after-token",
+      "kind": "substitute",
+      "template": "${slot[0].output.val} end",
+      "slot_outputs": [{"val": "x"}],
+      "campaign_inputs": {},
+      "expected": "x end"
+    }
+  ]
+}
