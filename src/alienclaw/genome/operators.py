@@ -31,7 +31,6 @@ from __future__ import annotations
 import random
 
 from .alphabet import (
-    ALPHABET,
     GENOME_LENGTH,
     ID_TAG_END,
     MUTABLE_LENGTH,
@@ -100,7 +99,7 @@ def mutate(
     Raises:
         ValueError: if genome is not a valid 256-char Base62 string.
     """
-    from .codec import XCODE_MAX, _XCODE_INDEX, encode_xcode
+    from .codec import _XCODE_INDEX, XCODE_MAX, encode_xcode
 
     if len(genome) != GENOME_LENGTH:
         raise ValueError(
@@ -230,8 +229,10 @@ def _mutate_xcode_inplace(
 ) -> bool:
     """Mutate one Xcode in-place in chars list. Returns True if changed."""
     from .codec import (
-        encode_xcode, xcode_to_param_value, param_value_to_xcode,
         _XCODE_INDEX,
+        encode_xcode,
+        param_value_to_xcode,
+        xcode_to_param_value,
     )
     if rng.random() >= rate:
         return False

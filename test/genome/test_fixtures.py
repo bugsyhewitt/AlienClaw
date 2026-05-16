@@ -169,20 +169,23 @@ def test_fixture_case(case: dict[str, Any]) -> None:  # noqa: C901
 
     elif kind == "xcode_decode":
         inp = case["input"]
-        assert decode_xcode(inp["genome"], inp["slot_index"], inp["xcode_index"]) == case["expected"]
+        result = decode_xcode(inp["genome"], inp["slot_index"], inp["xcode_index"])
+        assert result == case["expected"]
 
     elif kind == "xcode_encode":
         assert encode_xcode(case["input"]) == case["expected"]
 
     elif kind == "xcode_to_param":
         inp = case["input"]
-        assert xcode_to_param_value(inp["xcode_value"], inp["range_min"], inp["range_max"]) == case["expected"]
+        result = xcode_to_param_value(inp["xcode_value"], inp["range_min"], inp["range_max"])
+        assert result == case["expected"]
 
     elif kind == "param_to_xcode_roundtrip":
         inp = case["input"]
         x = param_value_to_xcode(inp["param_value"], inp["range_min"], inp["range_max"])
         assert x == case["expected_xcode"]
-        assert xcode_to_param_value(x, inp["range_min"], inp["range_max"]) == case["expected_decoded_value"]
+        decoded = xcode_to_param_value(x, inp["range_min"], inp["range_max"])
+        assert decoded == case["expected_decoded_value"]
 
     else:
         pytest.fail(f"Unknown fixture kind {kind!r} in case {case['name']!r}")

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from alienclaw.genome.codec import (
@@ -12,8 +14,6 @@ from alienclaw.genome.codec import (
     xcode_to_param_value,
 )
 from alienclaw.genome.operators import random_genome
-import random
-
 
 _WEB_GENOME = random_genome(random.Random(0), "WEB00001")
 
