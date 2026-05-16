@@ -1,0 +1,26 @@
+{
+  "$schema_version": "1.0",
+  "$schema_doc": "Martian registry/parser/validator fixture cases.",
+  "cases": [
+    {"name": "parse-compute_alone", "kind": "parse_martian_file", "input_file": "seed/martians/compute_alone.martian", "expected": {"martian_type": "compute_alone", "slot_count": 1, "slot_0_tool": "compute"}},
+    {"name": "parse-fetch_then_parse", "kind": "parse_martian_file", "input_file": "seed/martians/fetch_then_parse.martian", "expected": {"martian_type": "fetch_then_parse", "slot_count": 2, "slot_0_tool": "http_get", "slot_1_tool": "extract_json"}},
+    {"name": "parse-write_then_verify", "kind": "parse_martian_file", "input_file": "seed/martians/write_then_verify.martian", "expected": {"martian_type": "write_then_verify", "slot_count": 2, "slot_0_tool": "file_write", "slot_1_tool": "file_read"}},
+    {"name": "registry-16-types", "kind": "registry_count", "expected_count": 16},
+    {"name": "registry-has-alias-compute", "kind": "registry_has", "martian_type": "compute", "expected": true},
+    {"name": "registry-has-alias-web_search", "kind": "registry_has", "martian_type": "web_search", "expected": true},
+    {"name": "registry-composition-present", "kind": "registry_has", "martian_type": "search_then_count", "expected": true},
+    {"name": "tool-id-compute", "kind": "tool_id", "tool_name": "compute", "expected_id": 1},
+    {"name": "tool-id-extract_json", "kind": "tool_id", "tool_name": "extract_json", "expected_id": 2},
+    {"name": "tool-id-file_read", "kind": "tool_id", "tool_name": "file_read", "expected_id": 3},
+    {"name": "tool-id-file_write", "kind": "tool_id", "tool_name": "file_write", "expected_id": 4},
+    {"name": "tool-id-http_get", "kind": "tool_id", "tool_name": "http_get", "expected_id": 5},
+    {"name": "tool-id-search_text", "kind": "tool_id", "tool_name": "search_text", "expected_id": 6},
+    {"name": "tool-id-url_fetch", "kind": "tool_id", "tool_name": "url_fetch", "expected_id": 7},
+    {"name": "tool-id-web_search", "kind": "tool_id", "tool_name": "web_search", "expected_id": 8},
+    {"name": "parse-error-missing-martian_type", "kind": "parse_martian_error", "content": "slots:\n  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n", "expected_error": "martian_type"},
+    {"name": "parse-error-missing-slots", "kind": "parse_martian_error", "content": "martian_type: foo\n", "expected_error": "slots"},
+    {"name": "parse-error-empty-slots", "kind": "parse_martian_error", "content": "martian_type: foo\nslots: []\n", "expected_error": "non-empty"},
+    {"name": "parse-error-bad-yaml", "kind": "parse_martian_error", "content": "{bad yaml: [", "expected_error": "YAML"},
+    {"name": "validate-error-unknown-tool", "kind": "validate_error", "spec_yaml": "martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: bogus_tool\n    inputs_from: null\n", "expected_error": "bogus_tool"}
+  ]
+}

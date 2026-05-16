@@ -1,0 +1,14 @@
+martian_type: search_then_count
+description: "Search text for a pattern, then compute something with the match count."
+use_cases:
+  - "Counting occurrences of a pattern and applying arithmetic to the count"
+  - "Finding how many times a token appears and computing a ratio"
+slots:
+  - slot_index: 0
+    tool_name: search_text
+    inputs_from: null
+  - slot_index: 1
+    tool_name: compute
+    inputs_from:
+      fields:
+        input: "${slot[0].output.match_count}"

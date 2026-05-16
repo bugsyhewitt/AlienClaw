@@ -1,0 +1,9 @@
+martian_type: compute_alone
+description: "Single compute tool. Backwards-compat for pre-Packet-16 single-tool populations."
+use_cases:
+  - "Pre-Packet-16 compute evolution experiments"
+  - "Baseline comparison for compute-based compositions"
+slots:
+  - slot_index: 0
+    tool_name: compute
+    inputs_from: null
