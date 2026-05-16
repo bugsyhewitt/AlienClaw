@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from alienclaw.evolution.migrations.migrate_pre_packet_16 import migrate, TOOL_NAMES
+from alienclaw.evolution.migrations.migrate_pre_packet_16 import TOOL_NAMES, migrate
 
 
 def test_migration_renames_tool_dirs(tmp_path: Path) -> None:

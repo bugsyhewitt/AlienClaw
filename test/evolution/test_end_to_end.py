@@ -76,12 +76,13 @@ def test_evolution_with_real_bridge():
 def test_summon_from_population_bridge_extension():
     """Smoke test: summon-from-population request kind reaches the bridge and returns ok."""
     import json
+    import random as rnd
+
     from alienclaw.bridge.server import handle
     from alienclaw.evolution.population import Population
 
     # Create a pre-seeded population with one evaluated entry
     from alienclaw.genome.operators import random_genome
-    import random as rnd
     config = EvolutionConfig(martian_type="compute", population_size=2, seed=1)
     pop = Population.create(config)
     # Give one entry a real fitness score

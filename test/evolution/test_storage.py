@@ -1,9 +1,9 @@
 import json
-from pathlib import Path
+
 import pytest
 
-from alienclaw.evolution.storage import PopulationStorage, populations_root
-from alienclaw.evolution.types import EvolutionConfig, PopulationEntry, GenerationStats
+from alienclaw.evolution.storage import PopulationStorage
+from alienclaw.evolution.types import EvolutionConfig, GenerationStats, PopulationEntry
 
 
 @pytest.fixture(autouse=True)

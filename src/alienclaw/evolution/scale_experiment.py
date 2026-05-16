@@ -16,11 +16,10 @@ from __future__ import annotations
 import json
 import os
 import random as _random
+import shutil
 import time
 from pathlib import Path
 from typing import Any
-
-import shutil
 
 from alienclaw.diagnostics.diversity_tracker import population_diversity
 from alienclaw.evolution.generation import RunMartianCallback, evaluate_and_evolve

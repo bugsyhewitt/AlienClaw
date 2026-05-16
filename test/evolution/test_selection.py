@@ -1,9 +1,10 @@
 import random
+
 import pytest
 
 from alienclaw.evolution.population import Population
-from alienclaw.evolution.selection import tournament, roulette_wheel, truncation
-from alienclaw.evolution.types import EvolutionConfig, PopulationEntry
+from alienclaw.evolution.selection import roulette_wheel, tournament, truncation
+from alienclaw.evolution.types import EvolutionConfig
 
 
 @pytest.fixture(autouse=True)
