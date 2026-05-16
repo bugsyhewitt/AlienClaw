@@ -107,6 +107,31 @@ def test_fixture_case(case: dict[str, Any]) -> None:  # noqa: C901
                 f"Error message missing '{needle}'; got: {result.errors}"
             )
 
+    elif kind == "parse_param_schema":
+        content = _load_content(case)
+        spec = parse_msb(content)
+        ps = spec.parameter_schema
+        if "param_count" in exp:
+            assert len(ps) == exp["param_count"]
+        if "directions" in exp:
+            assert [f.direction for f in ps] == exp["directions"]
+        if "xcode_indices" in exp:
+            assert [f.xcode_index for f in ps] == exp["xcode_indices"]
+        if "first_name" in exp and ps:
+            assert ps[0].name == exp["first_name"]
+        if "first_range" in exp and ps:
+            assert [ps[0].range_min, ps[0].range_max] == exp["first_range"]
+        if "first_default" in exp and ps:
+            assert ps[0].default == exp["first_default"]
+
+    elif kind == "parse_param_schema_error":
+        from alienclaw.brains.parser import BrainParseError
+        content = _load_content(case)
+        with pytest.raises((BrainParseError, ValueError)) as excinfo:
+            parse_msb(content)
+        if "expected_error_contains" in case:
+            assert case["expected_error_contains"] in str(excinfo.value)
+
     elif kind == "catalog":
         reg = BrainRegistry.load(case["seed_dir"])
         summary = reg.catalog_summary()

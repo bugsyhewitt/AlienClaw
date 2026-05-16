@@ -7,6 +7,7 @@ class FitnessInputs:
     correctness: float
     tool_calls: int
     error: Optional[str] = None
+    slot_count: int = 1
 
 
 @dataclass(frozen=True)

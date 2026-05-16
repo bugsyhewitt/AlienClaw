@@ -107,28 +107,53 @@ function extractVariables(raw: string): Record<string, string> {
   return result;
 }
 
-function parseDefault(value: string, type: 'int' | 'float' | 'bool'): number | boolean {
-  const v = value.trim().toLowerCase();
-  if (type === 'bool') return v === 'true' || v === 'yes' || v === '1';
-  if (type === 'float') { const n = parseFloat(value); return isNaN(n) ? 0 : n; }
-  const n = parseInt(value, 10); return isNaN(n) ? 0 : n;
-}
-
-function extractParameterSchema(raw: string): import('./msb-types.js').ParameterSchemaField[] {
+function extractParameterSchema(
+  raw: string,
+  sourcePath: string = '<string>',
+): import('./msb-types.js').ParameterSchemaField[] {
   const block = extractSection(raw, 'PARAMETER_SCHEMA');
   if (!block) return [];
   const fields: import('./msb-types.js').ParameterSchemaField[] = [];
-  for (const line of block.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const parts = trimmed.split('|').map(p => p.trim());
-    if (parts.length < 6) continue;
-    const [name, section, byteOffsetStr, encoding, type, defaultStr] = parts as [string,string,string,string,string,string];
-    if (section !== 'EXECUTION' && section !== 'BEHAVIOR') continue;
-    if (type !== 'int' && type !== 'float' && type !== 'bool') continue;
-    const byteOffset = parseInt(byteOffsetStr, 10);
-    if (isNaN(byteOffset)) continue;
-    fields.push({ name, section, byteOffset, encoding, type, default: parseDefault(defaultStr, type) });
+  for (const rawLine of block.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    const parts = line.split('|').map(p => p.trim());
+    if (parts.length < 7) {
+      throw new Error(
+        `PARAMETER_SCHEMA entry in ${sourcePath} has ${parts.length} fields ` +
+        `(expected 7: name|xcode_index|range_min|range_max|default|direction|description): ${JSON.stringify(line)}`
+      );
+    }
+
+    const [name, xcodeStr, rminStr, rmaxStr, defaultStr, direction, description] =
+      parts as [string, string, string, string, string, string, string];
+
+    const xcodeIndex = parseInt(xcodeStr,   10);
+    const rangeMin   = parseInt(rminStr,    10);
+    const rangeMax   = parseInt(rmaxStr,    10);
+    const defaultVal = parseInt(defaultStr, 10);
+
+    if ([xcodeIndex, rangeMin, rangeMax, defaultVal].some(v => isNaN(v))) {
+      throw new Error(
+        `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: numeric field error`
+      );
+    }
+    if (direction !== 'lower' && direction !== 'higher' && direction !== 'none') {
+      throw new Error(
+        `PARAMETER_SCHEMA entry '${name}' in ${sourcePath} has invalid direction '${direction}'. Must be: lower | higher | none.`
+      );
+    }
+
+    fields.push({
+      name,
+      description,
+      xcodeIndex,
+      rangeMin,
+      rangeMax,
+      default: defaultVal,
+      direction,
+    });
   }
   return fields;
 }
@@ -164,7 +189,7 @@ export function parseMsbContent(raw: string, sourcePath?: string): MartianBrain 
     outputContract: extractSection(raw, 'OUTPUT CONTRACT'),
     genomeSections:  extractGenomeSections(raw),
     variables:       extractVariables(raw),
-    parameterSchema: extractParameterSchema(raw),
+    parameterSchema: extractParameterSchema(raw, sourcePath ?? '<string>'),
   };
 }
 

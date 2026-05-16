@@ -71,31 +71,33 @@ class TestMutate:
         assert len(results) >= 2
 
     def test_rate_one_changes_mutable_region(self) -> None:
-        """At rate=1.0, all chars 8..191 should change (with overwhelming probability)."""
+        """At rate=1.0, Xcodes in slots 1+2 should mostly change."""
         result = mutate(WEB_GENOME, random.Random(7), rate=1.0)
-        # ID tag (0-7) must match
+        # ID tag (0-7) must match (slot 0; mutate touches only slots 1+2)
         assert result[:8] == WEB_GENOME[:8]
-        # Body chars 8..191 should NOT all be identical to original
-        changed = sum(1 for i in range(8, 192) if result[i] != WEB_GENOME[i])
-        # With 184 chars and 1/62 chance of random draw matching original,
-        # expected unchanged ≈ 184/62 ≈ 3; require at least 90% changed
-        assert changed >= 150
+        # Slots 1+2 cover bytes 64..191; with Xcode-level steps, up to 62
+        # Xcodes (124 chars) may change. Some may clamp; require >= 80.
+        changed = sum(1 for i in range(64, 192) if result[i] != WEB_GENOME[i])
+        # Step mutations of magnitude 1..4 often change only the low byte of
+        # an Xcode (carry into the high byte is rare), so chars-changed ≈ 30..70.
+        assert changed >= 25, f"only {changed} chars changed in slots 1+2"
 
     def test_rejects_wrong_length(self) -> None:
         with pytest.raises(ValueError, match="exactly 256"):
             mutate("0" * 255, random.Random(1))
 
     def test_statistical_rate(self) -> None:
-        """Over 1000 mutations, mean changed chars should be ~1.0 (rate=1/256 × 184 mutable)."""
+        """Over 1000 mutations, mean changed chars should be small (Xcode-level)."""
         n_trials = 1000
         rng = random.Random(0)
         changes = [
-            sum(1 for i in range(8, 192) if mutate(WEB_GENOME, rng)[i] != WEB_GENOME[i])
+            sum(1 for i in range(64, 192) if mutate(WEB_GENOME, rng)[i] != WEB_GENOME[i])
             for _ in range(n_trials)
         ]
         mean = sum(changes) / n_trials
-        # Expected ≈ 184 × (1/256) ≈ 0.719; allow generous range
-        assert 0.4 < mean < 1.5, f"Unexpected mutation rate mean: {mean:.3f}"
+        # Expected ≈ 62 Xcodes × (1/256) × 2 chars ≈ 0.48 chars per call;
+        # but step magnitudes >1 may change both bytes more often. Allow range.
+        assert 0.05 < mean < 0.9, f"Unexpected mutation rate mean: {mean:.3f}"
 
 
 class TestCrossover:

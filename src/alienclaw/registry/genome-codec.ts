@@ -151,3 +151,57 @@ export function assembleGenome(
   const checksum = computeChecksum(body);
   return body + checksum;
 }
+
+// ---------------------------------------------------------------------------
+// Xcode encoding helpers (ARCHITECTURE §3)
+// ---------------------------------------------------------------------------
+
+export const XCODE_MAX = 62 * 62 - 1; // 3843
+
+const _xcodeIndex: Record<string, number> = {};
+for (let i = 0; i < BASE62_ALPHABET.length; i++) {
+  _xcodeIndex[BASE62_ALPHABET[i]!] = i;
+}
+
+/**
+ * Read one Xcode (2 Base62 chars) from a genome slot.
+ * slotIndex: 0..3 (which 64-char section)
+ * xcodeIndex: 0..30 (which Xcode pair within bytes 1-62 of the slot)
+ */
+export function decodeXcode(genome: string, slotIndex: number, xcodeIndex: number): number {
+  if (slotIndex < 0 || slotIndex > 3) throw new Error(`slotIndex out of range [0,3]: ${slotIndex}`);
+  if (xcodeIndex < 0 || xcodeIndex > 30) throw new Error(`xcodeIndex out of range [0,30]: ${xcodeIndex}`);
+  const base = slotIndex * 64 + 1 + xcodeIndex * 2;
+  return (_xcodeIndex[genome[base]!] ?? 0) * 62 + (_xcodeIndex[genome[base + 1]!] ?? 0);
+}
+
+/**
+ * Encode an int in [0, XCODE_MAX] as 2 Base62 chars.
+ */
+export function encodeXcode(value: number): string {
+  if (value < 0 || value > XCODE_MAX) throw new Error(`xcode value out of range [0,${XCODE_MAX}]: ${value}`);
+  return BASE62_ALPHABET[Math.floor(value / 62)]! + BASE62_ALPHABET[value % 62]!;
+}
+
+/**
+ * Map Xcode value (0..3843) to parameter value (rangeMin..rangeMax) linearly.
+ * Mirrors Python: (xcode_value * span) // (XCODE_MAX + 1) + range_min
+ */
+export function xcodeToParamValue(xcodeValue: number, rangeMin: number, rangeMax: number): number {
+  if (rangeMin > rangeMax) throw new Error(`rangeMin > rangeMax: ${rangeMin}, ${rangeMax}`);
+  const span = rangeMax - rangeMin + 1;
+  return Math.floor((xcodeValue * span) / (XCODE_MAX + 1)) + rangeMin;
+}
+
+/**
+ * Inverse of xcodeToParamValue (returns minimum Xcode that maps to paramValue).
+ * Uses ceiling division to mirror Python's `-(-numer // span)`.
+ */
+export function paramValueToXcode(paramValue: number, rangeMin: number, rangeMax: number): number {
+  if (paramValue < rangeMin || paramValue > rangeMax) {
+    throw new Error(`paramValue ${paramValue} outside [${rangeMin},${rangeMax}]`);
+  }
+  const span = rangeMax - rangeMin + 1;
+  const numer = (paramValue - rangeMin) * (XCODE_MAX + 1);
+  return Math.ceil(numer / span);
+}

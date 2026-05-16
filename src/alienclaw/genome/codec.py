@@ -114,3 +114,55 @@ def round_trip_check(genome: str) -> bool:
         return parsed.full() == genome
     except ValueError:
         return False
+
+
+# ---------------------------------------------------------------------------
+# Xcode encoding helpers (ARCHITECTURE §3)
+# ---------------------------------------------------------------------------
+
+XCODE_MAX: int = 62 * 62 - 1  # 3843
+
+# Re-export ALPHABET and ALPHABET_INDEX from alphabet module for Xcode use
+_XCODE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+_XCODE_INDEX = {c: i for i, c in enumerate(_XCODE_ALPHABET)}
+
+
+def decode_xcode(genome: str, slot_index: int, xcode_index: int) -> int:
+    """Read one Xcode (2 Base62 chars) from a genome slot.
+
+    slot_index: 0..3 (which 64-char section)
+    xcode_index: 0..30 (which Xcode pair within bytes 1-62 of the slot)
+    Returns: int in [0, XCODE_MAX]
+    """
+    if not (0 <= slot_index <= 3):
+        raise ValueError(f"slot_index out of range [0,3]: {slot_index}")
+    if not (0 <= xcode_index <= 30):
+        raise ValueError(f"xcode_index out of range [0,30]: {xcode_index}")
+    base = slot_index * 64 + 1 + xcode_index * 2
+    return _XCODE_INDEX[genome[base]] * 62 + _XCODE_INDEX[genome[base + 1]]
+
+
+def encode_xcode(value: int) -> str:
+    """Encode an int in [0, XCODE_MAX] as 2 Base62 chars."""
+    if not (0 <= value <= XCODE_MAX):
+        raise ValueError(f"xcode value out of range [0,{XCODE_MAX}]: {value}")
+    return _XCODE_ALPHABET[value // 62] + _XCODE_ALPHABET[value % 62]
+
+
+def xcode_to_param_value(xcode_value: int, range_min: int, range_max: int) -> int:
+    """Map Xcode value (0..3843) to parameter value (range_min..range_max) linearly."""
+    if range_min > range_max:
+        raise ValueError(f"range_min > range_max: {range_min}, {range_max}")
+    span = range_max - range_min + 1
+    return (xcode_value * span) // (XCODE_MAX + 1) + range_min
+
+
+def param_value_to_xcode(param_value: int, range_min: int, range_max: int) -> int:
+    """Inverse of xcode_to_param_value (returns minimum Xcode that maps to param_value)."""
+    if not (range_min <= param_value <= range_max):
+        raise ValueError(f"param_value {param_value} outside [{range_min},{range_max}]")
+    span = range_max - range_min + 1
+    # Smallest x such that (x * span) // (XCODE_MAX+1) >= param_value - range_min
+    # => x >= ceil((param_value - range_min) * (XCODE_MAX+1) / span)
+    numer = (param_value - range_min) * (XCODE_MAX + 1)
+    return -(-numer // span)  # ceiling division

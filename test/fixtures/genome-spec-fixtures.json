@@ -356,7 +356,7 @@
       "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
       "seed": 42,
       "rate": 0.00390625,
-      "python_output": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscaKateStdOutputJSONArray00000000000000000000000000000000000000SLaURuuFqYLuoPwGrMIVMCFMU1eyx8uHgsX0udWaHy8lAsFOujgKvwO3asbycJw6",
+      "python_output": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
       "expected_invariants": {
         "valid_genome": true,
         "id_tag_unchanged": true,
@@ -369,7 +369,7 @@
       "input": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad",
       "seed": 43,
       "rate": 0.00390625,
-      "python_output": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFavt00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000iuDeEfwGtky7aqtqkdIArCw9GCbkwDgkDmwxAe3iqdCkVG6X0MdyUBQqx48NAWdw",
+      "python_output": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad",
       "expected_invariants": {
         "valid_genome": true,
         "id_tag_unchanged": true,
@@ -408,7 +408,7 @@
       "input": "MUST0001G1AlienClaw1HOQxFjCYT2wfZwd5KDzvipU4ynulOb6wqDbEOdITvtmrGabw2keXTanRgKucsKtSxo7TOEI3y9sjIIpP8Sc0cAXmnFoQOXMUwnK4k1YbwhmXSSx1hCRT77dy7FYQBgcMXNLJ7p1WiZBYlTcGIxPjn0ydBYlC280Yz8nk0wbEypOmfvNfZNdFJtVlRZx1f755lpdjbZXnvJ3Ljv9R3XNBxLhB3njtDTrfbBLXjnjNFJr1",
       "seed": 46,
       "rate": 0.00390625,
-      "python_output": "MUST0001G1AlienClaw1HOQxFjCYT2wfZwd5KDzvipU4ynulOb6wqDbEOdITvtmrGabj2keXTanRgKucsKtSxo7TOEI3y9sjIIpP8Sc0cAdmnFoQOXMUwnK4k1YbwhmXSSg1hCRT77dy7FYQBgcMXNLJ7p1WiZBYlTcGIxPjn0ydBYlC280Yz8nk0wbEypOm6e7MGH4yxO2l4KZo6B0KjY6hWSVqMroO9Y4rEETkWZIGHoKNAQRkGnScXuyxc018",
+      "python_output": "MUST0001G1AlienClaw1HOQxFjCYT2wfZwd5KDzvipU4ynulOb6wqDbEOdITvtmrGabw2keXTanRgKucsKtSxo7TOEI3y9sjIIpP8Sc0cAXmnFoQOXMUwnK4k1YbwhmXSSx1hCRT77dy7FYQBgcMXNLJ7p1WiZBYlTcGIxPjn0ydBYlC280Yz8nk0wZEypOm0oTe09OybCK1eohwSV6CTqQposrMqzSMpkC9sCpcwPUuHaeJSaJyITUKlUAzYePU",
       "expected_invariants": {
         "valid_genome": true,
         "id_tag_unchanged": true,
@@ -421,7 +421,7 @@
       "input": "MUST0002G1AlienClaw1dPINttlMO8cyefGNc3oUOXnhf6tTUDKjaD813ykl1iGinhbQdHOAD2w6jUkRl1dOYKkRplN8gISBrrT4OrsrPsV9C5Vi5YjmaJnaoPPYc7sE9SKDWxMZDfhHkKpuscXAb1xqj3cYD619Z9DneYPXbpd6fJQtdtkaCyaTohaWSdzCq3KI5gOpOaLs6DQox8kni2hG27QOteUdOwVoUvoY9Wq3soXeCBqMxWW1E0rYYtmw",
       "seed": 47,
       "rate": 0.00390625,
-      "python_output": "MUST0002G1AlienClaw1dPINttlMO8cyefGNc3oUOXnhf6tTUDKjaD813ykl1iGinhbQdHOAD2w6jUkRl1dOYKkRplN8gISBrrT4OrsrPs79C5Vi5YjmaJnaoPPYc7sE9SKDWxMZDfhHkKpuscXAb1xqj3cYD619Z9DneYPXbpd6fJQtdtkaCyaTohaWSdzC5TH5D1PbrP5x3Prd5b3BNxbnH7ZJhN5zLxHlrbt1Zp3zR51FRnzJRDZPpDd5Hrpd",
+      "python_output": "MUST0002G1AlienClaw1dPINttlMO8cyefGNc3oUOXnhf6tTUDKjaD813ykl1iGinhbQdHOAD2w6jUkRl1dOYKkRplN8gISBrrT4OrsrPsV9C5Vi5YjmaJnaoPPYc7sE9SKDWxMZDfhHkKpuscXAb1xqj3cYD619Z9DneYPXbpd6fJQtdtkaCyaTohaWSdzCq3KI5gOpOaLs6DQox8kni2hG27QOteUdOwVoUvoY9Wq3soXeCBqMxWW1E0rYYtmw",
       "expected_invariants": {
         "valid_genome": true,
         "id_tag_unchanged": true,
@@ -434,7 +434,7 @@
       "input": "MUST0003G1AlienClaw1rSQs6OWtiWA3a8sAmR0yzWffXZxOYPFR8EZzfV8tplhy9etFczzkFxugduIoFCS3DZjILKZntxGfcwLlrwoVm5V0ejr0lGz4qtZXznV8dbRIAxB80FK24RJzZeWNTW77nSq5XO0JUemQxcf1NbYCEd3c2Em2CuD5y7abg7iPoUwyrX3TDb7rbRtJ5jTX9X9rZrjXpVhPLlnBZbNFzZfn1nbXtH1rfTlx7PT9l1Z7FZTp",
       "seed": 48,
       "rate": 0.00390625,
-      "python_output": "MUST0003G1AlienClaw1rSQs6OWtiWA3a8sAmR0yzWffXZxOYPFR8EZzfV8tplby9etFczzkFxugduIoFCS3DZjILKZntxGfcwLlrwoVm5V0ejr0lGz4qtZXznV8dbRIAxB80FK24RJzZeWNTW77nSq5XO0JUemQxcf1NbYCEd3c2Em2CuD5y7abg7iPoUwy1jH7ZRxZRDJB1LnTZtBZ9PnTFFZbTPPn3DfRBzRnRJLRLXFB9bLFJJVP5zv97bdn",
+      "python_output": "MUST0003G1AlienClaw1rSQs6OWtiWA3a8sAmR0yzWffXZxOYPFR8EZzfV8tplhy9etFczzkFxugduIoFCS3DZjILKZntxGfcwLlrwoVm5V0ejr0lGz4qtZXznV8dbRIAxB80FK24RJzZeWNTW77nSq5XO0JUemQxcf1NbYCEd3c2Em2DuD5y7abg7iPoUwywtyS9eW3ua7GIVcutQMhcIH6OrUIRGSn8o9OErkGdMCnCoxKyhaoFq8tqa9sed4e",
       "expected_invariants": {
         "valid_genome": true,
         "id_tag_unchanged": true,
@@ -580,6 +580,392 @@
         "length_256": true,
         "sections_from_parents": true
       }
+    },
+    {
+      "name": "xcode-decode-slot0-idx0",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 0,
+        "xcode_index": 0
+      },
+      "expected": 879
+    },
+    {
+      "name": "xcode-decode-slot1-idx0",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 1,
+        "xcode_index": 0
+      },
+      "expected": 1702
+    },
+    {
+      "name": "xcode-decode-slot2-idx0",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 2,
+        "xcode_index": 0
+      },
+      "expected": 3386
+    },
+    {
+      "name": "xcode-decode-slot3-idx30",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 3,
+        "xcode_index": 30
+      },
+      "expected": 949
+    },
+    {
+      "name": "xcode-decode-slot3-idx0",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 3,
+        "xcode_index": 0
+      },
+      "expected": 1197
+    },
+    {
+      "name": "xcode-decode-slot1-idx5",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 1,
+        "xcode_index": 5
+      },
+      "expected": 2939
+    },
+    {
+      "name": "xcode-decode-slot2-idx15",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 2,
+        "xcode_index": 15
+      },
+      "expected": 0
+    },
+    {
+      "name": "xcode-encode-0",
+      "kind": "xcode_encode",
+      "input": 0,
+      "expected": "00"
+    },
+    {
+      "name": "xcode-encode-3843",
+      "kind": "xcode_encode",
+      "input": 3843,
+      "expected": "zz"
+    },
+    {
+      "name": "xcode-encode-62",
+      "kind": "xcode_encode",
+      "input": 62,
+      "expected": "10"
+    },
+    {
+      "name": "xcode-encode-61",
+      "kind": "xcode_encode",
+      "input": 61,
+      "expected": "0z"
+    },
+    {
+      "name": "xcode-encode-1",
+      "kind": "xcode_encode",
+      "input": 1,
+      "expected": "01"
+    },
+    {
+      "name": "xcode-encode-1922",
+      "kind": "xcode_encode",
+      "input": 1922,
+      "expected": "V0"
+    },
+    {
+      "name": "xcode-encode-3842",
+      "kind": "xcode_encode",
+      "input": 3842,
+      "expected": "zy"
+    },
+    {
+      "name": "xcode-to-param-x0-r1-5",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 0,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected": 1
+    },
+    {
+      "name": "xcode-to-param-x3843-r1-5",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3843,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected": 5
+    },
+    {
+      "name": "xcode-to-param-x0-r0-1",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 0,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected": 0
+    },
+    {
+      "name": "xcode-to-param-x3843-r0-1",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3843,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected": 1
+    },
+    {
+      "name": "xcode-to-param-x1921-r0-1",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 1921,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected": 0
+    },
+    {
+      "name": "xcode-to-param-x1922-r0-1",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 1922,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected": 1
+    },
+    {
+      "name": "xcode-to-param-x0-r1-3",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 0,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected": 1
+    },
+    {
+      "name": "xcode-to-param-x3843-r1-3",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3843,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected": 3
+    },
+    {
+      "name": "xcode-to-param-x1922-r1-3",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 1922,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected": 2
+    },
+    {
+      "name": "xcode-to-param-x1000-r1-100",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 1000,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected": 27
+    },
+    {
+      "name": "xcode-to-param-x3000-r1-100",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3000,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected": 79
+    },
+    {
+      "name": "xcode-to-param-x3843-r1-100",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3843,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected": 100
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r1-5",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v5-r1-5",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 5,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected_xcode": 3076,
+      "expected_decoded_value": 5
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v3-r1-5",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 3,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected_xcode": 1538,
+      "expected_decoded_value": 3
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v0-r0-1",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 0,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 0
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r0-1",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected_xcode": 1922,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r1-3",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v2-r1-3",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 2,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected_xcode": 1282,
+      "expected_decoded_value": 2
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v3-r1-3",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 3,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected_xcode": 2563,
+      "expected_decoded_value": 3
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r1-10",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 1,
+        "range_max": 10
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v10-r1-10",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 10,
+        "range_min": 1,
+        "range_max": 10
+      },
+      "expected_xcode": 3460,
+      "expected_decoded_value": 10
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v5-r1-10",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 5,
+        "range_min": 1,
+        "range_max": 10
+      },
+      "expected_xcode": 1538,
+      "expected_decoded_value": 5
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r1-100",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v50-r1-100",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 50,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected_xcode": 1884,
+      "expected_decoded_value": 50
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v100-r1-100",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 100,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected_xcode": 3806,
+      "expected_decoded_value": 100
     }
   ]
 }

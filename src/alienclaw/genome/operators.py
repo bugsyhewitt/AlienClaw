@@ -52,6 +52,27 @@ MUTATION_RATE: float = 1.0 / 256.0
 _MUTABLE_START: int = ID_TAG_END     # 8  (first mutable position after ID tag)
 _MUTABLE_END: int = MUTABLE_LENGTH   # 192
 
+# ---------------------------------------------------------------------------
+# Step-based directional mutation (ARCHITECTURE §5)
+# ---------------------------------------------------------------------------
+# Per ARCHITECTURE §5.1 — locked, do not tune in this packet
+_STEP_DISTRIBUTION = [(1, 0.60), (2, 0.25), (3, 0.10), (4, 0.05)]
+_DIRECTION_BIAS_LOWER = 0.70   # P(negative step)
+_DIRECTION_BIAS_HIGHER = 0.30  # P(negative step)
+_DIRECTION_BIAS_NONE = 0.50    # P(negative step)
+# Per ARCHITECTURE §5.2: 2/256 ≈ 0.78% per Xcode
+PER_XCODE_MUTATION_RATE: float = 2.0 / 256.0
+
+
+def _sample_step_magnitude(rng: random.Random) -> int:
+    r = rng.random()
+    cumulative = 0.0
+    for mag, prob in _STEP_DISTRIBUTION:
+        cumulative += prob
+        if r < cumulative:
+            return mag
+    return _STEP_DISTRIBUTION[-1][0]
+
 
 # ---------------------------------------------------------------------------
 # Mutation
@@ -62,39 +83,46 @@ def mutate(
     rng: random.Random,
     rate: float = MUTATION_RATE,
 ) -> str:
-    """Apply per-character Base62 mutation at the given rate.
+    """Xcode-level mutation with direction=none (no brain). Operates on slots 1 and 2.
 
-    The ID-tag positions (chars 0-7 of IDENTITY) are protected and NEVER
-    mutated. After any substitutions, the CHECKSUM section (chars 192-255)
-    is recomputed so the result is always a valid genome.
+    Backward-compatible wrapper. Each of the 62 Xcodes in slots 1+2 mutates
+    with probability `rate` per Xcode. After mutation, CHECKSUM recomputed.
+    ID-tag (chars 0-7) never touched (in slot 0; we only mutate slots 1+2).
 
     Args:
         genome: A valid 256-char Base62 genome string.
         rng:    Seeded random.Random instance for determinism.
-        rate:   Per-character mutation probability. Default: 1/256.
+        rate:   Per-Xcode mutation probability. Default: 1/256.
 
     Returns:
-        A 256-char Base62 string that passes full validation. May be
-        identical to the input if no characters were flipped.
+        A 256-char Base62 string that passes full validation.
 
     Raises:
         ValueError: if genome is not a valid 256-char Base62 string.
     """
+    from .codec import XCODE_MAX, _XCODE_INDEX, encode_xcode
+
     if len(genome) != GENOME_LENGTH:
         raise ValueError(
             f"genome must be exactly {GENOME_LENGTH} chars; got {len(genome)}"
         )
 
-    body = list(genome[:MUTABLE_LENGTH])
+    chars = list(genome[:MUTABLE_LENGTH])
+    for slot_idx in (1, 2):  # EXECUTION and BEHAVIOR sections
+        for xcode_idx in range(31):  # 31 Xcodes per slot
+            if rng.random() < rate:
+                base = slot_idx * 64 + 1 + xcode_idx * 2
+                current = _XCODE_INDEX[chars[base]] * 62 + _XCODE_INDEX[chars[base + 1]]
+                step_mag = _sample_step_magnitude(rng)
+                step = -step_mag if rng.random() < 0.5 else step_mag
+                new_val = max(0, min(XCODE_MAX, current + step))
+                if new_val != current:
+                    enc = encode_xcode(new_val)
+                    chars[base] = enc[0]
+                    chars[base + 1] = enc[1]
 
-    # Mutate chars 8..191 only (ID-tag chars 0..7 are protected)
-    for i in range(_MUTABLE_START, _MUTABLE_END):
-        if rng.random() < rate:
-            body[i] = rng.choice(ALPHABET)
-
-    new_body = "".join(body)
-    new_checksum = compute_checksum(new_body)
-    return new_body + new_checksum
+    new_body = "".join(chars)
+    return new_body + compute_checksum(new_body)
 
 
 # ---------------------------------------------------------------------------
@@ -184,3 +212,91 @@ def random_genome(
     behavior = random_genome_chars(rng, SECTION_LENGTH)
 
     return assemble(identity, execution, behavior)
+
+
+# ---------------------------------------------------------------------------
+# Directional Xcode mutation (uses brain PARAMETER_SCHEMA)
+# ---------------------------------------------------------------------------
+
+def _mutate_xcode_inplace(
+    chars: list,
+    slot_index: int,
+    xcode_index: int,
+    direction: str,
+    range_min: int,
+    range_max: int,
+    rng: random.Random,
+    rate: float,
+) -> bool:
+    """Mutate one Xcode in-place in chars list. Returns True if changed."""
+    from .codec import (
+        encode_xcode, xcode_to_param_value, param_value_to_xcode,
+        _XCODE_INDEX,
+    )
+    if rng.random() >= rate:
+        return False
+
+    base = slot_index * 64 + 1 + xcode_index * 2
+    current_xcode = _XCODE_INDEX[chars[base]] * 62 + _XCODE_INDEX[chars[base + 1]]
+    current_param = xcode_to_param_value(current_xcode, range_min, range_max)
+
+    step_mag = _sample_step_magnitude(rng)
+    if direction == "lower":
+        p_neg = _DIRECTION_BIAS_LOWER
+    elif direction == "higher":
+        p_neg = _DIRECTION_BIAS_HIGHER
+    else:
+        p_neg = _DIRECTION_BIAS_NONE
+    step = -step_mag if rng.random() < p_neg else step_mag
+
+    new_param = max(range_min, min(range_max, current_param + step))
+    if new_param == current_param:
+        return False
+
+    new_xcode = param_value_to_xcode(new_param, range_min, range_max)
+    new_chars = encode_xcode(new_xcode)
+    chars[base] = new_chars[0]
+    chars[base + 1] = new_chars[1]
+    return True
+
+
+def mutate_directed(
+    genome: str,
+    slot_brains: list,  # list[Optional[BrainSpec]], 4 entries
+    rng: random.Random,
+    rate: float = PER_XCODE_MUTATION_RATE,
+) -> str:
+    """Step-based directional mutation. Operates per-Xcode per ARCHITECTURE §5.
+
+    For each non-None brain in slot_brains[1] or slot_brains[2] (slots 0
+    and 3 are skipped to protect ID-tag and CHECKSUM), for each parameter
+    in its PARAMETER_SCHEMA: with probability `rate`, apply a step mutation
+    in parameter natural-range space with directional bias from
+    field.direction.
+
+    After mutation: recompute global checksum (chars 192-255).
+    """
+    if len(genome) != GENOME_LENGTH:
+        raise ValueError(f"genome must be 256 chars, got {len(genome)}")
+
+    chars = list(genome[:MUTABLE_LENGTH])
+
+    # Only mutate slots 1 and 2 (EXECUTION + BEHAVIOR). Slot 0 holds the
+    # ID tag, slot 3 is the checksum — never mutate those even if a brain
+    # is supplied for them.
+    for slot_idx in (1, 2):
+        if slot_idx >= len(slot_brains):
+            continue
+        brain = slot_brains[slot_idx]
+        if brain is None or not brain.parameter_schema:
+            continue
+        for field in brain.parameter_schema:
+            _mutate_xcode_inplace(
+                chars, slot_idx, field.xcode_index,
+                field.direction, field.range_min, field.range_max,
+                rng, rate,
+            )
+
+    new_body = "".join(chars)
+    new_checksum = compute_checksum(new_body)
+    return new_body + new_checksum

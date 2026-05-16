@@ -45,7 +45,16 @@ def configure(data_root: Path | None = None, msb_dir: str = "seed/msb/") -> None
     _RATE_LIMITER = RateLimiter(data_root=resolved_root)
     _AUDIT_LOG = AuditLog(data_root=resolved_root)
     _START_UP_REGISTRY = BrainRegistry.load(msb_dir)
-    _REGISTERED_TYPES = {b.tool for b in _START_UP_REGISTRY.all_brains()}
+    # Packet 16: registered types now come from MartianRegistry (Martian types
+    # plus their bare-tool aliases). Brain tool names retained for back-compat.
+    from alienclaw.martians.registry import MartianRegistry
+    _martian_reg = MartianRegistry.load("seed/martians/", _START_UP_REGISTRY)
+    _registered: set[str] = {b.tool for b in _START_UP_REGISTRY.all_brains()}
+    for m in _martian_reg.all():
+        _registered.add(m.martian_type)
+        if m.martian_type.endswith("_alone") and len(m.slots) == 1:
+            _registered.add(m.martian_type[: -len("_alone")])
+    _REGISTERED_TYPES = _registered
     _SUBMISSION_STORE = SubmissionStore()
     _INSTALL_STORE = InstallStore()
     _GLOBAL_STATS = GlobalStats()

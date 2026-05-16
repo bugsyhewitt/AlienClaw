@@ -158,6 +158,36 @@ describe('brain registry spec compliance — cross-language fixture', () => {
           expect(brains.map(b => b.tool)).toEqual(exp['tool_names_in_load_order']);
         }
 
+      } else if (c.kind === 'parse_param_schema') {
+        const content = loadContent(c);
+        const spec    = parseMsbContent(content);
+        const ps      = spec.parameterSchema;
+
+        if ('param_count' in exp)
+          expect(ps.length).toBe(exp['param_count']);
+        if ('directions' in exp)
+          expect(ps.map(p => p.direction)).toEqual(exp['directions']);
+        if ('xcode_indices' in exp)
+          expect(ps.map(p => p.xcodeIndex)).toEqual(exp['xcode_indices']);
+        if ('first_name' in exp)
+          expect(ps[0]?.name).toBe(exp['first_name']);
+        if ('first_range' in exp) {
+          const [rmin, rmax] = exp['first_range'] as [number, number];
+          expect(ps[0]?.rangeMin).toBe(rmin);
+          expect(ps[0]?.rangeMax).toBe(rmax);
+        }
+        if ('first_default' in exp)
+          expect(ps[0]?.default).toBe(exp['first_default']);
+
+      } else if (c.kind === 'parse_param_schema_error') {
+        const content = loadContent(c);
+        let err: Error | null = null;
+        try { parseMsbContent(content); } catch (e) { err = e as Error; }
+        expect(err, `expected parseMsbContent to throw for ${c.name}`).not.toBeNull();
+        if (c.expected_error_contains) {
+          expect(err!.message).toContain(c.expected_error_contains);
+        }
+
       } else {
         throw new Error(`Unknown fixture kind '${c.kind}' in case '${c.name}'`);
       }

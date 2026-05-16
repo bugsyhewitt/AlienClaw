@@ -12,21 +12,23 @@
 
 /**
  * One machine-readable parameter declaration from a brain's PARAMETER_SCHEMA.
- * Mirrors Python ParameterSchemaField in brains/types.py.
+ * New format as of Packet 15. Mirrors Python ParameterSchemaField in brains/types.py.
  */
 export interface ParameterSchemaField {
   /** Parameter name, e.g. 'max_attempts' */
   name:        string;
-  /** Which genome section: 'EXECUTION' or 'BEHAVIOR' */
-  section:     'EXECUTION' | 'BEHAVIOR';
-  /** Byte within that section (0..63) */
-  byteOffset:  number;
-  /** How to decode the raw character into a typed value */
-  encoding:    string;
-  /** Return type */
-  type:        'int' | 'float' | 'bool';
-  /** Value used when decoding fails */
-  default:     number | boolean;
+  /** Human-readable description of the parameter */
+  description: string;
+  /** Index of the Xcode pair (0..30) within the tool's slot (slot 1 = EXECUTION for Packet 15) */
+  xcodeIndex:  number;
+  /** Natural value range minimum (inclusive) */
+  rangeMin:    number;
+  /** Natural value range maximum (inclusive) */
+  rangeMax:    number;
+  /** Value used when decoding fails or slot is absent */
+  default:     number;
+  /** Mutation bias: 'lower' | 'higher' | 'none' */
+  direction:   'lower' | 'higher' | 'none';
 }
 
 /**

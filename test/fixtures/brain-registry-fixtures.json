@@ -442,6 +442,130 @@
         "limitations_nonempty": true,
         "best_practices_nonempty": true
       }
+    },
+    {
+      "name": "param-schema-valid-lower",
+      "kind": "parse_param_schema",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\nmax_attempts|0|1|5|1|lower|Maximum retry attempts\n",
+      "expected": {
+        "param_count": 1,
+        "directions": [
+          "lower"
+        ],
+        "xcode_indices": [
+          0
+        ],
+        "first_name": "max_attempts",
+        "first_range": [
+          1,
+          5
+        ],
+        "first_default": 1
+      }
+    },
+    {
+      "name": "param-schema-valid-higher",
+      "kind": "parse_param_schema",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\np|3|1|10|5|higher|Higher direction param\n",
+      "expected": {
+        "param_count": 1,
+        "directions": [
+          "higher"
+        ],
+        "xcode_indices": [
+          3
+        ]
+      }
+    },
+    {
+      "name": "param-schema-valid-none",
+      "kind": "parse_param_schema",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\np|2|0|1|0|none|Boolean-style param\n",
+      "expected": {
+        "param_count": 1,
+        "directions": [
+          "none"
+        ],
+        "xcode_indices": [
+          2
+        ]
+      }
+    },
+    {
+      "name": "param-schema-multi-mixed",
+      "kind": "parse_param_schema",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\na|0|1|5|1|lower|First\nb|1|0|1|0|none|Second\nc|2|1|10|5|higher|Third\n",
+      "expected": {
+        "param_count": 3,
+        "directions": [
+          "lower",
+          "none",
+          "higher"
+        ],
+        "xcode_indices": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "name": "param-schema-missing-direction",
+      "kind": "parse_param_schema_error",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\np|0|1|5|1|description without direction\n",
+      "expected_error_contains": "direction"
+    },
+    {
+      "name": "param-schema-invalid-direction",
+      "kind": "parse_param_schema_error",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\np|0|1|5|1|up|Bad direction\n",
+      "expected_error_contains": "direction"
+    },
+    {
+      "name": "param-schema-non-integer-rmin",
+      "kind": "parse_param_schema_error",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\np|0|abc|5|1|none|Bad rmin\n",
+      "expected_error_contains": "numeric field"
+    },
+    {
+      "name": "param-schema-xcode-zero-range-1-5",
+      "kind": "parse_param_schema",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\nmax_attempts|0|1|5|1|lower|Retry attempts\n",
+      "expected": {
+        "param_count": 1,
+        "first_default": 1,
+        "first_range": [
+          1,
+          5
+        ],
+        "xcode_indices": [
+          0
+        ]
+      }
+    },
+    {
+      "name": "param-schema-empty",
+      "kind": "parse_param_schema",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value",
+      "expected": {
+        "param_count": 0
+      }
+    },
+    {
+      "name": "param-schema-comments-and-blanks",
+      "kind": "parse_param_schema",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\n# This is a comment\n\na|0|1|5|1|lower|First\n# Another comment\nb|1|0|1|0|none|Second\n\n",
+      "expected": {
+        "param_count": 2,
+        "directions": [
+          "lower",
+          "none"
+        ],
+        "xcode_indices": [
+          0,
+          1
+        ]
+      }
     }
   ]
 }
