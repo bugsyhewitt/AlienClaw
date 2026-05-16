@@ -1,6 +1,6 @@
 import { normalizeInput } from '../../utils.js';
-import { EMPLOYEE_DEFAULT_MODEL, DEFAULT_BUDGET_EXTENSION } from '../../constants.js';
-import type { TaskEnvelope, EmployeeSpec, SubagentRole } from '../../types.js';
+import { DEFAULT_BUDGET_EXTENSION } from '../../constants.js';
+import type { TaskEnvelope } from '../../types.js';
 import type { AdvisorBot } from '../../agents/advisorbot.js';
 import type { CreatorBot }  from '../../agents/creatorbot.js';
 import type { AgentChannel }  from '../../comms/agent-channel.js';
@@ -9,7 +9,7 @@ import type { UserChannel }  from '../../comms/user-channel.js';
 import { telemetryWriter }   from '../../telemetry/telemetry-writer.js';
 
 export type StrikeAction =
-  | { action: 'REBUILD';      spec: EmployeeSpec }
+  | { action: 'REBUILD' }
   | { action: 'SURFACE_USER' };
 
 export type UserStrikeResponse =
@@ -31,7 +31,7 @@ export class EscalationHandler {
    *
    * Records the attempt (which increments strikeCount) then decides:
    *   - SURFACE_USER when MAX_STRIKE_COUNT is reached
-   *   - REBUILD otherwise (after consulting AdvisorBot + briefing CreatorBot)
+   *   - REBUILD otherwise (after consulting AdvisorBot)
    *
    * State transitions (AWAITING_ADVICE, CREATOR_BUILDING) are owned by
    * GovernanceLoop, not here.
@@ -43,8 +43,6 @@ export class EscalationHandler {
     failureReason: string,
     /** BossBot's advisory session key for this task */
     advisorTaskId: string,
-    /** Role to use when rebuilding a campaign-scoped subagent (preserves knowledgeBase) */
-    subagentRole?: SubagentRole,
   ): Promise<StrikeAction> {
     if (this.taskManager.isExhausted(task.taskId)) {
       return { action: 'SURFACE_USER' };
@@ -96,34 +94,9 @@ export class EscalationHandler {
       advisorConfidence: advice.confidence,
     });
 
-    // ── Brief CreatorBot ────────────────────────────────────────────────────
-    let spec: EmployeeSpec;
-    if (subagentRole && task.campaignId) {
-      // Campaign-scoped: rebuild with campaign knowledgeBase preserved
-      const subagent = this.creatorBot.buildSubagentForRole(
-        subagentRole,
-        task.campaignId,
-        task.strikeCount + 1,
-      );
-      spec = {
-        employeeId:  subagent.id,
-        domain:      subagentRole.domain,
-        model:       EMPLOYEE_DEFAULT_MODEL,
-        toolTags:    subagentRole.martianTags,
-        createdBy:   'CreatorBot',
-        createdAt:   Date.now(),
-        generation:  task.strikeCount + 1,
-      };
-    } else {
-      spec = this.creatorBot.buildEmployeeSpec(
-        domain,
-        toolTags,
-        EMPLOYEE_DEFAULT_MODEL,
-        task.strikeCount + 1,
-      );
-    }
-
-    return { action: 'REBUILD', spec };
+    // Caller (GovernanceLoop) spawns a fresh Subagent for the retry.
+    void toolTags; // parameter kept for API stability; no longer used to build an EmployeeSpec
+    return { action: 'REBUILD' };
   }
 
   /**
