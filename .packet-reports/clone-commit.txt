@@ -1,1 +1,0 @@
-95e8748c856a85b79ca03e04f0ad93b382f80f4a 2026-04-22 15:36:39 -0400 fix: tighten AGENT_MODELS value type so pi-ai getModel() accepts it
