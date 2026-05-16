@@ -8,4 +8,5 @@ select = ["E", "F", "W", "I", "N"]
 [tool.coverage.run]
 omit = [
     "src/alienclaw/brains/decoder.py",
+    "src/alienclaw/evolution/__main__.py",
 ]
