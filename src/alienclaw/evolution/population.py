@@ -56,7 +56,9 @@ def _make_entry(
 
 
 class Population:
-    def __init__(self, storage: PopulationStorage, config: EvolutionConfig, pool: list[PopulationEntry]):
+    def __init__(
+        self, storage: PopulationStorage, config: EvolutionConfig, pool: list[PopulationEntry]
+    ):
         self._storage = storage
         self._config = config
         self._pool: list[PopulationEntry] = pool
@@ -84,7 +86,9 @@ class Population:
     def load(cls, martian_type: str) -> "Population":
         storage = PopulationStorage(martian_type)
         if not storage.exists():
-            raise FileNotFoundError(f"No population for '{martian_type}'. Use Population.create() first.")
+            raise FileNotFoundError(
+                f"No population for '{martian_type}'. Use Population.create() first."
+            )
         config = storage.read_config()
         all_entries = storage.read_all_entries()
         if not all_entries:

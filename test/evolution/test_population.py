@@ -1,4 +1,5 @@
 import random
+
 import pytest
 
 from alienclaw.evolution.population import Population
@@ -85,7 +86,9 @@ class TestPopulationSampleAndTop:
         entries = []
         for i in range(4):
             g = random_genome(rng, "COMPUT01")
-            e = pop.add(genome=g, fitness=float(i) / 4.0, generation=0, parent_ids=(), run_metadata={})
+            e = pop.add(
+                genome=g, fitness=float(i) / 4.0, generation=0, parent_ids=(), run_metadata={}
+            )
             entries.append(e)
         top2 = pop.top(2)
         assert top2[0].fitness >= top2[1].fitness
@@ -134,7 +137,7 @@ class TestPopulationAdd:
         pop.add(g, 0.9, 0, (), {})
         pop2 = Population.load("compute")
         # The loaded pool is filtered to current generation (0)
-        genomes = [e.genome for e in pop2.all()]
+        _ = [e.genome for e in pop2.all()]
         # Either directly in pool or accessible via all()
         assert any(e.genome == g for e in Population.load("compute").all())
 
@@ -162,7 +165,7 @@ class TestPopulationLoad:
 
     def test_load_or_create_loads_when_exists(self, config):
         p1 = Population.create(config)
-        genomes1 = {e.genome for e in p1.all()}
+        _ = {e.genome for e in p1.all()}
         p2 = Population.load_or_create(config)
         assert len(p2.all()) > 0
 

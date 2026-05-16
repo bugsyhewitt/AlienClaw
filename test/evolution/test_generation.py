@@ -1,4 +1,5 @@
 import random
+
 import pytest
 
 from alienclaw.evolution.generation import FitnessReport, RunMartianCallback, evaluate_and_evolve
@@ -96,7 +97,7 @@ class TestEvaluateAndEvolve:
             crossover_rate=0.0, seed=4,
         )
         pop = Population.create(config)
-        original_genomes = {e.genome for e in pop.all()}
+        _ = {e.genome for e in pop.all()}  # capture state before evolution
         evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(4))
         # Children might overlap by chance but elite didn't survive explicitly
         assert len(pop.all()) == 4

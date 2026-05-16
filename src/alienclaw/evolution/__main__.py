@@ -23,7 +23,9 @@ def main() -> int:
         help="Migrate pre-Packet-16 per-tool populations to per-Martian (<tool>_alone) layout",
     )
 
-    scale = sub.add_parser("run-scale-experiment", help="Run scale evolution experiment (multi-seed)")
+    scale = sub.add_parser(
+        "run-scale-experiment", help="Run scale evolution experiment (multi-seed)"
+    )
     scale.add_argument("--martian-type", required=True, help="Martian type to evolve")
     scale.add_argument("--generations", type=int, default=500, help="Number of generations")
     scale.add_argument("--population-size", type=int, default=100, help="Genome population size")
@@ -31,7 +33,10 @@ def main() -> int:
         "--seeds", default="42,43,44,45,46",
         help="Comma-separated RNG seeds (default: 42,43,44,45,46)",
     )
-    scale.add_argument("--output-dir", type=Path, required=True, help="Output directory for per-seed JSONs")
+    scale.add_argument(
+        "--output-dir", type=Path, required=True,
+        help="Output directory for per-seed JSONs",
+    )
     scale.add_argument(
         "--inputs", type=json.loads, default={},
         help="JSON inputs forwarded to the Martian (e.g. '{\"input\": \"2+2\"}')",
