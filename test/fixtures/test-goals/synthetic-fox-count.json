@@ -1,0 +1,13 @@
+{
+  "goal_id": "synthetic-fox-count-001",
+  "description": "Synthetic integration test: search_then_count Martian via simplified governance path + real bridge",
+  "campaign_inputs": {
+    "text": "the quick brown fox jumps over the lazy dog. fox runs again. fox in box.",
+    "pattern": "fox",
+    "plan": "Search for 'fox' in the provided text and count occurrences"
+  },
+  "martian_type": "search_then_count",
+  "expected_fox_count_min": 3,
+  "deterministic_seed": 42,
+  "max_wall_clock_seconds": 30
+}

@@ -1,0 +1,15 @@
+{
+  "goal_id": "realistic-hn-summary-001",
+  "description": "Realistic integration test: find HN AI stories and summarize them",
+  "user_input": "Find the top 5 Hacker News stories about AI today and summarize them.",
+  "network_required": true,
+  "llm_required": true,
+  "skip_reason": "Requires LLM API key (ANTHROPIC_API_KEY not set) and pi-ai package (not in node_modules). The full LLM governance path (agents/bossbot.ts -> governance-loop -> agents/creatorbot.ts -> agents/employee.ts) is not connected to governance/common/subagent.ts (structural gap documented in packet-22-integration-design.md). This test is documented as deferred to a future integration packet when LLM availability and governance-loop -> new-Subagent wiring are both complete.",
+  "what_this_would_test": [
+    "Real LLM calls via pi-ai (BossBot decompose, AdvisorBot critique)",
+    "Goals.json atomic write via GoalManager",
+    "CreatorBot spawning new Subagent with CAMPAIGN.md transition table",
+    "Multi-Martian execution via RealMartianSummonAdapter",
+    "fetch_then_extract Martian: url_fetch -> extract_json for HN content"
+  ]
+}
