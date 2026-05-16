@@ -154,11 +154,11 @@ export class GoalManager {
     await this.save(file);
   }
 
-  /** Update a campaign's status and optional subagentIds list. */
+  /** Update a campaign's status. */
   async updateCampaign(
     goalId:     string,
     campaignId: string,
-    patch:      Partial<Pick<Campaign, 'status' | 'subagentIds'>>
+    patch:      Partial<Pick<Campaign, 'status'>>
   ): Promise<void> {
     const file = this.load();
     const goal = file.goals.find(g => g.id === goalId);

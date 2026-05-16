@@ -1,5 +1,5 @@
 import { sleep, errorMessage, normalizeInput } from '../../utils.js';
-import { EMPLOYEE_DEFAULT_MODEL, MAX_STRIKE_COUNT, EVENT_TICK_MS } from '../../constants.js';
+import { MAX_STRIKE_COUNT, EVENT_TICK_MS } from '../../constants.js';
 import type {
   GovernanceState, GovernanceEvent, TransitionHook,
   Goal, SubGoal, Campaign,
@@ -8,8 +8,9 @@ import type { BossBot }    from '../../agents/bossbot.js';
 import type { AdvisorBot } from '../../agents/advisorbot.js';
 import type { CreatorBot } from '../../agents/creatorbot.js';
 import type { AgentRegistry } from '../../agents/agent-registry.js';
-import { buildEmployee, disposeCampaign } from '../../agents/employee.js';
-import type { Employee }       from '../../agents/employee.js';
+import { Subagent } from './subagent.js';
+import type { SubagentBrief } from './subagent.js';
+import type { MartianSummonAdapter } from './summon-adapter.js';
 import type { GoalManager }        from './goal-manager.js';
 import type { TaskManager }        from './task-manager.js';
 import type { EscalationHandler }  from './escalation-handler.js';
@@ -48,6 +49,8 @@ export interface GovernanceLoopDeps {
   completionHandler:  CompletionHandler;
   userChannel:        UserChannel;
   agentChannel:        AgentChannel;
+  /** Adapter passed to new Subagents spawned for each campaign. */
+  adapter:            MartianSummonAdapter;
 }
 
 // ── GovernanceLoop ────────────────────────────────────────────────────────────
@@ -83,6 +86,8 @@ export class GovernanceLoop {
   private readonly userChannel:       UserChannel;
   /** AgentChannel — structural gate for Boss↔Advisor↔Creator coordination (Rule 5) */
   private readonly agentChannel:       AgentChannel;
+  /** Adapter injected into every Subagent spawned for campaign execution. */
+  private readonly adapter:            MartianSummonAdapter;
 
   constructor(deps: GovernanceLoopDeps) {
     this.bossBot           = deps.bossBot;
@@ -95,6 +100,7 @@ export class GovernanceLoop {
     this.completionHandler = deps.completionHandler;
     this.userChannel       = deps.userChannel;
     this.agentChannel      = deps.agentChannel;
+    this.adapter           = deps.adapter;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -148,15 +154,11 @@ export class GovernanceLoop {
     this.currentGoalId = goalId;
     this.transition('CREATOR_BUILDING', 'Crash recovery — rebuilding from plan');
 
-    // Rebuild subagents so campaign subagentIds are populated
     if (goal.scheme) {
-      const subagentMap = this.creatorBot.buildSchemeSubagents(goal.scheme);
-      for (const subagents of subagentMap.values()) {
-        for (const s of subagents) this.agentRegistry.registerEmployee(s);
-      }
       await this.goalManager.attachScheme(goalId, goal.scheme);
     }
 
+    // Subagents are created inline in spawnCampaign — no pre-build needed.
     this.transition('EXECUTING', 'Crash recovery — dispatching ready campaigns');
     await this.dispatchReadyCampaigns(goalId);
   }
@@ -265,28 +267,15 @@ export class GovernanceLoop {
     await this.goalManager.addGoal(goal);
     this.currentGoalId = goalId;
 
-    // ── CreatorBot builds all subagents ─────────────────────────────────────
+    // Subagents are created inline in spawnCampaign (Packet 23 wiring).
     this.transition('CREATOR_BUILDING',
-      `CreatorBot building ${scheme.campaigns.reduce((n, c) => n + c.subagents.length, 0)} subagent(s)`
+      `CreatorBot preparing ${scheme.campaigns.length} campaign(s)`
     );
-
-    const subagentMap = this.creatorBot.buildSchemeSubagents(scheme);
-
-    // Register all subagents in the agent registry
-    for (const subagents of subagentMap.values()) {
-      for (const s of subagents) {
-        this.agentRegistry.registerEmployee(s);
-      }
-    }
-
-    // Note: goal already persisted via addGoal above with scheme attached.
-    // buildSchemeSubagents mutates campaign.subagentIds in-place on the
-    // same scheme object, so the in-memory goal is already correct.
 
     this.userChannel.status(
-      `All subagents built. Dispatching ready campaigns.`
+      `Scheme locked. Dispatching ready campaigns.`
     );
-    this.transition('EXECUTING', 'Subagents ready — dispatching campaigns');
+    this.transition('EXECUTING', 'Campaigns ready — dispatching');
     await this.dispatchReadyCampaigns(goalId);
   }
 
@@ -313,8 +302,10 @@ export class GovernanceLoop {
   }
 
   /**
-   * Run a campaign by dispatching a task to each of its subagents.
-   * The campaign succeeds when all subagent tasks return SUCCESS.
+   * Run a campaign by spawning a new Subagent with the RealMartianSummonAdapter
+   * and executing the multi-Martian campaign loop (Packet 23 wiring).
+   *
+   * The Subagent is created inline — no pre-build phase is needed.
    */
   private async spawnCampaign(goalId: string, campaign: Campaign): Promise<void> {
     await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'active' });
@@ -322,82 +313,81 @@ export class GovernanceLoop {
       `Campaign started: "${campaign.name}" — ${campaign.objective}`
     );
 
-    // Build subagent task envelopes
-    const subagents = (campaign.subagentIds ?? [])
-      .map(id => this.agentRegistry.getEmployee(id))
-      .filter((s): s is Employee => s !== undefined);
+    // Derive martian type and allowed Martians from SubagentRoles.
+    const martianType    = campaign.subagents[0]?.martianTags[0] ?? 'compute';
+    const allowedMartians = [...new Set(campaign.subagents.flatMap(s => s.martianTags))];
+    const knowledgeBase   = campaign.subagents.map(s => s.knowledgeBase).filter(Boolean).join('\n\n');
 
-    if (subagents.length === 0) {
-      // No subagents found — may happen on crash recovery; escalate
-      this.userChannel.required(
-        `Campaign "${campaign.name}" has no built subagents. Escalating.`
-      );
-      await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'failed' });
-      return;
-    }
+    const brief: SubagentBrief = {
+      campaignId:         campaign.id,
+      role:               campaign.name,
+      domain:             martianType,
+      objective:          campaign.objective,
+      scope:              campaign.objective,
+      successCriteria:    campaign.objective,
+      allowedMartians,
+      deliverables:       'Campaign results to BossBot.',
+      backgroundContext:  knowledgeBase,
+      communicationStyle: 'structured',
+      knowledgeBase,
+      constraints:        'None',
+    };
 
-    // Each subagent gets a task scoped to the campaign objective
-    const taskPromises = subagents.map(subagent => {
-      const task = this.bossBot.buildTask(
-        `[Campaign: ${campaign.name}] ${campaign.objective}`,
-        subagent.domain,
-        'normal',
-        campaign.id,
-      );
-      this.taskManager.register(task);
-      this.taskManager.assign(task.taskId, subagent.id);
+    const campaignInputs: Record<string, unknown> = {
+      plan:             campaign.objective,
+      success_criteria: campaign.objective,
+    };
 
-      return subagent.executeTask(task).then(result => ({
-        subagentId: subagent.id,
-        task,
-        result,
-      }));
+    const subagent = new Subagent(this.adapter, {
+      campaignId:  campaign.id,
+      martianType,
+      inputs:      campaignInputs,
+      timeoutMs:   300_000,
     });
 
-    const campaignJob: Promise<void> = Promise.all(taskPromises)
-      .then(async results => {
-        const failed = results.filter(r => r.result.outcome !== 'SUCCESS');
+    const campaignJob: Promise<void> = (async () => {
+      try {
+        subagent.birth(brief);
+        const campaignResult = await subagent.runCampaign(brief, campaignInputs);
+        subagent.erase();
 
-        if (failed.length === 0) {
-          // Campaign complete
+        const succeeded = campaignResult.termination_reason === 'state_machine_finalized';
+
+        if (succeeded) {
           await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'complete' });
-          this.userChannel.status(`Campaign complete: "${campaign.name}"`);
-
-          // Dispose campaign subagents — their work is done
-          disposeCampaign(campaign.id);
-
-          this.pushEvent({ type: 'JOB_COMPLETE',
-            subGoalId: campaign.id, goalId,
+          this.userChannel.status(`Campaign complete: "${campaign.name}" (fitness: ${campaignResult.fitness.toFixed(2)})`);
+          this.pushEvent({
+            type:      'JOB_COMPLETE',
+            subGoalId: campaign.id,
+            goalId,
             result: {
               taskId:     campaign.id,
               employeeId: campaign.name,
               outcome:    'SUCCESS',
-              summary:    `Campaign "${campaign.name}" completed successfully.`,
+              summary:    `Campaign "${campaign.name}" completed (fitness: ${campaignResult.fitness.toFixed(2)}).`,
               ts:         Date.now(),
             },
           });
         } else {
-          // At least one subagent failed — surface as campaign failure
-          const reasons = failed.map(f =>
-            `${f.subagentId}: ${f.result.failureReason ?? 'unknown'}`
-          ).join('; ');
-          this.pushEvent({ type: 'JOB_FAILED',
-            subGoalId: campaign.id, goalId,
-            error: `Campaign "${campaign.name}" failed: ${reasons}`,
+          this.pushEvent({
+            type:      'JOB_FAILED',
+            subGoalId: campaign.id,
+            goalId,
+            error:     `Campaign "${campaign.name}" terminated: ${campaignResult.termination_reason}${campaignResult.error ? ` — ${campaignResult.error}` : ''}`,
           });
         }
-      })
-      .catch(err => {
+      } catch (err) {
+        subagent.erase();
         this.pushEvent({
-          type: 'JOB_FAILED',
+          type:      'JOB_FAILED',
           subGoalId: campaign.id,
           goalId,
-          error: `Campaign "${campaign.name}" threw: ${errorMessage(err)}`,
+          error:     `Campaign "${campaign.name}" threw: ${errorMessage(err)}`,
         });
-      })
-      .finally(() => {
-        this.activeJobs.delete(campaign.id);
-      });
+      }
+    })().finally(() => {
+      this.activeJobs.delete(campaign.id);
+    });
 
     this.activeJobs.set(campaign.id, campaignJob);
   }
@@ -486,19 +476,10 @@ export class GovernanceLoop {
           `AdvisorBot: ${advice.verdict}`
         );
       } else {
-        // Rebuild subagents and retry
-        this.transition('CREATOR_BUILDING', `Rebuilding campaign "${campaign?.name}"`);
+        // Retry — spawnCampaign will create a fresh Subagent inline.
+        this.transition('CREATOR_BUILDING', `Retrying campaign "${campaign?.name}"`);
         await this.goalManager.updateCampaign(event.goalId, event.subGoalId, { status: 'pending' });
-        // Re-build subagents for the campaign
-        if (campaign && goal?.scheme) {
-          const newMap = this.creatorBot.buildSchemeSubagents(
-            { ...goal.scheme, campaigns: [campaign] }
-          );
-          for (const subagents of newMap.values()) {
-            for (const s of subagents) this.agentRegistry.registerEmployee(s);
-          }
-        }
-        this.transition('EXECUTING', `Campaign "${campaign?.name}" rebuilt — retrying`);
+        this.transition('EXECUTING', `Campaign "${campaign?.name}" queued for retry`);
         await this.dispatchReadyCampaigns(event.goalId);
       }
       return;
@@ -522,7 +503,6 @@ export class GovernanceLoop {
     const strikeAction = await this.escalationHandler.handleFailure(
       task, subGoal.domain, subGoal.domain ? [subGoal.domain] : [],
       event.error, task.taskId,
-      undefined, // legacy sub-goals don't have campaign-scoped SubagentRole
     );
 
     if (strikeAction.action === 'SURFACE_USER') {
@@ -555,19 +535,53 @@ export class GovernanceLoop {
         await this.dispatchReadySubGoals(event.goalId);
       }
     } else {
-      this.transition('CREATOR_BUILDING', `Building generation-${strikeAction.spec.generation} employee`);
-      const newEmployee = buildEmployee(strikeAction.spec);
-      this.agentRegistry.registerEmployee(newEmployee);
-      this.taskManager.assign(task.taskId, newEmployee.name);
-      this.transition('EXECUTING', `New employee ${newEmployee.name} dispatched`);
+      this.transition('CREATOR_BUILDING', `Retrying sub-goal "${subGoal.description}" with new Subagent`);
+      this.taskManager.assign(task.taskId, subGoal.domain);
+      this.transition('EXECUTING', `Sub-goal retry (strike ${task.strikeCount})`);
 
-      const job = newEmployee.executeTask(task)
-        .then(result => {
-          this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: event.subGoalId, goalId: event.goalId, result });
-        })
-        .catch((err: unknown) => {
+      const retryBrief: SubagentBrief = {
+        campaignId:         subGoal.id,
+        role:               subGoal.domain,
+        domain:             subGoal.domain,
+        objective:          task.description,
+        scope:              task.description,
+        successCriteria:    task.description,
+        allowedMartians:    [subGoal.domain],
+        deliverables:       'Sub-goal result.',
+        backgroundContext:  '',
+        communicationStyle: 'structured',
+        knowledgeBase:      '',
+        constraints:        'None',
+      };
+      const retryInputs: Record<string, unknown> = {
+        plan: task.description, success_criteria: task.description,
+      };
+      const retrySubagent = new Subagent(this.adapter, {
+        campaignId:  subGoal.id,
+        martianType: subGoal.domain,
+        inputs:      retryInputs,
+        timeoutMs:   300_000,
+      });
+
+      const job = (async () => {
+        try {
+          retrySubagent.birth(retryBrief);
+          const cr = await retrySubagent.runCampaign(retryBrief, retryInputs);
+          retrySubagent.erase();
+          if (cr.termination_reason === 'state_machine_finalized') {
+            this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: event.subGoalId, goalId: event.goalId,
+              result: { taskId: task.taskId, employeeId: subGoal.domain, outcome: 'SUCCESS',
+                summary: `Sub-goal retry succeeded.`, ts: Date.now() },
+            });
+          } else {
+            this.pushEvent({ type: 'JOB_FAILED', subGoalId: event.subGoalId, goalId: event.goalId,
+              error: `Sub-goal retry terminated: ${cr.termination_reason}${cr.error ? ` — ${cr.error}` : ''}` });
+          }
+        } catch (err) {
+          retrySubagent.erase();
           this.pushEvent({ type: 'JOB_FAILED', subGoalId: event.subGoalId, goalId: event.goalId, error: errorMessage(err) });
-        });
+        }
+      })();
       this.legacyJobs.set(event.subGoalId, job);
     }
   }
@@ -664,15 +678,9 @@ export class GovernanceLoop {
   }
 
   private async spawnLegacyJob(goalId: string, subGoal: SubGoal): Promise<void> {
-    const spec     = this.creatorBot.buildEmployeeSpec(
-      subGoal.domain, [subGoal.domain], EMPLOYEE_DEFAULT_MODEL
-    );
-    const employee = buildEmployee(spec);
-    this.agentRegistry.registerEmployee(employee);
-
     const task = this.bossBot.buildTask(subGoal.description, subGoal.domain);
     this.taskManager.register(task);
-    this.taskManager.assign(task.taskId, employee.name);
+    this.taskManager.assign(task.taskId, subGoal.domain);
 
     await this.goalManager.updateSubGoal(goalId, subGoal.id, {
       status: 'active',
@@ -681,16 +689,51 @@ export class GovernanceLoop {
 
     this.userChannel.status(`Dispatching [${subGoal.domain}]: "${subGoal.description}"`);
 
-    const job = employee.executeTask(task)
-      .then(result => {
-        this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: subGoal.id, goalId, result });
-      })
-      .catch((err: unknown) => {
+    const brief: SubagentBrief = {
+      campaignId:         subGoal.id,
+      role:               subGoal.domain,
+      domain:             subGoal.domain,
+      objective:          subGoal.description,
+      scope:              subGoal.description,
+      successCriteria:    subGoal.description,
+      allowedMartians:    [subGoal.domain],
+      deliverables:       'Sub-goal result.',
+      backgroundContext:  '',
+      communicationStyle: 'structured',
+      knowledgeBase:      '',
+      constraints:        'None',
+    };
+    const campaignInputs: Record<string, unknown> = {
+      plan: subGoal.description, success_criteria: subGoal.description,
+    };
+    const subagent = new Subagent(this.adapter, {
+      campaignId:  subGoal.id,
+      martianType: subGoal.domain,
+      inputs:      campaignInputs,
+      timeoutMs:   300_000,
+    });
+
+    const job = (async () => {
+      try {
+        subagent.birth(brief);
+        const cr = await subagent.runCampaign(brief, campaignInputs);
+        subagent.erase();
+        if (cr.termination_reason === 'state_machine_finalized') {
+          this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: subGoal.id, goalId,
+            result: { taskId: task.taskId, employeeId: subGoal.domain, outcome: 'SUCCESS',
+              summary: `Sub-goal "${subGoal.description}" completed.`, ts: Date.now() },
+          });
+        } else {
+          this.pushEvent({ type: 'JOB_FAILED', subGoalId: subGoal.id, goalId,
+            error: `Sub-goal terminated: ${cr.termination_reason}${cr.error ? ` — ${cr.error}` : ''}` });
+        }
+      } catch (err) {
+        subagent.erase();
         this.pushEvent({ type: 'JOB_FAILED', subGoalId: subGoal.id, goalId, error: errorMessage(err) });
-      })
-      .finally(() => {
-        this.legacyJobs.delete(subGoal.id);
-      });
+      }
+    })().finally(() => {
+      this.legacyJobs.delete(subGoal.id);
+    });
 
     this.legacyJobs.set(subGoal.id, job);
   }
