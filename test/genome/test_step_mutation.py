@@ -4,18 +4,15 @@ from __future__ import annotations
 
 import random
 
-import pytest
-
 from alienclaw.brains.types import BrainSpec, GenomeSectionDocs, ParameterSchemaField
+from alienclaw.genome.checksum import compute_checksum
 from alienclaw.genome.codec import (
     decode_xcode,
     encode_xcode,
     param_value_to_xcode,
     xcode_to_param_value,
 )
-from alienclaw.genome.checksum import compute_checksum
 from alienclaw.genome.operators import (
-    PER_XCODE_MUTATION_RATE,
     mutate_directed,
     random_genome,
 )
@@ -71,7 +68,9 @@ class TestValidity:
             ParameterSchemaField("a", "x", 0, 1, 5, 1, "lower"),
             ParameterSchemaField("b", "y", 1, 1, 10, 5, "none"),
         ])
-        result = mutate_directed(_BASE_GENOME, [None, brain, None, None], random.Random(2), rate=1.0)
+        result = mutate_directed(
+            _BASE_GENOME, [None, brain, None, None], random.Random(2), rate=1.0
+        )
         assert validate(result).valid
 
 
@@ -91,14 +90,18 @@ class TestIDTagProtection:
         brain = make_brain([
             ParameterSchemaField("a", "x", i, 1, 5, 1, "none") for i in range(10)
         ])
-        result = mutate_directed(_BASE_GENOME, [brain, None, None, None], random.Random(7), rate=1.0)
+        result = mutate_directed(
+            _BASE_GENOME, [brain, None, None, None], random.Random(7), rate=1.0
+        )
         # Slot 0 should be entirely unchanged (incl. ID tag at chars 0-7).
         assert result[:64] == _BASE_GENOME[:64]
         assert result[:8] == _BASE_GENOME[:8]
 
     def test_slot_3_brain_does_not_mutate_checksum(self) -> None:
         brain = make_brain([ParameterSchemaField("a", "x", 0, 1, 5, 1, "none")])
-        result = mutate_directed(_BASE_GENOME, [None, None, None, brain], random.Random(7), rate=1.0)
+        result = mutate_directed(
+            _BASE_GENOME, [None, None, None, brain], random.Random(7), rate=1.0
+        )
         # Slot 3 (the checksum) should be a freshly computed one over the same body.
         assert result[:192] == _BASE_GENOME[:192]
 

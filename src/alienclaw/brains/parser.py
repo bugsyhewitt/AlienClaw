@@ -133,7 +133,9 @@ def _parse_default(value: str, type_: str) -> object:
         return 0
 
 
-def _extract_parameter_schema(raw: str, source_path: str = "<string>") -> tuple[ParameterSchemaField, ...]:
+def _extract_parameter_schema(
+    raw: str, source_path: str = "<string>"
+) -> tuple[ParameterSchemaField, ...]:
     """Parse the PARAMETER_SCHEMA section — new 7-field pipe-delimited format.
 
     Format per line: name|xcode_index|range_min|range_max|default|direction|description
@@ -152,7 +154,8 @@ def _extract_parameter_schema(raw: str, source_path: str = "<string>") -> tuple[
         if len(parts) < 7:
             raise BrainParseError(
                 f"PARAMETER_SCHEMA entry in {source_path} has {len(parts)} fields "
-                f"(expected 7: name|xcode_index|range_min|range_max|default|direction|description): {line!r}"
+                f"(expected 7: name|xcode_index|range_min|range_max|default|direction|description)"
+                f": {line!r}"
             )
         name, xcode_s, rmin_s, rmax_s, default_s, direction, description = parts[:7]
         try:
