@@ -90,7 +90,7 @@ def format_report(results: AuditResults) -> str:
         "",
         "**Source:** `src/alienclaw/bridge/server.py` line ~110",
         "```python",
-        "runner = RUNNER_REGISTRY[martian_type]",
+        "tool = TOOL_REGISTRY[martian_type]",
         "run_result = runner(req['inputs'])  # genome not passed",
         "```",
         "",
@@ -129,7 +129,7 @@ def format_report(results: AuditResults) -> str:
     lines += [
         "### MUST FIX #3 — Binary correctness (1.0 success / 0.0 failure)",
         "",
-        "**Source:** `src/alienclaw/bridge/runners/types.py`",
+        "**Source:** `src/alienclaw/tools/types.py`",
         "```python",
         "@dataclass",
         "class RunResult:",
