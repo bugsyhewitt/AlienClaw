@@ -13,11 +13,11 @@ import type {
   CampaignReportMessage,
   UserResponseMessage,
   FitnessReportMessage,
-} from '../../src/alienclaw/governance/messages.js';
+} from '../../src/alienclaw/governance/common/messages.js';
 import {
   newCorrelationId,
   nowIso,
-} from '../../src/alienclaw/governance/messages.js';
+} from '../../src/alienclaw/governance/common/messages.js';
 
 describe('governance/messages', () => {
   it('newCorrelationId produces a UUID-shaped string', () => {

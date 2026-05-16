@@ -17,11 +17,12 @@ import {
   PATHS,
 } from '../constants.js';
 import type { MartianSpec } from '../registry/ms-types.js';
-import { GoalManager }       from '../governance/goal-manager.js';
-import { TaskManager }       from '../governance/task-manager.js';
-import { EscalationHandler } from '../governance/escalation-handler.js';
-import { CompletionHandler } from '../governance/completion-handler.js';
-import { GovernanceLoop }    from '../governance/governance-loop.js';
+import { GoalManager }       from '../governance/common/goal-manager.js';
+import { TaskManager }       from '../governance/common/task-manager.js';
+import { EscalationHandler } from '../governance/common/escalation-handler.js';
+import { CompletionHandler } from '../governance/common/completion-handler.js';
+import { GovernanceLoop }    from '../governance/common/governance-loop.js';
+import { RealMartianSummonAdapter } from '../governance/common/real-summon-adapter.js';
 import { UserChannel }       from '../comms/user-channel.js';
 import { AgentChannel,
          agentChannel }       from '../comms/agent-channel.js';
@@ -78,6 +79,8 @@ export function bootstrap(): BootstrapResult {
     advisorBot, goalManager, userChannel, agentChannel
   );
 
+  const adapter = new RealMartianSummonAdapter();
+
   const loop = new GovernanceLoop({
     bossBot,
     advisorBot,
@@ -89,6 +92,7 @@ export function bootstrap(): BootstrapResult {
     completionHandler,
     userChannel,
     agentChannel,
+    adapter,
   });
 
   // ── CreatorBot scheduled jobs ─────────────────────────────────────────────

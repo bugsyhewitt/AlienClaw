@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CreatorBot } from '../../src/alienclaw/governance/creator-bot.js';
-import { MockMartianSummonAdapter } from '../../src/alienclaw/governance/summon-adapter.js';
-import { InMemorySink, Logger } from '../../src/alienclaw/governance/logger.js';
-import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/messages.js';
-import type { CampaignRequestMessage } from '../../src/alienclaw/governance/messages.js';
+import { CreatorBot } from '../../src/alienclaw/governance/common/creator-bot.js';
+import { MockMartianSummonAdapter } from '../../src/alienclaw/governance/common/summon-adapter.js';
+import { InMemorySink, Logger } from '../../src/alienclaw/governance/common/logger.js';
+import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/common/messages.js';
+import type { CampaignRequestMessage } from '../../src/alienclaw/governance/common/messages.js';
 
 const makeRequest = (overrides?: Partial<CampaignRequestMessage['payload']>): CampaignRequestMessage => ({
   from: 'BossBot', to: 'CreatorBot', kind: 'campaign-request',

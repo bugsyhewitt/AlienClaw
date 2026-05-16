@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AdvisorBot } from '../../src/alienclaw/governance/advisor-bot.js';
-import { InMemorySink, Logger } from '../../src/alienclaw/governance/logger.js';
-import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/messages.js';
-import type { AdvisorConsultMessage } from '../../src/alienclaw/governance/messages.js';
+import { AdvisorBot } from '../../src/alienclaw/governance/common/advisor-bot.js';
+import { InMemorySink, Logger } from '../../src/alienclaw/governance/common/logger.js';
+import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/common/messages.js';
+import type { AdvisorConsultMessage } from '../../src/alienclaw/governance/common/messages.js';
 
 const makeConsult = (plan = 'test plan'): AdvisorConsultMessage => ({
   from: 'BossBot', to: 'AdvisorBot', kind: 'planning-consult',

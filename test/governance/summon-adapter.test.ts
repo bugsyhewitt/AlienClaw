@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   MockMartianSummonAdapter,
   type MartianSummonRequest,
-} from '../../src/alienclaw/governance/summon-adapter.js';
-import { newCorrelationId } from '../../src/alienclaw/governance/messages.js';
+} from '../../src/alienclaw/governance/common/summon-adapter.js';
+import { newCorrelationId } from '../../src/alienclaw/governance/common/messages.js';
 
 const makeRequest = (overrides?: Partial<MartianSummonRequest>): MartianSummonRequest => ({
   summon_id:    newCorrelationId(),

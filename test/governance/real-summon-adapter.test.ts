@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RealMartianSummonAdapter } from '../../src/alienclaw/governance/real-summon-adapter.js';
+import { RealMartianSummonAdapter } from '../../src/alienclaw/governance/common/real-summon-adapter.js';
 
 // Valid 256-char Base62 genome produced by: random_genome(Random(42), 'TEST0001')
 const VALID_GENOME = 'TEST0001G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZ82fsI3iY7MgLgmrYahC0Fmy5GotUO98O1gIrAOtaC5m0nA6TYCfWMhW0neS3ewBQ';

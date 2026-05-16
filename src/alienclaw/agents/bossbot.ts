@@ -12,7 +12,7 @@ import { AGENT_MODELS, ALIENCLAW_PROVIDER }         from '../constants.js';
 import { extractText, normalizeInput }             from '../utils.js';
 import type {
   TaskEnvelope, AdviceRequest, SubGoal,
-  Scheme, Campaign, SpecialistRole,
+  Scheme, Campaign, SubagentRole,
 } from '../types.js';
 import type { AgentChannel } from '../comms/agent-channel.js';
 
@@ -60,7 +60,7 @@ function parseSchemeDraft(goalId: string, raw: string): Scheme {
         name:        string;
         objective:   string;
         dependsOn?:  string[];
-        specialists: Array<{
+        subagents:   Array<{
           role:          string;
           domain:        string;
           knowledgeBase: string;
@@ -75,12 +75,12 @@ function parseSchemeDraft(goalId: string, raw: string): Scheme {
       objective:   c.objective,
       dependsOn:   c.dependsOn ?? [],
       status:      'pending' as const,
-      specialists: c.specialists.map(s => ({
+      subagents:   c.subagents.map(s => ({
         role:          s.role,
         domain:        s.domain ?? 'general',
         knowledgeBase: s.knowledgeBase ?? '',
         martianTags:  s.martianTags ?? [],
-      }) satisfies SpecialistRole),
+      }) satisfies SubagentRole),
     }));
 
     // Resolve dependsOn: names → IDs
@@ -109,7 +109,7 @@ function parseSchemeDraft(goalId: string, raw: string): Scheme {
         objective:   clean.slice(0, 200),
         dependsOn:   [],
         status:      'pending',
-        specialists: [{
+        subagents:   [{
           role:          'Generalist',
           domain:        'general',
           knowledgeBase: '',
@@ -185,8 +185,8 @@ export class BossBot {
    * Draft a Scheme (campaign plan) for a goal description.
    *
    * BossBot produces a full campaign breakdown: what campaigns are needed,
-   * what Specialist roles each campaign requires, and what Martian tags
-   * each specialist will use. This is then handed to AdvisorBot for review
+   * what Subagent roles each campaign requires, and what Martian tags
+   * each subagent will use. This is then handed to AdvisorBot for review
    * before being finalised in schemeWithAdvisor().
    */
   async draftScheme(goalId: string, goalDescription: string): Promise<Scheme> {
@@ -198,7 +198,7 @@ export class BossBot {
         `## Scheme Planning\n` +
         `You are designing a Scheme — a full campaign plan to achieve a goal.\n` +
         `A Scheme contains Campaigns. Each Campaign has a name, objective, dependency edges,\n` +
-        `and a list of Specialist roles (each with a domain, knowledge base, and Martian tags).\n\n` +
+        `and a list of Subagent roles (each with a domain, knowledge base, and Martian tags).\n\n` +
         `Respond ONLY with a valid JSON object matching this schema — no prose, no markdown fences:\n` +
         `{\n` +
         `  "rationale": "string",\n` +
@@ -207,7 +207,7 @@ export class BossBot {
         `      "name": "string",\n` +
         `      "objective": "string",\n` +
         `      "dependsOn": [],\n` +
-        `      "specialists": [\n` +
+        `      "subagents": [\n` +
         `        {\n` +
         `          "role": "string",\n` +
         `          "domain": "string",\n` +
@@ -263,7 +263,7 @@ export class BossBot {
           `Campaigns:\n` +
           scheme.campaigns.map((c, i) =>
             `  ${i + 1}. ${c.name}: ${c.objective}\n` +
-            `     Specialists: ${c.specialists.map(s => s.role).join(', ')}\n` +
+            `     Subagents: ${c.subagents.map(s => s.role).join(', ')}\n` +
             `     Depends on: ${c.dependsOn.join(', ') || 'none'}`
           ).join('\n'),
         question:

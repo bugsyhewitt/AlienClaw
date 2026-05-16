@@ -1,14 +1,11 @@
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { AGENT_MODELS, EMPLOYEE_DEFAULT_MODEL, DOMAIN_SLUG_MAX, CREATOR_QUEUE_MAX } from '../constants.js';
-import { errorMessage, generateIdSuffix } from '../utils.js';
+import { AGENT_MODELS, CREATOR_QUEUE_MAX } from '../constants.js';
+import { errorMessage } from '../utils.js';
 import type {
-  EmployeeSpec, CreatorQueueItem, CreatorQueuePriority,
-  Campaign, Scheme, SpecialistRole,
+  CreatorQueueItem, CreatorQueuePriority,
 } from '../types.js';
-import { buildSpecialist, registerEmployee } from './employee.js';
-import type { Employee } from './employee.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOUL_PATH  = join(__dirname, '..', 'prompts', 'creatorbot.soul.md');
@@ -179,100 +176,7 @@ export class CreatorBot {
     return this.activeSubagents.size;
   }
 
-  // ── Employee spec ──────────────────────────────────────────────────────────
-
-  buildEmployeeSpec(
-    domain: string,
-    toolTags: string[],
-    model: string,
-    generation = 1,
-  ): EmployeeSpec {
-    const suffix     = generateIdSuffix();
-    const employeeId = `EMP_${domain.toUpperCase().slice(0, DOMAIN_SLUG_MAX)}_${suffix}`;
-    return {
-      employeeId,
-      domain,
-      model,
-      toolTags,
-      createdBy:  'CreatorBot',
-      createdAt:  Date.now(),
-      generation,
-    };
-  }
-
-  // ── Specialist / Campaign building ─────────────────────────────────────────
-
-  /**
-   * Build a single Specialist Employee for a given role within a campaign.
-   *
-   * The specialist carries the campaign-specific knowledgeBase in its soul
-   * and is registered in the global employee registry immediately.
-   */
-  buildSpecialistForRole(
-    role:       SpecialistRole,
-    campaignId: string,
-    generation  = 1
-  ): Employee {
-    const suffix     = generateIdSuffix();
-    const roleSlug   = role.domain.toUpperCase().slice(0, DOMAIN_SLUG_MAX);
-    const employeeId = `SPEC_${roleSlug}_${suffix}`;
-
-    const spec: EmployeeSpec = {
-      employeeId,
-      domain:     role.domain,
-      model:      EMPLOYEE_DEFAULT_MODEL,
-      toolTags:   role.martianTags,
-      createdBy:  'CreatorBot',
-      createdAt:  Date.now(),
-      generation,
-    };
-
-    const specialist = buildSpecialist(spec, role, campaignId);
-    registerEmployee(specialist);
-
-    this.enqueue(
-      'NOTABLE',
-      `Specialist ${employeeId} built for campaign ${campaignId} (role: ${role.role})`,
-      `Domain: ${role.domain}, Tags: ${role.martianTags.join(', ')}`
-    );
-
-    return specialist;
-  }
-
-  /**
-   * Build all specialists for every campaign in a Scheme.
-   *
-   * Campaigns are ready to build if their dependsOn list is empty or
-   * all dependencies are in the provided completedIds set.
-   * Returns a map of campaignId → specialist Employee[].
-   *
-   * Note: this builds ALL campaigns immediately (governance-loop tracks
-   * which campaigns are ready to EXECUTE based on dependency state).
-   */
-  buildSchemeSpecialists(scheme: Scheme): Map<string, Employee[]> {
-    const result = new Map<string, Employee[]>();
-
-    for (const campaign of scheme.campaigns) {
-      const specialists: Employee[] = [];
-
-      for (const role of campaign.specialists) {
-        const specialist = this.buildSpecialistForRole(role, campaign.id);
-        specialists.push(specialist);
-      }
-
-      result.set(campaign.id, specialists);
-      campaign.specialistIds = specialists.map(s => s.id);
-    }
-
-    this.enqueue(
-      'NOTABLE',
-      `Scheme specialists built: ${scheme.campaigns.length} campaign(s), ` +
-      `${scheme.campaigns.reduce((n, c) => n + c.specialists.length, 0)} specialist(s) total`,
-      `Goal: ${scheme.goalId}`
-    );
-
-    return result;
-  }
 }
+
 
 export const creatorBot = new CreatorBot();
