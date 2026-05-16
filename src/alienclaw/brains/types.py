@@ -14,24 +14,23 @@ from typing import Any
 class ParameterSchemaField:
     """One machine-readable parameter declaration from a brain's PARAMETER_SCHEMA.
 
-    Mirrors TypeScript ParameterSchemaField in msb-types.ts.
-
-    Attributes:
-        name:         Parameter name (e.g. 'max_attempts').
-        section:      Which genome section: 'EXECUTION' or 'BEHAVIOR'.
-        byte_offset:  Byte within that section (0..63).
-        encoding:     How to decode the raw character into a typed value.
-                      Canonical names: mod5_plus1, mod10_plus1, mod10_times500,
-                      char_eq_F, char_code_even.
-        type:         Return type: 'int', 'float', 'bool'.
-        default:      Value used when decoding fails or section is absent.
+    New format as of Packet 15. Fields:
+        name:        Parameter name (e.g. 'max_attempts').
+        description: Human-readable description.
+        xcode_index: Index of the Xcode pair (0..30) within the tool's slot
+                     (slot 1 = EXECUTION section for all Packet 15 tools).
+        range_min:   Natural value range minimum (inclusive).
+        range_max:   Natural value range maximum (inclusive).
+        default:     Value used when decoding fails or slot is absent.
+        direction:   Mutation bias: 'lower' | 'higher' | 'none'.
     """
     name: str
-    section: str       # 'EXECUTION' | 'BEHAVIOR'
-    byte_offset: int   # 0..63
-    encoding: str
-    type: str          # 'int' | 'float' | 'bool'
-    default: Any
+    description: str
+    xcode_index: int
+    range_min: int
+    range_max: int
+    default: int
+    direction: str  # "lower" | "higher" | "none"
 
 
 @dataclass(frozen=True)

@@ -27,7 +27,15 @@ from alienclaw.genome import (  # noqa: F401 — imported for side-effects / cov
     validation,
 )
 from alienclaw.genome.checksum import compute_checksum
-from alienclaw.genome.codec import assemble, parse, round_trip_check
+from alienclaw.genome.codec import (
+    assemble,
+    decode_xcode,
+    encode_xcode,
+    param_value_to_xcode,
+    parse,
+    round_trip_check,
+    xcode_to_param_value,
+)
 from alienclaw.genome.operators import crossover, mutate
 from alienclaw.genome.validation import validate
 
@@ -158,6 +166,23 @@ def test_fixture_case(case: dict[str, Any]) -> None:  # noqa: C901
         assert recomputed == expected_output, (
             f"Crossover determinism broken on '{case['name']}'"
         )
+
+    elif kind == "xcode_decode":
+        inp = case["input"]
+        assert decode_xcode(inp["genome"], inp["slot_index"], inp["xcode_index"]) == case["expected"]
+
+    elif kind == "xcode_encode":
+        assert encode_xcode(case["input"]) == case["expected"]
+
+    elif kind == "xcode_to_param":
+        inp = case["input"]
+        assert xcode_to_param_value(inp["xcode_value"], inp["range_min"], inp["range_max"]) == case["expected"]
+
+    elif kind == "param_to_xcode_roundtrip":
+        inp = case["input"]
+        x = param_value_to_xcode(inp["param_value"], inp["range_min"], inp["range_max"])
+        assert x == case["expected_xcode"]
+        assert xcode_to_param_value(x, inp["range_min"], inp["range_max"]) == case["expected_decoded_value"]
 
     else:
         pytest.fail(f"Unknown fixture kind {kind!r} in case {case['name']!r}")

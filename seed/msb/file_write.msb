@@ -56,6 +56,6 @@ encoding: Text encoding to use (default: utf-8)
 context: Additional key-value pairs from the execution context
 
 PARAMETER_SCHEMA:
-max_attempts|EXECUTION|0|mod5_plus1|int|1
-fail_forward|BEHAVIOR|0|char_eq_F|bool|false
-repeat_count|BEHAVIOR|1|mod5_plus1|int|1
+max_attempts|0|1|5|1|lower|Maximum retry attempts on transient failure
+fail_forward|1|0|1|0|none|Escalation mode: 0=EscalateStd 1=FailForward
+repeat_count|2|1|5|1|lower|Write repetitions; 1 writes once, lower is environmentally preferred

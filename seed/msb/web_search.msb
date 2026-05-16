@@ -66,7 +66,7 @@ context: Additional key-value pairs from the execution context
 maxResults: Maximum number of results to return (from context, default 10)
 
 PARAMETER_SCHEMA:
-max_attempts|EXECUTION|0|mod5_plus1|int|1
-fail_forward|BEHAVIOR|0|char_eq_F|bool|false
-max_results|BEHAVIOR|1|mod10_plus1|int|5
-page_count|BEHAVIOR|2|mod3_plus1|int|1
+max_attempts|0|1|5|1|lower|Maximum retry attempts on transient failure
+fail_forward|1|0|1|0|none|Escalation mode: 0=EscalateStd 1=FailForward
+max_results|2|1|10|5|lower|Maximum results to return; fewer results preferred
+page_count|3|1|3|1|lower|Result pages to fetch; fewer pages means fewer tool calls

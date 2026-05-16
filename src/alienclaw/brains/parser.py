@@ -20,6 +20,10 @@ import re
 
 from .types import BrainSpec, GenomeSectionDocs, ParameterSchemaField, ValidationResult
 
+
+class BrainParseError(ValueError):
+    """Raised when an .msb file contains invalid PARAMETER_SCHEMA entries."""
+
 # ---------------------------------------------------------------------------
 # Required sections — must match TypeScript REQUIRED_SECTIONS array exactly
 # ---------------------------------------------------------------------------
@@ -129,13 +133,12 @@ def _parse_default(value: str, type_: str) -> object:
         return 0
 
 
-def _extract_parameter_schema(raw: str) -> tuple[ParameterSchemaField, ...]:
-    """Parse the PARAMETER_SCHEMA section from an MSB file.
+def _extract_parameter_schema(raw: str, source_path: str = "<string>") -> tuple[ParameterSchemaField, ...]:
+    """Parse the PARAMETER_SCHEMA section — new 7-field pipe-delimited format.
 
-    Format (one field per line, pipe-separated):
-        name|section|byte_offset|encoding|type|default
-
-    Lines starting with '#' or blank are ignored. Missing section → empty tuple.
+    Format per line: name|xcode_index|range_min|range_max|default|direction|description
+    Lines starting with '#' or blank are ignored.
+    Raises BrainParseError if any entry is malformed or missing direction.
     """
     block = _extract_section(raw, "PARAMETER_SCHEMA")
     if not block:
@@ -146,21 +149,34 @@ def _extract_parameter_schema(raw: str) -> tuple[ParameterSchemaField, ...]:
         if not line or line.startswith("#"):
             continue
         parts = [p.strip() for p in line.split("|")]
-        if len(parts) < 6:
-            continue
-        name, section, byte_offset_s, encoding, type_, default_s = parts[:6]
+        if len(parts) < 7:
+            raise BrainParseError(
+                f"PARAMETER_SCHEMA entry in {source_path} has {len(parts)} fields "
+                f"(expected 7: name|xcode_index|range_min|range_max|default|direction|description): {line!r}"
+            )
+        name, xcode_s, rmin_s, rmax_s, default_s, direction, description = parts[:7]
         try:
-            byte_offset = int(byte_offset_s)
-        except ValueError:
-            continue
-        default = _parse_default(default_s, type_)
+            xcode_index = int(xcode_s)
+            range_min = int(rmin_s)
+            range_max = int(rmax_s)
+            default = int(default_s)
+        except ValueError as exc:
+            raise BrainParseError(
+                f"PARAMETER_SCHEMA entry '{name}' in {source_path}: numeric field error: {exc}"
+            )
+        if direction not in ("lower", "higher", "none"):
+            raise BrainParseError(
+                f"PARAMETER_SCHEMA entry '{name}' in {source_path} has invalid "
+                f"direction '{direction}'. Must be: lower | higher | none."
+            )
         fields.append(ParameterSchemaField(
             name=name,
-            section=section,
-            byte_offset=byte_offset,
-            encoding=encoding,
-            type=type_,
+            description=description,
+            xcode_index=xcode_index,
+            range_min=range_min,
+            range_max=range_max,
             default=default,
+            direction=direction,
         ))
     return tuple(fields)
 
@@ -246,6 +262,6 @@ def parse_msb(content: str, source_path: str = "<string>") -> BrainSpec:
         output_contract=_extract_section(content, "OUTPUT CONTRACT"),
         genome_sections=_extract_genome_sections(content),
         variables=_extract_variables(content),
-        parameter_schema=_extract_parameter_schema(content),
+        parameter_schema=_extract_parameter_schema(content, source_path),
         source_path=source_path,
     )

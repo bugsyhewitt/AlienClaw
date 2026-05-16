@@ -187,10 +187,17 @@ class TestMartianTypes:
     def test_returns_all_types(self, api_server):
         status, body = _get(f"{api_server}/v1/martian-types")
         assert status == 200
-        assert body["total"] == 8  # 8 brains in seed/msb/
+        # Packet 16: registered types include all Martian types from
+        # seed/martians/ (16) plus the 8 single-slot bare-tool aliases.
+        # Brain tool names overlap with the aliases, so the union is 24.
+        assert body["total"] >= 8
         names = [t["name"] for t in body["martian_types"]]
+        # Bare-tool aliases preserved for backward compat
         assert "compute" in names
         assert "web_search" in names
+        # New Martian types from Packet 16
+        assert "compute_alone" in names
+        assert "fetch_then_parse" in names
 
 
 class TestStats:
