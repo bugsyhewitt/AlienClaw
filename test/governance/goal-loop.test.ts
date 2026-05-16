@@ -10,9 +10,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GoalLoop } from '../../src/alienclaw/governance/goal-loop.js';
-import { MockMartianSummonAdapter } from '../../src/alienclaw/governance/summon-adapter.js';
-import { InMemorySink } from '../../src/alienclaw/governance/logger.js';
+import { GoalLoop } from '../../src/alienclaw/governance/common/goal-loop.js';
+import { MockMartianSummonAdapter } from '../../src/alienclaw/governance/common/summon-adapter.js';
+import { InMemorySink } from '../../src/alienclaw/governance/common/logger.js';
 
 // The expected event sequence for a successful goal run
 const EXPECTED_EVENTS = [

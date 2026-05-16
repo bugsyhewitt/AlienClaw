@@ -12,27 +12,16 @@ export { bossBot }         from './agents/bossbot.js';
 export { advisorBot }      from './agents/advisorbot.js';
 export { creatorBot }      from './agents/creatorbot.js';
 export { agentRegistry }   from './agents/agent-registry.js';
-export {
-  Employee,
-  buildEmployee,
-  buildSpecialist,
-  registerEmployee,
-  deregisterEmployee,
-  getEmployee,
-  getAllEmployees,
-  getCampaignSpecialists,
-  disposeCampaign,
-} from './agents/employee.js';
 
 // Config
 export { alienClawConfig } from './config/alienclaw-config.js';
 
 // Governance (Phase 2B)
-export { GovernanceLoop }    from './governance/governance-loop.js';
-export { GoalManager }       from './governance/goal-manager.js';
-export { TaskManager }       from './governance/task-manager.js';
-export { EscalationHandler } from './governance/escalation-handler.js';
-export { CompletionHandler } from './governance/completion-handler.js';
+export { GovernanceLoop }    from './governance/common/governance-loop.js';
+export { GoalManager }       from './governance/common/goal-manager.js';
+export { TaskManager }       from './governance/common/task-manager.js';
+export { EscalationHandler } from './governance/common/escalation-handler.js';
+export { CompletionHandler } from './governance/common/completion-handler.js';
 export { UserChannel }       from './comms/user-channel.js';
 export { AgentChannel, agentChannel } from './comms/agent-channel.js';
 export { bootstrap }         from './wiring/hierarchy-bootstrap.js';

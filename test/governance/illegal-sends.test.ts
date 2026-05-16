@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { assertLegalSend, IllegalSendError } from '../../src/alienclaw/governance/comm-graph.js';
+import { assertLegalSend, IllegalSendError } from '../../src/alienclaw/governance/common/comm-graph.js';
 
 describe('illegal-sends (type-bypass)', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

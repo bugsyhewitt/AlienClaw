@@ -8,8 +8,8 @@ import {
   assertLegalSend,
   isLegalSend,
   IllegalSendError,
-} from '../../src/alienclaw/governance/comm-graph.js';
-import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/messages.js';
+} from '../../src/alienclaw/governance/common/comm-graph.js';
+import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/common/messages.js';
 
 describe('COMM_GRAPH', () => {
   it('contains exactly 7 legal edges', () => {

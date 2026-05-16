@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Logger, InMemorySink, JsonStdoutSink } from '../../src/alienclaw/governance/logger.js';
+import { Logger, InMemorySink, JsonStdoutSink } from '../../src/alienclaw/governance/common/logger.js';
 
 describe('Logger / InMemorySink', () => {
   let sink: InMemorySink;

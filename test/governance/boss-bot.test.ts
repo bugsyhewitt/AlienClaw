@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BossBot } from '../../src/alienclaw/governance/boss-bot.js';
-import { AdvisorBot } from '../../src/alienclaw/governance/advisor-bot.js';
-import { CreatorBot } from '../../src/alienclaw/governance/creator-bot.js';
-import { MockMartianSummonAdapter } from '../../src/alienclaw/governance/summon-adapter.js';
-import { InMemorySink, Logger } from '../../src/alienclaw/governance/logger.js';
-import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/messages.js';
-import type { UserGoalMessage } from '../../src/alienclaw/governance/messages.js';
+import { BossBot } from '../../src/alienclaw/governance/common/boss-bot.js';
+import { AdvisorBot } from '../../src/alienclaw/governance/common/advisor-bot.js';
+import { CreatorBot } from '../../src/alienclaw/governance/common/creator-bot.js';
+import { MockMartianSummonAdapter } from '../../src/alienclaw/governance/common/summon-adapter.js';
+import { InMemorySink, Logger } from '../../src/alienclaw/governance/common/logger.js';
+import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/common/messages.js';
+import type { UserGoalMessage } from '../../src/alienclaw/governance/common/messages.js';
 
 const makeGoal = (goal = 'summarize HN'): UserGoalMessage => ({
   from: 'user', to: 'BossBot', kind: 'user-goal',

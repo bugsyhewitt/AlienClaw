@@ -63,7 +63,7 @@ export interface TaskEnvelope {
   assignedTo?: string;
   strikeCount: number;
   attempts:    TaskAttempt[];
-  /** Populated when this task belongs to a campaign's Specialist */
+  /** Populated when this task belongs to a campaign's Subagent */
   campaignId?: string;
 }
 
@@ -73,18 +73,6 @@ export interface TaskAttempt {
   failureReason:  string;
   advisorVerdict: string;
   ts:             number;
-}
-
-// ── Employees ─────────────────────────────────────────────────────────────────
-
-export interface EmployeeSpec {
-  employeeId: string;
-  domain:     string;
-  model:      string;
-  toolTags:   string[];
-  createdBy:  'CreatorBot';
-  createdAt:  number;
-  generation: number;
 }
 
 // ── CreatorBot queue ──────────────────────────────────────────────────────────
@@ -122,47 +110,45 @@ export interface Goal {
   scheme?:      Scheme;
 }
 
-// ── Campaign / Scheme / Specialist (Phase 3 — Campaign architecture) ──────────
+// ── Campaign / Scheme / Subagent (Phase 3 — Campaign architecture) ────────────
 
 export type CampaignStatus = 'pending' | 'active' | 'complete' | 'failed';
 
 /**
- * A Specialist is a campaign-scoped Employee with deep domain knowledge.
+ * A Subagent is a campaign-scoped Employee with deep domain knowledge.
  * It is created by CreatorBot and disposed when its Campaign ends.
- * Specialists never call tools directly — they summon Martian intentionally.
+ * Subagents never call tools directly — they summon Martian intentionally.
  */
-export interface SpecialistRole {
+export interface SubagentRole {
   /** Human-readable role label, e.g. "Frontend Developer" */
   role:         string;
   /** Domain tag used for routing and genome selection, e.g. "implementation" */
   domain:       string;
-  /** Campaign-specific expertise loaded into the specialist's soul at build time */
+  /** Campaign-specific expertise loaded into the subagent's soul at build time */
   knowledgeBase: string;
-  /** Martian tool tags this specialist is expected to summon */
+  /** Martian tool tags this subagent is expected to summon */
   martianTags: string[];
 }
 
 /**
  * A Campaign is a cohesive unit of work within a Scheme.
- * It has its own set of specialist roles and dependency edges to other campaigns.
- * CreatorBot builds one specialist per role once the campaign becomes ready.
+ * It has its own set of subagent roles and dependency edges to other campaigns.
+ * CreatorBot builds one subagent per role once the campaign becomes ready.
  */
 export interface Campaign {
   id:           string;
   name:         string;
   objective:    string;
-  specialists:  SpecialistRole[];
+  subagents:    SubagentRole[];
   /** IDs of other campaigns that must complete before this one can start */
   dependsOn:    string[];
   status:       CampaignStatus;
-  /** Specialist Employee IDs assigned by CreatorBot after build */
-  specialistIds?: string[];
 }
 
 /**
  * A Scheme is the top-level plan agreed upon by BossBot and AdvisorBot.
  * It describes all campaigns needed to fulfill a Goal.
- * CreatorBot receives the Scheme and builds specialists for each Campaign.
+ * CreatorBot receives the Scheme and builds subagents for each Campaign.
  */
 export interface Scheme {
   goalId:              string;
@@ -223,11 +209,11 @@ export interface GoalsFile {
   goals:        Goal[];
 }
 
-// ── Specialist / Martian summoning ───────────────────────────────────────────
+// ── Subagent / Martian summoning ─────────────────────────────────────────────
 
 /**
- * Result returned by a specialist after summoning a Martian.
- * Mirrors MartianExecutionResult but typed at the specialist boundary.
+ * Result returned by a subagent after summoning a Martian.
+ * Mirrors MartianExecutionResult but typed at the subagent boundary.
  */
 export interface SummonResult {
   tag:       string;
