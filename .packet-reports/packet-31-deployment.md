@@ -40,26 +40,21 @@ If MySQL integration isn't available yet, use flat-file storage instead:
 - Set only `ALIENCLAW_API_DATA_ROOT` pointing to a writable directory
 - The API server defaults to flat-file storage automatically
 
-### Step 3: Deploy the Python API
+### Step 3: Deploy the TypeScript API (Packet 31.5 — replaces Python)
+
+**Note:** The Python API was ported to TypeScript in Packet 31.5. The API is now
+TypeScript (Node.js). The deployment instructions below are updated accordingly.
 
 In hPanel → Websites → alienclaw.net → Deployments:
 
 1. Connect to the GitHub repo (github.com/AlienTool/AlienClaw)
 2. Branch: main
-3. Deploy command: `python3 -m alienclaw.api --port $ALIENCLAW_API_PORT`
-4. Or: create a start script `scripts/start_api.sh`:
-   ```bash
-   #!/bin/bash
-   PYTHONPATH=src python3 -m alienclaw.api.__main__
-   ```
+3. Run `npm install` (installs tsx and other deps)
+4. Start command: `npm start` (runs `tsx src/alienclaw/api/main.ts`)
+5. Set environment variables: ALIENCLAW_API_DATA_ROOT, ALIENCLAW_API_PORT
 
-**Important:** The API server needs Python 3.11+. Confirm Hostinger's Python
-version before deploying.
-
-**If Python persistent processes aren't supported on this plan:**
-- Alternative 1: Use Hostinger VPS (upgrade)
-- Alternative 2: Deploy to Render.com free tier (free, Node.js or Python, Postgres available)
-- Alternative 3: Deploy to Fly.io (free tier, persistent Python)
+The API runs on Node.js (no Python required). See packet-31.5-manual-steps.md
+for exact Hostinger-panel steps.
 
 ### Step 4: Set DNS for api.alienclaw.net
 

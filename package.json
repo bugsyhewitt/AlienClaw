@@ -1,12 +1,13 @@
 {
   "name": "alienclaw",
   "version": "2026.4.10",
-  "description": "AlienClaw — governed multi-agent overlay on OpenClaw",
+  "description": "AlienClaw \u2014 governed multi-agent overlay on OpenClaw",
   "private": true,
   "type": "module",
   "scripts": {
     "setup": "bash install.sh",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start": "tsx src/alienclaw/api/main.ts"
   },
   "devDependencies": {
     "@mariozechner/pi-ai": "0.73.0",
@@ -36,5 +37,8 @@
     "git-hooks/",
     "scripts/",
     ".github/"
-  ]
+  ],
+  "dependencies": {
+    "tsx": "^4.0.0"
+  }
 }
