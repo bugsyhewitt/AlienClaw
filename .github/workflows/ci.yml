@@ -155,26 +155,10 @@ jobs:
             echo "FAIL: diagnostics tests left ~/.alienclaw/diagnostics/ behind"
             exit 1
           fi
-      - name: Run API tests with coverage
-        env:
-          PYTHONPATH: src
+      - name: Note — API tests moved to TypeScript
         run: |
-          pytest test/api/ \
-            --cov=alienclaw.api \
-            --cov-report=term-missing \
-            --cov-fail-under=85 \
-            -q
-      - name: Rate limiter persistence smoke test
-        env:
-          PYTHONPATH: src
-        run: |
-          rm -rf /tmp/alienclaw-rate-test/
-          pytest test/api/test_rate_limit_persistence.py -v
-      - name: Audit log smoke test
-        env:
-          PYTHONPATH: src
-        run: |
-          pytest test/api/test_audit_log.py test/api/test_handler_genomes_audit_integration.py -v
+          echo "The AlienClaw community API was ported to TypeScript in Packet 31.5."
+          echo "API tests now run via vitest (TypeScript CI job). No Python API tests remain."
       - name: Web search backend test
         env:
           PYTHONPATH: src
