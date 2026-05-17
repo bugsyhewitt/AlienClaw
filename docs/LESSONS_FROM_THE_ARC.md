@@ -1021,3 +1021,62 @@ area is GLOBAL across sessions — it persists after a session ends. Any subsequ
 - Tests before reconciliation: 402/402 passing
 - Tests after reconciliation: 402/402 passing (same — tree was already coherent locally)
 - CI green: YES (on the reconciled push)
+
+---
+
+## Bug #14 — Storage backend port drift (Packet 31.6)
+
+### What happened
+
+Packet 31.5 ported the community API from Python to TypeScript. The migration produced
+correct HTTP behavior — all 25 integration tests passed — but the storage layer silently
+retained flat-file implementations behind the `SubmissionStore`, `InstallStore`, and
+`GlobalStats` classes. The server accepted real submissions, returned valid responses,
+and never surfaced an error. Data written to flat files rather than MySQL would be
+invisible in production: no error, no warning, no indication the database was bypassed.
+
+### Why tests didn't catch it
+
+The integration tests (`ts-api-server.test.ts`) issued HTTP requests and asserted on
+response bodies: status codes, submission IDs, leaderboard rankings. A flat-file
+backend produces identical HTTP responses to a MySQL backend for these inputs.
+There was no test that queried MySQL directly after a store operation to confirm the
+data actually landed there.
+
+### How it was caught
+
+Packet 31.6 ran a manual code audit of `storage.ts`. The file had `import * as fs` and
+`writeFileSync` calls alongside a placeholder `mysql2` import that was never invoked.
+The bug was structural: the data persistence path never touched a database.
+
+### The fix
+
+`storage.ts` was rewritten as MySQL-only using `mysql2/promise`. Three key design decisions:
+
+1. **Fail fast at startup.** `initPool()` throws immediately if `ALIENCLAW_DB_URL` is
+   not set. There is no flat-file fallback and no silent degradation.
+
+2. **Lazy pool getter.** Module-level `let _pool: mysql.Pool | null = null` with a
+   `pool()` accessor that throws if `initPool()` was not called. Constructors no longer
+   fail on import — only on first use without initialization.
+
+3. **Persistence-asserting tests.** `test/api/ts-storage.test.ts` queries MySQL directly
+   after every store operation. A test that only checks the HTTP response cannot detect a
+   mismatch between "response looks correct" and "data is in the database". Tests that
+   query the persistence layer directly can.
+
+### Process-hygiene change (mandatory going forward)
+
+Any storage layer port or rewrite must include at least one test that:
+1. Calls the store method
+2. Queries the target database/backend directly (not via the store's own read methods)
+3. Asserts the exact value landed at the persistence layer
+
+"HTTP response is correct" ≠ "persistence layer received the data."
+
+### Stats
+- New source file: `src/alienclaw/api/storage.ts` (MySQL-only, 252 lines)
+- New test file: `test/api/ts-storage.test.ts` (21 persistence-asserting tests)
+- Tests in ts-api-server.test.ts updated to use `ALIENCLAW_TEST_DB_URL`
+- CI: MySQL service container added to `test` job; storage tests skipped if no DB URL
+- `migrations/001_leaderboard.sql` extended: added `installs` table

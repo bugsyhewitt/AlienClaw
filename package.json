@@ -1,7 +1,7 @@
 {
   "name": "alienclaw",
   "version": "2026.4.10",
-  "description": "AlienClaw \u2014 governed multi-agent overlay on OpenClaw",
+  "description": "AlienClaw — governed multi-agent overlay on OpenClaw",
   "private": true,
   "type": "module",
   "scripts": {
@@ -39,6 +39,7 @@
     ".github/"
   ],
   "dependencies": {
+    "mysql2": "^3.22.3",
     "tsx": "^4.0.0"
   }
 }

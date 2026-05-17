@@ -1,8 +1,8 @@
 import type { GlobalStats } from '../storage.js';
 import type { StatsResponse } from '../types.js';
 
-export function handleStats(store: GlobalStats): [number, StatsResponse] {
-  const raw = store.get();
+export async function handleStats(store: GlobalStats): Promise<[number, StatsResponse]> {
+  const raw = await store.get();
   return [200, {
     total_genomes:             raw.total_genomes,
     total_installs:            raw.total_installs,

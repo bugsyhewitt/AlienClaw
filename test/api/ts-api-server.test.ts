@@ -9,12 +9,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
 import { configure, createApiServer } from '../../src/alienclaw/api/server.js';
 import { generateApiKey } from '../../src/alienclaw/api/auth.js';
-import { validateLeaderboardName, validateSubmission } from '../../src/alienclaw/api/validation.js';
+import { validateLeaderboardName } from '../../src/alienclaw/api/validation.js';
+
+const TEST_DB_URL = process.env['ALIENCLAW_TEST_DB_URL'];
+const skipIfNoDb = !TEST_DB_URL;
 
 // ── HTTP helpers ────────────────────────────────────────────────────────────
 
@@ -55,19 +55,17 @@ function validGenome(): string {
 let base = '';
 import type { Server } from "node:http";
 let server: Server;
-let tmpRoot = '';
 
 beforeEach(async () => {
-  tmpRoot = join(tmpdir(), `api-ts-test-${Date.now()}`);
-  mkdirSync(tmpRoot, { recursive: true });
-  configure({ dataRoot: tmpRoot });
+  if (!TEST_DB_URL) return; // skip setup when no DB
+  configure({ dbUrl: TEST_DB_URL });
   server = await createApiServer(0, '127.0.0.1');
   const addr = server.address() as AddressInfo;
   base = `http://127.0.0.1:${addr.port}`;
 });
 
 afterEach(() => {
-  server.close();
+  server?.close();
 });
 
 async function register(key?: string): Promise<string> {
@@ -78,7 +76,9 @@ async function register(key?: string): Promise<string> {
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-describe('Health', () => {
+const dbDescribe = skipIfNoDb ? describe.skip : describe;
+
+dbDescribe('Health', () => {
   it('GET /v1/health returns 200', async () => {
     const { status, body } = await get(base, '/v1/health');
     expect(status).toBe(200);
@@ -86,7 +86,7 @@ describe('Health', () => {
   });
 });
 
-describe('Install', () => {
+dbDescribe('Install', () => {
   it('new install returns 201', async () => {
     const key = generateApiKey();
     const { status, body } = await post(base, '/v1/install',
@@ -105,7 +105,7 @@ describe('Install', () => {
   });
 });
 
-describe('SubmitGenome', () => {
+dbDescribe('SubmitGenome', () => {
   it('valid submission returns 201', async () => {
     const key = await register();
     const { status, body } = await post(base, '/v1/genomes',
@@ -228,7 +228,7 @@ describe('SubmitGenome', () => {
   });
 });
 
-describe('TopGenomes', () => {
+dbDescribe('TopGenomes', () => {
   it('returns 200 with empty board', async () => {
     const { status, body } = await get(base, '/v1/genomes/top?martian_type=compute&n=3');
     expect(status).toBe(200);

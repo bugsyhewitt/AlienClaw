@@ -1,7 +1,7 @@
 /**
  * HTTP server for api.alienclaw.net/v1/.
- * TypeScript port of api/server.py (Packet 31.5).
  * Uses node:http directly — no framework dependency.
+ * Storage is MySQL-backed (mysql2/promise). Wired via initPool().
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
@@ -10,34 +10,36 @@ import { hashApiKey } from './auth.js';
 import { isValidApiKeyFormat } from './validation.js';
 import { RateLimiter } from './rate-limit.js';
 import { AuditLog } from './audit-log.js';
-import { SubmissionStore, InstallStore, GlobalStats } from './storage.js';
+import { SubmissionStore, InstallStore, GlobalStats, initPool } from './storage.js';
 import { handleHealth }       from './handlers/health.js';
 import { handleStats }        from './handlers/stats.js';
 import { handleMartianTypes } from './handlers/martian-types.js';
 import { handleInstall }      from './handlers/install.js';
 import { handleSubmitGenome, handleTopGenomes } from './handlers/genomes.js';
 import type { SubmissionRequest, InstallRequest } from './types.js';
-import { apiError }            from './types.js';
+import { apiError } from './types.js';
 
 // ── Global server state ────────────────────────────────────────────────────
 
-let _RATE_LIMITER  = new RateLimiter();
-let _AUDIT_LOG     = new AuditLog();
-let _SUBMISSION    = new SubmissionStore();
-let _INSTALLS      = new InstallStore();
-let _STATS         = new GlobalStats();
-let _REGISTERED:   Set<string> = new Set(['compute', 'http_get', 'search_text',
+let _RATE_LIMITER = new RateLimiter();
+let _AUDIT_LOG    = new AuditLog();
+let _SUBMISSION   = new SubmissionStore();
+let _INSTALLS     = new InstallStore();
+let _STATS        = new GlobalStats();
+let _REGISTERED: Set<string> = new Set(['compute', 'http_get', 'search_text',
   'url_fetch', 'web_search', 'file_read', 'file_write', 'extract_json',
   'compute_alone', 'http_get_alone', 'search_text_alone', 'url_fetch_alone',
   'web_search_alone', 'file_read_alone', 'file_write_alone', 'extract_json_alone']);
 
-export function configure(opts: { dataRoot?: string } = {}): void {
-  const root       = opts.dataRoot ?? process.env['ALIENCLAW_API_DATA_ROOT'];
-  _RATE_LIMITER    = new RateLimiter({ dataRoot: root });
-  _AUDIT_LOG       = new AuditLog({ dataRoot: root });
-  _SUBMISSION      = new SubmissionStore(root);
-  _INSTALLS        = new InstallStore(root);
-  _STATS           = new GlobalStats(root);
+export function configure(opts: { dbUrl?: string; dataRoot?: string } = {}): void {
+  const dbUrl = opts.dbUrl ?? process.env['ALIENCLAW_DB_URL'];
+  const p     = initPool(dbUrl);   // throws immediately if dbUrl is missing
+  const root  = opts.dataRoot ?? process.env['ALIENCLAW_API_DATA_ROOT'];
+  _RATE_LIMITER = new RateLimiter({ dataRoot: root });
+  _AUDIT_LOG    = new AuditLog({ dataRoot: root });
+  _SUBMISSION   = new SubmissionStore(p);
+  _INSTALLS     = new InstallStore(p);
+  _STATS        = new GlobalStats(p);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -70,7 +72,10 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown> |
   });
 }
 
-function authBearer(req: IncomingMessage, res: ServerResponse): string | null {
+async function authBearer(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<string | null> {
   const auth = req.headers['authorization'] ?? '';
   if (!auth.startsWith('Bearer ')) {
     err(res, 401, 'UNAUTHORIZED', 'Missing or invalid Authorization header.');
@@ -82,7 +87,7 @@ function authBearer(req: IncomingMessage, res: ServerResponse): string | null {
     return null;
   }
   const khash = hashApiKey(key);
-  if (!_INSTALLS.exists(khash)) {
+  if (!(await _INSTALLS.exists(khash))) {
     err(res, 401, 'UNAUTHORIZED', 'API key not registered. Call POST /v1/install first.');
     return null;
   }
@@ -96,8 +101,6 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
     const parsed = parse(req.url ?? '/', true);
     const path   = (parsed.pathname ?? '/').replace(/\/+$/, '');
     const qs     = parsed.query;
-    const isSafe = ['/v1/health', '/v1/stats', '/v1/martian-types'].includes(path)
-                || path.startsWith('/v1/genomes/top');
 
     try {
       if (req.method === 'GET') {
@@ -106,11 +109,11 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
           return send(res, s, b, true);
         }
         if (path === '/v1/stats') {
-          const [s, b] = handleStats(_STATS);
+          const [s, b] = await handleStats(_STATS);
           return send(res, s, b, true);
         }
         if (path === '/v1/martian-types') {
-          const [s, b] = handleMartianTypes(_REGISTERED, _SUBMISSION);
+          const [s, b] = await handleMartianTypes(_REGISTERED, _SUBMISSION);
           return send(res, s, b, true);
         }
         if (path.startsWith('/v1/genomes/top') || path === '/v1/genomes/top') {
@@ -118,7 +121,7 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
           if (!martianType) return err(res, 400, 'MISSING_PARAMETER', 'martian_type query parameter is required.');
           const n = Math.max(1, Math.min(100, parseInt(String(qs['n'] ?? '10'), 10) || 10));
           try {
-            const [s, b] = handleTopGenomes({ martianType, n, store: _SUBMISSION, registeredTypes: _REGISTERED });
+            const [s, b] = await handleTopGenomes({ martianType, n, store: _SUBMISSION, registeredTypes: _REGISTERED });
             return send(res, s, b, true);
           } catch (e: unknown) {
             if (e instanceof Error && 'martianType' in e) {
@@ -138,7 +141,7 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
           const missing = (['api_key', 'machine_hash'] as const).filter(f => !(f in body));
           if (missing.length) return err(res, 400, 'MISSING_FIELDS', `Missing required fields: ${JSON.stringify(missing)}`, { missing });
           try {
-            const [s, b] = handleInstall(body as unknown as InstallRequest, _INSTALLS);
+            const [s, b] = await handleInstall(body as unknown as InstallRequest, _INSTALLS);
             return send(res, s, b);
           } catch (e: unknown) {
             return send(res, 400, { error: JSON.parse((e as Error).message) });
@@ -146,7 +149,7 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
         }
 
         if (path === '/v1/genomes') {
-          const khash = authBearer(req, res);
+          const khash = await authBearer(req, res);
           if (!khash) return;
           const [allowed, retryAfter] = _RATE_LIMITER.check(khash);
           if (!allowed) {
@@ -168,7 +171,7 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
               run_metadata:     (body['run_metadata'] as Record<string, unknown>) ?? {},
             };
             const clientIp = req.socket.remoteAddress ?? 'unknown';
-            const [s, b] = handleSubmitGenome({
+            const [s, b] = await handleSubmitGenome({
               req: req2, apiKeyHash: khash, store: _SUBMISSION,
               registeredTypes: _REGISTERED, auditLog: _AUDIT_LOG, clientIp,
             });

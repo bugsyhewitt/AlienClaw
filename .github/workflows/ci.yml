@@ -36,6 +36,19 @@ jobs:
   test:
     name: Unit tests
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: alienclaw_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,6 +59,8 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Run tests
+        env:
+          ALIENCLAW_TEST_DB_URL: mysql://root:test@127.0.0.1:3306/alienclaw_test
         run: npx vitest run --reporter=verbose
 
   python:

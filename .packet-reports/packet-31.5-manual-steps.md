@@ -33,9 +33,10 @@ In hPanel → Websites → alienclaw.net → Databases → phpMyAdmin:
 2. Click the "Import" tab
 3. Choose file: `migrations/001_leaderboard.sql` from the repo
 4. Click "Go" to run it
-5. Verify: the `leaderboard_entries` table now exists with columns:
-   `id`, `leaderboard_name`, `genome`, `martian_type`, `fitness`,
-   `api_key_hash`, `submitted_at`, `submission_id`, `run_metadata`
+5. Verify: two tables now exist:
+   - `leaderboard_entries` with columns: `submission_id`, `leaderboard_name`, `genome`,
+     `martian_type`, `fitness`, `api_key_hash`, `submitted_at`, `run_metadata`
+   - `installs` with columns: `install_id`, `api_key_hash`, `machine_hash`, `registered_at`
 
 **MySQL version note:** If you get an error about the CHECK constraint with REGEXP,
 remove the `CONSTRAINT chk_leaderboard_name` block from the SQL (the application
@@ -47,14 +48,13 @@ In hPanel → Websites → alienclaw.net → Environment variables:
 
 Add these variables:
 ```
-ALIENCLAW_API_DATA_ROOT = /home/u881291242/alienclaw-data
-ALIENCLAW_API_PORT      = 8080
-ALIENCLAW_API_HOST      = 0.0.0.0
+ALIENCLAW_DB_URL   = mysql://u881291242_api:PASSWORD@localhost/u881291242_leaderboard
+ALIENCLAW_API_PORT = 8080
+ALIENCLAW_API_HOST = 0.0.0.0
 ```
 
-The `ALIENCLAW_API_DATA_ROOT` path must be writable. Use a path in your home
-directory (not `/var/alienclaw` which is the server default — Hostinger shared
-hosting won't have write access there).
+Replace `PASSWORD` with the password you set in Step 2.
+The API fails fast at startup if `ALIENCLAW_DB_URL` is not set — there is no flat-file fallback.
 
 ## Step 5 — Deploy the TypeScript API
 
@@ -65,7 +65,7 @@ In hPanel → Websites → alienclaw.net → Deployments:
 2. Delete / remove it (it's the confirmed throwaway placeholder)
 
 **Deploy the AlienClaw API:**
-1. Connect to GitHub: AlienTool/AlienClaw
+1. Connect to GitHub: bugsyhewitt/AlienClaw
 2. Branch: main
 3. Build command: `npm install` (installs tsx and all deps)
 4. Start command: `npm start` (runs `tsx src/alienclaw/api/main.ts`)
