@@ -4,7 +4,7 @@ Open-source agent infrastructure built around an evolutionary genome system.
 You give BossBot a goal. It coordinates everything else behind the scenes.
 
 **Status:** active development. Core architecture is in place. Genome evolution
-loop and community network are in flight. See [ROADMAP.md](./ROADMAP.md).
+loop and community network are in flight. See [ROADMAP.md](./ROADMAP.md)
 
 ## What is AlienClaw
 
