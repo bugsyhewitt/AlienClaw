@@ -32,6 +32,7 @@ def _submission(inp: dict) -> SubmissionRequest:
         genome=inp["genome"],
         martian_type=inp["martian_type"],
         fitness=inp["fitness"],
+        leaderboard_name=inp.get("leaderboard_name", ""),
         run_metadata=inp.get("run_metadata", {}),
     )
 

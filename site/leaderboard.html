@@ -89,7 +89,8 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Genome (first 32 chars)</th>
+            <th>Operator</th>
+            <th>Genome (first 24 chars)</th>
             <th>Fitness</th>
           </tr>
         </thead>
@@ -157,12 +158,17 @@
         }
         status.textContent = `${d.total_for_type} genome${d.total_for_type !== 1 ? 's' : ''} — showing top ${d.genomes.length}`;
         status.className = 'lb-status';
-        for (const entry of d.genomes) {
+        for (let i = 0; i < d.genomes.length; i++) {
+          const entry = d.genomes[i];
+          const rank = i + 1;
           const tr = document.createElement('tr');
-          if (entry.rank === 1) tr.className = 'top1';
+          if (rank === 1) tr.className = 'top1';
+          // leaderboard_name is ^[A-Z]{8}$ — safe to render without escaping concerns
+          const name = entry.leaderboard_name || '—';
           tr.innerHTML = `
-            <td class="rank">${entry.rank}</td>
-            <td class="genome">${entry.genome.slice(0, 32)}…</td>
+            <td class="rank">${rank}</td>
+            <td>${name}</td>
+            <td class="genome">${entry.genome ? entry.genome.slice(0, 24) + '…' : '—'}</td>
             <td class="fitness">${Number(entry.fitness).toFixed(4)}</td>`;
           tbody.appendChild(tr);
         }

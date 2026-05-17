@@ -54,7 +54,7 @@ class TestGenomeHandlerAuditIntegration:
     def test_valid_submission_logged_as_accepted(self, store, audit, tmp_path):
         req = SubmissionRequest(
             genome=_valid_genome(), martian_type="compute",
-            fitness=0.85, run_metadata={},
+            fitness=0.85, leaderboard_name="TESTBOTA", run_metadata={},
         )
         handle_submit_genome(req, API_KEY_HASH, store, REGISTERED,
                              audit_log=audit, client_ip="10.0.0.1")
@@ -67,7 +67,7 @@ class TestGenomeHandlerAuditIntegration:
     def test_rejected_submission_logged_with_code(self, store, audit, tmp_path):
         req = SubmissionRequest(
             genome="TOOSHORT", martian_type="compute",
-            fitness=0.5, run_metadata={},
+            fitness=0.5, leaderboard_name="TESTBOTA", run_metadata={},
         )
         with pytest.raises(ValueError):
             handle_submit_genome(req, API_KEY_HASH, store, REGISTERED,
@@ -80,7 +80,7 @@ class TestGenomeHandlerAuditIntegration:
     def test_no_audit_log_does_not_crash(self, store):
         req = SubmissionRequest(
             genome=_valid_genome(), martian_type="compute",
-            fitness=0.5, run_metadata={},
+            fitness=0.5, leaderboard_name="TESTBOTA", run_metadata={},
         )
         # audit_log=None should work without error
         status, _ = handle_submit_genome(req, API_KEY_HASH, store, REGISTERED)
@@ -89,7 +89,7 @@ class TestGenomeHandlerAuditIntegration:
     def test_duplicate_submission_still_logged(self, store, audit, tmp_path):
         genome = _valid_genome()
         req = SubmissionRequest(genome=genome, martian_type="compute",
-                                fitness=0.5, run_metadata={})
+                                fitness=0.5, leaderboard_name="TESTBOTA", run_metadata={})
         handle_submit_genome(req, API_KEY_HASH, store, REGISTERED,
                              audit_log=audit, client_ip="10.0.0.1")
         handle_submit_genome(req, API_KEY_HASH, store, REGISTERED,
@@ -105,7 +105,7 @@ class TestGenomeHandlerAuditIntegration:
         audit_dir.write_text("not a directory")  # type: ignore
         req = SubmissionRequest(
             genome=_valid_genome(), martian_type="compute",
-            fitness=0.5, run_metadata={},
+            fitness=0.5, leaderboard_name="TESTBOTA", run_metadata={},
         )
         # Submission must succeed despite audit failure
         status, _ = handle_submit_genome(req, API_KEY_HASH, store, REGISTERED,

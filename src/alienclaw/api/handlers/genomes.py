@@ -60,6 +60,7 @@ def handle_submit_genome(
     sid, submitted_at = store.save(
         req.genome, req.martian_type, req.fitness,
         api_key_hash, req.run_metadata,
+        leaderboard_name=req.leaderboard_name,
     )
     rank = store.rank_for_fitness(req.martian_type, req.fitness)
 
@@ -100,6 +101,7 @@ def handle_top_genomes(
             fitness=e["fitness"],
             submission_id=e["submission_id"],
             submitted_at=e["submitted_at"],
+            leaderboard_name=e.get("leaderboard_name", ""),
             generation=e.get("run_metadata", {}).get("generation"),
         )
         for e in entries_raw

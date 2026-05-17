@@ -103,7 +103,7 @@ class TestSubmitGenome:
         key = self._register(api_server)
         genome = _valid_genome()
         status, body = _post(f"{api_server}/v1/genomes",
-                             {"genome": genome, "martian_type": "compute", "fitness": 0.85,
+                             {"genome": genome, "martian_type": "compute", "fitness": 0.85, "leaderboard_name": "TESTBOTA",
                               "run_metadata": {"generation": 5}},
                              headers={"Authorization": f"Bearer {key}"})
         assert status == 201
@@ -113,13 +113,13 @@ class TestSubmitGenome:
 
     def test_missing_auth_returns_401(self, api_server):
         status, body = _post(f"{api_server}/v1/genomes",
-                             {"genome": _valid_genome(), "martian_type": "compute", "fitness": 0.5})
+                             {"genome": _valid_genome(), "martian_type": "compute", "fitness": 0.5, "leaderboard_name": "TESTBOTA"})
         assert status == 401
 
     def test_invalid_genome_length_returns_422(self, api_server):
         key = self._register(api_server)
         status, body = _post(f"{api_server}/v1/genomes",
-                             {"genome": "TOOSHORT", "martian_type": "compute", "fitness": 0.5},
+                             {"genome": "TOOSHORT", "martian_type": "compute", "fitness": 0.5, "leaderboard_name": "TESTBOTA"},
                              headers={"Authorization": f"Bearer {key}"})
         assert status == 422
         assert body["error"]["code"] == "INVALID_GENOME_LENGTH"
@@ -127,7 +127,7 @@ class TestSubmitGenome:
     def test_invalid_fitness_returns_422(self, api_server):
         key = self._register(api_server)
         status, body = _post(f"{api_server}/v1/genomes",
-                             {"genome": _valid_genome(), "martian_type": "compute", "fitness": 1.5},
+                             {"genome": _valid_genome(), "martian_type": "compute", "fitness": 1.5, "leaderboard_name": "TESTBOTA"},
                              headers={"Authorization": f"Bearer {key}"})
         assert status == 422
         assert body["error"]["code"] == "INVALID_FITNESS_RANGE"
@@ -135,7 +135,7 @@ class TestSubmitGenome:
     def test_unknown_martian_type_returns_422(self, api_server):
         key = self._register(api_server)
         status, body = _post(f"{api_server}/v1/genomes",
-                             {"genome": _valid_genome(), "martian_type": "nonexistent", "fitness": 0.5},
+                             {"genome": _valid_genome(), "martian_type": "nonexistent", "fitness": 0.5, "leaderboard_name": "TESTBOTA"},
                              headers={"Authorization": f"Bearer {key}"})
         assert status == 422
         assert body["error"]["code"] == "UNKNOWN_MARTIAN_TYPE"
@@ -144,13 +144,49 @@ class TestSubmitGenome:
         key = self._register(api_server)
         genome = _valid_genome()
         body_data = {"genome": genome, "martian_type": "compute", "fitness": 0.9,
-                     "run_metadata": {}}
+                     "leaderboard_name": "TESTBOTA", "run_metadata": {}}
         headers = {"Authorization": f"Bearer {key}"}
         s1, b1 = _post(f"{api_server}/v1/genomes", body_data, headers)
         s2, b2 = _post(f"{api_server}/v1/genomes", body_data, headers)
         assert s1 == 201
         assert s2 == 200
         assert b1["submission_id"] == b2["submission_id"]
+
+    def test_missing_leaderboard_name_returns_400(self, api_server):
+        key = self._register(api_server)
+        status, body = _post(f"{api_server}/v1/genomes",
+                             {"genome": _valid_genome(), "martian_type": "compute",
+                              "fitness": 0.5},
+                             headers={"Authorization": f"Bearer {key}"})
+        assert status == 400
+        assert body["error"]["code"] == "MISSING_FIELDS"
+
+    def test_lowercase_leaderboard_name_returns_422(self, api_server):
+        key = self._register(api_server)
+        status, body = _post(f"{api_server}/v1/genomes",
+                             {"genome": _valid_genome(), "martian_type": "compute",
+                              "fitness": 0.5, "leaderboard_name": "lowercase"},
+                             headers={"Authorization": f"Bearer {key}"})
+        assert status == 422
+        assert body["error"]["code"] == "INVALID_LEADERBOARD_NAME"
+
+    def test_digit_leaderboard_name_returns_422(self, api_server):
+        key = self._register(api_server)
+        status, body = _post(f"{api_server}/v1/genomes",
+                             {"genome": _valid_genome(), "martian_type": "compute",
+                              "fitness": 0.5, "leaderboard_name": "TESTBOT1"},
+                             headers={"Authorization": f"Bearer {key}"})
+        assert status == 422
+        assert body["error"]["code"] == "INVALID_LEADERBOARD_NAME"
+
+    def test_short_leaderboard_name_returns_422(self, api_server):
+        key = self._register(api_server)
+        status, body = _post(f"{api_server}/v1/genomes",
+                             {"genome": _valid_genome(), "martian_type": "compute",
+                              "fitness": 0.5, "leaderboard_name": "TOOSHRT"},
+                             headers={"Authorization": f"Bearer {key}"})
+        assert status == 422
+        assert body["error"]["code"] == "INVALID_LEADERBOARD_NAME"
 
 
 class TestTopGenomes:
@@ -175,12 +211,16 @@ class TestTopGenomes:
         for fitness in [0.3, 0.8, 0.5]:
             g = random_genome(random.Random(int(fitness * 100)), "COMPUT01")
             _post(f"{api_server}/v1/genomes",
-                  {"genome": g, "martian_type": "compute", "fitness": fitness}, headers)
+                  {"genome": g, "martian_type": "compute", "fitness": fitness,
+                   "leaderboard_name": "TESTBOTA"}, headers)
         status, body = _get(f"{api_server}/v1/genomes/top?martian_type=compute&n=3")
         assert status == 200
         assert body["total_for_type"] == 3
         fitnesses = [e["fitness"] for e in body["genomes"]]
         assert fitnesses == sorted(fitnesses, reverse=True)
+        # leaderboard_name is included in each entry
+        for entry in body["genomes"]:
+            assert entry["leaderboard_name"] == "TESTBOTA"
 
 
 class TestMartianTypes:

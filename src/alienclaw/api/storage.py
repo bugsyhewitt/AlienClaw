@@ -50,7 +50,8 @@ class SubmissionStore:
         return self._root / "genomes" / martian_type
 
     def save(self, genome: str, martian_type: str, fitness: float,
-             api_key_hash: str, run_metadata: dict) -> tuple[str, str]:
+             api_key_hash: str, run_metadata: dict,
+             leaderboard_name: str = "") -> tuple[str, str]:
         """Save a genome submission. Returns (submission_id, submitted_at)."""
         sid = f"sub_{uuid.uuid4().hex[:6]}"
         now = datetime.now(timezone.utc).isoformat()
@@ -59,6 +60,7 @@ class SubmissionStore:
             "genome": genome,
             "martian_type": martian_type,
             "fitness": fitness,
+            "leaderboard_name": leaderboard_name,
             "api_key_hash": api_key_hash,
             "run_metadata": run_metadata,
             "submitted_at": now,

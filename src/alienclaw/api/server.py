@@ -199,7 +199,7 @@ class APIHandler(BaseHTTPRequestHandler):
             if body is None:
                 self._error(400, "MALFORMED_REQUEST", "Request body must be valid JSON.")
                 return
-            missing = [f for f in ("genome", "martian_type", "fitness") if f not in body]
+            missing = [f for f in ("genome", "martian_type", "fitness", "leaderboard_name") if f not in body]
             if missing:
                 self._error(400, "MISSING_FIELDS", f"Missing required fields: {missing}",
                             {"missing": missing})
@@ -209,6 +209,7 @@ class APIHandler(BaseHTTPRequestHandler):
                     genome=body["genome"],
                     martian_type=body["martian_type"],
                     fitness=float(body["fitness"]),
+                    leaderboard_name=body.get("leaderboard_name", ""),
                     run_metadata=body.get("run_metadata", {}),
                 )
                 client_ip = self.client_address[0] if self.client_address else "unknown"
