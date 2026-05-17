@@ -36,6 +36,7 @@ class SubmissionRequest:
     genome: str
     martian_type: str
     fitness: float
+    leaderboard_name: str = ""  # ^[A-Z]{8}$ — 8 uppercase letters, validated on submit
     run_metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -55,6 +56,7 @@ class GenomeEntry:
     fitness: float
     submission_id: str
     submitted_at: str
+    leaderboard_name: str = ""  # ^[A-Z]{8}$
     generation: int | None = None
 
 

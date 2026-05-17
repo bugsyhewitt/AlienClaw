@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "description": "AlienClaw API contract fixtures — consumed by Python and TypeScript test runners",
+  "description": "AlienClaw API contract fixtures \u2014 consumed by Python and TypeScript test runners",
   "constants": {
     "api_key_length": 43,
     "machine_hash_length": 64,
@@ -22,105 +22,135 @@
       "category": "api_key_format",
       "description": "Valid 43-char Base62 key is accepted",
       "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGukQAP",
-      "expected": {"valid": true}
+      "expected": {
+        "valid": true
+      }
     },
     {
       "id": "key-002",
       "category": "api_key_format",
       "description": "All-zeros 43-char key is valid Base62",
       "input": "0000000000000000000000000000000000000000000",
-      "expected": {"valid": true}
+      "expected": {
+        "valid": true
+      }
     },
     {
       "id": "key-003",
       "category": "api_key_format",
-      "description": "42-char key is too short — rejected",
+      "description": "42-char key is too short \u2014 rejected",
       "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGukQA",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "key-004",
       "category": "api_key_format",
-      "description": "44-char key is too long — rejected",
+      "description": "44-char key is too long \u2014 rejected",
       "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGukQAPX",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "key-005",
       "category": "api_key_format",
       "description": "Empty string is rejected",
       "input": "",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "key-006",
       "category": "api_key_format",
       "description": "Key with non-Base62 char (dash) is rejected",
       "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGuk-AP",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "key-007",
       "category": "api_key_format",
       "description": "Key with space is rejected",
       "input": "9Cbj5j0kWKFxxfy0fJXjLLIGXJ3LETWxIW1ZCGuk AP",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "key-008",
       "category": "api_key_format",
       "description": "Literal string 'short' is rejected",
       "input": "short",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "hash-001",
       "category": "machine_hash",
       "description": "64 lowercase hex chars is valid",
       "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "expected": {"valid": true}
+      "expected": {
+        "valid": true
+      }
     },
     {
       "id": "hash-002",
       "category": "machine_hash",
       "description": "64 hex chars mixing all valid hex digits is valid",
       "input": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      "expected": {"valid": true}
+      "expected": {
+        "valid": true
+      }
     },
     {
       "id": "hash-003",
       "category": "machine_hash",
       "description": "Uppercase hex chars are rejected",
       "input": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "hash-004",
       "category": "machine_hash",
       "description": "63-char hash is too short",
       "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "hash-005",
       "category": "machine_hash",
       "description": "65-char hash is too long",
       "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "hash-006",
       "category": "machine_hash",
       "description": "Non-hex char 'g' is rejected",
       "input": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "hash-007",
       "category": "machine_hash",
       "description": "Empty string is rejected",
       "input": "",
-      "expected": {"valid": false}
+      "expected": {
+        "valid": false
+      }
     },
     {
       "id": "genome-001",
@@ -129,9 +159,13 @@
       "input": {
         "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
         "martian_type": "compute",
-        "fitness": 0.85
+        "fitness": 0.85,
+        "leaderboard_name": "TESTBOTA"
       },
-      "expected": {"valid": true, "error_code": null}
+      "expected": {
+        "valid": true,
+        "error_code": null
+      }
     },
     {
       "id": "genome-002",
@@ -142,7 +176,10 @@
         "martian_type": "compute",
         "fitness": 0.5
       },
-      "expected": {"valid": false, "error_code": "INVALID_GENOME_LENGTH"}
+      "expected": {
+        "valid": false,
+        "error_code": "INVALID_GENOME_LENGTH"
+      }
     },
     {
       "id": "genome-003",
@@ -153,7 +190,10 @@
         "martian_type": "compute",
         "fitness": 0.5
       },
-      "expected": {"valid": false, "error_code": "INVALID_GENOME_LENGTH"}
+      "expected": {
+        "valid": false,
+        "error_code": "INVALID_GENOME_LENGTH"
+      }
     },
     {
       "id": "genome-004",
@@ -164,7 +204,10 @@
         "martian_type": "compute",
         "fitness": 0.5
       },
-      "expected": {"valid": false, "error_code": "INVALID_GENOME_ALPHABET"}
+      "expected": {
+        "valid": false,
+        "error_code": "INVALID_GENOME_ALPHABET"
+      }
     },
     {
       "id": "genome-005",
@@ -173,9 +216,13 @@
       "input": {
         "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
         "martian_type": "compute",
-        "fitness": 0.0
+        "fitness": 0.0,
+        "leaderboard_name": "TESTBOTA"
       },
-      "expected": {"valid": true, "error_code": null}
+      "expected": {
+        "valid": true,
+        "error_code": null
+      }
     },
     {
       "id": "genome-006",
@@ -184,9 +231,13 @@
       "input": {
         "genome": "COMPUT01G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZEUDIAzeCHAqxUk9K8FOiZkI7YuzacnWclS69ySFoaT287oYPI0ZmihS8XcEdaqxs",
         "martian_type": "compute",
-        "fitness": 1.0
+        "fitness": 1.0,
+        "leaderboard_name": "TESTBOTA"
       },
-      "expected": {"valid": true, "error_code": null}
+      "expected": {
+        "valid": true,
+        "error_code": null
+      }
     },
     {
       "id": "genome-007",
@@ -197,7 +248,10 @@
         "martian_type": "compute",
         "fitness": 1.5
       },
-      "expected": {"valid": false, "error_code": "INVALID_FITNESS_RANGE"}
+      "expected": {
+        "valid": false,
+        "error_code": "INVALID_FITNESS_RANGE"
+      }
     },
     {
       "id": "genome-008",
@@ -208,7 +262,10 @@
         "martian_type": "compute",
         "fitness": -0.1
       },
-      "expected": {"valid": false, "error_code": "INVALID_FITNESS_RANGE"}
+      "expected": {
+        "valid": false,
+        "error_code": "INVALID_FITNESS_RANGE"
+      }
     },
     {
       "id": "genome-009",
@@ -219,7 +276,10 @@
         "martian_type": "nonexistent",
         "fitness": 0.5
       },
-      "expected": {"valid": false, "error_code": "UNKNOWN_MARTIAN_TYPE"}
+      "expected": {
+        "valid": false,
+        "error_code": "UNKNOWN_MARTIAN_TYPE"
+      }
     },
     {
       "id": "genome-010",
@@ -230,7 +290,10 @@
         "martian_type": "compute",
         "fitness": 0.5
       },
-      "expected": {"valid": false, "error_code": "INVALID_GENOME_CHECKSUM"}
+      "expected": {
+        "valid": false,
+        "error_code": "INVALID_GENOME_CHECKSUM"
+      }
     },
     {
       "id": "endpoint-001",
@@ -238,7 +301,11 @@
       "description": "GET /v1/health response has required fields",
       "endpoint": "GET /v1/health",
       "expected_status": 200,
-      "required_fields": ["status", "version", "uptime_seconds"],
+      "required_fields": [
+        "status",
+        "version",
+        "uptime_seconds"
+      ],
       "field_types": {
         "status": "string",
         "version": "string",
@@ -254,7 +321,11 @@
       "description": "POST /v1/install new key returns 201 with install_id and rate_limit",
       "endpoint": "POST /v1/install",
       "expected_status": 201,
-      "required_fields": ["status", "install_id", "rate_limit"],
+      "required_fields": [
+        "status",
+        "install_id",
+        "rate_limit"
+      ],
       "field_types": {
         "status": "string",
         "install_id": "string",
@@ -264,7 +335,9 @@
         "status": "registered"
       },
       "nested_required": {
-        "rate_limit": ["submissions_per_hour"]
+        "rate_limit": [
+          "submissions_per_hour"
+        ]
       },
       "nested_values": {
         "rate_limit.submissions_per_hour": 100
@@ -276,7 +349,10 @@
       "description": "POST /v1/install known key returns 200 with status=known",
       "endpoint": "POST /v1/install (repeat)",
       "expected_status": 200,
-      "required_fields": ["status", "install_id"],
+      "required_fields": [
+        "status",
+        "install_id"
+      ],
       "field_values": {
         "status": "known"
       }
@@ -287,7 +363,11 @@
       "description": "POST /v1/genomes success returns 201 with submission_id, rank, is_new_top",
       "endpoint": "POST /v1/genomes",
       "expected_status": 201,
-      "required_fields": ["submission_id", "rank", "is_new_top"],
+      "required_fields": [
+        "submission_id",
+        "rank",
+        "is_new_top"
+      ],
       "field_types": {
         "submission_id": "string",
         "rank": "number",
@@ -300,7 +380,9 @@
       "description": "POST /v1/genomes duplicate returns 200 with same submission_id",
       "endpoint": "POST /v1/genomes (duplicate)",
       "expected_status": 200,
-      "required_fields": ["submission_id"],
+      "required_fields": [
+        "submission_id"
+      ],
       "note": "submission_id must equal the first submission's id"
     },
     {
@@ -309,7 +391,11 @@
       "description": "GET /v1/genomes/top returns correct structure",
       "endpoint": "GET /v1/genomes/top?martian_type=compute",
       "expected_status": 200,
-      "required_fields": ["martian_type", "genomes", "total_for_type"],
+      "required_fields": [
+        "martian_type",
+        "genomes",
+        "total_for_type"
+      ],
       "field_types": {
         "martian_type": "string",
         "genomes": "array",
@@ -324,7 +410,13 @@
       "category": "response_schema",
       "description": "GET /v1/genomes/top genome entry has required fields",
       "endpoint": "GET /v1/genomes/top (entry fields)",
-      "required_entry_fields": ["genome", "fitness", "rank", "submission_id", "martian_type"],
+      "required_entry_fields": [
+        "genome",
+        "fitness",
+        "rank",
+        "submission_id",
+        "martian_type"
+      ],
       "note": "Each entry in genomes array must have these fields"
     },
     {
@@ -333,11 +425,23 @@
       "description": "GET /v1/martian-types returns all 8 types",
       "endpoint": "GET /v1/martian-types",
       "expected_status": 200,
-      "required_fields": ["martian_types", "total"],
+      "required_fields": [
+        "martian_types",
+        "total"
+      ],
       "field_values": {
         "total": 8
       },
-      "required_names": ["compute", "web_search", "search_text", "file_read", "file_write", "http_get", "url_fetch", "extract_json"]
+      "required_names": [
+        "compute",
+        "web_search",
+        "search_text",
+        "file_read",
+        "file_write",
+        "http_get",
+        "url_fetch",
+        "extract_json"
+      ]
     },
     {
       "id": "endpoint-009",
@@ -345,15 +449,25 @@
       "description": "GET /v1/stats returns all 4 required counter fields",
       "endpoint": "GET /v1/stats",
       "expected_status": 200,
-      "required_fields": ["total_genomes", "total_installs", "total_fitness_evaluations", "top_fitness_by_type"]
+      "required_fields": [
+        "total_genomes",
+        "total_installs",
+        "total_fitness_evaluations",
+        "top_fitness_by_type"
+      ]
     },
     {
       "id": "error-001",
       "category": "error_schema",
       "description": "All 4xx/5xx responses have error envelope with code and message",
-      "required_fields": ["error"],
+      "required_fields": [
+        "error"
+      ],
       "nested_required": {
-        "error": ["code", "message"]
+        "error": [
+          "code",
+          "message"
+        ]
       },
       "field_types": {
         "error.code": "string",
@@ -363,7 +477,7 @@
     {
       "id": "error-002",
       "category": "error_codes",
-      "description": "Canonical error codes — must be used verbatim by all implementations",
+      "description": "Canonical error codes \u2014 must be used verbatim by all implementations",
       "codes": [
         "INVALID_API_KEY_FORMAT",
         "INVALID_MACHINE_HASH",

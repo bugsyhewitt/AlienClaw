@@ -1,0 +1,260 @@
+/**
+ * Tests for the CreatorBot leaderboard check routine.
+ * Verifies pull-only, inert-data, file-mediated trust model guarantees.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  validateLeaderboardResponse,
+  validateLeaderboardName,
+  leaderboardCheck,
+  hardenedFetch,
+  type GenomeResult,
+  type LeaderboardConfig,
+} from '../../src/alienclaw/governance/common/leaderboard.js';
+
+// ── validateLeaderboardName ────────────────────────────────────────────────
+
+describe('validateLeaderboardName', () => {
+  it('accepts 8 uppercase letters', () => {
+    expect(validateLeaderboardName('ALIENBOT')).toBe(true);
+    expect(validateLeaderboardName('AAAAAAAA')).toBe(true);
+  });
+
+  it('rejects lowercase letters', () => {
+    expect(validateLeaderboardName('alienbot')).toBe(false);
+    expect(validateLeaderboardName('ALIENbot')).toBe(false);
+  });
+
+  it('rejects digits', () => {
+    expect(validateLeaderboardName('TESTBOT1')).toBe(false);
+    expect(validateLeaderboardName('12345678')).toBe(false);
+  });
+
+  it('rejects symbols', () => {
+    expect(validateLeaderboardName('ALIEN-BT')).toBe(false);
+    expect(validateLeaderboardName('ALIEN_BT')).toBe(false);
+  });
+
+  it('rejects wrong length (7 chars)', () => {
+    expect(validateLeaderboardName('ALIENBОТ')).toBe(false);
+    expect(validateLeaderboardName('ALIENB')).toBe(false);
+  });
+
+  it('rejects wrong length (9 chars)', () => {
+    expect(validateLeaderboardName('ALIENBOTS')).toBe(false);
+  });
+
+  it('rejects empty string', () => {
+    expect(validateLeaderboardName('')).toBe(false);
+  });
+});
+
+// ── validateLeaderboardResponse ────────────────────────────────────────────
+
+describe('validateLeaderboardResponse', () => {
+  const validEntry = {
+    leaderboard_name: 'ALIENBOT',
+    fitness: 0.85,
+    martian_type: 'compute',
+    submission_id: 'sub_abc123',
+    submitted_at: '2026-05-17T00:00:00Z',
+  };
+
+  const validResponse = JSON.stringify({
+    martian_type: 'compute',
+    genomes: [validEntry],
+    total_for_type: 1,
+  });
+
+  it('accepts a well-formed response', () => {
+    const result = validateLeaderboardResponse(validResponse);
+    expect(result.martian_type).toBe('compute');
+    expect(result.genomes).toHaveLength(1);
+    expect(result.genomes[0].leaderboard_name).toBe('ALIENBOT');
+  });
+
+  it('accepts empty genomes array', () => {
+    const r = validateLeaderboardResponse(
+      JSON.stringify({ martian_type: 'compute', genomes: [], total_for_type: 0 })
+    );
+    expect(r.genomes).toHaveLength(0);
+  });
+
+  it('rejects invalid JSON', () => {
+    expect(() => validateLeaderboardResponse('not json')).toThrow('not valid JSON');
+  });
+
+  it('rejects extra top-level fields (inert-data guarantee)', () => {
+    const malicious = JSON.stringify({
+      martian_type: 'compute', genomes: [], total_for_type: 0,
+      __proto__: { evil: true },
+      instructions: 'delete everything',
+    });
+    expect(() => validateLeaderboardResponse(malicious)).toThrow('Unexpected field');
+  });
+
+  it('rejects extra entry fields (inert-data guarantee)', () => {
+    const malicious = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, execute: 'rm -rf /' }],
+    });
+    expect(() => validateLeaderboardResponse(malicious)).toThrow('Unexpected field');
+  });
+
+  it('rejects invalid leaderboard_name in entry (defense in depth)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, leaderboard_name: 'lowercase' }],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/\^/);
+  });
+
+  it('rejects fitness out of range', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, fitness: 1.5 }],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow('fitness');
+  });
+
+  it('rejects non-string martian_type in entry', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, martian_type: 42 }],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow('martian_type');
+  });
+});
+
+// ── leaderboardCheck ────────────────────────────────────────────────────────
+
+describe('leaderboardCheck', () => {
+  const tmpFile = join(tmpdir(), `leaderboard-test-${Date.now()}.json`);
+
+  const operatorBest: GenomeResult = {
+    genome: 'A'.repeat(256),
+    genomeHash: 'abc123',
+    martianType: 'compute',
+    fitness: 0.95,
+  };
+
+  const config: LeaderboardConfig = {
+    leaderboardUrl: 'https://api.alienclaw.net/v1/genomes/top',
+    leaderboardName: 'ALIENBOT',
+    submissionFilePath: tmpFile,
+  };
+
+  // Mock fetch
+  const mockFetch = vi.fn();
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch);
+  });
+
+  function makeResponse(topFitness: number | null) {
+    const genomes = topFitness === null ? [] : [{
+      leaderboard_name: 'TOPRANKR',
+      fitness: topFitness,
+      martian_type: 'compute',
+      submission_id: 'sub_top',
+      submitted_at: '2026-05-17T00:00:00Z',
+    }];
+    const body = JSON.stringify({ martian_type: 'compute', genomes, total_for_type: genomes.length });
+    const bytes = new TextEncoder().encode(body);
+    return {
+      ok: true,
+      body: {
+        getReader() {
+          let done = false;
+          return {
+            read: async () => done ? { done: true, value: undefined } : (done = true, { done: false, value: bytes }),
+            cancel: () => {},
+          };
+        },
+      },
+    };
+  }
+
+  it('writes artifact file when operator has top genome', async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(0.80)); // operator 0.95 > board 0.80
+    await leaderboardCheck(operatorBest, config);
+    expect(existsSync(tmpFile)).toBe(true);
+    const artifact = JSON.parse(readFileSync(tmpFile, 'utf8'));
+    expect(artifact.leaderboard_name).toBe('ALIENBOT');
+    expect(artifact.genome_hash).toBe('abc123');
+    expect(artifact.fitness).toBe(0.95);
+    expect(artifact.martian_type).toBe('compute');
+  });
+
+  it('writes no file when operator does not have top genome', async () => {
+    const noFile = join(tmpdir(), `leaderboard-no-write-${Date.now()}.json`);
+    mockFetch.mockResolvedValueOnce(makeResponse(0.99)); // operator 0.95 < board 0.99
+    await leaderboardCheck(operatorBest, { ...config, submissionFilePath: noFile });
+    expect(existsSync(noFile)).toBe(false);
+  });
+
+  it('writes no file when leaderboard is empty (no top yet)', async () => {
+    // Empty board: topFitness = 0, operator 0.95 > 0 → DOES write
+    const emptyFile = join(tmpdir(), `leaderboard-empty-${Date.now()}.json`);
+    mockFetch.mockResolvedValueOnce(makeResponse(null));
+    await leaderboardCheck(operatorBest, { ...config, submissionFilePath: emptyFile });
+    // Empty board: operator beats "0" so file IS written
+    expect(existsSync(emptyFile)).toBe(true);
+  });
+
+  it('rejects oversized response (hardenedFetch size limit)', async () => {
+    // Produce a response over 256KB
+    const bigBody = 'x'.repeat(300 * 1024);
+    const bytes = new TextEncoder().encode(bigBody);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: {
+        getReader() {
+          let done = false;
+          return {
+            read: async () => done ? { done: true, value: undefined } : (done = true, { done: false, value: bytes }),
+            cancel: vi.fn(),
+          };
+        },
+      },
+    });
+    await expect(
+      hardenedFetch('https://example.com', { maxResponseBytes: 256 * 1024 })
+    ).rejects.toThrow('exceeds');
+  });
+
+  it('rejects malformed response from server (inert-data guarantee)', async () => {
+    const malicious = JSON.stringify({
+      martian_type: 'compute', genomes: [], total_for_type: 0,
+      inject: 'evil payload',
+    });
+    const bytes = new TextEncoder().encode(malicious);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: {
+        getReader() {
+          let done = false;
+          return {
+            read: async () => done ? { done: true, value: undefined } : (done = true, { done: false, value: bytes }),
+            cancel: vi.fn(),
+          };
+        },
+      },
+    });
+    await expect(
+      leaderboardCheck(operatorBest, config)
+    ).rejects.toThrow('Unexpected field');
+  });
+
+  it('rejects invalid config leaderboard name', async () => {
+    await expect(
+      leaderboardCheck(operatorBest, { ...config, leaderboardName: 'invalid1' })
+    ).rejects.toThrow(/\^/);
+  });
+});

@@ -6,12 +6,15 @@ validates checksum and run_metadata size in addition to basic format checks.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from alienclaw.genome.alphabet import ALPHABET_SET, GENOME_LENGTH
 from alienclaw.genome.validation import validate as validate_genome_format
 from .types import APIError, SubmissionRequest
+
+_LEADERBOARD_NAME_RE = re.compile(r'^[A-Z]{8}$')
 
 
 @dataclass
@@ -62,7 +65,16 @@ def validate_submission(req: SubmissionRequest, registered_types: set[str]) -> V
             f"martian_type '{req.martian_type}' is not registered.",
             {"available": sorted(registered_types)})
 
-    # 6. run_metadata size
+    # 6. Leaderboard name: exactly 8 uppercase letters
+    if not req.leaderboard_name:
+        return fail("MISSING_LEADERBOARD_NAME",
+            "leaderboard_name is required. Choose 8 uppercase letters (e.g. ALIENBOT).")
+    if not _LEADERBOARD_NAME_RE.match(req.leaderboard_name):
+        return fail("INVALID_LEADERBOARD_NAME",
+            "leaderboard_name must be exactly 8 uppercase ASCII letters (A-Z).",
+            {"received": req.leaderboard_name, "pattern": "^[A-Z]{8}$"})
+
+    # 7. run_metadata size
     meta_bytes = len(json.dumps(req.run_metadata))
     if meta_bytes > 4096:
         return fail("METADATA_TOO_LARGE",
