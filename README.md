@@ -88,7 +88,7 @@ npm install -g openclaw
 openclaw configure
 
 # 3. Install AlienClaw
-git clone https://github.com/AlienTool/AlienClaw.git
+git clone https://github.com/bugsyhewitt/AlienClaw.git
 cd AlienClaw
 bash install.sh
 
