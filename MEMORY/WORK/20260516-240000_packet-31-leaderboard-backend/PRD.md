@@ -2,7 +2,7 @@
 task: Packet 31 leaderboard backend CI green L5 closed
 slug: 20260516-240000_packet-31-leaderboard-backend
 effort: advanced
-phase: execute
+phase: complete
 progress: 0/48
 mode: interactive
 started: 2026-05-16T24:00:00Z
