@@ -6,7 +6,7 @@
 
 import { configure, createApiServer } from './server.js';
 
-const port = parseInt(process.env['ALIENCLAW_API_PORT'] ?? '8080', 10);
+const port = parseInt(process.env['PORT'] ?? process.env['ALIENCLAW_API_PORT'] ?? '8080', 10);
 const host = process.env['ALIENCLAW_API_HOST'] ?? '0.0.0.0';
 const root = process.env['ALIENCLAW_API_DATA_ROOT'];
 
