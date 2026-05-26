@@ -1080,3 +1080,51 @@ Any storage layer port or rewrite must include at least one test that:
 - Tests in ts-api-server.test.ts updated to use `ALIENCLAW_TEST_DB_URL`
 - CI: MySQL service container added to `test` job; storage tests skipped if no DB URL
 - `migrations/001_leaderboard.sql` extended: added `installs` table
+
+---
+
+## Bug #14 re-fix — CI infrastructure gaps (Packet 34)
+
+### What happened
+
+After an OS reinstall (Packet 33), the Packet 31.6 commits were lost from the object
+store. Packet 34 re-applied the three source files (`storage.ts`, migration, 21 tests)
+from the design notes. Three distinct CI bugs blocked the tests from running:
+
+1. **No migration step in CI** — `.github/workflows/ci.yml` had a MySQL 8.0 service
+   container but no step to run `migrations/001_leaderboard.sql`. Tables never created.
+   Tests failed with `Table 'alienclaw_test.leaderboard_entries' doesn't exist`.
+
+2. **`CREATE INDEX IF NOT EXISTS` is MySQL 8.0-invalid** — `IF NOT EXISTS` on
+   `CREATE INDEX` is a MariaDB extension not supported in MySQL 8.0. The migration
+   would have failed with a syntax error on CI even if a migration step had been added.
+   Fix: remove `IF NOT EXISTS` from all four `CREATE INDEX` statements (migration always
+   runs on a fresh database, so idempotency guard is unnecessary).
+
+3. **beforeAll SQL parser filtered CREATE TABLE** — The test's `beforeAll` split the
+   migration SQL on semicolons, then filtered out any chunk starting with `--`. But the
+   first chunk after splitting always starts with the leading comment block
+   (`-- Migration 001:`), so `CREATE TABLE leaderboard_entries` was silently dropped.
+   Fix: strip comment lines before splitting, not after.
+
+### Root cause pattern
+
+All three bugs are CI-infrastructure gaps, not storage-logic bugs. The storage logic
+from Packet 31.6 was correct. The CI never exercised it because the tables didn't exist.
+
+### Fixes applied
+
+- `migrations/001_leaderboard.sql`: removed `IF NOT EXISTS` from all `CREATE INDEX`
+- `.github/workflows/ci.yml`: added "Run migrations" step before "Run tests"
+- `test/api/ts-storage.test.ts` `beforeAll`: strip comment lines before `split(';')`
+- `src/alienclaw/api/main.ts`: removed stale `ALIENCLAW_API_DATA_ROOT` env var reference
+- `src/alienclaw/api/server.ts`: removed `process.env['ALIENCLAW_API_DATA_ROOT']`
+  fallback from `configure()` — rate-limiter and audit-log still accept `opts.dataRoot`
+
+### Lesson
+
+**CI test infrastructure must be validated independently of the code under test.**
+Having a MySQL service container in CI is not sufficient — you must also run the
+migration before the tests, and the migration SQL must be valid on the target MySQL
+version (8.0), not just the local dev version (MariaDB). When local and CI MySQL
+variants differ, test the migration SQL against the CI version before landing.
