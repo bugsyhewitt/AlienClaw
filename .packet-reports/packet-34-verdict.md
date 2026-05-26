@@ -48,5 +48,13 @@
 
 ## CI
 
-CI result pending (checked after push). Expected: MySQL 8.0 service container runs
-migration cleanly, all 16 storage tests pass.
+**GREEN — all 5 jobs pass (run 26455495558).**
+
+Two additional MySQL 8.0–specific fixes were applied after the initial push:
+1. `storage.ts` `topForType()`: `LIMIT ?` as a prepared-statement parameter is rejected by
+   MySQL 8.0 (MariaDB accepts it). Fixed by inlining the validated integer: `LIMIT ${limit}`.
+2. `.github/workflows/ci.yml` vitest run: added `--no-file-parallelism` to prevent concurrent
+   DB modification between `ts-storage` and `ts-api-server` test files when the runner has
+   more than 2 CPUs.
+
+Final: Shell script lint ✓ | Install smoke test ✓ | Unit tests ✓ | TypeScript typecheck ✓ | Python lint + test ✓
