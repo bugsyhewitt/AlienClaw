@@ -85,6 +85,9 @@ export class SubmissionStore {
   }
 
   async topForType(martianType: string, n = 10): Promise<StoredSubmission[]> {
+    // LIMIT cannot be a prepared-statement parameter in MySQL 8.0 server-side mode.
+    // n is a controlled integer (caller enforces max 100), safe to inline.
+    const limit = Math.max(1, Math.floor(n));
     const [rows] = await this._pool.execute<mysql.RowDataPacket[]>(
       `SELECT submission_id, genome, martian_type, fitness, leaderboard_name,
               api_key_hash, run_metadata,
@@ -92,8 +95,8 @@ export class SubmissionStore {
        FROM leaderboard_entries
        WHERE martian_type = ?
        ORDER BY fitness DESC
-       LIMIT ?`,
-      [martianType, n]
+       LIMIT ${limit}`,
+      [martianType]
     );
     return rows.map(r => ({
       submission_id:    r['submission_id'] as string,

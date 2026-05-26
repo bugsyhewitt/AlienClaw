@@ -63,7 +63,7 @@ jobs:
       - name: Run tests
         env:
           ALIENCLAW_TEST_DB_URL: mysql://root:test@127.0.0.1:3306/alienclaw_test
-        run: npx vitest run --reporter=verbose
+        run: npx vitest run --reporter=verbose --no-file-parallelism
 
   python:
     name: Python lint + test + genome coverage
