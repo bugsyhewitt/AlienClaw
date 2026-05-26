@@ -12,6 +12,7 @@ import { AddressInfo } from 'node:net';
 import { configure, createApiServer } from '../../src/alienclaw/api/server.js';
 import { generateApiKey } from '../../src/alienclaw/api/auth.js';
 import { validateLeaderboardName } from '../../src/alienclaw/api/validation.js';
+import { initPool } from '../../src/alienclaw/api/storage.js';
 
 const TEST_DB_URL = process.env['ALIENCLAW_TEST_DB_URL'];
 const skipIfNoDb = !TEST_DB_URL;
@@ -58,6 +59,11 @@ let server: Server;
 
 beforeEach(async () => {
   if (!TEST_DB_URL) return; // skip setup when no DB
+  // Clean tables so each test starts with an empty DB (isolation from ts-storage.test.ts)
+  const pool = initPool(TEST_DB_URL);
+  await pool.execute('DELETE FROM leaderboard_entries');
+  await pool.execute('DELETE FROM installs');
+  await pool.end();
   configure({ dbUrl: TEST_DB_URL });
   server = await createApiServer(0, '127.0.0.1');
   const addr = server.address() as AddressInfo;
