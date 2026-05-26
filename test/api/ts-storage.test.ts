@@ -45,8 +45,15 @@ dbDescribe('MySQL storage — persistence assertions', () => {
     const schema = await import('node:fs').then(m =>
       m.readFileSync('migrations/001_leaderboard.sql', 'utf8')
     );
-    // Execute each statement separately
-    for (const stmt of schema.split(';').map(s => s.trim()).filter(s => s.length > 0 && !s.startsWith('--'))) {
+    // Execute each statement separately (strip comment lines first so chunks don't start with --)
+    const stmts = schema
+      .split('\n')
+      .filter(line => !line.trim().startsWith('--'))
+      .join('\n')
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    for (const stmt of stmts) {
       try { await pool.execute(stmt); } catch { /* ignore already-exists */ }
     }
     submissions = new SubmissionStore(pool);
