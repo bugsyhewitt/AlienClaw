@@ -1,10 +1,10 @@
 # Packet 33 — Verdict
 
-**Status:** GREEN
+**Status:** YELLOW
 
 ## Summary
 
-AlienClaw successfully relocated from `~/dev/v3x/alienclaw/` to `~/dev/alienclaw/` on the fresh OS. pnpm 11.3.0 installed via corepack. TypeScript typecheck (tsc --noEmit) clean. Test suite passed: 756 Python + 430 TypeScript = 1186 tests green, 159 skipped, 0 failed. Autonomy infrastructure files shipped: `run-packet.sh`, `.claude-code/packet-contract.md`, `.claude-code/locked-decisions.md`, `packets/` scaffold, and `LESSONS_FROM_THE_ARC.md` stub. Zero hardcoded `dev/v3x/alienclaw` path references found anywhere in the codebase.
+AlienClaw successfully relocated from `~/dev/v3x/alienclaw/` to `~/dev/alienclaw/` on the fresh OS. pnpm 11.3.0 installed via corepack. TypeScript typecheck (tsc --noEmit) clean. Test suite passed locally: 756 Python + 430 TypeScript = 1186 tests green, 159 skipped, 0 failed. Autonomy infrastructure files shipped: `run-packet.sh`, `.claude-code/packet-contract.md`, `.claude-code/locked-decisions.md`, `packets/` scaffold, and `LESSONS_FROM_THE_ARC.md` stub. Zero hardcoded `dev/v3x/alienclaw` path references found anywhere in the codebase. CI "Unit tests" job fails on this PR — **pre-existing failure** confirmed on the prior dependabot PR (#9, 2026-05-24), not introduced by Packet 33. Root cause: MySQL `leaderboard_entries` table missing because Packet 31.6 (MySQL storage layer) commits were lost in the OS reinstall. Packet 34 fixes this.
 
 ## Phase results
 
@@ -14,7 +14,7 @@ AlienClaw successfully relocated from `~/dev/v3x/alienclaw/` to `~/dev/alienclaw
 - **Phase 4 (31.6 design recovery):** N/A — All 9 packet-31.6-*.md files present locally. No recovery needed.
 - **Phase 5 (autonomy infra):** PASS — 5 new files created: `.claude-code/packet-contract.md`, `.claude-code/locked-decisions.md`, `run-packet.sh` (executable), `packets/packet-33-reconstitute.md`, `.packet-reports/LESSONS_FROM_THE_ARC.md`.
 - **Phase 6 (path fixes):** N/A — Zero hardcoded `dev/v3x/alienclaw` references found in any code, config, or doc file. Shell config also clean.
-- **Phase 7 (commit+push+PR):** PASS — Branch `packet-33-reconstitute`, scoped commits, PR opened.
+- **Phase 7 (commit+push+PR):** PASS — Branch `packet-33-reconstitute`, 5 scoped commits, PR #10 opened. CI: 6/7 checks pass, "Unit tests" fails with pre-existing MySQL schema issue (not introduced by this packet — confirmed in prior PR #9).
 
 ## Lost-31.6 status
 
