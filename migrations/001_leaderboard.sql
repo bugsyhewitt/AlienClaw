@@ -26,19 +26,19 @@ CREATE TABLE IF NOT EXISTS leaderboard_entries (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Top-N per martian_type query (the leaderboard read path)
-CREATE INDEX IF NOT EXISTS idx_leaderboard_martian_fitness
+CREATE INDEX idx_leaderboard_martian_fitness
     ON leaderboard_entries (martian_type, fitness DESC);
 
 -- Rank-for-fitness query (count submissions above a given fitness)
-CREATE INDEX IF NOT EXISTS idx_leaderboard_martian_fitness_asc
+CREATE INDEX idx_leaderboard_martian_fitness_asc
     ON leaderboard_entries (martian_type, fitness);
 
 -- Deduplication check (same genome + type + key + recent window)
-CREATE INDEX IF NOT EXISTS idx_leaderboard_dedup
+CREATE INDEX idx_leaderboard_dedup
     ON leaderboard_entries (genome(64), martian_type, api_key_hash, submitted_at);
 
 -- Operator name lookup
-CREATE INDEX IF NOT EXISTS idx_leaderboard_name
+CREATE INDEX idx_leaderboard_name
     ON leaderboard_entries (leaderboard_name);
 
 -- ── Installs ──────────────────────────────────────────────────────────────────
