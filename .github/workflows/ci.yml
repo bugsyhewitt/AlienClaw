@@ -58,6 +58,8 @@ jobs:
           cache-dependency-path: 'package.json'
       - name: Install dependencies
         run: npm install
+      - name: Run migrations
+        run: mysql -h 127.0.0.1 -u root -ptest alienclaw_test < migrations/001_leaderboard.sql
       - name: Run tests
         env:
           ALIENCLAW_TEST_DB_URL: mysql://root:test@127.0.0.1:3306/alienclaw_test
