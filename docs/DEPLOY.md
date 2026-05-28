@@ -24,11 +24,18 @@ This produces `/tmp/alienclaw-deploy.zip` (~8KB). The script:
 ## Upload to Hostinger
 
 1. Log in to [hpanel.hostinger.com](https://hpanel.hostinger.com)
-2. Navigate to **Websites → api.alienclaw.net → Node.js Apps**
-3. Find the **Deployments** section and click **New deployment**
-4. Select **Upload file** and upload `/tmp/alienclaw-deploy.zip`
-5. Set entry file to `server.js` and Node.js version to 22.x
-6. Click **Deploy**
+2. Navigate to **Websites → api.alienclaw.net → Deployments**
+3. Click **Settings and redeploy** (top-right of the Node.js Web App card)
+4. Under **Source files**, select **Upload new files**
+5. Click **Upload** and select `/tmp/alienclaw-deploy.zip`
+6. Wait for the upload to complete — the **Save and redeploy** button enables automatically
+7. Click **Save and redeploy**
+8. Wait ~20 seconds for the deployment to complete (Status: Completed on the Deployments page)
+
+**Note:** "Settings and redeploy" updates the hPanel-managed deployment slot. SFTP
+file replacement does NOT update this slot (see `docs/LESSONS_FROM_THE_ARC.md`
+Bug #18.1). Always use the hPanel UI to keep the managed deployment record in sync
+with the running files.
 
 ## Verify after deploy
 
