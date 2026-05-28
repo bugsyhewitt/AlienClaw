@@ -1083,6 +1083,56 @@ Any storage layer port or rewrite must include at least one test that:
 
 ---
 
+## Bug #18.1 — hPanel has two artifact slots: SFTP extraction and the managed deployment slot (Packet 37.1)
+
+### What happened
+
+Packet 37 proved the v9 artifact was correct by extracting it via SFTP to the
+`nodejs/` directory and restarting the app — health returned 200 with
+`uptime_seconds: 0`. However, the hPanel-managed deployment slot (the record in
+Hostinger's Node.js Apps → Deployments UI) still showed `alienclaw-deploy-v8.zip`
+as the current deployment. These are two separate artifact locations:
+
+1. **SFTP filesystem** (`~/domains/api.alienclaw.net/nodejs/`) — the running content,
+   directly writable via SSH/SFTP.
+2. **hPanel deployment slot** — a record in Hostinger's deployment management system,
+   updated only through the hPanel UI or API. Drives the "redeploy" button behavior.
+
+Fixing only the SFTP side left the hPanel slot pointing at v8. A click of "Settings
+and redeploy" in hPanel would pull v8, overwrite the SFTP-patched v9 files, and crash
+production.
+
+### Discovery
+
+The hPanel Deployments page showed `alienclaw-deploy-v8.zip` as Current even after
+Packet 37's SFTP extraction. The "Manually uploaded" deployment type requires a
+fresh upload through the hPanel "Settings and redeploy" → "Upload new files" UI
+(not SFTP) to update the managed slot.
+
+### Fix
+
+Used the hPanel "Settings and redeploy" flow:
+1. Navigate to Deployments → Settings and redeploy
+2. Select "Upload new files" (not "Use previous files")
+3. Upload `alienclaw-deploy-v9.zip` via the file chooser
+4. Wait for the file to upload (button enables when complete)
+5. Click "Save and redeploy"
+
+Deployment completed at 2026-05-28 16:56:59. Health returned `uptime_seconds: 0`
+confirming a fresh process start from the hPanel-managed artifact. The deployment
+slot now correctly shows v9 as Current.
+
+### Lesson
+
+**On Hostinger's "Manually uploaded" Node.js deployment type, SFTP file replacement
+and the hPanel deployment record are independent.** Patching files via SSH/SFTP
+changes the running filesystem but does NOT update the hPanel deployment slot.
+Future "redeploy" actions in hPanel still pull from the last-uploaded artifact. To
+close the loop: after any SSH-side fix, also upload the corrected artifact through
+hPanel's "Settings and redeploy" UI to keep both records in sync.
+
+---
+
 ## Bug #18 — live SSH patch not reflected in stored deploy artifact (Packet 36→37)
 
 ### What happened
