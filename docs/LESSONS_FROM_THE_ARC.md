@@ -1083,6 +1083,108 @@ Any storage layer port or rewrite must include at least one test that:
 
 ---
 
+## Bug #18.1 — hPanel has two artifact slots: SFTP extraction and the managed deployment slot (Packet 37.1)
+
+### What happened
+
+Packet 37 proved the v9 artifact was correct by extracting it via SFTP to the
+`nodejs/` directory and restarting the app — health returned 200 with
+`uptime_seconds: 0`. However, the hPanel-managed deployment slot (the record in
+Hostinger's Node.js Apps → Deployments UI) still showed `alienclaw-deploy-v8.zip`
+as the current deployment. These are two separate artifact locations:
+
+1. **SFTP filesystem** (`~/domains/api.alienclaw.net/nodejs/`) — the running content,
+   directly writable via SSH/SFTP.
+2. **hPanel deployment slot** — a record in Hostinger's deployment management system,
+   updated only through the hPanel UI or API. Drives the "redeploy" button behavior.
+
+Fixing only the SFTP side left the hPanel slot pointing at v8. A click of "Settings
+and redeploy" in hPanel would pull v8, overwrite the SFTP-patched v9 files, and crash
+production.
+
+### Discovery
+
+The hPanel Deployments page showed `alienclaw-deploy-v8.zip` as Current even after
+Packet 37's SFTP extraction. The "Manually uploaded" deployment type requires a
+fresh upload through the hPanel "Settings and redeploy" → "Upload new files" UI
+(not SFTP) to update the managed slot.
+
+### Fix
+
+Used the hPanel "Settings and redeploy" flow:
+1. Navigate to Deployments → Settings and redeploy
+2. Select "Upload new files" (not "Use previous files")
+3. Upload `alienclaw-deploy-v9.zip` via the file chooser
+4. Wait for the file to upload (button enables when complete)
+5. Click "Save and redeploy"
+
+Deployment completed at 2026-05-28 16:56:59. Health returned `uptime_seconds: 0`
+confirming a fresh process start from the hPanel-managed artifact. The deployment
+slot now correctly shows v9 as Current.
+
+### Lesson
+
+**On Hostinger's "Manually uploaded" Node.js deployment type, SFTP file replacement
+and the hPanel deployment record are independent.** Patching files via SSH/SFTP
+changes the running filesystem but does NOT update the hPanel deployment slot.
+Future "redeploy" actions in hPanel still pull from the last-uploaded artifact. To
+close the loop: after any SSH-side fix, also upload the corrected artifact through
+hPanel's "Settings and redeploy" UI to keep both records in sync.
+
+---
+
+## Bug #18 — live SSH patch not reflected in stored deploy artifact (Packet 36→37)
+
+### What happened
+
+Bug #16's fix (remove top-level `await` from `server.js`) was applied live over SSH
+to the running app in Packet 36. The app worked. But the stored deploy artifact
+(`alienclaw-deploy-v8.zip`) on Hostinger still contained the broken `server.js`. If
+Hostinger re-extracted the stored zip — auto-restart from artifact, platform
+maintenance, an env var change triggering redeploy — the live patch would be
+overwritten and the app would crash with `ERR_REQUIRE_ASYNC_MODULE`.
+
+This is the same anti-pattern as Bug #12 ("running state correct, source artifact
+wrong"). The running filesystem is not the deployment source. A live patch is not a
+fix until it is in the source-of-truth artifact.
+
+### Fix
+
+Built a fresh artifact (`alienclaw-deploy-v9.zip`) from corrected source:
+- `dist/main.js` via esbuild (pre-compiled, no runtime tsx/esbuild)
+- `server.js` without top-level await
+- `package.json` with mysql2 only (no node_modules)
+
+Uploaded to the server via SFTP, extracted to the `nodejs/` directory, restarted the
+app. The app restarted with `uptime_seconds: 0`, confirming it ran from the extracted
+artifact content, not a live patch. Health check and MySQL persistence both verified.
+
+Added `scripts/build-deploy.sh` with a top-level-await guard:
+
+```bash
+if grep -qE '^\s*await ' "$OUT/server.js"; then
+  echo "ERROR: top-level await detected in server.js — would crash LiteSpeed (bug #16)."
+  exit 1
+fi
+```
+
+The guard makes Bug #16 mechanically impossible to ship again — the build fails
+loudly if top-level await is present.
+
+### Lesson
+
+**A live SSH patch is not a fix until it is in the source-of-truth artifact.** The
+running filesystem and the stored deploy artifact are separate. After patching a
+running app over SSH, the patch must be incorporated into the build process and the
+artifact must be rebuilt and re-uploaded so that a redeploy does not revert the fix.
+
+A complementary lesson: **build scripts with correctness guards catch deployment bugs
+at build time.** The top-level-await guard in `scripts/build-deploy.sh` turns a
+runtime crash (discovered after deploy) into a build-time failure (discovered before
+upload). Fail early; fail loudly.
+
+---
+
 ## Bug #15 — pnpm 11 removed onlyBuiltDependencies from package.json (Packet 35)
 
 ### What happened
