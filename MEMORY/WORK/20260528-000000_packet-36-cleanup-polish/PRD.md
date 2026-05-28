@@ -2,8 +2,8 @@
 task: packet 36 post-deploy cleanup README leaderboard polish
 slug: 20260528-000000_packet-36-cleanup-polish
 effort: advanced
-phase: execute
-progress: 25/31
+phase: complete
+progress: 31/31
 mode: interactive
 started: 2026-05-28T00:00:00Z
 updated: 2026-05-28T00:05:00Z
@@ -62,14 +62,41 @@ packet-35-hostinger-deploy so work sits cleanly on top.**
 - [x] ISC-21: pnpm build exits 0 without error
 - [x] ISC-22: pnpm test exits 0 or test absence documented in verdict
 - [x] ISC-23: git ls-files shows no .env* credential files
-- [ ] ISC-24: Packet 36 changes are in scoped commits (not mixed with other work)
-- [ ] ISC-25: Branch pushed to origin/packet-36-cleanup-polish
-- [ ] ISC-26: PR opened against main
+- [x] ISC-24: Packet 36 changes are in scoped commits (not mixed with other work)
+- [x] ISC-25: Branch pushed to origin/packet-36-cleanup-polish
+- [x] ISC-26: PR opened against main
 - [x] ISC-27: .packet-reports/packet-36-verdict.md written with GREEN/RED status
 - [x] ISC-A-1: No production DB password (AlienClaw2026!Prod) in any tracked file
 - [x] ISC-A-2: No DigitalOcean, Pho3nix, V3X in README or committed docs
 - [x] ISC-A-3: server.js localhost→127.0.0.1 patch present and unchanged
-- [ ] ISC-A-4: AI does not merge the PR (user action only)
+- [x] ISC-A-4: AI does not merge the PR (user action only)
+
+## Verification
+
+- ISC-1: `git branch` shows `* packet-36-cleanup-polish` on packet-35 base
+- ISC-2/3: SSH to server confirms `.builds/config/.env` has `@127.0.0.1` (not `@localhost`)
+- ISC-4: API health returns `{"status":"ok","version":"1.0.0","uptime_seconds":211}` confirming DB connectivity
+- ISC-5-10: `grep -c "Bug #1[567]" docs/LESSONS_FROM_THE_ARC.md` = 3
+- ISC-11: "Why AlienClaw" section present in README
+- ISC-12: BossBot session example present in README (19 lines)
+- ISC-13/14: "api.alienclaw.net" referenced 3 times in README leaderboard section
+- ISC-15: grep for DigitalOcean/Pho3nix/V3X in README = no matches
+- ISC-16: `AlienClaw2026` in git log = 1 match, in ISC criterion description text only (not in a connection string or credential file)
+- ISC-17: `git ls-files .packet-reports/` = 0 files
+- ISC-18: `.gitignore` contains `.packet-reports/` entry
+- ISC-19: `git ls-files docs/LESSONS_FROM_THE_ARC.md` = docs/LESSONS_FROM_THE_ARC.md
+- ISC-20: `git ls-files --error-unmatch .env.hostinger` = NOT TRACKED
+- ISC-21: `pnpm typecheck` exits 0
+- ISC-22: vitest 430/430 tests pass
+- ISC-23: `git ls-files | grep '^\.env'` = only `.env.example` (no credentials)
+- ISC-24: all changes in packet-36 scoped commits
+- ISC-25: branch pushed to origin/packet-36-cleanup-polish
+- ISC-26: PR #13 opened at https://github.com/bugsyhewitt/AlienClaw/pull/13
+- ISC-27: verdict written to .packet-reports/packet-36-verdict.md
+- ISC-A-1: no production password in connection string form in any tracked file
+- ISC-A-2: no DigitalOcean/Pho3nix/V3X in README or docs
+- ISC-A-3: server.js localhost→127.0.0.1 patch verified present via SSH read
+- ISC-A-4: PR not merged by AI
 
 ## Decisions
 
