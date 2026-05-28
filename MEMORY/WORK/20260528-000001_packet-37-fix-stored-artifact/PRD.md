@@ -2,8 +2,8 @@
 task: packet 37 rebuild replace stored Hostinger deploy artifact
 slug: 20260528-000001_packet-37-fix-stored-artifact
 effort: advanced
-phase: execute
-progress: 24/28
+phase: complete
+progress: 28/28
 mode: interactive
 started: 2026-05-28T18:00:00Z
 updated: 2026-05-28T18:05:00Z
@@ -65,12 +65,12 @@ up, no live patch is load-bearing.
 - [x] ISC-20: running scripts/build-deploy.sh succeeds and produces a zip
 - [x] ISC-21: docs/DEPLOY.md created documenting the deploy process
 - [x] ISC-22: Bug #18 appended to docs/LESSONS_FROM_THE_ARC.md
-- [ ] ISC-23: all packet-37 changes committed with scoped messages
-- [ ] ISC-24: branch pushed to origin/packet-37-fix-stored-artifact
+- [x] ISC-23: all packet-37 changes committed with scoped messages
+- [x] ISC-24: branch pushed to origin/packet-37-fix-stored-artifact
 - [x] ISC-A-1: no live SSH patch applied as the fix (extraction from artifact IS the fix)
 - [x] ISC-A-2: no node_modules in deploy zip
 - [x] ISC-A-3: no credentials committed to any file
-- [ ] ISC-A-4: PR not merged by AI
+- [x] ISC-A-4: PR not merged by AI
 
 ## Decisions
 
