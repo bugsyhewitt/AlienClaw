@@ -6,6 +6,23 @@ You give BossBot a goal. It coordinates everything else behind the scenes.
 **Status:** active development. Core architecture is in place. Genome evolution
 loop and community network are in flight. See [ROADMAP.md](./ROADMAP.md)
 
+## Why AlienClaw
+
+OpenClaw gives you a blank agent workspace. AlienClaw gives you a working
+team out of the box: a strategist (BossBot), a critic (AdvisorBot), and a
+builder (CreatorBot) — each wired to consult the others at the right moments,
+each running the same governance rules, each persistent across sessions.
+
+The deeper difference: AlienClaw agents don't just run tools — they *evolve*
+how they run them. Every tool call is executed by a Martian defined by a
+256-character Base62 genome. Genomes mutate, crossover, and compete. After
+enough campaigns, your local AlienClaw installation has learned which
+genome configurations get better results on your workload. The community
+leaderboard at `api.alienclaw.net` lets you compare your best genomes against
+others' and pull top performers from the network.
+
+None of that is visible to you. You talk to BossBot. It handles the rest.
+
 ## What is AlienClaw
 
 AlienClaw is an overlay distribution on [OpenClaw](https://github.com/openclaw/openclaw).
@@ -20,8 +37,8 @@ erases itself when the campaign ends.
 
 Martians are defined by 256-character Base62 genomes. The genomes mutate,
 crossover, and compete on fitness. CreatorBot evolves the local genome
-population over time. The community genome network (in development) syncs
-top-performing genomes globally so efficient agents propagate.
+population over time. The community leaderboard syncs top-performing genomes
+globally so efficient agents propagate.
 
 ## Architecture
 
@@ -119,6 +136,49 @@ openclaw configure --section model
 Preview the installer without running it: `bash install.sh --dry-run`
 
 Uninstall (leaves OpenClaw and your config intact): `bash install.sh --uninstall`
+
+### Example session
+
+```
+$ openclaw chat
+> you are talking to BossBot
+
+you: Summarize the key findings from the last three files in /tmp/reports/
+
+BossBot: Consulting AdvisorBot on scope…
+AdvisorBot: Recommend reading each file sequentially, summarizing per-file
+            then synthesising. CreatorBot should build a file-reader Specialist.
+BossBot: CreatorBot, build a Specialist for this.
+CreatorBot: Specialist built. Running campaign…
+
+[Campaign: file-reader | Martian: read-reports-v1 | genome: 7Kj2…Q9]
+  → read /tmp/reports/2026-04-12.txt  fitness: 0.91
+  → read /tmp/reports/2026-04-13.txt  fitness: 0.88
+  → read /tmp/reports/2026-04-14.txt  fitness: 0.93
+
+BossBot: Here are the key findings across the three reports:
+  • April 12: latency spike on auth service, root cause: DB index missing
+  • April 13: latency resolved after index added; throughput up 18%
+  • April 14: stable; recommendation to monitor p99 over the next week
+```
+
+The Specialist and Martians erased themselves after the campaign. BossBot
+and AdvisorBot updated their memories with the genome performance data.
+
+## Leaderboard
+
+AlienClaw maintains a live community leaderboard at `api.alienclaw.net`. Your
+local installation submits genome fitness scores automatically (no PII, just
+the genome string and a fitness value). You can query the leaderboard directly:
+
+```bash
+# Top 10 genomes by fitness
+curl https://api.alienclaw.net/v1/leaderboard | jq '.entries[:10]'
+```
+
+Genome evolution is local by default. Submissions to the leaderboard are
+opt-in and can be disabled by setting `ALIENCLAW_LEADERBOARD=off` in your
+environment.
 
 ## Project Structure
 
