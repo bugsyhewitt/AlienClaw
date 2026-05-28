@@ -172,8 +172,8 @@ local installation submits genome fitness scores automatically (no PII, just
 the genome string and a fitness value). You can query the leaderboard directly:
 
 ```bash
-# Top 10 genomes by fitness
-curl https://api.alienclaw.net/v1/leaderboard | jq '.entries[:10]'
+# Top genomes for a specific Martian type
+curl "https://api.alienclaw.net/v1/genomes/top?martian_type=search_text_alone" | jq '.entries[:10]'
 ```
 
 Genome evolution is local by default. Submissions to the leaderboard are
