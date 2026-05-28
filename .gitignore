@@ -126,3 +126,6 @@ dist/protocol.schema.json
 alienclaw-phase*.zip
 *.podman.env.local
 .env.hostinger
+
+# Packet working notes (local operational history, not source)
+.packet-reports/

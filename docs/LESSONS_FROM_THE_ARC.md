@@ -1083,6 +1083,102 @@ Any storage layer port or rewrite must include at least one test that:
 
 ---
 
+## Bug #15 — pnpm 11 removed onlyBuiltDependencies from package.json (Packet 35)
+
+### What happened
+
+The project used `"pnpm": { "onlyBuiltDependencies": ["esbuild"] }` in `package.json` to
+allow esbuild's postinstall script during Hostinger's build step. pnpm 11 silently
+ignores this field: `The "pnpm" field in package.json is no longer read by pnpm` appeared
+in the build log. The esbuild postinstall never ran; `tsx` could not resolve its bundler;
+the deploy zip failed to start.
+
+### Fix
+
+Moved `onlyBuiltDependencies` to `.npmrc` (`onlyBuiltDependencies[]=esbuild`). But the
+deeper fix: pre-compile TypeScript locally with esbuild before packaging, shipping
+`dist/main.js` instead of source. This eliminated tsx and esbuild from the runtime
+entirely — the deploy zip contains only `dist/main.js`, `server.js`, and `mysql2`.
+
+### Lesson
+
+**When a pnpm major version ships, check for field migrations before assuming package.json
+config is still read.** The symptom (installer not running) looks identical to a
+config-missing case, not a field-moved case. The warning line in the build log was the
+key diagnostic — always read build logs top-to-bottom before assuming the build succeeded.
+
+A second lesson: **pre-compile as a packaging step** eliminates an entire class of
+host-side build dependencies. If the host doesn't need to compile, the host can't
+silently skip compilation either.
+
+---
+
+## Bug #16 — LiteSpeed loads entry via require(); top-level await crashes (Packet 35)
+
+### What happened
+
+The initial `server.js` contained a top-level `await` expression (to initialize the MySQL
+pool before starting the HTTP server). LiteSpeed's `lsnode` loader uses `require()` to
+load the entry file. In Node.js, `require()` cannot load an ESM module that contains
+top-level `await` — it throws `ERR_REQUIRE_ASYNC_MODULE`. The app crashed immediately
+after deploy, before accepting any requests.
+
+### Fix
+
+Removed top-level `await` from `server.js`. Replaced with:
+
+```js
+import('./dist/main.js').catch(err => { process.stderr.write(String(err) + '\n'); process.exit(1); });
+```
+
+The `import()` call is asynchronous and not awaited at the module level, so `require()`
+can load `server.js` without error. The main bundle handles its own async startup internally.
+
+### Lesson
+
+**If a host uses `require()` for the entry file, the entry file cannot use top-level
+`await` — even if the rest of the codebase is ESM.** LiteSpeed's Node.js hosting uses
+the CommonJS loader path for the entry point. Keep `server.js` as thin as possible: no
+async logic, no top-level await, just an `import()` call to delegate to the real bundle.
+
+---
+
+## Bug #17 — Node.js resolves localhost to ::1; MySQL user grant is IPv4-only (Packet 35)
+
+### What happened
+
+The `ALIENCLAW_DB_URL` env var in hPanel used `@localhost/` as the MySQL host. In
+Node.js (≥ 17) `localhost` resolves to `::1` (IPv6 loopback) rather than `127.0.0.1`
+(IPv4 loopback). The MySQL user `u881291242_api` was granted `@127.0.0.1`, not `@::1`,
+so the connection was rejected with:
+
+```
+Error: Access denied for user 'u881291242_api'@'::1' (using password: YES)
+```
+
+The app started but failed on every database operation.
+
+### Fix
+
+Patched `server.js` to replace the host before connecting:
+
+```js
+process.env.ALIENCLAW_DB_URL = process.env.ALIENCLAW_DB_URL?.replace('@localhost/', '@127.0.0.1/');
+```
+
+The permanent fix is to update the hPanel env var itself to use `@127.0.0.1/` directly,
+eliminating the need for the runtime patch.
+
+### Lesson
+
+**Never use `localhost` in a MySQL connection URL from Node.js 17+.** Node.js prefers
+IPv6 for `localhost` on dual-stack systems. MySQL user grants are host-address-specific:
+`@localhost` means socket (not TCP at all on some MySQL installs), `@127.0.0.1` is IPv4
+TCP, and `@::1` is IPv6 TCP. They are three distinct grants. Use `127.0.0.1` explicitly
+in the URL to get predictable IPv4 TCP behavior across all platforms.
+
+---
+
 ## Bug #14 re-fix — CI infrastructure gaps (Packet 34)
 
 ### What happened
