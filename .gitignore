@@ -125,3 +125,4 @@ dist/protocol.schema.json
 # AlienClaw build artifacts
 alienclaw-phase*.zip
 *.podman.env.local
+.env.hostinger

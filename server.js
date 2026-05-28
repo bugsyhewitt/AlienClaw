@@ -1,16 +1,4 @@
-// Hostinger entry point — spawns tsx to run the TypeScript API.
-import { spawn } from 'child_process';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const child = spawn('./node_modules/.bin/tsx', ['src/alienclaw/api/main.ts'], {
-  stdio: 'inherit',
-  env: process.env,
-  cwd: __dirname,
-});
-
-child.on('close', (code) => process.exit(code ?? 0));
-process.on('SIGTERM', () => child.kill('SIGTERM'));
-process.on('SIGINT',  () => child.kill('SIGINT'));
+// Hostinger entry point — pre-compiled bundle, no tsx needed at runtime.
+// LiteSpeed loads this via require(), so no top-level await allowed.
+process.env.ALIENCLAW_DB_URL = process.env.ALIENCLAW_DB_URL?.replace('@localhost/', '@127.0.0.1/');
+import('./dist/main.js').catch(err => { process.stderr.write(String(err) + '\n'); process.exit(1); });
