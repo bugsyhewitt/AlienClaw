@@ -22,6 +22,7 @@ Legend:
 - Load-bearing docs aligned to canonical architecture (README, VISION, ROADMAP)
 - Install path: npm install -g openclaw + bash install.sh verified clean
 - Meeseeks to Martian rename complete across codebase and docs
+- api.alienclaw.net provisioning: Deployed in Packet 35 — submission endpoint live, MySQL persisting, server-side validation active.
 
 ---
 
@@ -46,9 +47,6 @@ Legend:
   improvement across N generations on a fixed simple goal
 - alienclaw.net rebuild: project description, environmental thesis, GitHub link,
   donate button, leaderboard placeholder
-- api.alienclaw.net provisioning: REST API for genome submission and top-genome
-  fetch, per-install API keys, server-side validation, CreatorBot 3-4 day sync
-  logic, public docs, open-source server
 
 ---
 
