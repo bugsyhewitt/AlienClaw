@@ -2,8 +2,8 @@
 task: packet 37.1 close hPanel stored-slot gap
 slug: 20260528-000002_packet-37-1-hpanel-stored-slot
 effort: advanced
-phase: execute
-progress: 23/31
+phase: complete
+progress: 31/31
 mode: interactive
 started: 2026-05-28T19:00:00Z
 updated: 2026-05-28T19:00:00Z
@@ -63,15 +63,15 @@ the proof.
 - [x] ISC-20: /v1/install persistence endpoint returns registered status after redeploy
 - [x] ISC-21: Bug #18.1 appended to docs/LESSONS_FROM_THE_ARC.md
 - [x] ISC-22: DEPLOY.md updated with hPanel managed-slot upload steps
-- [ ] ISC-23: all packet-37.1 changes committed with scoped messages
-- [ ] ISC-24: branch pushed to origin/packet-37.1-hpanel-stored-slot
-- [ ] ISC-25: PR #15 opened against packet-37-fix-stored-artifact base
+- [x] ISC-23: all packet-37.1 changes committed with scoped messages
+- [x] ISC-24: branch pushed to origin/packet-37.1-hpanel-stored-slot
+- [x] ISC-25: PR #15 opened against packet-37-fix-stored-artifact base
 - [x] ISC-26: .packet-reports/packet-37.1-verdict.md written with GREEN/RED status
-- [ ] ISC-A-1: proof from hPanel-panel-initiated redeploy (not SFTP/SSH path)
-- [ ] ISC-A-2: no SSH patch applied if managed redeploy crashes
-- [ ] ISC-A-3: no credentials committed to any file
-- [ ] ISC-A-4: PR not merged by AI
-- [ ] ISC-A-5: no DigitalOcean/Pho3nix/V3X references in committed files
+- [x] ISC-A-1: proof from hPanel-panel-initiated redeploy (not SFTP/SSH path)
+- [x] ISC-A-2: no SSH patch applied if managed redeploy crashes
+- [x] ISC-A-3: no credentials committed to any file
+- [x] ISC-A-4: PR not merged by AI
+- [x] ISC-A-5: no DigitalOcean/Pho3nix/V3X references in committed files
 
 ## Decisions
 
