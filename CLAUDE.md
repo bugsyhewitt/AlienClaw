@@ -1,42 +1,58 @@
-# CLAUDE.md — AlienClaw
+# AlienClaw — Claude Code Rules
 
-This file gives Claude Code context for working in this repo. Read it before any task.
+**P14. Evolutionary AI-agent infra. Alfred WSL2. Packet-based. MIT open source. FULLY WALLED.**
 
-## What AlienClaw is
+## Commands
 
-AlienClaw is an overlay distribution on [OpenClaw](https://github.com/openclaw/openclaw). OpenClaw is installed via npm. AlienClaw configures three OpenClaw agents — **BossBot**, **AdvisorBot**, **CreatorBot** — with pre-written SOULs and AGENTS routing so they coordinate automatically. BossBot is the only agent the user talks to.
+```bash
+# Tests
+pnpm test
 
-## Repo layout
+# Build + deploy
+scripts/build-deploy.sh
 
-- `install.sh` — the installer. Provisions 3 agent workspaces under `~/.openclaw/agents/`.
-- `seed/agents/bossbot/`, `seed/agents/advisorbot/`, `seed/agents/creatorbot/` — per-agent workspace files (SOUL.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, MEMORY.md) that the installer copies.
-- `src/alienclaw/` — the governance engine: state machine, Martian registry, genome codec, CLI entry point.
-- `installer/` — install scripts.
-- `skills/` — bundled skills.
-- `docs/` — user-facing documentation.
-- `test/` — test suite.
+# Run packet
+./run-packet.sh
 
-## Hard rules for Claude Code
+# Regen seed genomes (after codec change)
+node scripts/regen-seed-genomes.mjs
+```
 
-1. **Never add `agentId` to `agents.defaults` in `openclaw.json`.** OpenClaw 2026.4+ rejects `agentId` as invalid. Only set `agents.defaults.workspace` to the agent folder path.
-2. **Never modify `~/.openclaw/openclaw.json` without backing it up first.** Use `cp "$HOME/.openclaw/openclaw.json" "$HOME/.openclaw/openclaw.json.backup-$(date +%s)"` before any write.
-3. **Never use `env.argv`.** `env` is `process.env`; it has no `argv`. Use `process.argv`.
-4. **Routing between agents happens via per-agent `AGENTS.md` files in each workspace.** Not via flat config entries.
-5. **BossBot must consult AdvisorBot often.** Wired in two places: BossBot's `SOUL.md` instructs it to consult on every non-trivial decision, and BossBot's `AGENTS.md` lists AdvisorBot with `consult_frequency: high`. Do not remove either.
-6. **Shell scripts target bash 3.2+** (macOS default), Linux, and WSL2. No zsh-only syntax, no Bash 4+ features unless gated.
+## Don't
 
-## Standard tasks
+- NEVER add LLM calls to Martian execution (Martians = pure genome-symbolic, zero LLM)
+- NEVER call the bottom layer "Meeseeks" (use "Martians")
+- NEVER call Subagents "Specialists" in new code/docs
+- NEVER reference 5-layer architecture (superseded; 3-layer is canonical: TOP/MIDDLE/BOTTOM)
+- NEVER let the user talk to AdvisorBot or CreatorBot directly (BossBot = only user-facing agent)
+- NEVER trust client-reported fitness — use hardenedFetch + validateLeaderboardResponse
+- NEVER change genome length from 256 chars (leaderboard live; orphans shipped genomes)
+- NEVER deploy to DigitalOcean (Hostinger only)
+- NEVER run directly on Windows bare metal (WSL2 only on Alfred)
+- NEVER reference V3X, Pho3nix, music, or any other Bugsy project in AlienClaw materials (FULL WALL)
+- NEVER use the Anthropic harness (packet-based execution only)
 
-- "Install works" means: after `bash install.sh`, `openclaw agents list` shows exactly three agents (bossbot, advisorbot, creatorbot), and bossbot is the default.
-- "Routing works" means: in a bossbot session, asking "Consult AdvisorBot about X" produces a visible delegation to AdvisorBot and a returned response.
+## Architecture Quick Reference
 
-## What AlienClaw ships
+```
+TOP:    BossBot → AdvisorBot + CreatorBot (LLM, no genome)
+MIDDLE: Subagents (ephemeral, LLM, built by CreatorBot)
+BOTTOM: Martians (ephemeral, 256-char Base62, NO LLM)
 
-- 3 preconfigured OpenClaw agents with SOUL, routing, and tool configuration.
-- Governance engine (`src/alienclaw/`) with Martian genome registry and state-machine agent loop.
-- An idempotent installer that leaves OpenClaw vanilla.
-- BossBot as default, AdvisorBot consulted frequently, CreatorBot building specialists on request.
+Fitness: correctness × 1/(1 + 0.1 × max(0, tool_calls − slot_count))
+```
 
-## What AlienClaw does NOT ship
+## Verification Plan
 
-- A community leaderboard at alienclaw.gg (future v0.2).
+1. `pnpm test` — 1,220 tests (756 Python + 464 TypeScript) GREEN
+2. CI: GREEN on bugsyhewitt/AlienClaw
+3. Martian execution: confirm no LLM calls in martian-executor.ts path
+4. Communication graph: user prompt reaches BossBot only; fitness reports bypass BossBot
+5. Leaderboard: test submit via hardenedFetch → validateLeaderboardResponse → submitFromFile
+6. Wall: grep for V3X/Pho3nix/music/meeseeks/specialist in new code → zero hits
+
+## Context
+
+Full spec: TELOS-IDENTITY.md, TELOS-STATE.md, TELOS-STACK.md, TELOS-CANON.md  
+Packet contract: .claude-code/packet-contract.md  
+Locked decisions: .claude-code/locked-decisions.md
