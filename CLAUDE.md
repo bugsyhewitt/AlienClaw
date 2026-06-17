@@ -44,7 +44,7 @@ Fitness: correctness × 1/(1 + 0.1 × max(0, tool_calls − slot_count))
 
 ## Verification Plan
 
-1. `pnpm test` — 1,220 tests (756 Python + 464 TypeScript) GREEN
+1. `pnpm test` — runs vitest (430 passed, 34 skipped) + pytest (756 passed, 125 skipped) = 1,186 passed; must exit 0
 2. CI: GREEN on bugsyhewitt/AlienClaw
 3. Martian execution: confirm no LLM calls in martian-executor.ts path
 4. Communication graph: user prompt reaches BossBot only; fitness reports bypass BossBot
