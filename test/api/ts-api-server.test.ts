@@ -6,9 +6,12 @@
  * identical expected outputs.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createServer } from 'node:http';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
+import { createServer, request as httpRequest } from 'node:http';
 import { AddressInfo } from 'node:net';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { configure, createApiServer } from '../../src/alienclaw/api/server.js';
 import { generateApiKey } from '../../src/alienclaw/api/auth.js';
 import { validateLeaderboardName } from '../../src/alienclaw/api/validation.js';
@@ -296,5 +299,188 @@ describe('validateLeaderboardName equivalence', () => {
   });
   it('rejects empty', () => {
     expect(validateLeaderboardName('')).toBe(false);
+  });
+});
+
+// ── Request body floor: chunked / length-less bodies must not be dropped ──────
+//
+// readJson previously short-circuited on `Content-Length: 0` and returned `{}`.
+// A `Transfer-Encoding: chunked` request carries NO Content-Length, so a valid
+// genome submission sent chunked was parsed as `{}` and failed downstream as
+// MISSING_FIELDS. These tests prove a present body — chunked, with no
+// Content-Length — is actually consumed and parsed, while a genuinely-empty
+// payload still reads as `{}`.
+//
+// DB-free: storage is replaced with an in-memory fake via vi.doMock so this
+// block runs headless without MySQL. A fresh module instance is imported after
+// the mock so it never interferes with the DB-gated blocks above (which use the
+// real, statically-imported modules).
+
+describe('Request body floor (chunked / no Content-Length)', () => {
+  // Steerable fake-store state.
+  const state = {
+    exists:     true,                                   // API key is registered
+    duplicate:  null as null | { submission_id: string; submitted_at: string },
+  };
+
+  let floorServer: import('node:http').Server;
+  let floorBase = '';
+  let floorPort = 0;
+  let dataRoot  = '';
+
+  beforeAll(async () => {
+    dataRoot = mkdtempSync(join(tmpdir(), 'alienclaw-floor-'));
+
+    vi.resetModules();
+    vi.doMock('../../src/alienclaw/api/storage.js', () => {
+      class InstallStore {
+        async register(): Promise<[string, boolean]> { return ['install-mock', true]; }
+        async exists(): Promise<boolean> { return state.exists; }
+        async count(): Promise<number> { return 0; }
+      }
+      class SubmissionStore {
+        async save(): Promise<[string, string]> { return ['sub-mock-id', '2026-01-01T00:00:00.000Z']; }
+        async topForType(): Promise<unknown[]> { return []; }
+        async countForType(): Promise<number> { return 0; }
+        async rankForFitness(): Promise<number> { return 1; }
+        async isNewTop(): Promise<boolean> { return true; }
+        async findDuplicate(): Promise<unknown> { return state.duplicate; }
+      }
+      class GlobalStats {
+        async get(): Promise<unknown> {
+          return { total_genomes: 0, total_installs: 0, total_fitness_evaluations: 0, top_fitness_by_type: {} };
+        }
+      }
+      const initPool = (): unknown => ({}); // never opens a real connection
+      return { InstallStore, SubmissionStore, GlobalStats, initPool };
+    });
+
+    const mod = await import('../../src/alienclaw/api/server.js');
+    mod.configure({ dbUrl: 'mysql://mock-not-used', dataRoot });
+    floorServer = await mod.createApiServer(0, '127.0.0.1');
+    const addr = floorServer.address() as AddressInfo;
+    floorPort = addr.port;
+    floorBase = `http://127.0.0.1:${floorPort}`;
+  });
+
+  afterAll(async () => {
+    floorServer?.close();
+    vi.doUnmock('../../src/alienclaw/api/storage.js');
+    vi.resetModules();
+    if (dataRoot) rmSync(dataRoot, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    state.exists    = true;
+    state.duplicate = null;
+  });
+
+  // POST a body using Transfer-Encoding: chunked — i.e. WITHOUT a Content-Length
+  // header. Writing in multiple req.write() calls forces a chunked transfer in
+  // Node's http client, exercising exactly the path the floor fix repairs.
+  function chunkedPost(
+    path: string,
+    rawBody: string,
+    headers: Record<string, string> = {},
+  ): Promise<{ status: number; body: unknown }> {
+    return new Promise((resolve, reject) => {
+      const req = httpRequest(
+        {
+          host: '127.0.0.1',
+          port: floorPort,
+          path,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers }, // no Content-Length
+        },
+        res => {
+          let data = '';
+          res.on('data', d => { data += d; });
+          res.on('end', () => {
+            let parsed: unknown = null;
+            try { parsed = data ? JSON.parse(data) : null; } catch { /* non-JSON */ }
+            resolve({ status: res.statusCode ?? 0, body: parsed });
+          });
+        },
+      );
+      req.on('error', reject);
+      if (rawBody.length === 0) {
+        req.end();
+        return;
+      }
+      // Write in >=2 pieces so the transfer is genuinely chunked (no Content-Length).
+      const buf  = Buffer.from(rawBody, 'utf8');
+      const mid  = Math.max(1, Math.floor(buf.length / 2));
+      req.write(buf.subarray(0, mid));
+      req.write(buf.subarray(mid));
+      req.end();
+    });
+  }
+
+  it('THE FIX: valid genome submitted CHUNKED (no Content-Length) is parsed, not dropped → 201', async () => {
+    const key  = generateApiKey();
+    const body = JSON.stringify({
+      genome:           validGenome(),
+      martian_type:     'compute',
+      fitness:          0.85,
+      leaderboard_name: 'TESTBOTA',
+      run_metadata:     {},
+    });
+    const { status, body: resBody } = await chunkedPost('/v1/genomes', body,
+      { Authorization: `Bearer ${key}` });
+
+    // On the buggy floor this was 400 MISSING_FIELDS (body read as {}).
+    expect(status).toBe(201);
+    expect((resBody as { rank: number }).rank).toBeGreaterThanOrEqual(1);
+  });
+
+  it('valid install submitted CHUNKED (no Content-Length) is parsed → 201', async () => {
+    const body = JSON.stringify({ api_key: generateApiKey(), machine_hash: 'a'.repeat(64) });
+    const { status, body: resBody } = await chunkedPost('/v1/install', body);
+    expect(status).toBe(201);
+    expect((resBody as { status: string }).status).toBe('registered');
+  });
+
+  it('genome submitted CHUNKED reaches field validation, not MISSING_FIELDS (422 on bad fitness)', async () => {
+    // Proves the body's *contents* are actually parsed: a present-but-invalid
+    // field must surface its real validation error, not a spurious MISSING_FIELDS.
+    const key  = generateApiKey();
+    const body = JSON.stringify({
+      genome: validGenome(), martian_type: 'compute', fitness: 1.5,
+      leaderboard_name: 'TESTBOTA', run_metadata: {},
+    });
+    const { status, body: resBody } = await chunkedPost('/v1/genomes', body,
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(422);
+    expect((resBody as { error: { code: string } }).error.code).toBe('INVALID_FITNESS_RANGE');
+  });
+
+  it('genuinely-empty CHUNKED body still reads as {} → 400 MISSING_FIELDS', async () => {
+    const key = generateApiKey();
+    const { status, body: resBody } = await chunkedPost('/v1/genomes', '',
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(400);
+    expect((resBody as { error: { code: string } }).error.code).toBe('MISSING_FIELDS');
+  });
+
+  it('non-object JSON body (array) is rejected as MALFORMED_REQUEST (400)', async () => {
+    const key = generateApiKey();
+    const { status, body: resBody } = await chunkedPost('/v1/genomes', '[1,2,3]',
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(400);
+    expect((resBody as { error: { code: string } }).error.code).toBe('MALFORMED_REQUEST');
+  });
+
+  it('regression guard: normal fetch POST (Content-Length set) still works → 201', async () => {
+    // fetch sets Content-Length itself; this is the common, non-chunked path.
+    const key = generateApiKey();
+    const res = await fetch(`${floorBase}/v1/genomes`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body:    JSON.stringify({
+        genome: validGenome(), martian_type: 'compute', fitness: 0.7,
+        leaderboard_name: 'TESTBOTA', run_metadata: {},
+      }),
+    });
+    expect(res.status).toBe(201);
   });
 });

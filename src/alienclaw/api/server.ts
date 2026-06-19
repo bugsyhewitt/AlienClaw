@@ -58,15 +58,43 @@ function err(res: ServerResponse, status: number, code: string, message: string,
   send(res, status, apiError(code, message, details));
 }
 
+/**
+ * Read and JSON-parse a request body.
+ *
+ * The body's presence is decided by the bytes that *actually arrive*, never by
+ * the client-supplied `Content-Length` header. A `Transfer-Encoding: chunked`
+ * (or otherwise length-less) request carries no Content-Length, so trusting the
+ * header would treat a perfectly valid chunked submission as an empty `{}`,
+ * which then fails downstream as MISSING_FIELDS. We always consume the stream
+ * and only report `{}` for a genuinely-empty payload (zero bytes received).
+ *
+ * Returns:
+ *  - `{}` for an empty body (no bytes) — callers see "no fields", not malformed.
+ *  - the parsed object for a JSON object body.
+ *  - `null` for malformed input: invalid JSON, a non-object top-level value
+ *    (array/primitive/`null`), or a stream error. Callers map `null` to 400.
+ *
+ * Note (scope): this is the *floor* — it guarantees a present body is never
+ * dropped. The complementary *ceiling* (an upper bound on body size for DoS
+ * hardening) is intentionally not handled here.
+ */
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null> {
-  const length = parseInt(req.headers['content-length'] ?? '0', 10);
-  if (length === 0) return {};
   return new Promise(resolve => {
     const chunks: Buffer[] = [];
-    req.on('data', c => chunks.push(c));
+    let received = 0;
+    req.on('data', c => { received += c.length; chunks.push(c); });
     req.on('end', () => {
-      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-      catch { resolve(null); }
+      if (received === 0) { resolve({}); return; }
+      try {
+        const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          resolve(null);
+          return;
+        }
+        resolve(parsed as Record<string, unknown>);
+      } catch {
+        resolve(null);
+      }
     });
     req.on('error', () => resolve(null));
   });
