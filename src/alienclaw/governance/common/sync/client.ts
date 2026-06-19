@@ -76,15 +76,37 @@ export class NetworkAPIClient {
     });
   }
 
+  /**
+   * Submit a genome to the community leaderboard (POST /v1/genomes).
+   *
+   * The deployed server hard-requires `leaderboard_name` — a public
+   * 8-uppercase-letter operator handle (^[A-Z]{8}$). Omitting it returns
+   * 400 MISSING_FIELDS and the submission is dropped, so callers MUST supply
+   * a board name. Name validity is enforced server-side; this client only
+   * forwards the value it is given.
+   *
+   * @param genome           256-char Base62 genome string.
+   * @param martianType      Registered martian type (e.g. 'compute').
+   * @param fitness          Fitness in [0, 1].
+   * @param leaderboardName  Public board handle, ^[A-Z]{8}$ (e.g. 'ALIENBOT').
+   * @param runMetadata      Optional opaque metadata (<= 4096 bytes serialized).
+   */
   async submitGenome(
     genome: string,
     martianType: string,
     fitness: number,
+    leaderboardName: string,
     runMetadata: Record<string, unknown> = {},
   ): Promise<APIResult<SubmitResponse>> {
     return this._post<SubmitResponse>(
       '/v1/genomes',
-      { genome, martian_type: martianType, fitness, run_metadata: runMetadata },
+      {
+        genome,
+        martian_type:     martianType,
+        fitness,
+        leaderboard_name: leaderboardName,
+        run_metadata:     runMetadata,
+      },
       { Authorization: `Bearer ${this.apiKey}` },
     );
   }
