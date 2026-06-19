@@ -362,7 +362,7 @@ export class GovernanceLoop {
             goalId,
             result: {
               taskId:     campaign.id,
-              employeeId: campaign.name,
+              subagentId: campaign.name,
               outcome:    'SUCCESS',
               summary:    `Campaign "${campaign.name}" completed (fitness: ${campaignResult.fitness.toFixed(2)}).`,
               ts:         Date.now(),
@@ -570,7 +570,7 @@ export class GovernanceLoop {
           retrySubagent.erase();
           if (cr.termination_reason === 'state_machine_finalized') {
             this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: event.subGoalId, goalId: event.goalId,
-              result: { taskId: task.taskId, employeeId: subGoal.domain, outcome: 'SUCCESS',
+              result: { taskId: task.taskId, subagentId: subGoal.domain, outcome: 'SUCCESS',
                 summary: `Sub-goal retry succeeded.`, ts: Date.now() },
             });
           } else {
@@ -720,7 +720,7 @@ export class GovernanceLoop {
         subagent.erase();
         if (cr.termination_reason === 'state_machine_finalized') {
           this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: subGoal.id, goalId,
-            result: { taskId: task.taskId, employeeId: subGoal.domain, outcome: 'SUCCESS',
+            result: { taskId: task.taskId, subagentId: subGoal.domain, outcome: 'SUCCESS',
               summary: `Sub-goal "${subGoal.description}" completed.`, ts: Date.now() },
           });
         } else {
