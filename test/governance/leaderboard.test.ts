@@ -11,6 +11,8 @@ import {
   validateLeaderboardName,
   leaderboardCheck,
   hardenedFetch,
+  assertPinnedUrl,
+  submitFromFile,
   type GenomeResult,
   type LeaderboardConfig,
 } from '../../src/alienclaw/governance/common/leaderboard.js';
@@ -225,7 +227,7 @@ describe('leaderboardCheck', () => {
       },
     });
     await expect(
-      hardenedFetch('https://example.com', { maxResponseBytes: 256 * 1024 })
+      hardenedFetch('https://api.alienclaw.net/v1/genomes/top', { maxResponseBytes: 256 * 1024 })
     ).rejects.toThrow('exceeds');
   });
 
@@ -256,5 +258,143 @@ describe('leaderboardCheck', () => {
     await expect(
       leaderboardCheck(operatorBest, { ...config, leaderboardName: 'invalid1' })
     ).rejects.toThrow(/\^/);
+  });
+});
+
+// ── assertPinnedUrl ────────────────────────────────────────────────────────
+
+describe('assertPinnedUrl', () => {
+  it('accepts canonical host', () => {
+    expect(() => assertPinnedUrl('https://api.alienclaw.net/v1/health')).not.toThrow();
+  });
+  it('rejects non-https', () => {
+    expect(() => assertPinnedUrl('http://api.alienclaw.net/v1/health'))
+      .toThrow('refusing non-https');
+  });
+  it('rejects off-allowlist host', () => {
+    expect(() => assertPinnedUrl('https://example.com/x'))
+      .toThrow('refusing off-allowlist host: example.com');
+  });
+  it('rejects suffix-attack (set hostname lookup, not suffix match)', () => {
+    expect(() => assertPinnedUrl('https://api.alienclaw-net.attacker.com/x'))
+      .toThrow('refusing off-allowlist host: api.alienclaw-net.attacker.com');
+  });
+  it('rejects malformed URL', () => {
+    expect(() => assertPinnedUrl('not a url')).toThrow();
+  });
+});
+
+// ── hardenedFetch transport-side guards ────────────────────────────────────
+
+describe('hardenedFetch transport-side guards', () => {
+  it('rejects non-https URL via assertPinnedUrl', async () => {
+    await expect(hardenedFetch('http://api.alienclaw.net/x'))
+      .rejects.toThrow('refusing non-https');
+  });
+  it('rejects off-allowlist URL via assertPinnedUrl', async () => {
+    await expect(hardenedFetch('https://attacker.com/x'))
+      .rejects.toThrow('refusing off-allowlist host: attacker.com');
+  });
+  it('uses redirect: "error" on the fetch call', async () => {
+    const mock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      body: {
+        getReader() {
+          let done = false;
+          const bytes = new TextEncoder().encode('{}');
+          return {
+            read: async () => done ? { done: true, value: undefined } : (done = true, { done: false, value: bytes }),
+            cancel: () => {},
+          };
+        },
+      },
+    });
+    vi.stubGlobal('fetch', mock);
+    await hardenedFetch('https://api.alienclaw.net/v1/health');
+    expect(mock).toHaveBeenCalledWith(
+      'https://api.alienclaw.net/v1/health',
+      expect.objectContaining({ redirect: 'error' }),
+    );
+  });
+  it('accepts canonical URL and returns body (regression: allowlisted https still works)', async () => {
+    const body = JSON.stringify({ martian_type: 'compute', genomes: [], total_for_type: 0 });
+    const bytes = new TextEncoder().encode(body);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
+      ok: true,
+      body: {
+        getReader() {
+          let done = false;
+          return {
+            read: async () => done ? { done: true, value: undefined } : (done = true, { done: false, value: bytes }),
+            cancel: () => {},
+          };
+        },
+      },
+    }));
+    const result = await hardenedFetch('https://api.alienclaw.net/v1/health');
+    expect(result).toBe(body);
+  });
+});
+
+// ── submitFromFile ─────────────────────────────────────────────────────────
+
+describe('submitFromFile', () => {
+  const tmpArtifact = join(tmpdir(), `submit-artifact-046.json`);
+
+  beforeEach(() => {
+    writeFileSync(tmpArtifact, JSON.stringify({
+      leaderboard_name: 'ALIENBOT',
+      genome_hash: 'a'.repeat(64),
+      genome: 'A'.repeat(256),
+      martian_type: 'compute',
+      fitness: 0.95,
+      checked_at: '2026-06-19T00:00:00Z',
+    }), 'utf8');
+  });
+
+  it('rejects non-https submitUrl', async () => {
+    await expect(submitFromFile(tmpArtifact, 'k', 'http://api.alienclaw.net/v1/genomes'))
+      .rejects.toThrow('refusing non-https');
+  });
+  it('rejects off-allowlist submitUrl', async () => {
+    await expect(submitFromFile(tmpArtifact, 'k', 'https://attacker.com/v1/genomes'))
+      .rejects.toThrow('refusing off-allowlist host: attacker.com');
+  });
+  it('uses redirect: "error" on the fetch call', async () => {
+    const mock = vi.fn().mockResolvedValueOnce({
+      ok: true, json: async () => ({ rank: 1, is_new_top: true }),
+    });
+    vi.stubGlobal('fetch', mock);
+    await submitFromFile(tmpArtifact, 'k', 'https://api.alienclaw.net/v1/genomes');
+    expect(mock).toHaveBeenCalledWith(
+      'https://api.alienclaw.net/v1/genomes',
+      expect.objectContaining({ redirect: 'error' }),
+    );
+  });
+  it('posts canonical body shape', async () => {
+    const mock = vi.fn().mockResolvedValueOnce({
+      ok: true, json: async () => ({ rank: 1, is_new_top: true }),
+    });
+    vi.stubGlobal('fetch', mock);
+    await submitFromFile(tmpArtifact, 'k', 'https://api.alienclaw.net/v1/genomes');
+    const body = JSON.parse((mock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body).toHaveProperty('genome');
+    expect(body).toHaveProperty('martian_type', 'compute');
+    expect(body).toHaveProperty('fitness', 0.95);
+    expect(body).toHaveProperty('leaderboard_name', 'ALIENBOT');
+  });
+  it('returns server rank and is_new_top', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
+      ok: true, json: async () => ({ rank: 3, is_new_top: true }),
+    }));
+    const result = await submitFromFile(tmpArtifact, 'k', 'https://api.alienclaw.net/v1/genomes');
+    expect(result).toEqual({ rank: 3, is_new_top: true });
+  });
+  it('throws on non-2xx response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
+      ok: false, status: 400, text: async () => 'bad request',
+    }));
+    await expect(submitFromFile(tmpArtifact, 'k', 'https://api.alienclaw.net/v1/genomes'))
+      .rejects.toThrow('Submit failed (400): bad request');
   });
 });

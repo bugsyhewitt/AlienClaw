@@ -4,6 +4,7 @@
  * All methods return typed response objects. Callers handle errors; this
  * client only throws on network failure or non-JSON responses.
  */
+import { assertPinnedUrl } from '../leaderboard.js';
 
 export interface InstallResponse {
   status: 'registered' | 'known';
@@ -62,6 +63,7 @@ export class NetworkAPIClient {
   constructor(baseUrl: string, apiKey: string) {
     // Strip trailing slash for clean URL construction
     this.base = baseUrl.replace(/\/$/, '');
+    assertPinnedUrl(this.base);
     this.apiKey = apiKey;
   }
 
@@ -100,7 +102,9 @@ export class NetworkAPIClient {
   }
 
   private async _get<T>(path: string): Promise<APIResult<T>> {
-    const res = await fetch(this.base + path);
+    const res = await fetch(this.base + path, {
+      redirect: 'error',
+    });
     return this._parse<T>(res);
   }
 
@@ -113,6 +117,7 @@ export class NetworkAPIClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...extraHeaders },
       body: JSON.stringify(body),
+      redirect: 'error',
     });
     return this._parse<T>(res);
   }

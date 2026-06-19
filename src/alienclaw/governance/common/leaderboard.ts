@@ -67,12 +67,32 @@ interface LeaderboardResponse {
   total_for_type: number;
 }
 
+// ── URL pinning (transport-side trust defense) ─────────────────────────────
+
+export const ALLOWED_LEADERBOARD_HOSTS = new Set(['api.alienclaw.net']);
+
+export function assertPinnedUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch (e) {
+    throw new TypeError(`refusing malformed URL: ${(e as Error).message}`);
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`refusing non-https: ${url}`);
+  }
+  if (!ALLOWED_LEADERBOARD_HOSTS.has(parsed.hostname)) {
+    throw new Error(`refusing off-allowlist host: ${parsed.hostname}`);
+  }
+}
+
 // ── Hardened fetch ─────────────────────────────────────────────────────────
 
 export async function hardenedFetch(
   url: string,
   opts: { timeoutMs?: number; maxResponseBytes?: number } = {}
 ): Promise<string> {
+  assertPinnedUrl(url);
   const timeoutMs       = opts.timeoutMs       ?? FETCH_TIMEOUT_MS;
   const maxResponseBytes = opts.maxResponseBytes ?? MAX_RESPONSE_BYTES;
 
@@ -80,7 +100,7 @@ export async function hardenedFetch(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, redirect: 'error' });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} from leaderboard`);
     }
@@ -248,6 +268,7 @@ export async function submitFromFile(
   apiKey: string,
   submitUrl: string,
 ): Promise<{ rank: number; is_new_top: boolean }> {
+  assertPinnedUrl(submitUrl);
   const raw = readFileSync(filePath, 'utf8');
   let artifact: SubmissionArtifact;
   try {
@@ -273,6 +294,7 @@ export async function submitFromFile(
       leaderboard_name: artifact.leaderboard_name,
     }),
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    redirect: 'error',
   });
 
   if (!response.ok) {
