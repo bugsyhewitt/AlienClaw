@@ -6,9 +6,13 @@
  * identical expected outputs.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createServer } from 'node:http';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
+import { createServer, request as httpRequest } from 'node:http';
 import { AddressInfo } from 'node:net';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { Server } from 'node:http';
 import { configure, createApiServer } from '../../src/alienclaw/api/server.js';
 import { generateApiKey } from '../../src/alienclaw/api/auth.js';
 import { validateLeaderboardName } from '../../src/alienclaw/api/validation.js';
@@ -54,7 +58,6 @@ function validGenome(): string {
 // ── Server fixture ──────────────────────────────────────────────────────────
 
 let base = '';
-import type { Server } from "node:http";
 let server: Server;
 
 beforeEach(async () => {
@@ -298,3 +301,215 @@ describe('validateLeaderboardName equivalence', () => {
     expect(validateLeaderboardName('')).toBe(false);
   });
 });
+
+// ── Body size limit (DoS hardening) ──────────────────────────────────────────
+//
+// readJson buffers the request body into memory, so an unbounded body can
+// exhaust server memory. These tests assert the cap (MAX_BODY_BYTES) rejects an
+// oversized body with HTTP 413 PAYLOAD_TOO_LARGE while a normal-sized body still
+// succeeds. They are DB-free: the storage layer is replaced with an in-memory
+// fake via vi.doMock so this block runs headless without MySQL and never
+// interferes with the DB-gated behavioral-equivalence blocks above (those use
+// the real, statically-imported modules).
+
+describe('Body size limit (DoS hardening)', () => {
+  // Steerable state for the fake InstallStore.
+  const installState = {
+    registerResult: ['install-mock-id', true] as [string, boolean],
+    exists: true,
+  };
+
+  let sizeServer: Server;
+  let sizeBase = '';
+  let dataRoot = '';
+  let MAX = 0;
+
+  beforeAll(async () => {
+    dataRoot = mkdtempSync(join(tmpdir(), 'alienclaw-size-'));
+
+    // Reset the module registry so the dynamic import below re-evaluates
+    // server.js and resolves storage.js through the mock (the top-level static
+    // import already cached the real module; this fresh instance is separate).
+    vi.resetModules();
+
+    vi.doMock('../../src/alienclaw/api/storage.js', () => {
+      class InstallStore {
+        async register(_apiKeyHash: string, _machineHash: string): Promise<[string, boolean]> {
+          return installState.registerResult;
+        }
+        async exists(_apiKeyHash: string): Promise<boolean> {
+          return installState.exists;
+        }
+        async count(): Promise<number> { return 0; }
+      }
+      class SubmissionStore {
+        async save(): Promise<[string, string]> { return ['sub-mock-id', '2026-01-01T00:00:00.000Z']; }
+        async topForType(): Promise<unknown[]> { return []; }
+        async countForType(): Promise<number> { return 0; }
+        async rankForFitness(): Promise<number> { return 1; }
+        async isNewTop(): Promise<boolean> { return true; }
+        async findDuplicate(): Promise<unknown> { return null; }
+      }
+      class GlobalStats {
+        async get(): Promise<unknown> {
+          return { total_genomes: 0, total_installs: 0, total_fitness_evaluations: 0, top_fitness_by_type: {} };
+        }
+      }
+      // initPool must not throw and must not open a real connection.
+      const initPool = (_dbUrl?: string): unknown => ({});
+      return { InstallStore, SubmissionStore, GlobalStats, initPool };
+    });
+
+    const mod = await import('../../src/alienclaw/api/server.js');
+    MAX = mod.MAX_BODY_BYTES;
+    // dbUrl is truthy so configure() runs its normal path; the mocked initPool
+    // swallows it. dataRoot keeps RateLimiter/AuditLog on an isolated temp dir.
+    mod.configure({ dbUrl: 'mysql://mock-not-used', dataRoot });
+    sizeServer = await mod.createApiServer(0, '127.0.0.1');
+    const addr = sizeServer.address() as AddressInfo;
+    sizeBase = `http://127.0.0.1:${addr.port}`;
+  });
+
+  afterAll(async () => {
+    sizeServer?.close();
+    vi.doUnmock('../../src/alienclaw/api/storage.js');
+    vi.resetModules();
+    if (dataRoot) rmSync(dataRoot, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    installState.registerResult = ['install-mock-id', true];
+    installState.exists = true;
+  });
+
+  // Raw POST helper that lets us send arbitrary bodies (incl. oversized) and,
+  // optionally, lie about Content-Length.
+  async function rawPost(
+    path: string,
+    rawBody: string,
+    headers: Record<string, string> = {},
+  ): Promise<{ status: number; body: unknown }> {
+    const res = await fetch(`${sizeBase}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: rawBody,
+    });
+    let parsed: unknown = null;
+    try { parsed = await res.json(); } catch { /* empty / non-JSON body */ }
+    return { status: res.status, body: parsed };
+  }
+
+  it('MAX_BODY_BYTES is 64 KiB', () => {
+    expect(MAX).toBe(64 * 1024);
+  });
+
+  it('oversized POST /v1/install returns 413 PAYLOAD_TOO_LARGE', async () => {
+    // A genuine, well-formed JSON object whose serialized size exceeds the cap.
+    const big = 'x'.repeat(MAX + 1024);
+    const body = JSON.stringify({ api_key: generateApiKey(), machine_hash: 'a'.repeat(64), pad: big });
+    expect(Buffer.byteLength(body)).toBeGreaterThan(MAX);
+
+    const { status, body: resBody } = await rawPost('/v1/install', body);
+    expect(status).toBe(413);
+    const err = (resBody as { error: { code: string; details: Record<string, unknown> } }).error;
+    expect(err.code).toBe('PAYLOAD_TOO_LARGE');
+    expect(err.details['limit_bytes']).toBe(MAX);
+    expect(Number(err.details['received_bytes'])).toBeGreaterThan(MAX);
+  });
+
+  it('oversized POST /v1/genomes returns 413 PAYLOAD_TOO_LARGE', async () => {
+    const key = generateApiKey();
+    const big = 'x'.repeat(MAX + 1024);
+    const body = JSON.stringify({
+      genome: validGenome(), martian_type: 'compute', fitness: 0.5,
+      leaderboard_name: 'TESTBOTA', run_metadata: { pad: big },
+    });
+    expect(Buffer.byteLength(body)).toBeGreaterThan(MAX);
+
+    const { status, body: resBody } = await rawPost('/v1/genomes', body,
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(413);
+    expect((resBody as { error: { code: string } }).error.code).toBe('PAYLOAD_TOO_LARGE');
+  });
+
+  it('oversized body with a TRUTHFUL Content-Length is rejected up front (413)', async () => {
+    // fetch sets Content-Length itself; this exercises the header-based fast path.
+    const body = JSON.stringify({ api_key: generateApiKey(), machine_hash: 'a'.repeat(64), pad: 'y'.repeat(MAX) });
+    const { status, body: resBody } = await rawPost('/v1/install', body,
+      { 'Content-Length': String(Buffer.byteLength(body)) });
+    expect(status).toBe(413);
+    expect((resBody as { error: { code: string } }).error.code).toBe('PAYLOAD_TOO_LARGE');
+  });
+
+  it('oversized CHUNKED body (no Content-Length) is capped by bytes received (413)', async () => {
+    // The most important DoS case: a length-less chunked transfer. There is no
+    // Content-Length to trust, so only the per-chunk byte accumulator can stop
+    // it. We send the body in many small chunks via Transfer-Encoding: chunked
+    // and assert the server aborts with 413 before buffering the whole thing.
+    const addr = sizeServer.address() as AddressInfo;
+    const payload = 'z'.repeat(MAX + 4096);
+    const body = JSON.stringify({ api_key: generateApiKey(), machine_hash: 'a'.repeat(64), pad: payload });
+
+    const result = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const req = httpRequest(
+        {
+          host: '127.0.0.1',
+          port: addr.port,
+          path: '/v1/install',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }, // no Content-Length → chunked
+        },
+        res => {
+          let data = '';
+          res.on('data', d => { data += d; });
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, body: data }));
+        },
+      );
+      req.on('error', reject);
+      // Write the body in 8 KiB chunks so the accumulator trips mid-stream.
+      const buf = Buffer.from(body, 'utf8');
+      const step = 8 * 1024;
+      for (let i = 0; i < buf.length; i += step) {
+        req.write(buf.subarray(i, i + step));
+      }
+      req.end();
+    });
+
+    expect(result.status).toBe(413);
+    expect(JSON.parse(result.body).error.code).toBe('PAYLOAD_TOO_LARGE');
+  });
+
+  it('normal-sized POST /v1/install still returns 201', async () => {
+    const body = JSON.stringify({ api_key: generateApiKey(), machine_hash: 'a'.repeat(64) });
+    expect(Buffer.byteLength(body)).toBeLessThan(MAX);
+    const { status, body: resBody } = await rawPost('/v1/install', body);
+    expect(status).toBe(201);
+    expect((resBody as { status: string }).status).toBe('registered');
+  });
+
+  it('normal-sized POST /v1/genomes (256-char genome + metadata) still returns 201', async () => {
+    installState.exists = true;
+    const key = generateApiKey();
+    const body = JSON.stringify({
+      genome: validGenome(), martian_type: 'compute', fitness: 0.85,
+      leaderboard_name: 'TESTBOTA', run_metadata: { note: 'ok' },
+    });
+    expect(Buffer.byteLength(body)).toBeLessThan(MAX);
+    const { status, body: resBody } = await rawPost('/v1/genomes', body,
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(201);
+    expect((resBody as { rank: number }).rank).toBeGreaterThanOrEqual(1);
+  });
+
+  it('a body just under the cap is accepted (boundary)', async () => {
+    // Build an install body whose total serialized length is exactly MAX.
+    const skeleton = JSON.stringify({ api_key: generateApiKey(), machine_hash: 'a'.repeat(64), pad: '' });
+    const padLen = MAX - Buffer.byteLength(skeleton);
+    const body = JSON.stringify({ api_key: generateApiKey(), machine_hash: 'a'.repeat(64), pad: 'q'.repeat(padLen) });
+    expect(Buffer.byteLength(body)).toBe(MAX);
+    const { status } = await rawPost('/v1/install', body);
+    // At exactly the cap the body is accepted (cap rejects strictly > MAX).
+    expect(status).toBe(201);
+  });
+});
+
