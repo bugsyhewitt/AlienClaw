@@ -19,7 +19,7 @@
 import * as path from 'node:path';
 
 import { sleep, errorMessage } from '../utils.js';
-import { ALIENCLAW_HOME }      from '../constants.js';
+import { ALIENCLAW_HOME, MAX_MS_TOOLS } from '../constants.js';
 import { loadMsbCached }  from './msb-loader.js';
 import type { MartianBrain } from './msb-types.js';
 import type {
@@ -153,6 +153,22 @@ export async function executeMartian(
 
   const { martian, task, context } = input;
   const resolvedMsbDir = msbDir ?? DEFAULT_MSB_DIR;
+
+  // Hard invariant: a Martian may declare at most MAX_MS_TOOLS tools.
+  // ms-loader.ts enforces this at load time, but a spec constructed in-memory
+  // or mutated after load can bypass that check — re-assert it at execution
+  // time so the cap holds regardless of how the spec was built. Checked before
+  // parseGenome so an over-capacity spec is rejected even if its genome is also
+  // malformed.
+  if (martian.tools.length > MAX_MS_TOOLS) {
+    return {
+      outcome:     'FAILURE',
+      output:      null,
+      error:       `Martian ${martian.id} declares ${martian.tools.length} tools — ` +
+                   `maximum is ${MAX_MS_TOOLS} (MAX_MS_TOOLS)`,
+      failForward: false,
+    };
+  }
 
   // Parse genome sections for execution config
   const sections     = parseGenome(martian.genome);
