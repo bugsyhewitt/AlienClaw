@@ -119,7 +119,10 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
         if (path.startsWith('/v1/genomes/top') || path === '/v1/genomes/top') {
           const martianType = String(qs['martian_type'] ?? '');
           if (!martianType) return err(res, 400, 'MISSING_PARAMETER', 'martian_type query parameter is required.');
-          const n = Math.max(1, Math.min(100, parseInt(String(qs['n'] ?? '10'), 10) || 10));
+          // Parse only. The 1..100 clamp is owned solely by handleTopGenomes
+          // (clampTopN); the router must not duplicate it. NaN from a missing or
+          // garbage `n` is normalized to the default inside the handler.
+          const n = parseInt(String(qs['n'] ?? ''), 10);
           try {
             const [s, b] = await handleTopGenomes({ martianType, n, store: _SUBMISSION, registeredTypes: _REGISTERED });
             return send(res, s, b, true);
