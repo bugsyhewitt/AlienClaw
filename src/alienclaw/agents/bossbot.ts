@@ -21,7 +21,7 @@ const SOUL_PATH  = join(__dirname, '..', 'prompts', 'bossbot.soul.md');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function parseSubGoals(raw: string): SubGoal[] {
+export function parseSubGoals(raw: string): SubGoal[] {
   // Strip markdown code fences the LLM may add
   const clean = raw.replace(/```(?:json)?\n?/g, '').trim();
   try {
@@ -51,7 +51,7 @@ function parseSubGoals(raw: string): SubGoal[] {
 
 // ── Scheme parser ─────────────────────────────────────────────────────────────
 
-function parseSchemeDraft(goalId: string, raw: string): Scheme {
+export function parseSchemeDraft(goalId: string, raw: string): Scheme {
   const clean = raw.replace(/```(?:json)?\n?/g, '').trim();
   try {
     const parsed = JSON.parse(clean) as {
