@@ -4,24 +4,31 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Leaderboard — AlienClaw</title>
-  <meta name="description" content="Community genome leaderboard — top genomes per Martian type, ranked by fitness." />
+  <meta name="description" content="Read-only community genome leaderboard — top genomes per Martian type, ranked by fitness. Less compute is better compute." />
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" href="favicon.ico" />
   <style>
+    .thesis {
+      border-left: 2px solid var(--accent);
+      padding: 0.25rem 0 0.25rem 1rem;
+      color: var(--fg);
+      margin: 1rem 0 0;
+    }
+    .thesis .src { color: var(--muted); font-size: 0.8rem; }
     .lb-section { margin-bottom: 2.5rem; }
-    .lb-section h2 { color: var(--accent); margin-bottom: 0.75rem; font-size: 1.1rem; }
     .lb-status { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
     .lb-status.loading { color: var(--accent2); }
     .lb-status.error   { color: #ff5555; }
+    .readonly-note { color: var(--muted); font-size: 0.8rem; margin-bottom: 1.25rem; }
     table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     th, td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; }
     th { color: var(--accent); font-weight: normal; }
     td.rank { color: var(--muted); width: 2.5rem; }
-    td.genome { font-size: 0.78rem; letter-spacing: 0.02em; word-break: break-all; }
+    td.genome { font-size: 0.82rem; letter-spacing: 0.02em; }
     td.fitness { color: var(--accent2); }
+    td.generation { color: var(--muted); width: 4rem; }
     tr.top1 td.rank { color: var(--accent); font-weight: bold; }
     .stats-bar { display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 2rem; }
-    .stat { }
     .stat-label { color: var(--muted); font-size: 0.8rem; }
     .stat-value { color: var(--accent); font-size: 1.4rem; font-weight: bold; }
     #type-select { background: var(--bg); color: var(--fg); border: 1px solid var(--border);
@@ -50,8 +57,20 @@
       <p>
         Top-performing genomes submitted by AlienClaw operators worldwide.
         Ranked by fitness: <code>correctness × (1 / max(1, tool_calls))</code>.
-        A perfect genome scores 1.0 — solves its task in one tool call.
+        A perfect genome scores 1.0 — it solves its task in a single tool call.
       </p>
+      <!-- Environmental thesis — quoted from VISION.md -->
+      <blockquote class="thesis">
+        <p>
+          AlienClaw selects against sprawl. The fitness function rewards correct
+          output divided by tool calls. Genomes that produce equivalent results
+          with fewer tool calls win selection rounds, and the community genome
+          network propagates those winning genomes globally — so the efficiency
+          anyone discovers becomes everyone's. Fewer tool calls mean less data
+          center energy and water. <strong>Less compute is better compute.</strong>
+        </p>
+        <p class="src">— VISION.md, the thesis</p>
+      </blockquote>
     </section>
 
     <div class="stats-bar" id="stats-bar">
@@ -68,6 +87,12 @@
         <div class="stat-value" id="stat-evals">—</div>
       </div>
     </div>
+
+    <p class="readonly-note">
+      Read-only view. Genomes are identified by a short hash; the full 256-char
+      Base62 genome is available on hover. Submission is operator-token gated —
+      see the <a href="api.html">API</a> page.
+    </p>
 
     <div>
       <label for="type-select" style="color:var(--muted);font-size:0.85rem;margin-right:0.5rem">martian type:</label>
@@ -88,10 +113,11 @@
       <table id="lb-table" style="display:none">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Operator</th>
-            <th>Genome (first 24 chars)</th>
-            <th>Fitness</th>
+            <th scope="col">#</th>
+            <th scope="col">Genome</th>
+            <th scope="col">Fitness</th>
+            <th scope="col">Operator</th>
+            <th scope="col">Gen</th>
           </tr>
         </thead>
         <tbody id="lb-body"></tbody>
@@ -107,6 +133,11 @@
         <code>url_fetch</code>, <code>web_search</code>.
       </p>
       <p>
+        Each row is one ranked submission: the genome short-hash, its fitness,
+        the operator's eight-letter leaderboard name, and the generation the
+        genome reached in that operator's local evolution loop.
+      </p>
+      <p>
         To run the local evolution loop without connecting to the network:
         <a href="https://github.com/bugsyhewitt/AlienClaw#readme" rel="noopener">see the README</a>.
       </p>
@@ -120,71 +151,14 @@
     </p>
   </footer>
 
-  <script>
-    const API = 'https://api.alienclaw.net';
-
-    async function loadStats() {
-      try {
-        const r = await fetch(`${API}/v1/stats`);
-        if (!r.ok) return;
-        const d = await r.json();
-        document.getElementById('stat-genomes').textContent  = d.total_genomes ?? '—';
-        document.getElementById('stat-installs').textContent = d.total_installs ?? '—';
-        document.getElementById('stat-evals').textContent    = d.total_fitness_evaluations ?? '—';
-      } catch { /* server not yet live — fail silently */ }
-    }
-
-    async function loadLeaderboard(martianType) {
-      const status = document.getElementById('lb-status');
-      const table  = document.getElementById('lb-table');
-      const tbody  = document.getElementById('lb-body');
-      status.textContent = 'Loading…';
-      status.className = 'lb-status loading';
-      table.style.display = 'none';
-      tbody.innerHTML = '';
-      try {
-        const r = await fetch(`${API}/v1/genomes/top?martian_type=${encodeURIComponent(martianType)}&n=20`);
-        if (!r.ok) {
-          const err = await r.json().catch(() => ({}));
-          status.textContent = `Error: ${err.error?.code ?? r.status}`;
-          status.className = 'lb-status error';
-          return;
-        }
-        const d = await r.json();
-        if (d.genomes.length === 0) {
-          status.textContent = `No genomes submitted yet for ${martianType}.`;
-          status.className = 'lb-status';
-          return;
-        }
-        status.textContent = `${d.total_for_type} genome${d.total_for_type !== 1 ? 's' : ''} — showing top ${d.genomes.length}`;
-        status.className = 'lb-status';
-        for (let i = 0; i < d.genomes.length; i++) {
-          const entry = d.genomes[i];
-          const rank = i + 1;
-          const tr = document.createElement('tr');
-          if (rank === 1) tr.className = 'top1';
-          // leaderboard_name is ^[A-Z]{8}$ — safe to render without escaping concerns
-          const name = entry.leaderboard_name || '—';
-          tr.innerHTML = `
-            <td class="rank">${rank}</td>
-            <td>${name}</td>
-            <td class="genome">${entry.genome ? entry.genome.slice(0, 24) + '…' : '—'}</td>
-            <td class="fitness">${Number(entry.fitness).toFixed(4)}</td>`;
-          tbody.appendChild(tr);
-        }
-        table.style.display = '';
-      } catch (e) {
-        status.textContent = 'api.alienclaw.net not reachable — check back soon.';
-        status.className = 'lb-status error';
-      }
-    }
-
-    document.getElementById('type-select').addEventListener('change', e => {
-      loadLeaderboard(e.target.value);
-    });
-
-    loadStats();
-    loadLeaderboard('compute');
+  <!--
+    Inline module shim. The leaderboard logic lives in leaderboard.js (an ES
+    module) so it can be unit-tested in Node. We import it with a *relative*
+    specifier — there is no external (http/https) script src on this page,
+    keeping the site self-hosted and dependency-free.
+  -->
+  <script type="module">
+    import './leaderboard.js';
   </script>
 </body>
 </html>
