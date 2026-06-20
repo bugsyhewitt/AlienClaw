@@ -25,13 +25,17 @@ import {
   isValidApiKeyFormat,
   isValidMachineHash,
 } from '../../src/alienclaw/api/validation.js';
+import { computeChecksum, SECTION_SIZE } from '../../src/alienclaw/registry/genome-codec.js';
 import type {
   SubmissionRequest, InstallRequest,
 } from '../../src/alienclaw/api/types.js';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 
-const VALID_GENOME_256 = 'A'.repeat(256);
+// Build a 256-char genome with a valid checksum so validateSubmission's step-3
+// (INVALID_GENOME_CHECKSUM) doesn't mask the error codes under test in steps 4+.
+const _GENOME_BODY = 'A'.repeat(SECTION_SIZE * 3);
+const VALID_GENOME_256 = _GENOME_BODY + computeChecksum(_GENOME_BODY);
 const VALID_KEY_43     = 'A'.repeat(43);
 const VALID_HASH_64    = 'a'.repeat(64);
 
