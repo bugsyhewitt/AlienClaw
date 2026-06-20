@@ -15,6 +15,15 @@ export interface SyncSchedulerOptions {
   machineHash:      string;
   populationsRoot:  string;
   martianTypes:     string[];
+  /**
+   * Install-level public leaderboard handle (^[A-Z]{8}$) for this node.
+   *
+   * Used as the board name for any pushed genome whose own
+   * run_metadata.leaderboard_name is absent or invalid. The server
+   * hard-requires leaderboard_name, so this is what keeps the push path
+   * alive for entries that don't carry their own name. Default: DEFAULT_LEADERBOARD_NAME.
+   */
+  leaderboardName?: string;
   /** Interval between sync cycles in ms. Default: 5 minutes. */
   intervalMs?:      number;
   /** Max genomes to push per type per cycle. Default: 5. */
@@ -35,6 +44,15 @@ export interface SyncCycleSummary {
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 
+/**
+ * Fallback install-level leaderboard handle (^[A-Z]{8}$).
+ *
+ * Applied when a SyncScheduler is constructed without an explicit
+ * `leaderboardName` and an entry carries no valid name of its own.
+ * Operators are expected to override this with their own handle.
+ */
+export const DEFAULT_LEADERBOARD_NAME = 'ALIENBOT';
+
 export class SyncScheduler {
   private _timer: ReturnType<typeof setInterval> | null = null;
   private _installed = false;
@@ -42,11 +60,12 @@ export class SyncScheduler {
 
   constructor(opts: SyncSchedulerOptions) {
     this.opts = {
-      intervalMs: DEFAULT_INTERVAL_MS,
-      pushTopN:   5,
-      pullTopN:   10,
-      onCycle:    () => undefined,
-      onError:    () => undefined,
+      intervalMs:      DEFAULT_INTERVAL_MS,
+      pushTopN:        5,
+      pullTopN:        10,
+      leaderboardName: DEFAULT_LEADERBOARD_NAME,
+      onCycle:         () => undefined,
+      onError:         () => undefined,
       ...opts,
     };
   }
@@ -86,6 +105,7 @@ export class SyncScheduler {
       const push = await pushTopGenomes(
         this.opts.client,
         this.opts.populationsRoot,
+        this.opts.leaderboardName,
         this.opts.pushTopN,
       );
       const pull = await pullTopGenomes(
