@@ -39,21 +39,35 @@ import {
 } from '../../../src/alienclaw/governance/common/sync/push.js';
 import { DEFAULT_LEADERBOARD_NAME } from '../../../src/alienclaw/governance/common/sync/scheduler.js';
 
+import { computeChecksum } from '../../../src/alienclaw/registry/genome-codec.js';
+
 const TEST_DB_URL = process.env['ALIENCLAW_TEST_DB_URL'];
 const dbDescribe = TEST_DB_URL ? describe : describe.skip;
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
-/** Deterministic 256-char Base62 genome — same construction the API tests use. */
+/**
+ * Deterministic, CHECKSUM-VALID 256-char Base62 genome. Produces a 192-char
+ * Base62 body (sections 0-2) seeded from `seed`, then appends the FNV-dual-hash
+ * checksum (section 3) computed from that body. The body is unique per seed,
+ * so callers that distinguish genomes by value (e.g. the top-genomes
+ * read-back assertion in test 2) still get a fresh, findable entry. The
+ * checksum step is required because the deployed API server (and PR #37's
+ * `validateSubmission` step 3) rejects any 256-char genome whose trailing
+ * 64-char CHECKSUM section does not match the FNV-dual-hash of sections 0-2 —
+ * a forged/tampered genome (or a naive 'A'.repeat(256) / random-Base62
+ * generator) is refused with INVALID_GENOME_CHECKSUM.
+ */
 function validGenome(seed = 42): string {
   const alpha = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  let g = '';
+  const bodyLen = 192;
+  let body = '';
   let s = seed >>> 0;
-  for (let i = 0; i < 256; i++) {
+  for (let i = 0; i < bodyLen; i++) {
     s = (s * 1664525 + 1013904223) >>> 0;
-    g += alpha[s % 62];
+    body += alpha[s % 62];
   }
-  return g;
+  return body + computeChecksum(body);
 }
 
 /**
