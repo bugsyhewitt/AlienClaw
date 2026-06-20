@@ -17,7 +17,7 @@ export interface MartianReport {
   reportCode:  string;
   ts:          number;
   taskId:      string;
-  employeeId:  string;
+  subagentId:  string;
   martianId:   string;
   domain:      string;
   outcome:     'SUCCESS' | 'FAILURE' | 'ESCALATED';

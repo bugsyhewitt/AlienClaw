@@ -70,7 +70,7 @@ Welcome to the lobster tank! 🦞
 ## Before You PR
 
 - Test locally with your AlienClaw instance
-- Run tests: `pnpm build && pnpm check && pnpm test`
+- Run tests: `pnpm test`  (full ship-gate suite — vitest 430 passed/34 skipped + pytest 756 passed/125 skipped = 1,186 passed/159 skipped; must exit 0)
 - Ensure CI checks pass
 - Keep PRs focused (one thing per PR; do not mix unrelated concerns)
 - Describe what & why

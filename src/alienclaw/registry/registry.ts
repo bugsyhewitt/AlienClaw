@@ -1,9 +1,9 @@
 /**
  * registry.ts
- * Synchronous singleton registry used by Employee at execution time.
+ * Synchronous singleton registry used by Subagent at execution time.
  *
  * Wraps loadMsDirectory() for fast sync access — no async needed in the
- * hot path where Employee selects a Martian.
+ * hot path where Subagent selects a Martian.
  *
  * Only CreatorBot writes .ms files. This module is strictly read-only.
  */

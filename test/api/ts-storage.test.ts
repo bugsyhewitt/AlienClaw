@@ -45,8 +45,15 @@ dbDescribe('MySQL storage — persistence assertions', () => {
     const schema = await import('node:fs').then(m =>
       m.readFileSync('migrations/001_leaderboard.sql', 'utf8')
     );
-    // Execute each statement separately
-    for (const stmt of schema.split(';').map(s => s.trim()).filter(s => s.length > 0 && !s.startsWith('--'))) {
+    // Execute each statement separately (strip comment lines first so chunks don't start with --)
+    const stmts = schema
+      .split('\n')
+      .filter(line => !line.trim().startsWith('--'))
+      .join('\n')
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    for (const stmt of stmts) {
       try { await pool.execute(stmt); } catch { /* ignore already-exists */ }
     }
     submissions = new SubmissionStore(pool);
@@ -248,5 +255,92 @@ dbDescribe('MySQL storage — persistence assertions', () => {
 
   it('initPool() throws with empty string URL', () => {
     expect(() => initPool('')).toThrow('ALIENCLAW_DB_URL');
+  });
+});
+
+// ── topForType LIMIT-boundary assertion (DB-free) ───────────────────────────
+//
+// topForType inlines the `n` limit directly into the SQL string (LIMIT is not
+// a bindable parameter in MySQL 8.0 server-side mode). The safety of that
+// inlining depends on `n` being an integer in [1, 100]. This block asserts the
+// self-defending guard at that boundary: a bad `n` must throw BEFORE any query
+// is issued, and a good `n` must pass the guard and reach the pool.
+//
+// These tests run without a real database. A sabotage pool whose execute()
+// throws a sentinel proves whether control reached the SQL layer: if the guard
+// rejects the value, execute() is never called and the sentinel never appears;
+// if the value is accepted, execute() runs and the sentinel surfaces.
+describe('SubmissionStore.topForType — LIMIT boundary assertion', () => {
+  const SENTINEL = 'SABOTAGE_POOL_EXECUTE_REACHED';
+
+  // Minimal stand-in for mysql.Pool that fails loudly the instant a query is
+  // attempted. Cast through unknown because we only implement execute().
+  function sabotagePool(): mysql.Pool {
+    return {
+      execute: async () => { throw new Error(SENTINEL); },
+    } as unknown as mysql.Pool;
+  }
+
+  function storeWithSabotagePool(): SubmissionStore {
+    return new SubmissionStore(sabotagePool());
+  }
+
+  const BAD_LIMITS: Array<[string, number]> = [
+    ['zero',                0],
+    ['negative',          -1],
+    ['just above the cap', 101],
+    ['far above the cap',  1_000_000],
+    ['a non-integer float', 2.5],
+    ['NaN',                Number.NaN],
+    ['positive Infinity',  Number.POSITIVE_INFINITY],
+    ['negative Infinity',  Number.NEGATIVE_INFINITY],
+  ];
+
+  for (const [label, value] of BAD_LIMITS) {
+    it(`throws on ${label} (n=${String(value)}) before touching the pool`, async () => {
+      const store = storeWithSabotagePool();
+      // Rejects with the boundary error, NOT the sabotage sentinel — proving the
+      // guard fired before any query reached the (sabotage) pool.
+      await expect(store.topForType('compute', value)).rejects.toThrow(
+        /limit must be an integer in \[1, 100\]/
+      );
+      await expect(store.topForType('compute', value)).rejects.not.toThrow(SENTINEL);
+    });
+  }
+
+  const GOOD_LIMITS: Array<[string, number]> = [
+    ['the lower bound',  1],
+    ['the upper bound',  100],
+    ['a typical value',  10],
+  ];
+
+  for (const [label, value] of GOOD_LIMITS) {
+    it(`accepts ${label} (n=${value}) and proceeds to the pool`, async () => {
+      const store = storeWithSabotagePool();
+      // The guard passes for an in-range integer, so control reaches the pool —
+      // which is the sabotage pool, so we observe the sentinel. This proves the
+      // value was NOT rejected by the boundary guard.
+      await expect(store.topForType('compute', value)).rejects.toThrow(SENTINEL);
+    });
+  }
+
+  it('uses the default (10) when n is omitted, and proceeds to the pool', async () => {
+    const store = storeWithSabotagePool();
+    // Default parameter value is 10 — a valid in-range integer — so the guard
+    // passes and the sabotage pool sentinel surfaces.
+    await expect(store.topForType('compute')).rejects.toThrow(SENTINEL);
+  });
+
+  it('rejects 0 and 101 — the exact off-by-one edges of the [1, 100] range', async () => {
+    const store = storeWithSabotagePool();
+    await expect(store.topForType('compute', 0)).rejects.toThrow(
+      /limit must be an integer in \[1, 100\]/
+    );
+    await expect(store.topForType('compute', 101)).rejects.toThrow(
+      /limit must be an integer in \[1, 100\]/
+    );
+    // ...while the inclusive endpoints 1 and 100 are accepted (reach the pool).
+    await expect(store.topForType('compute', 1)).rejects.toThrow(SENTINEL);
+    await expect(store.topForType('compute', 100)).rejects.toThrow(SENTINEL);
   });
 });

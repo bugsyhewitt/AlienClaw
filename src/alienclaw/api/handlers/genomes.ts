@@ -75,6 +75,28 @@ export async function handleSubmitGenome(opts: {
   return [201, { submission_id: sid, submitted_at: submittedAt, rank, is_new_top: isTop }];
 }
 
+// Default page size when the caller supplies no usable `n`.
+const DEFAULT_TOP_N = 10;
+// Hard cap on how many top genomes a single request may return. This is the
+// single source of truth for the clamp — the HTTP router passes the raw,
+// parsed `n` straight through and relies on this function to bound it.
+const MAX_TOP_N = 100;
+
+/**
+ * Coerce a caller-supplied `n` into a safe integer page size in [1, MAX_TOP_N].
+ *
+ * This is the single authority for the top-N clamp. It tolerates the messy
+ * inputs an HTTP query string can produce (NaN, Infinity, non-integers,
+ * negatives, absurdly large values) and always returns an integer in range, so
+ * that `storage.topForType` — which inlines the value into a SQL LIMIT — always
+ * receives a value its own boundary assertion will accept.
+ */
+export function clampTopN(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_TOP_N;
+  const floored = Math.floor(n);
+  return Math.max(1, Math.min(MAX_TOP_N, floored));
+}
+
 export async function handleTopGenomes(opts: {
   martianType:     string;
   n:               number;
@@ -84,7 +106,7 @@ export async function handleTopGenomes(opts: {
   if (!opts.registeredTypes.has(opts.martianType)) {
     throw Object.assign(new Error('UNKNOWN_MARTIAN_TYPE'), { martianType: opts.martianType });
   }
-  const n       = Math.max(1, Math.min(100, opts.n));
+  const n       = clampTopN(opts.n);
   const raw     = await opts.store.topForType(opts.martianType, n);
   const total   = await opts.store.countForType(opts.martianType);
   const entries: GenomeEntry[] = raw.map(e => ({

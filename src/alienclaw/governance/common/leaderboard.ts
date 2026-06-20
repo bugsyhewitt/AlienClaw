@@ -21,6 +21,7 @@
  */
 
 import { writeFileSync, readFileSync } from 'node:fs';
+import { BASE62_ALPHABET } from '../../registry/genome-codec.js';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -45,7 +46,8 @@ export interface LeaderboardConfig {
 
 export interface SubmissionArtifact {
   leaderboard_name: string;
-  genome_hash:      string;
+  genome:           string;   // 256-char Base62 — sent to /v1/genomes as req.genome
+  genome_hash:      string;   // 64-char hex SHA-256 — kept for audit/logging only
   martian_type:     string;
   fitness:          number;
   checked_at:       string;        // ISO timestamp
@@ -229,7 +231,8 @@ export async function leaderboardCheck(
   // 4. WRITE-FILE — the only output; file-mediated submission
   const artifact: SubmissionArtifact = {
     leaderboard_name: config.leaderboardName,
-    genome_hash:      operatorBest.genomeHash,
+    genome:           operatorBest.genome,     // 256-char Base62 string
+    genome_hash:      operatorBest.genomeHash, // 64-char hex; kept for audit
     martian_type:     operatorBest.martianType,
     fitness:          operatorBest.fitness,
     checked_at:       new Date().toISOString(),
@@ -260,6 +263,17 @@ export async function submitFromFile(
     throw new Error(`Artifact leaderboard_name violates ^[A-Z]{8}$`);
   }
 
+  // Client-side genome validation (defense in depth — server re-validates)
+  if (typeof artifact.genome !== 'string' || artifact.genome.length !== 256) {
+    throw new Error(`Artifact genome must be a 256-char Base62 string (got ${typeof artifact.genome === 'string' ? artifact.genome.length : typeof artifact.genome} chars)`);
+  }
+  const base62Set = new Set(BASE62_ALPHABET);
+  for (const ch of artifact.genome) {
+    if (!base62Set.has(ch)) {
+      throw new Error(`Artifact genome contains non-Base62 character: ${JSON.stringify(ch)}`);
+    }
+  }
+
   const response = await fetch(submitUrl, {
     method: 'POST',
     headers: {
@@ -267,7 +281,7 @@ export async function submitFromFile(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      genome:           artifact.genome_hash,
+      genome:           artifact.genome,         // was: artifact.genome_hash (BUG)
       martian_type:     artifact.martian_type,
       fitness:          artifact.fitness,
       leaderboard_name: artifact.leaderboard_name,
