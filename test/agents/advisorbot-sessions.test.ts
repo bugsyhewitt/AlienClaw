@@ -9,7 +9,7 @@
  *   - appendToSession(callerId, taskId, msg)    (line 52, public)
  *   - destroyTaskSessions(taskId)               (line 61, public — called by AgentRegistry.closeTask)
  *   - buildContext(req, session)                (line 71, public)
- *   - systemPrompt()                            (line 58, public)
+ *   - systemPrompt()                            (line 67, public)
  *
  * All of these methods are **pure, non-LLM, non-DB, non-IO** — they operate on
  * an in-memory `Map<string, AdvisorySession>` private field. They can be
