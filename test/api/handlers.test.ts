@@ -20,6 +20,7 @@ import { handleInstall } from '../../src/alienclaw/api/handlers/install.js';
 import { handleHealth } from '../../src/alienclaw/api/handlers/health.js';
 import { handleStats } from '../../src/alienclaw/api/handlers/stats.js';
 import { handleMartianTypes } from '../../src/alienclaw/api/handlers/martian-types.js';
+import { computeChecksum } from '../../src/alienclaw/registry/genome-codec.js';
 import type {
   SubmissionStore, InstallStore, GlobalStats,
 } from '../../src/alienclaw/api/storage.js';
@@ -27,7 +28,10 @@ import type {
 // ── Mocks ───────────────────────────────────────────────────────────────────
 
 const FAKE_KEY_HASH = 'h'.repeat(64);
-const FAKE_GENOME   = 'A'.repeat(256);
+// A valid 256-char Base62 genome: 192 chars of 'A' (sections 0-2) plus the
+// FNV-dual-hash checksum (section 3) computed from those 192 chars.
+const FAKE_GENOME_BODY = 'A'.repeat(192);
+const FAKE_GENOME      = FAKE_GENOME_BODY + computeChecksum(FAKE_GENOME_BODY);
 
 function mockSubmissionStore(overrides: Partial<SubmissionStore> = {}): SubmissionStore {
   return {

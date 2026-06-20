@@ -357,13 +357,19 @@ describe('urlFetchAdapter (https-only guard, L80)', () => {
     ['empty string', ''],
     ['HTTPS upper-case (scheme is case-sensitive here)', 'HTTPS://example.com'],
   ])('rejects %s', async (_label, url) => {
+    // The SSRF-hardened guard (PR #53) rejects with one of:
+    //   "url_fetch: refusing malformed URL: ..."      (empty, bare host, scheme-relative)
+    //   "url_fetch: refusing non-https URL: ..."      (http, ftp)
+    //   "url_fetch: refusing off-allowlist host: ..." (HTTPS uppercase canonicalises
+    //     to https: by URL parser, then fails the allowlist gate — same net effect:
+    //     a non-https-scheme attempt cannot reach the network)
     await expect(urlFetch({ url })).rejects.toThrow(
-      /url_fetch: URL must use https/,
+      /^url_fetch: refusing /,
     );
   });
 
   it('rejects when the url key is missing entirely', async () => {
-    await expect(urlFetch({})).rejects.toThrow(/url_fetch: URL must use https/);
+    await expect(urlFetch({})).rejects.toThrow(/^url_fetch: refusing /);
   });
 
   it('the rejection echoes the offending url back in the message', async () => {
@@ -373,14 +379,17 @@ describe('urlFetchAdapter (https-only guard, L80)', () => {
   });
 
   it('accepts an https:// url and returns the v0.1 stub contract', async () => {
-    const out = (await urlFetch({ url: 'https://example.com/page' })) as {
+    // Use an allowlisted host (ALLOWED_FETCH_HOSTS — PR #53 SSRF hardening).
+    // `assertSafeFetchUrl` returns the canonicalised URL.toString(), which
+    // appends the implicit "/" path for an origin-only input.
+    const out = (await urlFetch({ url: 'https://api.alienclaw.net/page' })) as {
       url: string;
       statusCode: number;
       content: string;
       _stub?: boolean;
     };
     // Guard passed; OpenClaw wiring is a v0.2 stub.
-    expect(out.url).toBe('https://example.com/page');
+    expect(out.url).toBe('https://api.alienclaw.net/page');
     expect(out.statusCode).toBe(0);
     expect(out.content).toBe('');
     expect(out._stub).toBe(true);

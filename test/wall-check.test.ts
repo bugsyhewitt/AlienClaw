@@ -83,7 +83,27 @@ interface AllowlistEntry {
   reason: string;     // human-readable explanation
 }
 
-const ALLOWLIST: AllowlistEntry[] = [];
+const ALLOWLIST: AllowlistEntry[] = [
+  // test/registry/seed-installer.test.ts contains its own meta wall-clean check
+  // that embeds the banned terms as a regex literal to grep the SOURCE file
+  // (src/alienclaw/registry/seed-installer.ts). The terms appear only inside
+  // that defensive regex, never as actual code/identifier usage.
+  {
+    file: 'test/registry/seed-installer.test.ts',
+    ruleId: 'meeseeks-any-case',
+    reason: 'meta: regex literal in a wall-clean assertion against the source file',
+  },
+  {
+    file: 'test/registry/seed-installer.test.ts',
+    ruleId: 'five-layer-any-case',
+    reason: 'meta: regex literal in a wall-clean assertion against the source file',
+  },
+  {
+    file: 'test/registry/seed-installer.test.ts',
+    ruleId: 'specialist-capitalized',
+    reason: 'meta: regex literal in a wall-clean assertion against the source file',
+  },
+];
 
 // ---------------------------------------------------------------------------
 // File scanner
