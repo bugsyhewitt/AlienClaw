@@ -11,8 +11,10 @@ import {
   validateLeaderboardName,
   leaderboardCheck,
   hardenedFetch,
+  submitFromFile,
   type GenomeResult,
   type LeaderboardConfig,
+  type SubmissionArtifact,
 } from '../../src/alienclaw/governance/common/leaderboard.js';
 
 // ── validateLeaderboardName ────────────────────────────────────────────────
@@ -188,6 +190,7 @@ describe('leaderboardCheck', () => {
     const artifact = JSON.parse(readFileSync(tmpFile, 'utf8'));
     expect(artifact.leaderboard_name).toBe('ALIENBOT');
     expect(artifact.genome_hash).toBe('abc123');
+    expect(artifact.genome).toBe('A'.repeat(256));   // genome is carried through artifact
     expect(artifact.fitness).toBe(0.95);
     expect(artifact.martian_type).toBe('compute');
   });
@@ -256,5 +259,101 @@ describe('leaderboardCheck', () => {
     await expect(
       leaderboardCheck(operatorBest, { ...config, leaderboardName: 'invalid1' })
     ).rejects.toThrow(/\^/);
+  });
+});
+
+// ── submitFromFile ──────────────────────────────────────────────────────────
+
+describe('submitFromFile', () => {
+  const VALID_GENOME = 'A'.repeat(256);
+  const VALID_HASH   = 'a'.repeat(64);
+
+  const mockFetch = vi.fn();
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch);
+    mockFetch.mockReset();
+  });
+
+  function writeArtifact(artifact: Partial<SubmissionArtifact>): string {
+    const path = join(tmpdir(), `submit-test-${Math.random().toString(36).slice(2)}.json`);
+    writeFileSync(path, JSON.stringify({
+      leaderboard_name: 'ALIENBOT',
+      genome:           VALID_GENOME,
+      genome_hash:      VALID_HASH,
+      martian_type:     'compute',
+      fitness:          0.95,
+      checked_at:       '2026-06-18T00:00:00Z',
+      ...artifact,
+    }), 'utf8');
+    return path;
+  }
+
+  it('happy path: POSTs the 256-char genome string and returns rank/is_new_top', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ rank: 1, is_new_top: true }),
+    });
+
+    const path = writeArtifact({});
+    const result = await submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes');
+
+    expect(result).toEqual({ rank: 1, is_new_top: true });
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.genome).toBe(VALID_GENOME);
+  });
+
+  it('sends the 256-char genome, not the 64-char hash (regression lock)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ rank: 2, is_new_top: false }),
+    });
+
+    const path = writeArtifact({});
+    await submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes');
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.genome).toBe(VALID_GENOME);
+    expect(body.genome).toHaveLength(256);
+    expect(body.genome).not.toBe(VALID_HASH);
+    expect(body.genome).not.toHaveLength(64);
+  });
+
+  it('rejects artifact with wrong-length genome before making any network call', async () => {
+    const path = writeArtifact({ genome: VALID_HASH }); // 64-char hash where genome should be
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/256/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects artifact with non-Base62 characters before making any network call', async () => {
+    const badGenome = '-'.repeat(256);
+    const path = writeArtifact({ genome: badGenome });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/non-Base62/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('propagates server 400 with the error body in the message', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      text: async () => JSON.stringify({ error: 'INVALID_GENOME_LENGTH' }),
+    });
+
+    const path = writeArtifact({});
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow('INVALID_GENOME_LENGTH');
+  });
+
+  it('rejects invalid artifact JSON with a clear message', async () => {
+    const path = join(tmpdir(), `submit-garbage-${Math.random().toString(36).slice(2)}.json`);
+    writeFileSync(path, 'not valid json at all!!!', 'utf8');
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow('Invalid submission artifact');
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
