@@ -78,6 +78,7 @@ export function mutateDirected(
     if (!brain || !brain.parameterSchema.length) continue;
 
     for (const field of brain.parameterSchema) {
+      if (field.xcodeIndex < 0 || field.xcodeIndex > 30) continue; // mirrors decodeXcode [0,30] contract
       if (rand() >= rate) continue;
 
       const base      = slotIdx * 64 + 1 + field.xcodeIndex * 2;
