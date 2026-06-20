@@ -75,7 +75,7 @@ export class AdvisorBot {
     return `${history ? `Previous exchanges:\n${history}\n\n` : ''}Context:\n${req.context}\n\nQuestion:\n${req.question}`;
   }
 
-  parseResponse(raw: string): AdviceResponse {
+  static parseResponse(raw: string): AdviceResponse {
     // Strip optional markdown fences
     const clean = raw.replace(/```(?:json)?\n?/g, '').trim();
     try {
@@ -121,7 +121,7 @@ export class AdvisorBot {
     };
 
     const response = await completeSimple(model, context, { apiKey });
-    return this.parseResponse(extractText(response));
+    return AdvisorBot.parseResponse(extractText(response));
   }
 }
 
