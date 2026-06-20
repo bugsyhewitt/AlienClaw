@@ -97,6 +97,7 @@ export interface SubmitCall {
   genome: string;
   martianType: string;
   fitness: number;
+  leaderboardName: string;
   runMetadata: Record<string, unknown>;
 }
 
@@ -145,9 +146,10 @@ export class StubClient {
     genome: string,
     martianType: string,
     fitness: number,
+    leaderboardName: string,
     runMetadata: Record<string, unknown> = {},
   ): Promise<APIResult<SubmitResponse>> {
-    this.submitCalls.push({ genome, martianType, fitness, runMetadata });
+    this.submitCalls.push({ genome, martianType, fitness, leaderboardName, runMetadata });
     const next = this.submitQueue.shift();
     return next ?? this.submitDefault;
   }

@@ -92,7 +92,7 @@ describe('NetworkAPIClient._parse — success and error envelopes', () => {
       makeFetchResponse({ status: 201, ok: true, json: body }),
     );
     const client = new NetworkAPIClient('https://api.example.test', 'key');
-    const res = await client.submitGenome('GENOME', 'compute', 0.9);
+    const res = await client.submitGenome('GENOME', 'compute', 0.9, 'ALIENBOT');
 
     expect(res.ok).toBe(true);
     if (res.ok) {
@@ -109,7 +109,7 @@ describe('NetworkAPIClient._parse — success and error envelopes', () => {
       makeFetchResponse({ status: 429, ok: false, json: body }),
     );
     const client = new NetworkAPIClient('https://api.example.test', 'key');
-    const res = await client.submitGenome('GENOME', 'compute', 0.9);
+    const res = await client.submitGenome('GENOME', 'compute', 0.9, 'ALIENBOT');
 
     expect(res.ok).toBe(false);
     if (!res.ok) {
@@ -190,7 +190,7 @@ describe('NetworkAPIClient — request construction', () => {
       makeFetchResponse({ status: 201, json: { submission_id: 's', rank: 1, is_new_top: true } }),
     );
     const client = new NetworkAPIClient('https://api.example.test', 'secret-key');
-    await client.submitGenome('GENOME', 'compute', 0.5, { run: 1 });
+    await client.submitGenome('GENOME', 'compute', 0.5, 'ALIENBOT', { run: 1 });
 
     const [url, init] = lastCall();
     expect(url).toBe('https://api.example.test/v1/genomes');
@@ -201,6 +201,7 @@ describe('NetworkAPIClient — request construction', () => {
       genome: 'GENOME',
       martian_type: 'compute',
       fitness: 0.5,
+      leaderboard_name: 'ALIENBOT',
       run_metadata: { run: 1 },
     });
   });

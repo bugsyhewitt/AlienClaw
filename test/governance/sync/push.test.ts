@@ -64,7 +64,7 @@ describe('pushTopGenomes — push vs skip counting', () => {
     writeGenome('compute', 'b', { genome: 'BBBB', fitness: 0.8 });
 
     const client = new StubClient({ submit: [submitNew('s1'), submitDuplicate('s2')] });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(result.martianType).toBe('compute');
     expect(result.pushed).toBe(1);   // the 201
@@ -79,12 +79,12 @@ describe('pushTopGenomes — push vs skip counting', () => {
     writeGenome('search_text', 'c', { genome: 'C', fitness: 0.3 });
 
     const allNew = new StubClient({ submitDefault: submitNew() });
-    const [r1] = await pushTopGenomes(allNew.asClient(), root, 5);
+    const [r1] = await pushTopGenomes(allNew.asClient(), root, 'ALIENBOT', 5);
     expect(r1.pushed).toBe(3);
     expect(r1.skipped).toBe(0);
 
     const allDup = new StubClient({ submitDefault: submitDuplicate() });
-    const [r2] = await pushTopGenomes(allDup.asClient(), root, 5);
+    const [r2] = await pushTopGenomes(allDup.asClient(), root, 'ALIENBOT', 5);
     expect(r2.pushed).toBe(0);
     expect(r2.skipped).toBe(3);
   });
@@ -97,13 +97,14 @@ describe('pushTopGenomes — push vs skip counting', () => {
     });
 
     const client = new StubClient({ submitDefault: submitNew() });
-    await pushTopGenomes(client.asClient(), root, 5);
+    await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(client.submitCalls).toHaveLength(1);
     expect(client.submitCalls[0]).toEqual({
       genome: 'PAYLOAD',
       martianType: 'compute',
       fitness: 0.77,
+      leaderboardName: 'ALIENBOT',
       runMetadata: { seed: 42, host: 'x' },
     });
   });
@@ -112,7 +113,7 @@ describe('pushTopGenomes — push vs skip counting', () => {
     writeGenome('compute', 'a', { genome: 'G', fitness: 0.1 }); // no run_metadata
 
     const client = new StubClient({ submitDefault: submitNew() });
-    await pushTopGenomes(client.asClient(), root, 5);
+    await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(client.submitCalls[0].runMetadata).toEqual({});
   });
@@ -127,7 +128,7 @@ describe('pushTopGenomes — top-N selection', () => {
     writeGenome('compute', 'mid', { genome: 'MID', fitness: 0.5 });
 
     const client = new StubClient({ submitDefault: submitNew() });
-    const [result] = await pushTopGenomes(client.asClient(), root, 2);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 2);
 
     expect(result.pushed).toBe(2);
     expect(client.submitCalls.map(c => c.genome)).toEqual(['HIGH', 'MID']);
@@ -147,7 +148,7 @@ describe('pushTopGenomes — rate-limit handling', () => {
     const client = new StubClient({
       submit: [submitNew('s1'), rateLimited(), submitNew('s3')],
     });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(result.pushed).toBe(1);
     expect(result.skipped).toBe(0);
@@ -162,7 +163,7 @@ describe('pushTopGenomes — rate-limit handling', () => {
     writeGenome('compute', 'b', { genome: 'B', fitness: 0.8 });
 
     const client = new StubClient({ submit: [rateLimited()] });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(result.pushed).toBe(0);
     expect(result.skipped).toBe(0);
@@ -182,7 +183,7 @@ describe('pushTopGenomes — rate-limit handling', () => {
       submit: [submitNew(), rateLimited()],
       submitDefault: submitNew(),
     });
-    const results = await pushTopGenomes(client.asClient(), root, 5);
+    const results = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     const byType = Object.fromEntries(results.map(r => [r.martianType, r]));
     expect(Object.keys(byType).sort()).toEqual(['compute', 'search']);
@@ -202,7 +203,7 @@ describe('pushTopGenomes — error classification', () => {
     const client = new StubClient({
       submit: [validationError('BAD_GENOME'), submitNew('s2')],
     });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(result.pushed).toBe(1);   // the second one still went through
     expect(result.skipped).toBe(0);
@@ -217,7 +218,7 @@ describe('pushTopGenomes — error classification', () => {
     const client = new StubClient({
       submit: [err(400, 'BAD_REQUEST'), submitNew('s2')],
     });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(result.pushed).toBe(1);
     expect(result.errors).toEqual(['Validation error for genome: BAD_REQUEST']);
@@ -231,7 +232,7 @@ describe('pushTopGenomes — error classification', () => {
     const client = new StubClient({
       submit: [err(500, 'INTERNAL'), submitNew('s2')],
     });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(result.pushed).toBe(1);
     expect(result.errors).toEqual(['Submit failed (500): INTERNAL']);
@@ -248,7 +249,7 @@ describe('pushTopGenomes — corrupted file resilience', () => {
     writeGenome('compute', 'good2', { genome: 'GOOD2', fitness: 0.8 });
 
     const client = new StubClient({ submitDefault: submitNew() });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     // Only the two valid genomes are submitted; the corrupt file is silently dropped.
     expect(client.submitCalls.map(c => c.genome).sort()).toEqual(['GOOD1', 'GOOD2']);
@@ -262,7 +263,7 @@ describe('pushTopGenomes — corrupted file resilience', () => {
     writeRaw('compute', 'README.md', '# readme');
 
     const client = new StubClient({ submitDefault: submitNew() });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(client.submitCalls).toHaveLength(1);
     expect(client.submitCalls[0].genome).toBe('GOOD');
@@ -274,7 +275,7 @@ describe('pushTopGenomes — corrupted file resilience', () => {
     writeRaw('compute', 'b.json', '{broken');
 
     const client = new StubClient({ submitDefault: submitNew() });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(result).toEqual({
       martianType: 'compute',
@@ -289,7 +290,7 @@ describe('pushTopGenomes — corrupted file resilience', () => {
     mkdirSync(join(root, 'empty'), { recursive: true });
 
     const client = new StubClient({ submitDefault: submitNew() });
-    const [result] = await pushTopGenomes(client.asClient(), root, 5);
+    const [result] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(result.martianType).toBe('empty');
     expect(result.pushed).toBe(0);
@@ -306,6 +307,7 @@ describe('pushTopGenomes — populations root handling', () => {
     const results = await pushTopGenomes(
       client.asClient(),
       join(root, 'does-not-exist'),
+      'ALIENBOT',
       5,
     );
     expect(results).toEqual([]);
@@ -320,7 +322,7 @@ describe('pushTopGenomes — populations root handling', () => {
     writeFileSync(join(root, 'stray.json'), '{}', 'utf-8');
 
     const client = new StubClient({ submitDefault: submitNew() });
-    const results = await pushTopGenomes(client.asClient(), root, 5);
+    const results = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
 
     expect(results.map(r => r.martianType).sort()).toEqual([
       'compute',

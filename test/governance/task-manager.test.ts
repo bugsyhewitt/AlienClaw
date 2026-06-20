@@ -39,7 +39,7 @@ describe('TaskManager', () => {
     const tm = new TaskManager();
     const t = mkTask('a');
     tm.register(t);
-    const attempt = { attemptNumber: 1, employeeId: 'sub-1', failureReason: 'crash', advisorVerdict: 'retry', ts: 1 };
+    const attempt = { attemptNumber: 1, subagentId: 'sub-1', failureReason: 'crash', advisorVerdict: 'retry', ts: 1 };
     tm.recordAttempt('a', attempt);
     expect(t.attempts.length).toBe(1);
     expect(t.strikeCount).toBe(1);
@@ -51,7 +51,7 @@ describe('TaskManager', () => {
     tm.register(mkTask('a'));
     expect(tm.isExhausted('a')).toBe(false);
     for (let n = 0; n < MAX_STRIKE_COUNT; n++) {
-      tm.recordAttempt('a', { attemptNumber: n + 1, employeeId: 'sub-1', failureReason: 'f', advisorVerdict: 'retry', ts: n });
+      tm.recordAttempt('a', { attemptNumber: n + 1, subagentId: 'sub-1', failureReason: 'f', advisorVerdict: 'retry', ts: n });
     }
     expect(tm.isExhausted('a')).toBe(true);
     expect(tm.isExhausted('missing')).toBe(false);
@@ -77,8 +77,8 @@ describe('TaskManager', () => {
   it('getAttemptSummary populated: formats attempts in registration order', () => {
     const tm = new TaskManager();
     tm.register(mkTask('a'));
-    tm.recordAttempt('a', { attemptNumber: 1, employeeId: 'sub-1', failureReason: 'timeout', advisorVerdict: 'retry', ts: 1 });
-    tm.recordAttempt('a', { attemptNumber: 2, employeeId: 'sub-2', failureReason: 'wrong-format', advisorVerdict: 'retry', ts: 2 });
+    tm.recordAttempt('a', { attemptNumber: 1, subagentId: 'sub-1', failureReason: 'timeout', advisorVerdict: 'retry', ts: 1 });
+    tm.recordAttempt('a', { attemptNumber: 2, subagentId: 'sub-2', failureReason: 'wrong-format', advisorVerdict: 'retry', ts: 2 });
     expect(tm.getAttemptSummary('a')).toBe('  1. [sub-1] timeout\n  2. [sub-2] wrong-format');
   });
 });
