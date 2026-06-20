@@ -69,7 +69,7 @@ export const MAX_FILE_READ_BYTES = 10 * 1024 * 1024;
 // Default budget extension (number of extra attempts when resuming with budget)
 export const DEFAULT_BUDGET_EXTENSION  = 3;
 
-// Domain slug max length (used in employee/subagent ID generation)
+// Domain slug max length (used in subagent ID generation)
 export const DOMAIN_SLUG_MAX = 6;
 
 // CreatorBot queue capacity — oldest entries evicted when exceeded

@@ -4,8 +4,8 @@
  * Maps logical tool names (from .ms files) to actual OpenClaw tool functions.
  * This is the ONLY place in AlienClaw that touches OpenClaw's tool layer directly.
  *
- * Employees NEVER call tools directly. They go through:
- *   Employee → MartianExecutor → OpenClawToolResolver → OpenClaw tool fn
+ * Subagents NEVER call tools directly. They go through:
+ *   Subagent → MartianExecutor → OpenClawToolResolver → OpenClaw tool fn
  */
 
 import type { ToolFn, ToolResolver } from './martian-executor.js';

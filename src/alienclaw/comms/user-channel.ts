@@ -41,7 +41,7 @@ export class UserChannel {
    */
   async strikeAlert(task: TaskEnvelope, fullLog: boolean): Promise<string> {
     const attempts = task.attempts
-      .map((a, i) => `  ${i + 1}. [${a.employeeId}] ${a.failureReason}`)
+      .map((a, i) => `  ${i + 1}. [${a.subagentId}] ${a.failureReason}`)
       .join('\n');
 
     const header = `Task "${task.description}" has failed ${task.strikeCount} time(s).`;
