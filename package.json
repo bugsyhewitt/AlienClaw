@@ -7,7 +7,8 @@
   "scripts": {
     "setup": "bash install.sh",
     "typecheck": "tsc --noEmit",
-    "start": "tsx src/alienclaw/api/main.ts"
+    "start": "tsx src/alienclaw/api/main.ts",
+    "test": "pnpm exec vitest run && PYTHONPATH=src pytest"
   },
   "devDependencies": {
     "@mariozechner/pi-ai": "0.73.0",
