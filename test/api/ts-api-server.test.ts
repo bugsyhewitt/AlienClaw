@@ -12,6 +12,7 @@ import { AddressInfo } from 'node:net';
 import { configure, createApiServer } from '../../src/alienclaw/api/server.js';
 import { generateApiKey } from '../../src/alienclaw/api/auth.js';
 import { validateLeaderboardName } from '../../src/alienclaw/api/validation.js';
+import { computeChecksum } from '../../src/alienclaw/registry/genome-codec.js';
 import { initPool } from '../../src/alienclaw/api/storage.js';
 
 const TEST_DB_URL = process.env['ALIENCLAW_TEST_DB_URL'];
@@ -39,16 +40,18 @@ async function post(
 }
 
 function validGenome(): string {
-  // 256-char Base62 string — same genome used in Python tests
+  // Deterministic 256-char Base62 genome with a *valid* checksum.
+  // The first 192 chars (sections 0-2) are generated from a fixed seed; the
+  // trailing 64 chars are the real computeChecksum() over that body, so the
+  // genome passes the server's checksum step (closed forgery gap, Packet 31.5).
   const alpha = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  // Use a fixed seed to produce a deterministic genome
-  let g = '';
+  let body = '';
   let seed = 42;
-  for (let i = 0; i < 256; i++) {
+  for (let i = 0; i < 192; i++) {
     seed = (seed * 1664525 + 1013904223) >>> 0;
-    g += alpha[seed % 62];
+    body += alpha[seed % 62];
   }
-  return g;
+  return body + computeChecksum(body);
 }
 
 // ── Server fixture ──────────────────────────────────────────────────────────
