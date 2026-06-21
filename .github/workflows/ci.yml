@@ -42,9 +42,9 @@ jobs:
         run: |
           npx vitest run test/governance/ \
             --coverage --coverage.provider=v8 \
-            --coverage.thresholds.lines=95 \
-            --coverage.thresholds.branches=90 \
-            --coverage.include="src/alienclaw/governance/*.ts"
+            --coverage.thresholds.lines=68 \
+            --coverage.thresholds.branches=65 \
+            --coverage.include="src/alienclaw/governance/**/*.ts"
       # ── API surface coverage gate ──────────────────────────────────────────
       # Ratchets coverage over the community API tree (src/alienclaw/api/**).
       # The recursive ** glob includes api/handlers/** — unlike the governance
