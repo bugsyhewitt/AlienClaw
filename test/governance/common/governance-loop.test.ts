@@ -107,7 +107,7 @@ describe('GovernanceLoop.resumeGoal — legacy sub-goal dispatch (packet 096)', 
     expect(subGoalDispatchCalled).toBe(true);
   });
 
-  it('calls dispatchReadySubGoals for a scheme goal that also has folded-in sub-goals', async () => {
+  it('resets active sub-goals to pending for a scheme goal with folded-in sub-goals (Scenario B, packet 097)', async () => {
     const file = {
       version:      '1',
       activeGoalId: 'goal-2',
@@ -119,6 +119,7 @@ describe('GovernanceLoop.resumeGoal — legacy sub-goal dispatch (packet 096)', 
           description: 'additional context from user',
           domain:      'researcher',
           status:      'active' as const,
+          taskId:      'old-task-id',
           dependsOn:   [],
         }],
         status:    'active' as const,
@@ -140,11 +141,13 @@ describe('GovernanceLoop.resumeGoal — legacy sub-goal dispatch (packet 096)', 
       }],
     };
 
+    let saveCalled = false;
     const goalManager = {
-      load:          () => file,
-      save:          async () => {},
-      attachScheme:  async () => {},
+      load:             () => file,
+      save:             async () => { saveCalled = true; },
+      attachScheme:     async () => {},
       getReadyCampaigns: () => [],
+      getReadySubGoals: () => [],
     } as unknown as GoalManager;
 
     const loop = new GovernanceLoop({
@@ -161,13 +164,11 @@ describe('GovernanceLoop.resumeGoal — legacy sub-goal dispatch (packet 096)', 
       adapter:           noopAdapter,
     });
 
-    let subGoalDispatchCalled = false;
-    (loop as any).dispatchReadySubGoals = async (_id: string) => {
-      subGoalDispatchCalled = true;
-    };
-
     await loop.resumeGoal('goal-2');
 
-    expect(subGoalDispatchCalled).toBe(true);
+    const sg = file.goals[0].subGoals[0] as any;
+    expect(sg.status).toBe('pending');
+    expect(sg.taskId).toBeUndefined();
+    expect(saveCalled).toBe(true);
   });
 });

@@ -141,6 +141,9 @@ export class GovernanceLoop {
       for (const c of goal.scheme.campaigns) {
         if (c.status === 'active') { c.status = 'pending'; dirty = true; }
       }
+      for (const sg of goal.subGoals) {
+        if (sg.status === 'active') { sg.status = 'pending'; sg.taskId = undefined; dirty = true; }
+      }
       if (dirty) await this.goalManager.save(file);
     } else {
       // Legacy sub-goal goal
