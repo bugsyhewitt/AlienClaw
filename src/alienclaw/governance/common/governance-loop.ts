@@ -30,7 +30,7 @@ const VALID_TRANSITIONS: Record<GovernanceState, GovernanceState[]> = {
   AWAITING_ADVICE:       ['EXECUTING', 'CREATOR_BUILDING', 'DECOMPOSING', 'SCHEMING'],
   CREATOR_INTERRUPT:     ['EXECUTING', 'AWAITING_ADVICE'],
   AWAITING_USER_INPUT:   ['EXECUTING', 'COMPLETE'],
-  REVIEWING_COMPLETION:  ['AWAITING_USER_SIGNOFF'],
+  REVIEWING_COMPLETION:  ['AWAITING_USER_SIGNOFF', 'EXECUTING'],
   AWAITING_USER_SIGNOFF: ['COMPLETE', 'EXECUTING'],
   COMPLETE:              ['IDLE'],
   ESCALATED:             ['IDLE'],
@@ -638,8 +638,7 @@ export class GovernanceLoop {
         }
       }
       this.userChannel.status(`AdvisorBot flagged gaps. Re-opening ${review.reopenIds.length} item(s).`);
-      this.transition('AWAITING_ADVICE', 'AdvisorBot flagged gaps');
-      this.transition('EXECUTING', 'Re-dispatching after gap identified');
+      this.transition('EXECUTING', 'AdvisorBot flagged gaps — re-dispatching');
       await this.dispatchReadyCampaigns(goalId);
       await this.dispatchReadySubGoals(goalId);
       return;
