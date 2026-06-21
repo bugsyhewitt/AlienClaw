@@ -415,3 +415,120 @@ describe('GovernanceLoop.handleJobFailed — campaign retry limit (packet 099)',
     expect(surfacedAfterReset).toBe(false);
   });
 });
+
+// ── Packet 095: campaign-failure surface-to-user path ────────────────────────
+//
+// Before the fix, VALID_TRANSITIONS['AWAITING_ADVICE'] lacked
+// 'AWAITING_USER_INPUT', so handleJobFailed's surface-to-user branch
+// (advisor recommendation mentions the user, or confidence is low) threw
+// unconditionally on transition(), crashing the governance loop.
+
+function makeGoalManager(): GoalManager {
+  return {
+    load: () => ({
+      version:      '1',
+      activeGoalId: 'goal-1',
+      goals: [{
+        id:          'goal-1',
+        description: 'test goal',
+        subGoals:    [],
+        status:      'active' as const,
+        createdAt:   0,
+        scheme: {
+          goalId:             'goal-1',
+          rationale:          'test',
+          campaigns: [{
+            id:         'campaign-1',
+            name:       'Test Campaign',
+            objective:  'test',
+            subagents:  [],
+            dependsOn:  [],
+            status:     'active' as const,
+          }],
+          advisorEndorsement: '',
+          createdAt:          0,
+        },
+      }],
+    }),
+  } as unknown as GoalManager;
+}
+
+describe('GovernanceLoop.handleJobFailed — campaign failure surface-to-user path (packet 095)', () => {
+  it('transitions to AWAITING_USER_INPUT without throwing when campaign fails and advisor recommends surfacing to user', async () => {
+    const advisorBot = {
+      advise: async () => ({
+        verdict:        'surface this to the user',
+        confidence:     'high' as const,
+        blindspots:     [],
+        recommendation: 'surface to the user',
+      }),
+    } as unknown as AdvisorBot;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager:       makeGoalManager(),
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+
+    (loop as any).state         = 'EXECUTING';
+    (loop as any).currentGoalId = 'goal-1';
+
+    await expect(
+      (loop as any).handleJobFailed({
+        type:      'JOB_FAILED',
+        subGoalId: 'campaign-1',
+        goalId:    'goal-1',
+        error:     'network timeout',
+      })
+    ).resolves.not.toThrow();
+
+    expect((loop as any).state).toBe('AWAITING_USER_INPUT');
+  });
+
+  it('transitions to AWAITING_USER_INPUT when advisor confidence is low', async () => {
+    const advisorBot = {
+      advise: async () => ({
+        verdict:        'uncertain about retry viability',
+        confidence:     'low' as const,
+        blindspots:     [],
+        recommendation: 'retry with new approach',
+      }),
+    } as unknown as AdvisorBot;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager:       makeGoalManager(),
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+
+    (loop as any).state         = 'EXECUTING';
+    (loop as any).currentGoalId = 'goal-1';
+
+    await expect(
+      (loop as any).handleJobFailed({
+        type:      'JOB_FAILED',
+        subGoalId: 'campaign-1',
+        goalId:    'goal-1',
+        error:     'network timeout',
+      })
+    ).resolves.not.toThrow();
+
+    expect((loop as any).state).toBe('AWAITING_USER_INPUT');
+  });
+});
