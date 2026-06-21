@@ -65,6 +65,11 @@ function makeGoalManagerStub(opts: {
     isSchemeComplete: vi.fn(() => opts.complete ?? false),
     updateCampaign: vi.fn(async (_goalId: string, _campaignId: string, _patch: Partial<Campaign>) => {}),
     updateSubGoal: vi.fn(async (_goalId: string, _subGoalId: string, _patch: Partial<SubGoal>) => {}),
+    // Stubs for dispatch paths called after runCompletionFlow transitions to EXECUTING:
+    getReadyCampaigns: vi.fn((_file: GoalsFile, _goalId: string) => [] as Campaign[]),
+    getReadySubGoals: vi.fn((_file: GoalsFile, _goalId: string) => [] as SubGoal[]),
+    // Stub for the approved=true completion path:
+    markGoalComplete: vi.fn(async (_goalId: string) => {}),
   };
 }
 
@@ -86,11 +91,12 @@ function makeCompleteDeps(overrides: {
 
   // All other deps are no-op stubs. They are never called by runCompletionFlow.
   const noop = vi.fn();
+  void noop; // suppress unused-variable warning
   return {
     bossBot:           {} as any,
-    advisorBot:        {} as any,
+    advisorBot:        { destroyTaskSessions: vi.fn() } as any,
     creatorBot:        { flushNotable: vi.fn(() => []) } as any,
-    agentRegistry:     {} as any,
+    agentRegistry:     { closeTask: vi.fn() } as any,
     goalManager:       goalManager as any,
     taskManager:       {} as any,
     escalationHandler: {} as any,
@@ -244,7 +250,8 @@ describe('GovernanceLoop.runCompletionFlow — completion review gap path (packe
     const result = await runCompletion(loop, goalId);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(`threw: ${String(result.error)}`);
-    expect((loop as any).state).toBe('AWAITING_USER_SIGNOFF');
+    // With approved=true the flow completes: AWAITING_USER_SIGNOFF → COMPLETE → IDLE.
+    expect((loop as any).state).toBe('IDLE');
     // Signoff was prompted on the happy path.
     expect(deps.completionHandler.promptSignoff).toHaveBeenCalledWith(goalId);
   });
