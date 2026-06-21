@@ -161,6 +161,7 @@ export class GovernanceLoop {
     // Subagents are created inline in spawnCampaign — no pre-build needed.
     this.transition('EXECUTING', 'Crash recovery — dispatching ready campaigns');
     await this.dispatchReadyCampaigns(goalId);
+    await this.dispatchReadySubGoals(goalId);
   }
 
   // ── State machine ──────────────────────────────────────────────────────────
