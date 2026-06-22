@@ -14,7 +14,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if not url:
         return RunResult(ok=False, error="Missing 'url' field", correctness=0.0)
     field_count = max(1, min(5, int(params.get("field_count", 3))))
-    content_preview = max(1, int(params.get("content_preview", 2)))
+    content_preview = max(1, min(10, int(params.get("content_preview", 2))))
     # request_count: make N sequential requests (reliability/freshness pattern); tool_calls=N
     request_count = max(1, min(5, int(params.get("request_count", 1))))
     method = str(inputs.get("method", "GET")).upper()
