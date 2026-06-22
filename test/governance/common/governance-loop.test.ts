@@ -415,3 +415,79 @@ describe('GovernanceLoop.handleJobFailed — campaign retry limit (packet 099)',
     expect(surfacedAfterReset).toBe(false);
   });
 });
+
+describe('GovernanceLoop.runCompletionFlow — gaps re-open and re-dispatch', () => {
+  it('re-opens flagged campaign and re-dispatches when review.proceed is false', async () => {
+    const CAMPAIGN_ID = 'camp-reopen';
+    const GOAL_ID     = 'goal-reopen';
+
+    const file = {
+      version:      '1',
+      activeGoalId: GOAL_ID,
+      goals: [{
+        id:          GOAL_ID,
+        description: 're-open test goal',
+        subGoals:    [],
+        status:      'active' as const,
+        createdAt:   0,
+        scheme: {
+          goalId:    GOAL_ID,
+          rationale: 'test',
+          campaigns: [{
+            id:        CAMPAIGN_ID,
+            name:      'Re-Open Campaign',
+            objective: 'do something',
+            subagents: [],
+            dependsOn: [],
+            status:    'complete' as const,
+          }],
+          advisorEndorsement: '',
+          createdAt:          0,
+        },
+      }],
+    };
+
+    let updateCampaignCalls: string[] = [];
+
+    const goalManager = {
+      load:              () => file,
+      save:              async () => {},
+      updateCampaign:    async (_gid: string, cid: string) => { updateCampaignCalls.push(cid); },
+      getReadyCampaigns: () => [],
+      getReadySubGoals:  () => [],
+    } as unknown as import('../../../src/alienclaw/governance/common/goal-manager.js').GoalManager;
+
+    const completionHandler = {
+      review:        async () => ({ proceed: false, reopenIds: [CAMPAIGN_ID] }),
+      promptSignoff: async () => ({ approved: true }),
+    } as unknown as import('../../../src/alienclaw/governance/common/completion-handler.js').CompletionHandler;
+
+    const creatorBot = {
+      flushNotable: () => [],
+    } as unknown as import('../../../src/alienclaw/agents/creatorbot.js').CreatorBot;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot:        noopAdvisorBot,
+      creatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+
+    // Stub transition to isolate the re-open logic from state-machine wiring.
+    (loop as any).transition = () => {};
+
+    (loop as any).state = 'REVIEWING_COMPLETION';
+    (loop as any).currentGoalId = GOAL_ID;
+
+    await (loop as any).runCompletionFlow(GOAL_ID);
+
+    expect(updateCampaignCalls).toContain(CAMPAIGN_ID);
+  });
+});
