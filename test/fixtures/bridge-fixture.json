@@ -230,7 +230,7 @@
         }
       },
       "expected_ok": true,
-      "expected_output_field": "match_count",
+      "expected_output_field": "totalMatches",
       "expected_output_value": 2
     },
     {
@@ -251,7 +251,7 @@
         }
       },
       "expected_ok": true,
-      "expected_output_field": "match_count",
+      "expected_output_field": "totalMatches",
       "expected_output_value": 1
     },
     {
@@ -271,7 +271,7 @@
         }
       },
       "expected_ok": true,
-      "expected_output_field": "match_count",
+      "expected_output_field": "totalMatches",
       "expected_output_value": 0
     },
     {

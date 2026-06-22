@@ -116,7 +116,7 @@ describe('Synthetic integration — simplified governance path + real bridge', (
       // 5. Verify campaign ran and produced results
       expect(result.campaignId).toBe(CAMPAIGN_ID);
       expect(result.summon_count).toBeGreaterThan(0);
-      // search_then_count: search_text finds fox -> compute evaluates match_count
+      // search_then_count: search_text finds fox -> compute evaluates totalMatches
       expect(result.fitness).toBeGreaterThanOrEqual(0);
       expect([
         'state_machine_finalized',

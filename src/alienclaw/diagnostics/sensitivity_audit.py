@@ -141,7 +141,7 @@ def _make_inputs_for(martian_type: str, stub_base_url: str, tmpdir: Path) -> dic
         # include_headers param adds/removes headers from output
         return {"url": stub_base_url + "/test", "method": "GET"}
     if m == "search_text":
-        # 20 matching lines: max_results truncates to 1-10 → different match_count + tool_calls
+        # 20 matching lines: max_results truncates to 1-10 → different totalMatches + tool_calls
         text = "\n".join(f"The fox was spotted on line {i}" for i in range(1, 21))
         return {"text": text, "pattern": "fox"}
     if m == "web_search":
