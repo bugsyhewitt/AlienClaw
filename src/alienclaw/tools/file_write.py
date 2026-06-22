@@ -5,7 +5,7 @@ from .types import RunResult
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     path_str = inputs.get("path", "")
-    content = inputs.get("content", "")
+    content = inputs.get("content")
     if not path_str:
         return RunResult(ok=False, error="Missing 'path' field", correctness=0.0)
     if content is None:
