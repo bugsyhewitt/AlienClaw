@@ -74,6 +74,26 @@ class TestWithStub:
         assert not result.ok
         assert "query" in result.error.lower()
 
+    def test_negative_num_results_clamped_to_one(self):
+        """Negative num_results must not produce wrong slice or negative URL params."""
+        from alienclaw.diagnostics.stub_servers import StubServer
+        canned = {"/search": (200, _RESULTS_JSON, "application/json")}
+        with StubServer(canned) as stub_url:
+            with patch.dict(os.environ, {"ALIENCLAW_SEARCH_URL": stub_url + "/search"}):
+                result = web_search_run({"query": "test", "num_results": -3})
+        assert result.ok
+        assert len(result.output["results"]) == 1  # clamped to 1
+
+    def test_zero_num_results_clamped_to_one(self):
+        """Zero num_results must clamp to 1, not produce an empty-or-wrong result."""
+        from alienclaw.diagnostics.stub_servers import StubServer
+        canned = {"/search": (200, _RESULTS_JSON, "application/json")}
+        with StubServer(canned) as stub_url:
+            with patch.dict(os.environ, {"ALIENCLAW_SEARCH_URL": stub_url + "/search"}):
+                result = web_search_run({"query": "test", "num_results": 0})
+        assert result.ok
+        assert len(result.output["results"]) == 1
+
     def test_sensitivity_audit_still_works(self):
         """Full sensitivity audit should still show tc>0 for web_search with stub."""
         from alienclaw.diagnostics.stub_servers import StubServer
