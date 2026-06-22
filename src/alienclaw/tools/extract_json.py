@@ -34,22 +34,30 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
         return RunResult(ok=False, error=f"JSON parse error: {exc}", correctness=0.0)
-    if not path:
-        return RunResult(ok=True, output={"value": parsed, "type": type(parsed).__name__}, correctness=1.0)
-    # result_format: 1=value only, 2=value+type, 3=value+type+path (mod3_plus1 → 1-3)
+    # result_format: 1=value, 2=+type, 3=+found (mod3_plus1 -> 1-3)
     result_format = max(1, min(3, int(params.get("result_format", 2))))
     # extraction_passes: re-parse and re-extract N times (verification); tool_calls = N
     extraction_passes = max(1, min(5, int(params.get("extraction_passes", 1))))
-    try:
-        value = _get_path(parsed, path)
-        # Re-verify by re-parsing and re-extracting for remaining passes
-        for _ in range(extraction_passes - 1):
-            _get_path(json.loads(raw), path)
-    except KeyError as exc:
-        return RunResult(ok=False, error=f"Path not found: {exc}", correctness=0.0, tool_calls=extraction_passes)
-    output: dict[str, Any] = {"value": value}
-    if result_format >= 2:
-        output["type"] = type(value).__name__
-    if result_format >= 3:
-        output["path"] = path
-    return RunResult(ok=True, output=output, tool_calls=extraction_passes, correctness=1.0)
+    # inputKeys: top-level JSON object keys (sorted); empty list for non-objects
+    input_keys: list[str] = sorted(parsed.keys()) if isinstance(parsed, dict) else []
+    # MSB OUTPUT CONTRACT (seed/msb/extract_json.msb):
+    #   { extracted: { <path>: { value, type, found } }, inputKeys: [string] }
+    extracted: dict[str, Any] = {}
+    if path:
+        try:
+            value = _get_path(parsed, path)
+            for _ in range(extraction_passes - 1):
+                _get_path(json.loads(raw), path)
+            entry: dict[str, Any] = {}
+            if result_format >= 1: entry["value"] = value
+            if result_format >= 2: entry["type"] = type(value).__name__
+            if result_format >= 3: entry["found"] = True
+            extracted[path] = entry
+        except KeyError as exc:
+            return RunResult(ok=False, error=f"Path not found: {exc}", correctness=0.0, tool_calls=extraction_passes)
+    return RunResult(
+        ok=True,
+        output={"extracted": extracted, "inputKeys": input_keys},
+        tool_calls=extraction_passes,
+        correctness=1.0,
+    )
