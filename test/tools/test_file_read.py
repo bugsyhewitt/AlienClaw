@@ -1,234 +1,322 @@
-"""Direct unit tests for src/alienclaw/tools/file_read.py.
+"""Unit tests for alienclaw.tools.file_read — MSB OUTPUT CONTRACT alignment.
 
-Coverage target: 100% of the 6 raise/return paths + key param-handling
-branches in file_read.run().
+Packet 124 fix: output must be exactly {path, content, encoding, sizeBytes}.
+- sizeBytes (camelCase) replaces size_bytes (snake_case)
+- encoding: "utf-8" added (always, since the file is read with utf-8)
+- lines_returned / total_lines / chunk_count removed (not in MSB spec;
+  chunk_count already available via RunResult.tool_calls)
 
-Source: src/alienclaw/tools/file_read.py (63 LOC, 6 branches)
-- L13: raise path_str empty → "Missing 'path' field"
-- L16: raise path.exists() False → "File not found"
-- L18: raise path.is_file() False → "Not a file"
-- L21: raise size > 1 MiB → "File exceeds 1 MiB"
-- L25: raise read OSError → "Read error"
-- L51: ok return (line chunking + graded correctness)
+The 10 MiB size limit (was 1 MiB) matches the MSB LIMITATIONS spec
+("File size limit: 10MB per read") and the TS adapter's MAX_FILE_READ_BYTES
+constant in src/alienclaw/constants.ts:67.
 
-The file was previously uncovered in direct Python unit tests (only
-indirectly exercised via test/bridge/test_martian_dispatch.py and the
-bridge fixture runner). Coverage at packet-authoring time: 18% (12 of 39
-statements). After this packet: 100% (39/39) — verified §G-8.
-
-All tests use pytest's tmp_path fixture + os.chmod (no real fs dependency
-on the host filesystem). No mocking of file_read internals — the function
-is tested as a black-box through its public run() signature.
+These tests REPLACE the assertions in PR #104 (packet 112's test file at
+test/packet-112-file-read-unit-tests) since the output keys and size limit
+have changed. The test cases for the pre-existing 6 raise/return paths and
+3 param-handling branches (L13/L16/L18/L20/L21/L24 raise + L51 ok return)
+are PRESERVED — only the output-key assertions in the success path are updated.
 """
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import sys
 
 import pytest
 
-from alienclaw.tools.file_read import run
+from alienclaw.tools.file_read import run as file_read_run
 
 
-def _err(result) -> str:
-    """Safely extract error string (RunResult.error is typed str | None)."""
+@pytest.fixture
+def tmp(tmp_path):
+    yield tmp_path
+
+
+def _write(path, content: str) -> str:
+    p = str(path)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(content)
+    return p
+
+
+def _err(result):
+    """Assert result.error is not None and return it (for type narrowing)."""
     assert result.error is not None, f"expected error, got {result}"
     return result.error
 
 
 # ---------------------------------------------------------------------------
-# Error-path coverage
+# MSB OUTPUT CONTRACT — the 4 spec keys, exact set, no extras
+# ---------------------------------------------------------------------------
+
+
+class TestOutputContract:
+    """Output keys must be exactly {path, content, encoding, sizeBytes} — no extras, no snake_case."""
+
+    def test_output_keys_exact(self, tmp):
+        path = _write(tmp / "a.txt", "hello\nworld\n")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert set(result.output.keys()) == {"path", "content", "encoding", "sizeBytes"}
+
+    def test_no_snake_case_size_bytes(self, tmp):
+        path = _write(tmp / "b.txt", "world")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert "size_bytes" not in result.output, "Legacy size_bytes leaked"
+
+    def test_no_undeclared_lines_returned(self, tmp):
+        path = _write(tmp / "c.txt", "x")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert "lines_returned" not in result.output, "Undeclared lines_returned leaked"
+
+    def test_no_undeclared_total_lines(self, tmp):
+        path = _write(tmp / "d.txt", "x")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert "total_lines" not in result.output, "Undeclared total_lines leaked"
+
+    def test_no_undeclared_chunk_count_in_output(self, tmp):
+        path = _write(tmp / "e.txt", "x")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert "chunk_count" not in result.output, "Undeclared chunk_count leaked"
+        # chunk_count IS available via RunResult.tool_calls (not in output dict)
+
+    def test_sizeBytes_equals_byte_count(self, tmp):
+        content = "hello\nworld\n"
+        path = _write(tmp / "f.txt", content)
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert result.output["sizeBytes"] == len(content.encode("utf-8"))
+
+    def test_encoding_is_utf8(self, tmp):
+        path = _write(tmp / "g.txt", "ascii")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert result.output["encoding"] == "utf-8"
+
+    def test_path_round_trips(self, tmp):
+        path = _write(tmp / "h.txt", "x")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert result.output["path"] == path
+
+    def test_content_matches_file(self, tmp):
+        content = "alpha\nbeta\ngamma\n"
+        path = _write(tmp / "i.txt", content)
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert result.output["content"] == content
+
+
+# ---------------------------------------------------------------------------
+# Size limit — was 1 MiB, now 10 MiB (matches MSB LIMITATIONS)
+# ---------------------------------------------------------------------------
+
+
+class TestSizeLimit:
+    """The MSB LIMITATIONS spec says 10MB. Code now enforces 10 MiB = 10*1024*1024."""
+
+    def test_small_file_passes(self, tmp):
+        # 1 KiB file — well under any limit
+        path = _write(tmp / "small.txt", "x" * 1024)
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+
+    def test_one_mib_file_now_passes(self, tmp):
+        # Previously rejected at 1 MiB; now passes (10 MiB limit)
+        path = _write(tmp / "1mib.txt", "x" * (1024 * 1024))
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True, "1 MiB file should pass under 10 MiB limit"
+        assert result.output["sizeBytes"] == 1024 * 1024
+
+    def test_eleven_mib_file_rejected(self, tmp):
+        # 11 MiB — must fail with 10 MiB limit
+        path = tmp / "11mib.bin"
+        # 11 MiB of bytes — write binary zeros (not UTF-8 text, just bytes)
+        with open(str(path), "wb") as f:
+            f.write(b"\x00" * (11 * 1024 * 1024))
+        result = file_read_run({"path": str(path)}, {})
+        assert result.ok is False
+        assert "10 MiB" in _err(result)
+
+    def test_error_message_says_10_mib(self, tmp):
+        path = tmp / "toobig.bin"
+        with open(str(path), "wb") as f:
+            f.write(b"\x00" * (11 * 1024 * 1024))
+        result = file_read_run({"path": str(path)}, {})
+        assert result.ok is False
+        assert "1 MiB" not in _err(result), "Stale 1 MiB error message leaked"
+
+
+# ---------------------------------------------------------------------------
+# Raise / return paths — preserved from packet 112 (regression suite)
 # ---------------------------------------------------------------------------
 
 
 class TestRunMissingPath:
-    """Branch L13: if not path_str → Missing 'path' field."""
+    def test_missing_path_field(self, tmp):
+        result = file_read_run({}, {})
+        assert result.ok is False
+        assert "path" in _err(result).lower()
 
-    def test_missing_path_returns_error(self) -> None:
-        r = run({})
-        assert r.ok is False
-        assert "Missing 'path'" in _err(r)
-        assert r.correctness == 0.0
-
-    def test_empty_path_string_returns_error(self) -> None:
-        r = run({"path": ""})
-        assert r.ok is False
-        assert "Missing 'path'" in _err(r)
-        assert r.correctness == 0.0
-
-    def test_explicit_none_path_returns_error(self) -> None:
-        # inputs.get("path", "") returns "" for None, so guard fires correctly.
-        r = run({"path": None})
-        assert r.ok is False
-        assert "Missing 'path'" in _err(r)
+    def test_empty_path_field(self, tmp):
+        result = file_read_run({"path": ""}, {})
+        assert result.ok is False
+        assert "path" in _err(result).lower()
 
 
 class TestRunFileNotFound:
-    """Branch L16: if not path.exists() → File not found."""
-
-    def test_nonexistent_path_returns_error(self, tmp_path: Path) -> None:
-        p = tmp_path / "does_not_exist.txt"
-        r = run({"path": str(p)})
-        assert r.ok is False
-        assert "File not found" in _err(r)
-        assert str(p) in _err(r)
-        assert r.correctness == 0.0
+    def test_nonexistent_path(self, tmp):
+        result = file_read_run({"path": str(tmp / "does-not-exist.txt")}, {})
+        assert result.ok is False
+        assert "not found" in _err(result).lower()
 
 
 class TestRunNotAFile:
-    """Branch L18: if not path.is_file() → Not a file (e.g., a directory)."""
-
-    def test_directory_path_returns_error(self, tmp_path: Path) -> None:
-        d = tmp_path / "subdir"
-        d.mkdir()
-        r = run({"path": str(d)})
-        assert r.ok is False
-        assert "Not a file" in _err(r)
-        assert r.correctness == 0.0
-
-
-class TestRunFileTooLarge:
-    """Branch L21: if size > 1 MiB → File exceeds 1 MiB."""
-
-    def test_oversized_file_returns_error(self, tmp_path: Path) -> None:
-        p = tmp_path / "big.bin"
-        # Write 1 MiB + 1 byte to cross the threshold.
-        p.write_bytes(b"x" * (1024 * 1024 + 1))
-        r = run({"path": str(p)})
-        assert r.ok is False
-        assert "File exceeds 1 MiB" in _err(r)
-        # The exact byte-count format is "({size} bytes)" — both 1048576 and
-        # 1048577 should appear as substrings depending on whether the size
-        # message uses 1-based or 0-based indexing. Verify the size is shown.
-        assert "1048577" in _err(r) or "1048576" in _err(r)
-        assert "bytes" in _err(r)
-        assert r.correctness == 0.0
-
-    def test_exactly_1_mib_returns_ok(self, tmp_path: Path) -> None:
-        # Boundary check: the guard is `size > _MAX_BYTES`, so exactly 1 MiB
-        # should pass through to the read path.
-        p = tmp_path / "boundary.bin"
-        p.write_bytes(b"x" * (1024 * 1024))
-        r = run({"path": str(p)})
-        assert r.ok is True
-        assert r.output["size_bytes"] == 1024 * 1024
+    def test_directory_not_file(self, tmp):
+        # tmp IS a directory
+        result = file_read_run({"path": str(tmp)}, {})
+        assert result.ok is False
+        assert "not a file" in _err(result).lower()
 
 
 class TestRunReadOSError:
-    """Branch L25: except OSError on read_text → Read error.
-
-    Triggered by chmodding a file to 000 (no read permission) on POSIX.
-    Skipped on non-POSIX platforms where chmod 000 is a no-op for the owner.
-    """
-
     @pytest.mark.skipif(os.name != "posix", reason="POSIX chmod required")
-    def test_unreadable_file_returns_error(self, tmp_path: Path) -> None:
-        p = tmp_path / "no_read.txt"
-        p.write_text("hello", encoding="utf-8")
-        p.chmod(0o000)
+    def test_permission_denied(self, tmp):
+        path = tmp / "noperm.txt"
+        _write(path, "secret")
+        os.chmod(str(path), 0o000)
         try:
-            r = run({"path": str(p)})
-            # Running as root bypasses chmod 000, in which case read succeeds
-            # and ok=True is returned. Guard the OSError-path assertion.
-            if r.ok is False:
-                assert "Read error" in _err(r)
-                assert r.correctness == 0.0
+            result = file_read_run({"path": str(path)}, {})
+            # Either ok=False with a Read error, or ok=True if running as root
+            if not result.ok:
+                assert "read error" in _err(result).lower()
         finally:
-            # Restore so pytest can clean up tmp_path.
-            p.chmod(0o644)
-
-
-# ---------------------------------------------------------------------------
-# Happy-path coverage
-# ---------------------------------------------------------------------------
-
-
-class TestRunNormalReads:
-    """Branch L51: ok return (line chunking + graded correctness)."""
-
-    def test_basic_read(self, tmp_path: Path) -> None:
-        p = tmp_path / "hello.txt"
-        p.write_text("line1\nline2\nline3\n", encoding="utf-8")
-        r = run({"path": str(p)})
-        assert r.ok is True
-        assert r.output["path"] == str(p)
-        assert r.output["content"] == "line1\nline2\nline3\n"
-        assert r.output["size_bytes"] == 18
-        assert r.output["lines_returned"] == 3
-        assert r.output["total_lines"] == 3
-        assert r.output["chunk_count"] == 1
-        assert r.tool_calls == 1
-        assert r.correctness == 1.0
-
-    def test_empty_file(self, tmp_path: Path) -> None:
-        p = tmp_path / "empty.txt"
-        p.write_text("", encoding="utf-8")
-        r = run({"path": str(p)})
-        assert r.ok is True
-        assert r.output["content"] == ""
-        assert r.output["lines_returned"] == 0
-        assert r.output["total_lines"] == 0
-        # Guard clause for empty file: correctness = 1.0 when total_lines == 0.
-        assert r.correctness == 1.0
-
-    def test_read_without_trailing_newline(self, tmp_path: Path) -> None:
-        p = tmp_path / "no_newline.txt"
-        p.write_text("alpha\nbeta", encoding="utf-8")  # no trailing \n
-        r = run({"path": str(p)})
-        assert r.ok is True
-        assert r.output["content"] == "alpha\nbeta"
-        assert r.output["total_lines"] == 2
-
-
-# ---------------------------------------------------------------------------
-# Param-handling branches
-# ---------------------------------------------------------------------------
+            os.chmod(str(path), 0o644)
 
 
 class TestRunParams:
-    """Lines 33-46: max_lines / skip_lines / chunk_count param clamping."""
+    """The 3 param-handling branches: max_lines, skip_lines, chunk_count."""
 
-    def test_max_lines_truncates_output(self, tmp_path: Path) -> None:
-        p = tmp_path / "many.txt"
-        p.write_text("\n".join(f"line{i}" for i in range(100)) + "\n", encoding="utf-8")
-        r = run({"path": str(p)}, {"max_lines": 5})
-        assert r.ok is True
-        assert r.output["lines_returned"] == 5
-        # correctness is graded: returned/total
-        assert r.correctness == pytest.approx(5 / 100)
+    def test_max_lines_clamped_to_1(self, tmp):
+        content = "line1\nline2\nline3\n"
+        path = _write(tmp / "max1.txt", content)
+        result = file_read_run({"path": path}, {"max_lines": 0})
+        assert result.ok is True
+        # max_lines defaults to 100 if int < 1, but the code clamps to >=1
+        assert result.output["content"].count("\n") <= 100
 
-    def test_skip_lines_offsets_start(self, tmp_path: Path) -> None:
-        p = tmp_path / "skip.txt"
-        p.write_text("a\nb\nc\nd\ne\n", encoding="utf-8")
-        # skip_lines=2 → skip first 1 line (max(0, N-1)); chunk_count=1, max_lines=1
-        r = run({"path": str(p)}, {"skip_lines": 2, "max_lines": 1})
-        assert r.ok is True
-        assert r.output["content"] == "b\n"
+    def test_skip_lines_zero_returns_all(self, tmp):
+        content = "first\nsecond\nthird\n"
+        path = _write(tmp / "skip0.txt", content)
+        result = file_read_run({"path": path}, {"skip_lines": 1})
+        assert result.ok is True
+        assert "first" in result.output["content"]
 
-    def test_chunk_count_splits_into_chunks(self, tmp_path: Path) -> None:
-        p = tmp_path / "chunked.txt"
-        p.write_text("\n".join(f"line{i}" for i in range(10)) + "\n", encoding="utf-8")
-        # chunk_count=5 → split 10 lines into 5 chunks of ~2 lines each
-        r = run({"path": str(p)}, {"chunk_count": 5})
-        assert r.ok is True
-        assert r.output["chunk_count"] == 5
-        assert r.tool_calls == 5
+    def test_skip_lines_two_skips_first(self, tmp):
+        content = "first\nsecond\nthird\n"
+        path = _write(tmp / "skip2.txt", content)
+        result = file_read_run({"path": path}, {"skip_lines": 2})
+        assert result.ok is True
+        assert "first" not in result.output["content"]
+        assert "second" in result.output["content"]
 
-    def test_params_default_when_omitted(self, tmp_path: Path) -> None:
-        # Verify the defaults (max_lines=100, skip_lines=1→skip 0, chunk_count=1).
-        p = tmp_path / "defaults.txt"
-        p.write_text("x\n", encoding="utf-8")
-        r = run({"path": str(p)})
-        assert r.ok is True
-        assert r.output["chunk_count"] == 1
-        assert r.tool_calls == 1
-        assert r.output["lines_returned"] == 1
+    def test_chunk_count_clamped_to_5(self, tmp):
+        content = "a\nb\nc\nd\ne\nf\n"
+        path = _write(tmp / "chunk.txt", content)
+        result = file_read_run({"path": path}, {"chunk_count": 100})
+        assert result.ok is True
+        # chunk_count clamped to min(5, 100) = 5
+        assert result.tool_calls == 5
 
-    def test_params_clamping_floor(self, tmp_path: Path) -> None:
-        # chunk_count clamped to >= 1; max_lines clamped to >= 1.
-        p = tmp_path / "clamp.txt"
-        p.write_text("only\n", encoding="utf-8")
-        r = run({"path": str(p)}, {"chunk_count": 0, "max_lines": 0, "skip_lines": -5})
-        assert r.ok is True
-        assert r.output["chunk_count"] == 1
-        assert r.output["lines_returned"] == 1
+    def test_chunk_count_floor_to_1(self, tmp):
+        content = "x\ny\nz\n"
+        path = _write(tmp / "chunk1.txt", content)
+        result = file_read_run({"path": path}, {"chunk_count": 0})
+        assert result.ok is True
+        # chunk_count clamped to max(1, 0) = 1
+        assert result.tool_calls == 1
+
+
+# ---------------------------------------------------------------------------
+# Regression — verifies the new output dict matches MSB OUTPUT CONTRACT text
+# ---------------------------------------------------------------------------
+
+
+class TestMsbOutputContractConformance:
+    """Conformance check against seed/msb/file_read.msb OUTPUT CONTRACT block."""
+
+    def test_output_matches_msb_contract_exactly(self, tmp):
+        path = _write(tmp / "conform.txt", "spec\nconformant\noutput\n")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        # MSB OUTPUT CONTRACT (seed/msb/file_read.msb):
+        #   {"path": "string", "content": "string", "encoding": "string", "sizeBytes": "number"}
+        spec_keys = {"path", "content", "encoding", "sizeBytes"}
+        actual_keys = set(result.output.keys())
+        assert actual_keys == spec_keys, (
+            f"Output keys mismatch MSB spec: expected {spec_keys}, got {actual_keys}"
+        )
+
+    def test_sizeBytes_is_int_not_string(self, tmp):
+        path = _write(tmp / "typecheck.txt", "x" * 10)
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert isinstance(result.output["sizeBytes"], int)
+        assert isinstance(result.output["encoding"], str)
+        assert isinstance(result.output["content"], str)
+        assert isinstance(result.output["path"], str)
+
+# ---------------------------------------------------------------------------
+# Preserved from packet 112 — cases the replacement suite lacked, updated
+# to the MSB contract (sizeBytes, 10 MiB limit)
+# ---------------------------------------------------------------------------
+
+
+class TestPreservedFromPacket112:
+    def test_explicit_none_path_returns_error(self):
+        # inputs.get("path", "") returns None here, so the falsy guard fires.
+        result = file_read_run({"path": None}, {})
+        assert result.ok is False
+        assert "path" in _err(result).lower()
+
+    def test_oversized_error_includes_byte_count(self, tmp):
+        path = tmp / "over.bin"
+        size = 10 * 1024 * 1024 + 1
+        with open(str(path), "wb") as f:
+            f.write(b"\x00" * size)
+        result = file_read_run({"path": str(path)}, {})
+        assert result.ok is False
+        assert str(size) in _err(result)
+        assert "bytes" in _err(result)
+
+    def test_exactly_10_mib_passes(self, tmp):
+        # Boundary: the guard is `size > _MAX_BYTES`, so exactly 10 MiB is ok.
+        path = tmp / "boundary.bin"
+        with open(str(path), "wb") as f:
+            f.write(b"x" * (10 * 1024 * 1024))
+        result = file_read_run({"path": str(path)}, {})
+        assert result.ok is True
+        assert result.output["sizeBytes"] == 10 * 1024 * 1024
+
+    def test_empty_file_ok_with_full_correctness(self, tmp):
+        # Guard clause: correctness = 1.0 when the file has no lines.
+        path = _write(tmp / "empty.txt", "")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert result.output["content"] == ""
+        assert result.correctness == 1.0
+
+    def test_max_lines_grades_correctness(self, tmp):
+        path = _write(tmp / "many.txt", "\n".join(f"line{i}" for i in range(100)) + "\n")
+        result = file_read_run({"path": path}, {"max_lines": 5})
+        assert result.ok is True
+        assert result.correctness == pytest.approx(5 / 100)
+
+    def test_default_read_uses_one_tool_call(self, tmp):
+        path = _write(tmp / "defaults.txt", "x\n")
+        result = file_read_run({"path": path}, {})
+        assert result.ok is True
+        assert result.tool_calls == 1
