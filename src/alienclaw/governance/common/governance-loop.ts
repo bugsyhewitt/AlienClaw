@@ -11,6 +11,7 @@ import type { AgentRegistry } from '../../agents/agent-registry.js';
 import { Subagent } from './subagent.js';
 import type { SubagentBrief } from './subagent.js';
 import type { MartianSummonAdapter } from './summon-adapter.js';
+import type { DomainResolver } from './domain-resolver.js';
 import type { GoalManager }        from './goal-manager.js';
 import type { TaskManager }        from './task-manager.js';
 import type { EscalationHandler }  from './escalation-handler.js';
@@ -51,6 +52,12 @@ export interface GovernanceLoopDeps {
   agentChannel:        AgentChannel;
   /** Adapter passed to new Subagents spawned for each campaign. */
   adapter:            MartianSummonAdapter;
+  /**
+   * Optional strict domain→martian_type resolver for campaign spawns.
+   * When wired, unknown or missing campaign domains fail the campaign
+   * instead of silently defaulting to 'compute'.
+   */
+  domainResolver?:    DomainResolver;
 }
 
 // ── GovernanceLoop ────────────────────────────────────────────────────────────
@@ -91,6 +98,7 @@ export class GovernanceLoop {
   private readonly agentChannel:       AgentChannel;
   /** Adapter injected into every Subagent spawned for campaign execution. */
   private readonly adapter:            MartianSummonAdapter;
+  private readonly domainResolver?:    DomainResolver;
 
   constructor(deps: GovernanceLoopDeps) {
     this.bossBot           = deps.bossBot;
@@ -104,6 +112,7 @@ export class GovernanceLoop {
     this.userChannel       = deps.userChannel;
     this.agentChannel      = deps.agentChannel;
     this.adapter           = deps.adapter;
+    this.domainResolver    = deps.domainResolver;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -321,8 +330,35 @@ export class GovernanceLoop {
       `Campaign started: "${campaign.name}" — ${campaign.objective}`
     );
 
-    // Derive martian type and allowed Martians from SubagentRoles.
-    const martianType    = campaign.subagents[0]?.martianTags[0] ?? 'compute';
+    // Derive the martian type from SubagentRoles. With a wired resolver,
+    // unknown or missing domains fail the campaign through the normal
+    // JOB_FAILED path; without one, the legacy 'compute' default survives
+    // for existing callers but is logged so it is never silent.
+    const rawDomain = campaign.subagents[0]?.martianTags[0];
+    let martianType: string;
+    if (this.domainResolver) {
+      try {
+        if (rawDomain === undefined) {
+          throw new Error(`campaign '${campaign.id}' declares no subagent martian tags`);
+        }
+        martianType = this.domainResolver.resolve(rawDomain);
+      } catch (err) {
+        this.pushEvent({
+          type:      'JOB_FAILED',
+          subGoalId: campaign.id,
+          goalId,
+          error:     `Campaign "${campaign.name}" rejected: ${errorMessage(err)}`,
+        });
+        return;
+      }
+    } else {
+      if (rawDomain === undefined) {
+        this.userChannel.verbose(
+          `Campaign "${campaign.name}" has no martian tags; defaulting to 'compute' (legacy path — wire domainResolver to enforce)`
+        );
+      }
+      martianType = rawDomain ?? 'compute';
+    }
     const allowedMartians = [...new Set(campaign.subagents.flatMap(s => s.martianTags))];
     const knowledgeBase   = campaign.subagents.map(s => s.knowledgeBase).filter(Boolean).join('\n\n');
 
