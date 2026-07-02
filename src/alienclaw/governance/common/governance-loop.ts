@@ -72,6 +72,9 @@ export class GovernanceLoop {
   /** subGoalId → Promise for legacy/fallback sub-goal dispatch */
   private legacyJobs     = new Map<string, Promise<void>>();
 
+  /** In-memory per-campaign strike counter — reset on fresh dispatch, capped at MAX_STRIKE_COUNT. */
+  private readonly campaignStrikes = new Map<string, number>();
+
   private transitionHooks: TransitionHook[] = [];
   private running         = false;
 
@@ -141,6 +144,9 @@ export class GovernanceLoop {
       for (const c of goal.scheme.campaigns) {
         if (c.status === 'active') { c.status = 'pending'; dirty = true; }
       }
+      for (const sg of goal.subGoals) {
+        if (sg.status === 'active') { sg.status = 'pending'; sg.taskId = undefined; dirty = true; }
+      }
       if (dirty) await this.goalManager.save(file);
     } else {
       // Legacy sub-goal goal
@@ -161,6 +167,7 @@ export class GovernanceLoop {
     // Subagents are created inline in spawnCampaign — no pre-build needed.
     this.transition('EXECUTING', 'Crash recovery — dispatching ready campaigns');
     await this.dispatchReadyCampaigns(goalId);
+    await this.dispatchReadySubGoals(goalId);
   }
 
   // ── State machine ──────────────────────────────────────────────────────────
@@ -308,6 +315,7 @@ export class GovernanceLoop {
    * The Subagent is created inline — no pre-build phase is needed.
    */
   private async spawnCampaign(goalId: string, campaign: Campaign): Promise<void> {
+    this.campaignStrikes.delete(campaign.id);
     await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'active' });
     this.userChannel.status(
       `Campaign started: "${campaign.name}" — ${campaign.objective}`
@@ -457,16 +465,20 @@ export class GovernanceLoop {
         `Campaign failed: "${campaign?.name ?? event.subGoalId}" — ${event.error}`
       );
 
+      const strikes = (this.campaignStrikes.get(event.subGoalId) ?? 0) + 1;
+      this.campaignStrikes.set(event.subGoalId, strikes);
+
       this.transition('AWAITING_ADVICE', 'Campaign failure — consulting AdvisorBot');
       const adviceReq = {
         requesterId: 'BossBot' as const,
-        context:     `Campaign "${campaign?.name}" failed: ${event.error}`,
+        context:     `Campaign "${campaign?.name}" failed (attempt ${strikes}): ${event.error}`,
         question:    'Should we rebuild subagents and retry, or surface to the user?',
       };
       const advice = await this.advisorBot.advise(adviceReq, event.goalId);
       this.userChannel.verbose(`AdvisorBot on campaign failure: ${advice.verdict}`);
 
-      if (normalizeInput(advice.recommendation).includes('user') ||
+      if (strikes >= MAX_STRIKE_COUNT ||
+          normalizeInput(advice.recommendation).includes('user') ||
           advice.confidence === 'low') {
         // Surface to user
         this.transition('AWAITING_USER_INPUT', 'Campaign failure — surfacing to user');
