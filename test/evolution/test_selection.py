@@ -70,12 +70,76 @@ class TestTournament:
         high_count = sum(1 for f in selections if f == 1.0)
         assert high_count > 30  # should win much more than 20% (random chance)
 
-    def test_roulette_wheel_raises_not_implemented(self):
-        pop = _make_pop_with_fitness([0.5])
-        with pytest.raises(NotImplementedError):
-            roulette_wheel(pop, random.Random(1))
 
-    def test_truncation_raises_not_implemented(self):
+class TestRouletteWheel:
+    def test_returns_member_of_population(self):
+        pop = _make_pop_with_fitness([0.2, 0.5, 0.8])
+        rng = random.Random(7)
+        fitnesses = {0.2, 0.5, 0.8}
+        for _ in range(20):
+            assert roulette_wheel(pop, rng).fitness in fitnesses
+
+    def test_zero_fitness_entry_never_selected_when_others_positive(self):
+        pop = _make_pop_with_fitness([0.0, 0.5])
+        rng = random.Random(42)
+        for _ in range(50):
+            assert roulette_wheel(pop, rng).fitness == pytest.approx(0.5)
+
+    def test_selection_is_fitness_proportionate(self):
+        # Expected ~90% for the 0.9 entry; threshold excludes uniform (~50%)
+        pop = _make_pop_with_fitness([0.1, 0.9])
+        rng = random.Random(42)
+        picks = [roulette_wheel(pop, rng).fitness for _ in range(300)]
+        high_count = sum(1 for f in picks if f == pytest.approx(0.9))
+        assert high_count > 210
+
+    def test_all_zero_fitness_falls_back_to_uniform(self):
+        pop = _make_pop_with_fitness([0.0, 0.0, 0.0])
+        rng = random.Random(42)
+        entry = roulette_wheel(pop, rng)
+        assert entry.fitness == pytest.approx(0.0)
+
+    def test_seeded_rng_is_reproducible(self):
+        pop = _make_pop_with_fitness([0.1, 0.3, 0.7, 0.9])
+        results1 = [roulette_wheel(pop, random.Random(11)).entry_id for _ in range(10)]
+        results2 = [roulette_wheel(pop, random.Random(11)).entry_id for _ in range(10)]
+        assert results1 == results2
+
+
+class TestTruncation:
+    def test_small_fraction_selects_only_the_best(self):
+        # ceil(5 * 0.2) = 1 -> only the 0.9 entry is eligible
+        pop = _make_pop_with_fitness([0.1, 0.2, 0.3, 0.4, 0.9])
+        rng = random.Random(42)
+        for _ in range(20):
+            assert truncation(pop, 0.2, rng).fitness == pytest.approx(0.9)
+
+    def test_half_fraction_never_selects_bottom(self):
+        # ceil(3 * 0.5) = 2 -> eligible set is {0.9, 0.5}
+        pop = _make_pop_with_fitness([0.1, 0.5, 0.9])
+        rng = random.Random(42)
+        for _ in range(50):
+            assert truncation(pop, 0.5, rng).fitness in {0.5, 0.9}
+
+    def test_full_fraction_can_return_any_member(self):
+        pop = _make_pop_with_fitness([0.2, 0.5, 0.8])
+        rng = random.Random(42)
+        seen = {truncation(pop, 1.0, rng).fitness for _ in range(100)}
+        assert seen == {0.2, 0.5, 0.8}
+
+    def test_all_zero_fitness_returns_an_entry(self):
+        pop = _make_pop_with_fitness([0.0, 0.0, 0.0])
+        entry = truncation(pop, 0.5, random.Random(1))
+        assert entry.fitness == pytest.approx(0.0)
+
+    def test_seeded_rng_is_reproducible(self):
+        pop = _make_pop_with_fitness([0.1, 0.3, 0.7, 0.9])
+        results1 = [truncation(pop, 0.5, random.Random(11)).entry_id for _ in range(10)]
+        results2 = [truncation(pop, 0.5, random.Random(11)).entry_id for _ in range(10)]
+        assert results1 == results2
+
+    def test_fraction_out_of_range_raises(self):
         pop = _make_pop_with_fitness([0.5])
-        with pytest.raises(NotImplementedError):
-            truncation(pop, 0.5, random.Random(1))
+        for bad in (0.0, -0.1, 1.5):
+            with pytest.raises(ValueError, match="top_fraction"):
+                truncation(pop, bad, random.Random(1))
