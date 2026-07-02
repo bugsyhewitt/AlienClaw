@@ -92,6 +92,21 @@ describe('decide() — transition evaluation', () => {
     if (action.kind === 'Fail') expect(action.reason).toContain('state_not_found');
   });
 
+  it('unknown goto target → Fail("state_not_found:<goto>")', () => {
+    // current_state is valid, but the goto target refers to a non-existent state.
+    // Distinct from the unknown current_state test (which exercises the
+    // state_not_found emission for current_state itself).
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'martian_succeeded' }] }, goto: 'ghost_state' },
+      ] } },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult(), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('state_not_found:ghost_state');
+  });
+
   it('martian_correctness_gt(0.5) passes when correctness=0.8', () => {
     const table: TransitionTable = {
       initial_state: 's',
