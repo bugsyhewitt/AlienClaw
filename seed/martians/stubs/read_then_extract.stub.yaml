@@ -23,7 +23,5 @@ slots:
     output:
       path: "/tmp/read_then_extract_audit_stub.json"
       content: '{"title": "audit test", "value": 42, "score": 99, "tags": ["a", "b", "c"]}'
-      size_bytes: 79
-      lines_returned: 1
-      total_lines: 1
-      chunk_count: 1
+      encoding: "utf-8"
+      sizeBytes: 79

@@ -67,7 +67,7 @@ async function fileRead(args: Record<string, unknown>): Promise<unknown> {
 
   const fs = await import('node:fs/promises');
   const content = await fs.readFile(filePath, encoding as BufferEncoding);
-  return { path: filePath, content, encoding };
+  return { path: filePath, content, encoding, sizeBytes: Buffer.byteLength(content, encoding as BufferEncoding) };
 }
 
 /**

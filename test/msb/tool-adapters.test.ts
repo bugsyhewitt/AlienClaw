@@ -181,12 +181,14 @@ describe('assertInsideBoundary (path-traversal guard)', () => {
 
       const out = (await fileRead({ path: 'note.txt' })) as {
         path: string;
-        contents: string;
+        content: string;
+        encoding: string;
         sizeBytes: number;
       };
 
       expect(out.path).toBe('note.txt');
-      expect(out.contents).toBe('hello world');
+      expect(out.content).toBe('hello world');
+      expect(out.encoding).toBe('utf-8');
       expect(out.sizeBytes).toBe(Buffer.byteLength('hello world', 'utf-8'));
     });
 
@@ -196,18 +198,18 @@ describe('assertInsideBoundary (path-traversal guard)', () => {
       writeFileSync(path.join(nestedDir, 'deep.txt'), 'deep', 'utf-8');
 
       const out = (await fileRead({ path: 'sub/dir/deep.txt' })) as {
-        contents: string;
+        content: string;
       };
-      expect(out.contents).toBe('deep');
+      expect(out.content).toBe('deep');
     });
 
     it('file_read treats an inner "a/../b" (still inside) as in-boundary', async () => {
       // "a/../note2.txt" normalises to "<workspace>/note2.txt" — inside.
       writeFileSync(path.join(PATHS.workspace, 'note2.txt'), 'normed', 'utf-8');
       const out = (await fileRead({ path: 'a/../note2.txt' })) as {
-        contents: string;
+        content: string;
       };
-      expect(out.contents).toBe('normed');
+      expect(out.content).toBe('normed');
     });
 
     it('file_write accepts an in-boundary path and actually writes the file', async () => {
@@ -258,8 +260,8 @@ describe('fileReadAdapter', () => {
 
   it('accepts the alternate "task" key as the path source', async () => {
     writeFileSync(path.join(PATHS.workspace, 'viatask.txt'), 'task-key', 'utf-8');
-    const out = (await fileRead({ task: 'viatask.txt' })) as { contents: string };
-    expect(out.contents).toBe('task-key');
+    const out = (await fileRead({ task: 'viatask.txt' })) as { content: string };
+    expect(out.content).toBe('task-key');
   });
 
   it('reads a file exactly at the MAX_FILE_READ_BYTES limit', async () => {
