@@ -22,6 +22,17 @@ import type { Logger } from './logger.js';
 import type { MartianSummonAdapter } from './summon-adapter.js';
 import { Subagent } from './subagent.js';
 import type { SubagentBrief } from './subagent.js';
+import type { DomainResolver } from './domain-resolver.js';
+
+/** Inputs for CreatorBot.buildSubagent — the first-class build entry point. */
+export interface BuildSubagentSpec {
+  campaignId:       string;
+  objective:        string;
+  successCriteria?: string;
+  allowedMartians?: string[];
+  inputs?:          Record<string, unknown>;
+  timeoutMs?:       number;
+}
 
 /**
  * Build a transition_table YAML block for the given brief.
@@ -83,7 +94,65 @@ export class CreatorBot {
     private readonly logger:        Logger,
     private readonly summonAdapter: MartianSummonAdapter,
     private readonly subagentsBaseDir?: string,
+    private readonly domainResolver?: DomainResolver,
   ) {}
+
+  /**
+   * Build an ephemeral Subagent for a domain (first-class build entry point).
+   *
+   * Resolves domain → martian_type strictly: unknown domains throw before
+   * any Subagent exists or any workspace is written. The Subagent is
+   * constructed with fromPopulation: true so summoned Martians draw evolved
+   * genomes from the per-martian_type Population via the bridge's
+   * summon-from-population path, instead of being born with random genomes.
+   * Fitness stays runtime-computed and is passed through untouched.
+   */
+  buildSubagent(domain: string, spec: BuildSubagentSpec): Subagent {
+    if (!this.domainResolver) {
+      throw new Error('CreatorBot.buildSubagent requires a DomainResolver');
+    }
+    const martianType = this.domainResolver.resolve(domain);
+
+    const subagent = new Subagent(this.summonAdapter, {
+      campaignId:       spec.campaignId,
+      martianType,
+      inputs:           spec.inputs ?? {},
+      timeoutMs:        spec.timeoutMs ?? 30_000,
+      fromPopulation:   true,
+      subagentsBaseDir: this.subagentsBaseDir,
+    });
+
+    const brief: SubagentBrief = {
+      campaignId:         spec.campaignId,
+      role:               `${martianType} Subagent`,
+      domain,
+      objective:          spec.objective,
+      scope:              spec.successCriteria ?? 'Complete the campaign objective.',
+      successCriteria:    spec.successCriteria ?? 'Task complete.',
+      allowedMartians:    spec.allowedMartians ?? [martianType],
+      deliverables:       'Campaign report to BossBot.',
+      backgroundContext:  '',
+      communicationStyle: 'structured',
+      knowledgeBase:      '',
+      constraints:        'None',
+    };
+
+    subagent.birth(brief);
+
+    this.logger.info(
+      'subagent-built',
+      {
+        domain,
+        martian_type:    martianType,
+        campaign_id:     spec.campaignId,
+        subagent_id:     subagent.subagentId,
+        from_population: true,
+      },
+      spec.campaignId,
+    );
+
+    return subagent;
+  }
 
   /**
    * Execute a campaign by summoning one Martian.
