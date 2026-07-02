@@ -11,4 +11,4 @@ slots:
     tool_name: compute
     inputs_from:
       fields:
-        input: "${slot[0].output.match_count}"
+        input: "${slot[0].output.totalMatches}"
