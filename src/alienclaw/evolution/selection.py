@@ -45,13 +45,7 @@ def roulette_wheel(pop: Population, rng: random.Random) -> PopulationEntry:
     total = sum(e.fitness for e in entries)
     if total <= 0.0:
         return pop.sample(rng)  # also raises the canonical error on empty pools
-    pick = rng.uniform(0.0, total)
-    cumulative = 0.0
-    for entry in entries:
-        cumulative += entry.fitness
-        if pick <= cumulative:
-            return entry
-    return entries[-1]  # guard against float summation shortfall
+    return rng.choices(entries, weights=[e.fitness for e in entries], k=1)[0]
 
 
 def truncation(pop: Population, top_fraction: float, rng: random.Random) -> PopulationEntry:
