@@ -133,6 +133,62 @@ describe('validateLeaderboardResponse', () => {
     });
     expect(() => validateLeaderboardResponse(bad)).toThrow('martian_type');
   });
+
+  // ── Packet 100 additions: validateLeaderboardResponse type-coverage throws ──
+
+  it('rejects non-object entry (string in genomes array) (line 159)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: ['not an object'],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/is not an object/);
+  });
+
+  it('rejects null entry (line 159 — typeof null === "object" guard)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [null],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/is not an object/);
+  });
+
+  it('rejects array entry (line 159 — Array.isArray guard)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [['nested', 'array']],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/is not an object/);
+  });
+
+  it('rejects non-string leaderboard_name in entry (line 168)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, leaderboard_name: 12345 }],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/leaderboard_name must be a string/);
+  });
+
+  it('rejects non-string submission_id in entry (line 181)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, submission_id: 999 }],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/submission_id must be a string/);
+  });
+
+  it('rejects non-string submitted_at in entry (line 184)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, submitted_at: 1717000000 }],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/submitted_at must be a string/);
+  });
 });
 
 // ── leaderboardCheck ────────────────────────────────────────────────────────
@@ -354,6 +410,16 @@ describe('submitFromFile', () => {
     await expect(
       submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
     ).rejects.toThrow('Invalid submission artifact');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  // ── Packet 100 addition: submitFromFile artifact leaderboard_name validation (line 263) ──
+
+  it('rejects invalid leaderboard_name in submitFromFile artifact (line 263)', async () => {
+    const path = writeArtifact({ leaderboard_name: 'lowercase' });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/leaderboard_name violates/);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 });
