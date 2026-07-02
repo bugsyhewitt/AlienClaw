@@ -81,7 +81,7 @@
  *   - After:  target ~100% stmts / 100% funcs / 100% lines / ~95% branches
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -170,6 +170,10 @@ beforeEach(() => {
     userChannel  as unknown as UserChannel,
     agentChannel,
   );
+});
+
+afterEach(() => {
+  rmSync(tmpDir, { recursive: true, force: true });
 });
 
 // ── handleFailure — exhausted short-circuit ───────────────────────────────────
