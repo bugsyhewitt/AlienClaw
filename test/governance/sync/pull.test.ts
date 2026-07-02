@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, readdirSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pullTopGenomes } from '../../../src/alienclaw/governance/common/sync/pull.js';
@@ -178,5 +178,103 @@ describe('pullTopGenomes — multiple martian types', () => {
     const results = await pullTopGenomes(client.asClient(), [], root, 10);
     expect(results).toEqual([]);
     expect(client.topGenomesCalls).toEqual([]);
+  });
+});
+
+// ── packet 104 additions — uncovered error paths ────────────────────────────
+//
+// Packet 104 closes the 2 remaining uncovered error branches in pull.ts:
+//   - lines 65-66: mkdirSync(..., {recursive:true}) catch (Cannot create directory)
+//   - line 74:     _writeEntry writeFileSync catch (Write failed for <id>)
+//
+// Both are reachable with a "type is a regular file, not a dir" fixture:
+// mkdirSync(join(filePath, 'child'), {recursive:true}) throws ENOTDIR
+// writeFileSync(join(filePath, 'file.json'), ...)        throws ENOTDIR
+//
+// This is portable, deterministic, and does not require mocking node:fs
+// (real fs behaves the same on Linux/macOS/WSL2 — verified by running the
+// test on a tmpdir fixture, not on the project's on-disk state).
+
+describe('pullTopGenomes — write-error resilience (packet 104)', () => {
+  it('records a "Cannot create directory" error when typeDir cannot be created (parent is a file) (pull.ts:65-66)', async () => {
+    // populationsRoot is a file, not a directory, so mkdirSync(typeDir, recursive:true) throws ENOTDIR.
+    const fakeRoot = join(root, 'populationsRoot-is-a-file');
+    writeFileSync(fakeRoot, 'I am a file masquerading as the populations root', 'utf-8');
+
+    const client = new StubClient({
+      top: { compute: topGenomes('compute', [makeGenomeEntry({ submission_id: 'x1' })]) },
+    });
+
+    const [result] = await pullTopGenomes(client.asClient(), ['compute'], fakeRoot, 10);
+
+    expect(result.martianType).toBe('compute');
+    expect(result.received).toBe(1);
+    expect(result.written).toBe(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/^Cannot create directory:/);
+    expect(result.errors[0]).toMatch(/ENOTDIR/);
+  });
+
+  it('records a per-entry "Write failed" error when _writeEntry throws (target file is a dir) (pull.ts:74)', async () => {
+    // typeDir (= populationsRoot/compute) is a real directory (so mkdirSync
+    // succeeds), but we pre-create a directory at the file path that
+    // _writeEntry would write to. writeFileSync on a path that's already a
+    // directory throws EISDIR. pull.ts must NOT crash the whole pull — it
+    // must record the per-entry error and continue with the next entry.
+    const typeDir = join(root, 'compute');
+    mkdirSync(typeDir, { recursive: true });
+    // Pre-create a directory at the filename _writeEntry will use, so the
+    // writeFileSync('w') throws EISDIR (not ENOENT).
+    mkdirSync(join(typeDir, 'network-a.json'), { recursive: true });
+    mkdirSync(join(typeDir, 'network-b.json'), { recursive: true });
+
+    const client = new StubClient({
+      top: {
+        compute: topGenomes('compute', [
+          makeGenomeEntry({ submission_id: 'a' }),
+          makeGenomeEntry({ submission_id: 'b' }),
+        ]),
+      },
+    });
+
+    const [result] = await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+
+    expect(result.martianType).toBe('compute');
+    expect(result.received).toBe(2);
+    expect(result.written).toBe(0);
+    expect(result.errors).toHaveLength(2);
+    expect(result.errors[0]).toMatch(/^Write failed for a: /);
+    expect(result.errors[0]).toMatch(/EISDIR/);
+    expect(result.errors[1]).toMatch(/^Write failed for b: /);
+    expect(result.errors[1]).toMatch(/EISDIR/);
+  });
+
+  it('mixed run: successful entries and failed entries co-exist in the same result (pull.ts:74)', async () => {
+    // 'compute' is a real dir with the file path pre-empted by a directory
+    // (so writes fail with EISDIR). 'good' is a normal dir with no such trap.
+    const goodType = join(root, 'good');
+    mkdirSync(goodType, { recursive: true });
+    const badType = join(root, 'compute');
+    mkdirSync(badType, { recursive: true });
+    mkdirSync(join(badType, 'network-b1.json'), { recursive: true });
+
+    const client = new StubClient({
+      top: {
+        good: topGenomes('good', [makeGenomeEntry({ submission_id: 'g1', martian_type: 'good' })]),
+        compute: topGenomes('compute', [makeGenomeEntry({ submission_id: 'b1', martian_type: 'compute' })]),
+      },
+    });
+
+    const results = await pullTopGenomes(client.asClient(), ['good', 'compute'], root, 10);
+    const byType = Object.fromEntries(results.map(r => [r.martianType, r]));
+
+    expect(byType['good'].written).toBe(1);
+    expect(byType['good'].errors).toEqual([]);
+    expect(existsSync(join(root, 'good', 'network-g1.json'))).toBe(true);
+
+    expect(byType['compute'].written).toBe(0);
+    expect(byType['compute'].errors).toHaveLength(1);
+    expect(byType['compute'].errors[0]).toMatch(/^Write failed for b1: /);
+    expect(byType['compute'].errors[0]).toMatch(/EISDIR/);
   });
 });
