@@ -35,6 +35,18 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+# ── Legacy-site guard (2026-07-02) ────────────────────────────────────────
+# The live alienclaw.net is the Next.js site from the separate
+# alienclaw-site repo. This script deploys the RETIRED static site/
+# directory and would overwrite production with stale content. It stays
+# for staging/archive use only. --dry-run remains allowed for inspection.
+if [ "$DRY_RUN" -ne 1 ] && [ "${ALIENCLAW_DEPLOY_LEGACY_SITE:-0}" != "1" ]; then
+  echo "REFUSING: site/ is the retired legacy site; live alienclaw.net is the" >&2
+  echo "Next.js app from the alienclaw-site repo. Deploying this would overwrite" >&2
+  echo "production. Set ALIENCLAW_DEPLOY_LEGACY_SITE=1 to override deliberately." >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SITE_DIR="$(cd "$SCRIPT_DIR/../site" && pwd)"
 

@@ -23,6 +23,16 @@ Legend:
 - Install path: npm install -g openclaw + bash install.sh verified clean
 - Meeseeks to Martian rename complete across codebase and docs
 - api.alienclaw.net provisioning: Deployed in Packet 35 — submission endpoint live, MySQL persisting, server-side validation active.
+- Local evolution loop: run_experiment() runs N generations with tournament
+  selection, mutation, crossover, and bridge-computed fitness (validated
+  end-to-end in test/evolution/test_end_to_end.py). Roulette-wheel and
+  truncation selection implemented for v1.x experimentation (2026-07-02).
+- MSB OUTPUT CONTRACT alignment across all 8 tools — Python implementations
+  and the TS adapter layer — each with direct unit tests (packets 108-124,
+  landed 2026-07-02).
+- Subagent build entry point: CreatorBot.buildSubagent with strict
+  domain→martian_type resolution and population-backed summons
+  (fromPopulation), replacing silent 'compute' defaults (2026-07-02).
 
 ---
 
@@ -42,11 +52,14 @@ Legend:
 
 ## Next
 
-- Specialist + Martian spawning + fitness evaluation loop
-- Local evolution loop: generational selection, mutation, crossover, fitness
-  improvement across N generations on a fixed simple goal
-- alienclaw.net rebuild: project description, environmental thesis, GitHub link,
-  donate button, leaderboard placeholder
+- Subagent spawning wiring: route campaign spawns through
+  CreatorBot.buildSubagent end-to-end — real-bridge population summons,
+  BossBot goal-loop integration, and an online-fitness design that stays
+  out of the selection Population (per 2026-07-02 architecture review)
+- alienclaw.net donate button: the live Next.js site (alienclaw-site repo)
+  already covers description, GitHub link, docs, and leaderboard; donate
+  needs a sponsorship destination decision first. The in-repo site/ is
+  retired behind a deploy guard (scripts/deploy.sh).
 
 ---
 
