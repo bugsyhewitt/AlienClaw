@@ -453,3 +453,151 @@ describe('parseMartian — surface area', () => {
     );
   });
 });
+
+// ── describe: remaining reachable defensive branches (packet 109) ──────────
+//
+// These cases exercise the remaining reachable branch groups in parser.ts
+// that the existing 37-case test file left uncovered on origin/main HEAD:
+//   - line 142: _parseMapping sets `obj[key] = null` when a key has an
+//     empty value (after the colon) AND no nested block follows at deeper
+//     indent.
+//   - lines 170-172: _parseSequence sets `arr.push(_parseBlock(...))` when
+//     a sequence item is `-` (or `- text` with empty `after`) AND a nested
+//     mapping/sequence block follows at deeper indent. This is the
+//     "indented block under a dash" form.
+//   - line 174: _parseSequence sets `arr.push(null)` when a sequence item
+//     is `-` (or `- text` with empty `after`) AND no nested block follows.
+//     The resulting `null` slot then fails the slot-mapping validator.
+//
+// The 2 remaining uncovered lines (101, 249) are defensive dead code:
+//   - line 101 (_parseBlock early-return when start is past end or
+//     indent < baseIndent) is unreachable from public parseMartian input
+//     because every recursive descent caller guards `start < lines.length`
+//     AND passes `lines[start].indent` as the new baseIndent (so
+//     `lines[start].indent < baseIndent` is structurally impossible).
+//   - line 249 (`exc instanceof Error ? exc.message : String(exc)`) is
+//     unreachable because every throw inside _parseYaml is a
+//     MartianParseError (an Error subclass), so the catch at line 247
+//     always fires first.
+//
+// We pin both defensive paths with documentation tests below so a future
+// refactor that DOES make them reachable (or removes them) is caught.
+
+describe('parseMartian — remaining reachable defensive branches (packet 109)', () => {
+  // ── line 142: obj[key] = null in _parseMapping ────────────────────────
+  //
+  // A bare key with a colon and an empty value (no nested block at deeper
+  // indent) yields the slot's tool_name as null. The MartianSpec constructor
+  // coerces null to the string "null" via String(null) at the field-extraction
+  // step (see parser.ts:284 `String(slotRaw['tool_name'])`), so the resulting
+  // spec has tool_name: "null" (NOT empty string, NOT undefined).
+
+  it('line 142: slot-level key with empty value + no nested block → toolName coerces to "null"', () => {
+    const md = `\
+martian_type: x
+slots:
+  - slot_index: 0
+    tool_name:`;
+    const spec = parseMartian(md);
+    expect(spec.martianType).toBe('x');
+    expect(spec.slots).toHaveLength(1);
+    expect(spec.slots[0]!.slotIndex).toBe(0);
+    // String(null) = "null" — pin the actual coercion behavior.
+    expect(spec.slots[0]!.toolName).toBe('null');
+  });
+
+  it('line 142: top-level key with empty value + no nested block → raw value is null', () => {
+    const md = `\
+martian_type: x
+empty:`;
+    // The top-level `empty:` key gets parsed as `raw['empty'] = null`. The
+    // downstream validator (parser.ts:258) requires the `slots` field; since
+    // the parsed top-level has `slots: undefined`, validation throws
+    // "missing required field 'slots'" at line 259. (line 142 IS exercised
+    // BEFORE the throw — the throw is from a later validation step.)
+    expect(() => parseMartian(md)).toThrow(/missing required field 'slots'/);
+  });
+
+  // ── lines 170-172: _parseSequence nested-block under empty after ──────
+  //
+  // A sequence item `-` (or `- text` with empty `after`) followed by a
+  // nested mapping/sequence at deeper indent uses the lines 170-172 path.
+  // The nested block is parsed by _parseBlock and pushed to the array.
+
+  it('lines 170-172: sequence item with nested mapping at deeper indent', () => {
+    const md = `\
+martian_type: x
+slots:
+  -
+    slot_index: 0
+    tool_name: t`;
+    const spec = parseMartian(md);
+    expect(spec.slots).toHaveLength(1);
+    expect(spec.slots[0]!.slotIndex).toBe(0);
+    expect(spec.slots[0]!.toolName).toBe('t');
+  });
+
+  it('lines 170-172: nested mapping under empty-after sequence item fails slot-mapping validation', () => {
+    // The 170-172 path pushes the parsed nested block onto the array.
+    // When the nested block is a SEQUENCE (not a mapping), the resulting
+    // slot[i] is an array, which fails the slot-mapping validator at
+    // line 280 (`slot ${i} must be a mapping`). This test pins the
+    // 170-172 path is reached AND documents its downstream consequence.
+    const md = `\
+martian_type: x
+slots:
+  -
+    - nested_item_a
+    - nested_item_b`;
+    expect(() => parseMartian(md)).toThrow(/slot 0 must be a mapping/);
+  });
+
+  // ── line 174: arr.push(null) for bare dash with no nested block ───────
+  //
+  // A sequence item that is just `-` (or `- text` with empty `after`) AND
+  // no nested block follows pushes `null` to the array (line 174). The
+  // resulting `null` slot fails the slot-mapping validator at line 280.
+
+  it('line 174: bare dash with no content → "slot 0 must be a mapping" throw', () => {
+    const md = `\
+martian_type: x
+slots:
+  -`;
+    expect(() => parseMartian(md)).toThrow(/slot 0 must be a mapping/);
+  });
+
+  // ── line 101 + 249: defensive dead code, pinned for future refactor ────
+
+  it('line 101: _parseBlock early-return is unreachable from public API (defensive dead code)', () => {
+    // _parseBlock line 100-101 returns [null, start] when
+    //   start >= lines.length || lines[start].indent < baseIndent.
+    // Public parseMartian can never trigger this:
+    //   - empty input → _parseYaml returns null at line 222 BEFORE
+    //     calling _parseBlock (line 224).
+    //   - every recursive descent caller passes lines[start].indent as
+    //     the new baseIndent (so the second clause is structurally
+    //     impossible) AND guards start < lines.length before the call.
+    // Therefore line 101 is defensive dead code. Pin the behavior: empty
+    // input throws "top-level must be a YAML mapping" via line 254 (NOT
+    // via line 101).
+    expect(() => parseMartian('')).toThrow(/top-level must be a YAML mapping/);
+    // A future refactor that makes line 101 reachable MUST also update
+    // this test (and remove the comment that pins the dead-code status).
+  });
+
+  it('line 249: non-MartianParseError fallback is unreachable (defensive dead code)', () => {
+    // _parseYaml line 249: `exc instanceof Error ? exc.message : String(exc)`.
+    // This is the fallback in the try/catch around _parseYaml (line 243-251).
+    // Every throw inside _parseYaml and its descendents is a
+    // MartianParseError (which extends Error), so the catch at line 247
+    // always fires first. The non-Error fallback (line 249) is unreachable
+    // from public parseMartian input.
+    // Pin: every parse error thrown from parseMartian is a MartianParseError.
+    try {
+      parseMartian('martian_type: x\nslots:\n  - broken:indent:too:many');
+    } catch (e) {
+      expect(e).toBeInstanceOf(MartianParseError);
+      expect(e).toBeInstanceOf(Error); // MartianParseError extends Error
+    }
+  });
+});
