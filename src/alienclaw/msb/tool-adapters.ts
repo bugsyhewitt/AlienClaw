@@ -404,7 +404,7 @@ const fileReadAdapter: ToolFn = async (input) => {
     throw new Error(`file_read: file too large (${sizeBytes} bytes, limit ${MAX_FILE_READ_BYTES})`);
   }
 
-  return { path: rawPath, contents, sizeBytes };
+  return { path: rawPath, content: contents, encoding: 'utf-8', sizeBytes };
 };
 
 // ---------------------------------------------------------------------------
