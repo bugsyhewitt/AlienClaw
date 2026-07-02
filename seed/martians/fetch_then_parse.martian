@@ -11,5 +11,5 @@ slots:
     tool_name: extract_json
     inputs_from:
       fields:
-        json: "${slot[0].output.body}"
+        json: "${slot[0].output.content}"
         path: "${campaign.extract_path}"

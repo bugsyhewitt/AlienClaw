@@ -19,30 +19,43 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     status = 0
     body = ""
     content_type = ""
+    truncated = False
     for i in range(request_count):
         req = urllib.request.Request(url, headers=headers, method="GET")
         try:
             with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
                 status = resp.status
+                # If Content-Length is advertised and exceeds the cap, mark truncated
+                # before reading (we still read only up to the cap to bound memory).
+                try:
+                    declared_length = int(resp.headers.get("Content-Length", "0"))
+                except ValueError:
+                    declared_length = 0
+                if declared_length > _MAX_RESPONSE_BYTES:
+                    truncated = True
                 body = resp.read(_MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
                 content_type = resp.headers.get("Content-Type", "")
         except urllib.error.HTTPError as exc:
             return RunResult(
                 ok=False,
                 error=f"HTTP {exc.code}: {exc.reason}",
-                output={"status_code": exc.code},
+                output={"statusCode": exc.code},
                 tool_calls=i + 1,
                 correctness=0.0,
             )
         except Exception as exc:
             return RunResult(ok=False, error=f"Request failed: {exc}", tool_calls=i + 1, correctness=0.0)
-    # field_count: 1=url only, 2=+status_code, 3=+body, 4=+body_length, 5=+content_type
+    # field_count: 1=url only, 2=+statusCode, 3=+content, 4=+bytesReturned, 5=+contentType
+    # Keys align with MSB spec (seed/msb/http_get.msb OUTPUT CONTRACT): url, statusCode,
+    # content, bytesReturned, contentType, truncated. body_preview is an extension kept
+    # for backwards compat with callers using the legacy param name.
     output: dict[str, Any] = {}
     if field_count >= 1: output["url"] = url
-    if field_count >= 2: output["status_code"] = status
-    if field_count >= 3: output["body"] = body
-    if field_count >= 4: output["body_length"] = len(body)
-    if field_count >= 5: output["content_type"] = content_type
+    if field_count >= 2: output["statusCode"] = status
+    if field_count >= 3: output["content"] = body
+    if field_count >= 4: output["bytesReturned"] = len(body)
+    if field_count >= 5: output["contentType"] = content_type
+    output["truncated"] = truncated
     # body_preview: include first N lines of body as a "preview" field (distinct for each 1-10)
     body_lines = body.splitlines()
     output["body_preview"] = "\n".join(body_lines[:body_preview])
