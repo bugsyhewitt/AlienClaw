@@ -131,4 +131,22 @@ describe('mutateDirected — runtime invariants (TS)', () => {
     const out = mutateDirected(g, [null, b, null, null], makeRand(17), 1.0);
     expect(validateGenome(out).valid).toBe(true);
   });
+
+  // xcodeIndex is only valid in [0,30] — the codec's decodeXcode enforces this.
+  // mutateDirected must apply the same guard: xcodeIndex=31 on slot 2 would write
+  // to chars[192] (outside the 192-char body), growing the array by 1 and causing
+  // computeChecksum to throw "expected 192 chars, got 193".
+  it('xcodeIndex=31 on slot 2 (out of [0,30] range) is skipped — no crash, genome stays 256 chars', () => {
+    const oob: SlotBrain = { parameterSchema: [{ xcodeIndex: 31, rangeMin: 0, rangeMax: 3843, direction: 'none' }] };
+    const out = mutateDirected(g, [null, null, oob, null], makeRand(5), 1.0);
+    expect(out).toHaveLength(256);
+    expect(validateGenome(out).valid).toBe(true);
+  });
+
+  it('xcodeIndex=31 on slot 1 (cross-slot write into slot 2 territory) is skipped — genome stays valid', () => {
+    const oob: SlotBrain = { parameterSchema: [{ xcodeIndex: 31, rangeMin: 0, rangeMax: 3843, direction: 'none' }] };
+    const out = mutateDirected(g, [null, oob, null, null], makeRand(7), 1.0);
+    expect(out).toHaveLength(256);
+    expect(validateGenome(out).valid).toBe(true);
+  });
 });
