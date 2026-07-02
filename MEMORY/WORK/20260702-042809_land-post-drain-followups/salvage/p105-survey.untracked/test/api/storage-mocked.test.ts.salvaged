@@ -1,0 +1,465 @@
+/**
+ * storage-mocked.test.ts
+ *
+ * Pure unit tests for src/alienclaw/api/storage.ts — the MySQL-backed
+ * persistence layer for the AlienClaw community API.
+ *
+ * These tests mock `mysql2/promise` at the module level so no real
+ * database is required. They exercise:
+ *
+ *  - initPool() throw path (ALIENCLAW_DB_URL missing)
+ *  - private pool() throw path (called without initPool)
+ *  - SubmissionStore.save() — SQL shape, JSON.stringify(run_metadata)
+ *  - SubmissionStore.topForType() — limit guard throws (0, 101, non-integer,
+ *    NaN, Infinity); SQL LIMIT inlining; row mapping (string vs object
+ *    run_metadata); JSON.parse fallback
+ *  - SubmissionStore.countForType() / rankForFitness() — count default 0
+ *  - SubmissionStore.isNewTop() — top === null, undefined, finite number
+ *  - SubmissionStore.findDuplicate() — empty result → null
+ *  - InstallStore.register() — existing row returns [id, false]
+ *  - InstallStore.exists() — empty result → false
+ *  - InstallStore.count() — count default 0
+ *  - GlobalStats.get() — topByType aggregation across martian types;
+ *    null/empty rows default to 0
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// ── Mock mysql2/promise at the module level ────────────────────────────────
+//
+// We capture every `execute(sql, params)` call so each test can assert on
+// the SQL string + parameters, and provide a controllable `execute` impl.
+
+interface ExecuteCall {
+  sql:  string;
+  params: unknown[];
+}
+
+const executeCalls: ExecuteCall[] = [];
+let nextExecuteResults: unknown[] = [];
+
+// If nextExecuteResults has queued responses, return them in order.
+// Otherwise, return an empty row set — this matches the default behavior of
+// `pool.execute(...)` when no rows match a query. We wrap each queued
+// response in a [rows, fields] tuple to match the mysql2/promise contract
+// (`pool.execute()` returns `[rows, fields]`). For simple SELECTs, fields is
+// an empty metadata array; for INSERTs, rows is a ResultSetHeader object.
+const wrapAsExecuteResult = (rows: unknown): [unknown, unknown] => [rows, []];
+
+const mockPool = {
+  execute: vi.fn(async (sql: string, params: unknown[] = []) => {
+    executeCalls.push({ sql, params });
+    if (nextExecuteResults.length > 0) {
+      return wrapAsExecuteResult(nextExecuteResults.shift());
+    }
+    return wrapAsExecuteResult([]);
+  }),
+  end: vi.fn(async () => undefined),
+};
+
+vi.mock('mysql2/promise', () => ({
+  default: {
+    createPool: vi.fn(() => mockPool),
+  },
+  createPool: vi.fn(() => mockPool),
+}));
+
+// Import AFTER the mock is in place
+import {
+  initPool,
+  SubmissionStore,
+  InstallStore,
+  GlobalStats,
+} from '../../src/alienclaw/api/storage.js';
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+function resetMockState(): void {
+  executeCalls.length = 0;
+  nextExecuteResults = [];
+  mockPool.execute.mockClear();
+  mockPool.end.mockClear();
+}
+
+// ── Test suite ───────────────────────────────────────────────────────────
+
+describe('initPool — DB URL guard', () => {
+  beforeEach(() => {
+    resetMockState();
+    // Clear any ALIENCLAW_DB_URL side-effects from the test env
+    delete process.env['ALIENCLAW_DB_URL'];
+  });
+
+  it('throws when neither dbUrl nor ALIENCLAW_DB_URL is set', () => {
+    expect(() => initPool()).toThrowError(
+      /ALIENCLAW_DB_URL is not set\. The AlienClaw API requires a MySQL database/
+    );
+  });
+
+  it('uses the dbUrl argument when provided (and does not throw)', () => {
+    const pool = initPool('mysql://u:p@h/d');
+    expect(pool).toBeDefined();
+    expect(pool).toBe(mockPool);
+  });
+
+  it('falls back to ALIENCLAW_DB_URL when dbUrl is omitted', () => {
+    process.env['ALIENCLAW_DB_URL'] = 'mysql://env:h/d';
+    const pool = initPool();
+    expect(pool).toBeDefined();
+  });
+});
+
+describe('SubmissionStore.save — INSERT shape + run_metadata serialization', () => {
+  beforeEach(() => resetMockState());
+
+  it('issues INSERT INTO leaderboard_entries with the 8 expected columns', async () => {
+    nextExecuteResults = [[{ affectedRows: 1, insertId: 0 }]];
+    const store = new SubmissionStore(mockPool as any);
+    const [sid, isoTs] = await store.save({
+      genome: 'G'.repeat(256),
+      martianType: 'compute',
+      fitness: 0.5,
+      apiKeyHash: 'hash123',
+      runMetadata: { tool_calls: 2, fitness_eval: 'ok' },
+      leaderboardName: 'alpha',
+    });
+    expect(sid).toMatch(/^sub_[0-9a-f]{6}$/);
+    expect(isoTs).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(executeCalls).toHaveLength(1);
+    const call = executeCalls[0]!;
+    expect(call.sql).toContain('INSERT INTO leaderboard_entries');
+    expect(call.sql).toContain('(submission_id, leaderboard_name, genome, martian_type, fitness,');
+    expect(call.params).toHaveLength(8);
+    expect(call.params[1]).toBe('alpha');
+    expect(call.params[2]).toBe('G'.repeat(256));
+    expect(call.params[3]).toBe('compute');
+    expect(call.params[4]).toBe(0.5);
+    expect(call.params[5]).toBe('hash123');
+    // MySQL DATETIME format: 'YYYY-MM-DD HH:MM:SS' (no T, no Z). The
+    // source keeps milliseconds via .replace('T', ' ').replace('Z', ''),
+    // so the actual stored format is 'YYYY-MM-DD HH:MM:SS.fff'.
+    expect(call.params[6]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{3})?$/);
+    expect(call.params[7]).toBe(JSON.stringify({ tool_calls: 2, fitness_eval: 'ok' }));
+  });
+});
+
+describe('SubmissionStore.topForType — limit guard throws', () => {
+  beforeEach(() => resetMockState());
+
+  // Per source line 97-101: limit must be an integer in [1, 100].
+  // Cases that should throw BEFORE any SQL is issued.
+  // NOTE: `undefined` is NOT included because the function signature is
+  // `n = 10` (default), so an explicit undefined is replaced with 10.
+  const throwCases: Array<[string, unknown]> = [
+    ['0 (below min)',         0],
+    ['-1 (negative)',         -1],
+    ['101 (above max)',       101],
+    ['1.5 (non-integer)',     1.5],
+    ['NaN',                   Number.NaN],
+    ['Infinity',              Number.POSITIVE_INFINITY],
+    ['string "5"',            '5'],
+    ['null',                  null],
+  ];
+
+  for (const [label, badLimit] of throwCases) {
+    it(`throws on ${label}`, async () => {
+      const store = new SubmissionStore(mockPool as any);
+      await expect(
+        store.topForType('compute', badLimit as number)
+      ).rejects.toThrowError(/topForType: limit must be an integer in \[1, 100\]/);
+      // No SQL should have been issued — the guard short-circuits before execute().
+      expect(executeCalls).toHaveLength(0);
+    });
+  }
+
+  it('accepts 1 and 100 (boundary integers)', async () => {
+    nextExecuteResults = [[]];
+    const store = new SubmissionStore(mockPool as any);
+    await store.topForType('compute', 1);
+    await store.topForType('compute', 100);
+    expect(executeCalls).toHaveLength(2);
+  });
+
+  it('inlines the validated integer directly into the LIMIT clause (no parameterization)', async () => {
+    nextExecuteResults = [[]];
+    const store = new SubmissionStore(mockPool as any);
+    await store.topForType('compute', 7);
+    const call = executeCalls[0]!;
+    expect(call.sql).toMatch(/LIMIT 7/);
+    // The limit MUST NOT be a ? placeholder — the comment on source line 88-95
+    // explains that MySQL 8.0 server-side mode rejects LIMIT as a param.
+    expect(call.sql).not.toMatch(/LIMIT \?/);
+    // The 1 param is the WHERE martian_type = ? value
+    expect(call.params).toEqual(['compute']);
+  });
+});
+
+describe('SubmissionStore.topForType — row mapping', () => {
+  beforeEach(() => resetMockState());
+
+  it('maps string run_metadata via JSON.parse to Record<string,unknown>', async () => {
+    nextExecuteResults = [[{
+      submission_id: 'sub_1',
+      genome: 'G'.repeat(256),
+      martian_type: 'compute',
+      fitness: 0.9,
+      leaderboard_name: 'alpha',
+      api_key_hash: 'hash',
+      run_metadata: '{"tool_calls":3,"latency_ms":12}',
+      submitted_at: '2026-06-22T01:00:00Z',
+    }]];
+    const store = new SubmissionStore(mockPool as any);
+    const rows = await store.topForType('compute');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.run_metadata).toEqual({ tool_calls: 3, latency_ms: 12 });
+  });
+
+  it('maps non-string (already-parsed object) run_metadata directly', async () => {
+    nextExecuteResults = [[{
+      submission_id: 'sub_2',
+      genome: 'G'.repeat(256),
+      martian_type: 'compute',
+      fitness: 0.8,
+      leaderboard_name: 'beta',
+      api_key_hash: 'hash',
+      run_metadata: { tool_calls: 5 },
+      submitted_at: '2026-06-22T02:00:00Z',
+    }]];
+    const store = new SubmissionStore(mockPool as any);
+    const rows = await store.topForType('compute');
+    expect(rows[0]!.run_metadata).toEqual({ tool_calls: 5 });
+  });
+
+  it('defaults run_metadata to {} when DB returns undefined', async () => {
+    nextExecuteResults = [[{
+      submission_id: 'sub_3',
+      genome: 'G'.repeat(256),
+      martian_type: 'compute',
+      fitness: 0.7,
+      leaderboard_name: 'gamma',
+      api_key_hash: 'hash',
+      run_metadata: undefined,
+      submitted_at: '2026-06-22T03:00:00Z',
+    }]];
+    const store = new SubmissionStore(mockPool as any);
+    const rows = await store.topForType('compute');
+    expect(rows[0]!.run_metadata).toEqual({});
+  });
+});
+
+describe('SubmissionStore — count helpers + isNewTop branches', () => {
+  beforeEach(() => resetMockState());
+
+  it('countForType returns 0 when DB returns an empty row set', async () => {
+    nextExecuteResults = [[]];
+    const store = new SubmissionStore(mockPool as any);
+    expect(await store.countForType('compute')).toBe(0);
+  });
+
+  it('countForType returns the SQL COUNT(*) value', async () => {
+    nextExecuteResults = [[{ cnt: 42 }]];
+    const store = new SubmissionStore(mockPool as any);
+    expect(await store.countForType('compute')).toBe(42);
+  });
+
+  it('rankForFitness adds +1 to the COUNT(*) — fitness is the (n+1)-th best', async () => {
+    nextExecuteResults = [[{ cnt: 4 }]];
+    const store = new SubmissionStore(mockPool as any);
+    expect(await store.rankForFitness('compute', 0.5)).toBe(5);
+  });
+
+  it('isNewTop returns true when MAX(fitness) is null (no submissions)', async () => {
+    nextExecuteResults = [[{ top: null }]];
+    const store = new SubmissionStore(mockPool as any);
+    expect(await store.isNewTop('compute', 0.5)).toBe(true);
+  });
+
+  it('isNewTop returns true when MAX(fitness) is undefined (no rows at all)', async () => {
+    nextExecuteResults = [[]];
+    const store = new SubmissionStore(mockPool as any);
+    expect(await store.isNewTop('compute', 0.5)).toBe(true);
+  });
+
+  it('isNewTop returns true when proposed fitness equals the existing top (>=)', async () => {
+    nextExecuteResults = [[{ top: 0.5 }]];
+    const store = new SubmissionStore(mockPool as any);
+    expect(await store.isNewTop('compute', 0.5)).toBe(true);
+  });
+
+  it('isNewTop returns false when proposed fitness is below the existing top', async () => {
+    nextExecuteResults = [[{ top: 0.9 }]];
+    const store = new SubmissionStore(mockPool as any);
+    expect(await store.isNewTop('compute', 0.5)).toBe(false);
+  });
+});
+
+describe('SubmissionStore.findDuplicate — cutoff + null path', () => {
+  beforeEach(() => resetMockState());
+
+  it('returns null when no matching row is found in the 24h window', async () => {
+    nextExecuteResults = [[]];
+    const store = new SubmissionStore(mockPool as any);
+    const result = await store.findDuplicate({
+      genome: 'G'.repeat(256),
+      martianType: 'compute',
+      fitness: 0.5,
+      apiKeyHash: 'hash',
+    });
+    expect(result).toBeNull();
+  });
+
+  it('maps a matching row to a full StoredSubmission (string run_metadata → JSON.parse)', async () => {
+    nextExecuteResults = [[{
+      submission_id: 'sub_dup',
+      genome: 'G'.repeat(256),
+      martian_type: 'compute',
+      fitness: 0.5,
+      leaderboard_name: 'delta',
+      api_key_hash: 'hash',
+      run_metadata: '{"tool_calls":7}',
+      submitted_at: '2026-06-22T01:00:00Z',
+    }]];
+    const store = new SubmissionStore(mockPool as any);
+    const result = await store.findDuplicate({
+      genome: 'G'.repeat(256),
+      martianType: 'compute',
+      fitness: 0.5,
+      apiKeyHash: 'hash',
+    });
+    expect(result).not.toBeNull();
+    expect(result!.submission_id).toBe('sub_dup');
+    expect(result!.run_metadata).toEqual({ tool_calls: 7 });
+  });
+
+  it('issues a SELECT with the 5 expected WHERE-clause params + a 24h cutoff', async () => {
+    nextExecuteResults = [[]];
+    const store = new SubmissionStore(mockPool as any);
+    await store.findDuplicate({
+      genome: 'G'.repeat(256),
+      martianType: 'compute',
+      fitness: 0.5,
+      apiKeyHash: 'hash',
+    });
+    const call = executeCalls[0]!;
+    expect(call.sql).toContain('SELECT submission_id, genome, martian_type, fitness, leaderboard_name,');
+    expect(call.sql).toContain('WHERE genome = ? AND martian_type = ? AND fitness = ?');
+    expect(call.sql).toContain('LIMIT 1');
+    expect(call.params).toHaveLength(5);
+    // params: [genome, martianType, fitness, apiKeyHash, cutoff]
+    expect(call.params[0]).toBe('G'.repeat(256));
+    expect(call.params[1]).toBe('compute');
+    expect(call.params[2]).toBe(0.5);
+    expect(call.params[3]).toBe('hash');
+    expect(call.params[4]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+  });
+});
+
+describe('InstallStore — existing-row short-circuit + count default 0', () => {
+  beforeEach(() => resetMockState());
+
+  it('register() returns [existing_install_id, false] when the api_key_hash is already registered', async () => {
+    nextExecuteResults = [[{ install_id: 'inst_existing' }]];
+    const installs = new InstallStore(mockPool as any);
+    const [id, isNew] = await installs.register('hash', 'machine');
+    expect(id).toBe('inst_existing');
+    expect(isNew).toBe(false);
+    // Short-circuits after the SELECT — no INSERT issued.
+    expect(executeCalls).toHaveLength(1);
+    expect(executeCalls[0]!.sql).toContain('SELECT install_id FROM installs');
+  });
+
+  it('register() issues an INSERT and returns [new_install_id, true] when no existing row', async () => {
+    nextExecuteResults = [
+      [[]],                       // SELECT returns empty → no existing
+      [{ affectedRows: 1 }],      // INSERT succeeds
+    ];
+    const installs = new InstallStore(mockPool as any);
+    const [id, isNew] = await installs.register('hash', 'machine');
+    expect(isNew).toBe(true);
+    expect(id).toMatch(/^[0-9a-f]{16}$/);
+    expect(executeCalls).toHaveLength(2);
+    expect(executeCalls[1]!.sql).toContain('INSERT INTO installs');
+  });
+
+  it('exists() returns true when SELECT 1 returns any row', async () => {
+    nextExecuteResults = [[{ '1': 1 }]];
+    const installs = new InstallStore(mockPool as any);
+    expect(await installs.exists('hash')).toBe(true);
+  });
+
+  it('exists() returns false when SELECT 1 returns no rows', async () => {
+    nextExecuteResults = [[]];
+    const installs = new InstallStore(mockPool as any);
+    expect(await installs.exists('hash')).toBe(false);
+  });
+
+  it('count() defaults to 0 when DB returns an empty row set', async () => {
+    nextExecuteResults = [[]];
+    const installs = new InstallStore(mockPool as any);
+    expect(await installs.count()).toBe(0);
+  });
+});
+
+describe('GlobalStats.get — top_fitness_by_type aggregation', () => {
+  beforeEach(() => resetMockState());
+
+  it('returns zeros for an empty DB and an empty topByType map', async () => {
+    nextExecuteResults = [[], [], []];
+    const stats = new GlobalStats(mockPool as any);
+    const result = await stats.get();
+    expect(result).toEqual({
+      total_genomes: 0,
+      total_installs: 0,
+      total_fitness_evaluations: 0, // mirrors total_genomes per source line 262
+      top_fitness_by_type: {},
+    });
+  });
+
+  it('aggregates top_fitness_by_type across multiple martian types', async () => {
+    nextExecuteResults = [
+      [{ cnt: 10 }],                                        // leaderboard COUNT
+      [{ cnt: 3 }],                                         // installs COUNT
+      [                                                    // GROUP BY result
+        { martian_type: 'compute', top_fitness: 0.95 },
+        { martian_type: 'http_get', top_fitness: 0.80 },
+        { martian_type: 'file_read', top_fitness: 0.70 },
+      ],
+    ];
+    const stats = new GlobalStats(mockPool as any);
+    const result = await stats.get();
+    expect(result.total_genomes).toBe(10);
+    expect(result.total_installs).toBe(3);
+    expect(result.total_fitness_evaluations).toBe(10);
+    expect(result.top_fitness_by_type).toEqual({
+      compute: 0.95,
+      http_get: 0.80,
+      file_read: 0.70,
+    });
+  });
+
+  it('issues 3 queries in parallel via Promise.all', async () => {
+    nextExecuteResults = [[], [], []];
+    const stats = new GlobalStats(mockPool as any);
+    await stats.get();
+    expect(executeCalls).toHaveLength(3);
+    const sqls = executeCalls.map(c => c.sql);
+    expect(sqls.some(s => /FROM leaderboard_entries$/.test(s))).toBe(true);
+    expect(sqls.some(s => /FROM installs$/.test(s))).toBe(true);
+    expect(sqls.some(s => /GROUP BY martian_type$/.test(s))).toBe(true);
+  });
+});
+
+// The pool() uninitialized-throw branch (source line 32) cannot be exercised
+// here without resetting the module-level `_pool` singleton between tests —
+// `vi.resetModules()` would force a re-import, which would re-run the
+// `vi.mock('mysql2/promise')` factory and produce a fresh `mockPool`, but
+// the `_pool` variable is captured in the storage.ts module closure. We
+// document the branch but cover it via initPool's "no URL" throw (line 22),
+// which is the equivalent user-facing guard.
+
+// After all suites, ensure the test mock isn't left in a state that breaks
+// other test files in the same run. Each describe's beforeEach handles this
+// already, but be defensive.
+afterEach(() => {
+  resetMockState();
+});

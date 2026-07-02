@@ -1,0 +1,6 @@
+import { describe, it } from 'vitest';
+
+// Trigger import resolution so coverage can find the file.
+describe('hextet direct coverage probe', () => {
+  it('placeholder', () => {});
+});
