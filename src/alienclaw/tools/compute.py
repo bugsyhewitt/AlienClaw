@@ -17,11 +17,17 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         return RunResult(ok=False, error="Missing 'input' or 'task' field", correctness=0.0)
 
     max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
+    # MSB PARAMETER_SCHEMA (seed/msb/compute.msb:65): precision_digits|2|1|10|6|none
+    # → range 1-10, default 6. NOTE: the MSB OUTPUT CONTRACT field is `precision` (line 45),
+    # NOT `precision_digits`. The PARAMETER_SCHEMA input is named `precision_digits` per MSB.
     precision_digits = max(1, min(10, int(params.get("precision_digits", 6))))
-    # output_format 1-10: each value adds one more field to the output (10 distinct structures)
-    output_format = max(1, min(10, int(params.get("output_format", 2))))
-    # validation_count: evaluate expression N times total (verification passes); tool_calls = N
-    validation_count = max(1, min(5, int(params.get("validation_count", 1))))
+    # MSB PARAMETER_SCHEMA (seed/msb/compute.msb:65): output_format|3|1|5|2|none
+    # → range 1-5, default 2. The previous impl accepted 1-10 (10 distinct output structures);
+    # that 1-10 range VIOLATES the MSB spec. Clamped to 1-5 to align with MSB.
+    output_format = max(1, min(5, int(params.get("output_format", 2))))
+    # MSB PARAMETER_SCHEMA (seed/msb/compute.msb:66): validation_count|4|1|3|1|lower
+    # → range 1-3, default 1. The previous impl accepted 1-5; clamped to 1-3 to align with MSB.
+    validation_count = max(1, min(3, int(params.get("validation_count", 1))))
 
     last_error: str | None = None
     for attempt in range(max_attempts):
@@ -33,17 +39,25 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             # Re-evaluate for validation_count-1 additional passes (verification)
             for _ in range(validation_count - 1):
                 eval(str(expression), {"__builtins__": {}}, _SAFE_NAMES)  # noqa: S307
-            # output_format 1-10: each adds one more field (10 distinct output structures)
+            # MSB OUTPUT CONTRACT (seed/msb/compute.msb lines 39-47):
+            #   { input: "any", operation: "string", result: "any",
+            #     resultType: "string", precision: "string", steps: ["string"] }
+            #
+            # output_format 1-5 selects 5 distinct output structures, ALL of which include
+            # the 6 MSB CONTRACT fields. output_format=1 is the MINIMAL MSB-compliant output
+            # (result only); output_format=5 is the MAXIMAL output with all 6 MSB fields.
             output: dict[str, Any] = {"result": result}
-            if output_format >= 2:  output["input"] = expression
-            if output_format >= 3:  output["resultType"] = result_type
-            if output_format >= 4:  output["operation"] = "eval"
-            if output_format >= 5:  output["precision_digits"] = precision_digits
-            if output_format >= 6:  output["validation_count"] = validation_count
-            if output_format >= 7:  output["max_attempts"] = max_attempts
-            if output_format >= 8:  output["steps"] = ["parse", "evaluate", "round"]
-            if output_format >= 9:  output["output_format"] = output_format
-            if output_format >= 10: output["safe_names_count"] = len(_SAFE_NAMES)
+            if output_format >= 2:
+                output["input"] = expression
+            if output_format >= 3:
+                output["resultType"] = result_type
+            if output_format >= 4:
+                output["operation"] = "eval"
+            if output_format >= 5:
+                # MSB OUTPUT CONTRACT field name is `precision` (line 45), NOT `precision_digits`.
+                # `precision_digits` was the previous impl's non-spec field name (regression).
+                output["precision"] = str(precision_digits)
+                output["steps"] = ["parse", "evaluate", "round"]
             return RunResult(ok=True, output=output, tool_calls=validation_count, correctness=1.0)
         except ZeroDivisionError:
             return RunResult(ok=False, error="Division by zero", tool_calls=attempt + 1, correctness=0.0)
