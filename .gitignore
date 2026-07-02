@@ -126,3 +126,4 @@ dist/protocol.schema.json
 alienclaw-phase*.zip
 *.podman.env.local
 .env.hostinger
+.coverage
