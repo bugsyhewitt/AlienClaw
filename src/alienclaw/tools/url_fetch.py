@@ -5,8 +5,8 @@ from .types import RunResult
 
 _TIMEOUT_S = 30
 _MAX_RESPONSE_BYTES = 2 * 1024 * 1024
-# field_count: 1=url only, 2=+status_code, 3=+content, 4=+content_length, 5=+content_type
-_FIELDS = ["url", "status_code", "content", "content_length", "content_type"]
+# field_count: 1=url only, 2=+statusCode, 3=+content, 4=+contentLength, 5=+contentType
+_FIELDS = ["url", "statusCode", "content", "contentLength", "contentType"]
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -49,7 +49,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
                 return RunResult(
                     ok=False,
                     error=f"HTTP {exc.code}: {exc.reason}",
-                    output={"status_code": exc.code},
+                    output={"statusCode": exc.code},
                     tool_calls=total_tool_calls,
                     correctness=0.0,
                 )
@@ -64,10 +64,10 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             preview_lines = content.splitlines()[:content_preview]
             output: dict[str, Any] = {}
             if field_count >= 1: output["url"] = url
-            if field_count >= 2: output["status_code"] = status
+            if field_count >= 2: output["statusCode"] = status
             if field_count >= 3: output["content"] = content
-            if field_count >= 4: output["content_length"] = len(content)
-            if field_count >= 5: output["content_type"] = content_type
+            if field_count >= 4: output["contentLength"] = len(content)
+            if field_count >= 5: output["contentType"] = content_type
             output["preview"] = "\n".join(preview_lines)  # always included; varies by content_preview param
             return RunResult(ok=True, output=output, tool_calls=total_tool_calls, correctness=1.0)
 
