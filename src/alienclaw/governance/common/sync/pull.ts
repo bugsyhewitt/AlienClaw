@@ -58,9 +58,13 @@ async function _pullType(
   const entries = r.data.genomes;
   result.received = entries.length;
 
-  const typeDir = join(populationsRoot, martianType);
+  // Python's PopulationStorage reads <type>/entries/*.json, so seeds must
+  // land there — and in the full PopulationEntry shape (_entry_from_dict
+  // KeyErrors on anything less, which would poison Population.load for the
+  // entire type).
+  const entriesDir = join(populationsRoot, martianType, 'entries');
   try {
-    mkdirSync(typeDir, { recursive: true });
+    mkdirSync(entriesDir, { recursive: true });
   } catch (err) {
     result.errors.push(`Cannot create directory: ${err}`);
     return result;
@@ -68,7 +72,7 @@ async function _pullType(
 
   for (const entry of entries) {
     try {
-      _writeEntry(typeDir, entry);
+      _writeEntry(entriesDir, entry);
       result.written++;
     } catch (err) {
       result.errors.push(`Write failed for ${entry.submission_id}: ${err}`);
@@ -78,16 +82,24 @@ async function _pullType(
   return result;
 }
 
-function _writeEntry(typeDir: string, entry: GenomeEntry): void {
+function _writeEntry(entriesDir: string, entry: GenomeEntry): void {
   const filename = `network-${entry.submission_id}.json`;
-  const path = join(typeDir, filename);
+  const path = join(entriesDir, filename);
+  // Full PopulationEntry shape (mirrors evolution/storage.py _entry_to_dict).
+  // Genomes are server-validated (length/alphabet/checksum) at submission
+  // time, which is the trust boundary for pulled seeds.
   const record = {
-    genome: entry.genome,
-    fitness: entry.fitness,
-    martian_type: entry.martian_type,
-    submission_id: entry.submission_id,
-    source: 'network',
-    rank: entry.rank,
+    entry_id:   `network-${entry.submission_id}`,
+    genome:     entry.genome,
+    fitness:    entry.fitness,
+    generation: entry.generation ?? 0,
+    parent_ids: [] as string[],
+    run_metadata: {
+      source:           'network',
+      submission_id:    entry.submission_id,
+      leaderboard_name: entry.leaderboard_name,
+    },
+    created_at: entry.submitted_at || new Date().toISOString(),
   };
   // Atomic-ish write: write to temp then rename not available in pure Node without tmp lib,
   // so write directly — population files are append-only seeds, not transactional.
