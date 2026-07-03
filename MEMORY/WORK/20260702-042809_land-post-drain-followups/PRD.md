@@ -2,8 +2,8 @@
 task: Land remaining follow-ups: salvage, packets, evolution, site
 slug: 20260702-042809_land-post-drain-followups
 effort: advanced
-phase: verify
-progress: 27/28
+phase: complete
+progress: 28/28
 mode: interactive
 started: 2026-07-02T04:28:09-0400
 updated: 2026-07-02T05:04:00-0400
@@ -42,7 +42,7 @@ Follow-up to the 2026-07-02 CI unclog + 32-PR drain (see 20260702-025103_unclog-
 - [x] ISC-25: Live site verified via HTTP probes; retired site/ guarded
 - [x] ISC-26: Every code change landed via green-CI PR
 - [x] ISC-27: code-review skill run on changes before merge
-- [ ] ISC-28: Full suites green on main at completion
+- [x] ISC-28: Full suites green on main at completion
 - [x] ISC-A1: No unmerged branch content deleted
 - [x] ISC-A2: No production deploy without explicit confirmation
 - [x] ISC-A3: No architecture wall violations introduced
@@ -55,3 +55,5 @@ Follow-up to the 2026-07-02 CI unclog + 32-PR drain (see 20260702-025103_unclog-
 - Code review (8 angles + verify): 0 correctness bugs in session diffs; TS fileReadAdapter contract violation found adjacent and fixed (PR #121); 3 cleanups applied pre-merge; immaterial efficiency nits rejected.
 
 ## Verification
+
+Final gate on main 09636dd0: 950 pytest passed + full vitest suite green, 0 open PRs, 0 queued runs. Session PRs all squash-merged: #111 (gitignore+PRD), #112 (selection), #113 (file_read py), #114 #115 #116 #117 #118 #119 (salvage), #120 (buildSubagent), #121 (TS adapter), #122 (ROADMAP+deploy guard). Wall-check and governance/integration suites green throughout.
