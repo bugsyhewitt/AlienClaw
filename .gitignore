@@ -127,3 +127,6 @@ alienclaw-phase*.zip
 *.podman.env.local
 .env.hostinger
 .coverage
+
+# Packet execution reports (local records, not source)
+.packet-reports/
