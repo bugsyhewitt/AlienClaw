@@ -18,6 +18,10 @@ const cmd = parseCliArgs(rawArgv);
 if (cmd.type === 'run') {
   // ── BossBot governance mode ─────────────────────────────────────────────
   await runAlienClaw(cmd.args.goal, cmd.args.verbosity);
+} else if (cmd.type === 'evolve') {
+  // ── Local evolution (offline Python runner) ─────────────────────────────
+  const { runEvolve } = await import('./evolve.js');
+  process.exitCode = await runEvolve(cmd.args);
 } else if (cmd.type === 'version') {
   const pkg = await import('./package.json', { assert: { type: 'json' } });
   console.log(`AlienClaw ${pkg.default.version}`);
@@ -26,6 +30,13 @@ if (cmd.type === 'run') {
 
 alienclaw run "<goal>" [options]
   Run the AlienClaw agent hierarchy toward a goal.
+
+alienclaw evolve --type <martianType> [options]
+  Run local genome evolution (offline). Options:
+  --generations <n>  Number of generations (default 10)
+  --population <n>   Population size (default 32)
+  --seed <n>         RNG seed for reproducibility
+  --inputs <json>    JSON inputs forwarded to the Martian
 
 Options:
   --verbose   Enable verbose output
