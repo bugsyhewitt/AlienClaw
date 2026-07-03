@@ -363,3 +363,21 @@ class TestWebSearchMaxAttempts:
                 )
         assert not result.ok
         assert result.tool_calls == 5
+
+    def test_json_decode_error_is_retried_as_transient(self):
+        """A 200 response whose body is not valid JSON raises json.JSONDecodeError.
+        The module docstring lists JSONDecodeError as a transient failure that is
+        retried up to max_attempts — this test exercises that code path explicitly.
+        HTTPError (deterministic) must NOT be confused with this: HTTPError is
+        caught before the bare `except Exception` and returns immediately."""
+        bad_resp = _make_response(b"<html>not-valid-json</html>", status=200, content_type="text/html")
+        with patch("urllib.request.urlopen", return_value=bad_resp) as mock_open:
+            with patch.dict("os.environ", {"ALIENCLAW_SEARCH_URL": "http://stub.test/search"}):
+                result = web_search_mod.run(
+                    {"query": "test"},
+                    {"max_attempts": 3},
+                )
+        assert not result.ok
+        assert result.tool_calls == 3          # one urlopen per attempt
+        assert "3 attempts" in result.error
+        assert mock_open.call_count == 3       # retried all 3 times
