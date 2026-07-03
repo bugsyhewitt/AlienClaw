@@ -21,9 +21,17 @@ export interface EvolveCommandArgs {
   inputs?:     string;
 }
 
+export interface SubmitCommandArgs {
+  martianType: string;
+  name?:       string;
+  yes:         boolean;
+  force:       boolean;
+}
+
 export type CliCommand =
   | { type: 'run';     args: RunCommandArgs }
   | { type: 'evolve';  args: EvolveCommandArgs }
+  | { type: 'submit';  args: SubmitCommandArgs }
   | { type: 'version' }
   | { type: 'help' }
   | { type: 'unknown'; raw: string[] };
@@ -81,6 +89,27 @@ export function parseCliArgs(argv: string[]): CliCommand {
       return { type: 'unknown', raw };
     }
     return { type: 'evolve', args };
+  }
+
+  // `submit` also takes value flags — same raw token walk as evolve.
+  if (raw[0] === 'submit') {
+    const args: SubmitCommandArgs = { martianType: '', yes: false, force: false };
+    for (let i = 1; i < raw.length; i++) {
+      const token = raw[i]!;
+      const value = raw[i + 1];
+      switch (token) {
+        case '--type':  args.martianType = value ?? ''; i++; break;
+        case '--name':  args.name = value; i++; break;
+        case '--yes':   args.yes = true; break;
+        case '--force': args.force = true; break;
+        default:
+          return { type: 'unknown', raw };
+      }
+    }
+    if (!args.martianType) {
+      return { type: 'unknown', raw };
+    }
+    return { type: 'submit', args };
   }
 
   const flags       = raw.filter(a => a.startsWith('-'));

@@ -22,6 +22,10 @@ if (cmd.type === 'run') {
   // ── Local evolution (offline Python runner) ─────────────────────────────
   const { runEvolve } = await import('./evolve.js');
   process.exitCode = await runEvolve(cmd.args);
+} else if (cmd.type === 'submit') {
+  // ── Explicit leaderboard submission ──────────────────────────────────────
+  const { runSubmit } = await import('./submit.js');
+  process.exitCode = await runSubmit(cmd.args);
 } else if (cmd.type === 'version') {
   const pkg = await import('./package.json', { assert: { type: 'json' } });
   console.log(`AlienClaw ${pkg.default.version}`);
@@ -37,6 +41,12 @@ alienclaw evolve --type <martianType> [options]
   --population <n>   Population size (default 32)
   --seed <n>         RNG seed for reproducibility
   --inputs <json>    JSON inputs forwarded to the Martian
+
+alienclaw submit --type <martianType> [options]
+  Submit your best local genome to the public leaderboard. Options:
+  --name <handle>    Public handle (8 uppercase letters); persisted
+  --yes              Skip the confirmation prompt
+  --force            Submit even when not beating the public top
 
 Options:
   --verbose   Enable verbose output
