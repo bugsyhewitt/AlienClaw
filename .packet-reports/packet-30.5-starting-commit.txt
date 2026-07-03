@@ -1,1 +1,0 @@
-bf584f3e8669272e4c9072e7bda3d4b53bed9413 2026-05-16 18:22:38 -0400 license: set copyright holder to Bugsy Hewitt (closes L1)
