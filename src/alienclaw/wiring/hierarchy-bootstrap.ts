@@ -23,6 +23,9 @@ import { EscalationHandler } from '../governance/common/escalation-handler.js';
 import { CompletionHandler } from '../governance/common/completion-handler.js';
 import { GovernanceLoop }    from '../governance/common/governance-loop.js';
 import { RealMartianSummonAdapter } from '../governance/common/real-summon-adapter.js';
+import { CreatorBot as CommonCreatorBot } from '../governance/common/creator-bot.js';
+import { DomainResolver }                 from '../governance/common/domain-resolver.js';
+import { Logger, JsonStdoutSink }         from '../governance/common/logger.js';
 import { UserChannel }       from '../comms/user-channel.js';
 import { AgentChannel,
          agentChannel }       from '../comms/agent-channel.js';
@@ -81,6 +84,15 @@ export function bootstrap(): BootstrapResult {
 
   const adapter = new RealMartianSummonAdapter();
 
+  const knownMartianTypes    = registry.list().map(ms => ms.id);
+  const commonLogger         = new Logger(new JsonStdoutSink(), 'creator-bot-common');
+  const commonDomainResolver = new DomainResolver(
+    knownMartianTypes.length > 0 ? knownMartianTypes : ['compute'],
+  );
+  const commonCreatorBot = new CommonCreatorBot(
+    commonLogger, adapter, undefined, commonDomainResolver,
+  );
+
   const loop = new GovernanceLoop({
     bossBot,
     advisorBot,
@@ -93,6 +105,7 @@ export function bootstrap(): BootstrapResult {
     userChannel,
     agentChannel,
     adapter,
+    campaignCreatorBot: commonCreatorBot,
   });
 
   // ── CreatorBot scheduled jobs ─────────────────────────────────────────────
