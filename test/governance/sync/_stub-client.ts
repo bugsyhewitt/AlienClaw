@@ -63,9 +63,9 @@ export function makeGenomeEntry(over: Partial<GenomeEntry> = {}): GenomeEntry {
   return {
     genome: 'G'.repeat(16),
     fitness: 0.9,
-    rank: 1,
     submission_id: 'sub_remote',
-    martian_type: 'compute',
+    submitted_at: '2026-07-01T00:00:00Z',
+    leaderboard_name: 'TESTNAME',
     ...over,
   };
 }

@@ -52,7 +52,7 @@ describe('pullTopGenomes — writing fetched genomes', () => {
     expect(result.written).toBe(2);
     expect(result.errors).toEqual([]);
 
-    const files = readdirSync(join(root, 'compute')).sort();
+    const files = readdirSync(join(root, 'compute', 'entries')).sort();
     expect(files).toEqual(['network-a.json', 'network-b.json']);
   });
 
@@ -61,23 +61,31 @@ describe('pullTopGenomes — writing fetched genomes', () => {
       submission_id: 'xyz',
       genome: 'NETGENOME',
       fitness: 0.42,
-      rank: 7,
-      martian_type: 'compute',
+      generation: 5,
+      submitted_at: '2026-07-01T12:00:00Z',
+      leaderboard_name: 'SOMEBODY',
     });
     const client = new StubClient({ top: { compute: topGenomes('compute', [entry]) } });
 
     await pullTopGenomes(client.asClient(), ['compute'], root, 10);
 
+    // Exactly the PopulationEntry shape evolution/storage.py _entry_from_dict
+    // requires — a missing key there raises and poisons Population.load.
     const record = JSON.parse(
-      readFileSync(join(root, 'compute', 'network-xyz.json'), 'utf-8'),
+      readFileSync(join(root, 'compute', 'entries', 'network-xyz.json'), 'utf-8'),
     );
     expect(record).toEqual({
-      genome: 'NETGENOME',
-      fitness: 0.42,
-      martian_type: 'compute',
-      submission_id: 'xyz',
-      source: 'network',
-      rank: 7,
+      entry_id:   'network-xyz',
+      genome:     'NETGENOME',
+      fitness:    0.42,
+      generation: 5,
+      parent_ids: [],
+      run_metadata: {
+        source:           'network',
+        submission_id:    'xyz',
+        leaderboard_name: 'SOMEBODY',
+      },
+      created_at: '2026-07-01T12:00:00Z',
     });
   });
 
@@ -90,7 +98,7 @@ describe('pullTopGenomes — writing fetched genomes', () => {
     await pullTopGenomes(client.asClient(), ['summary'], root, 5);
 
     expect(existsSync(join(root, 'summary'))).toBe(true);
-    expect(existsSync(join(root, 'summary', 'network-s1.json'))).toBe(true);
+    expect(existsSync(join(root, 'summary', 'entries', 'network-s1.json'))).toBe(true);
   });
 
   it('handles an empty genome list — directory made, nothing written', async () => {
@@ -101,8 +109,8 @@ describe('pullTopGenomes — writing fetched genomes', () => {
     expect(result.received).toBe(0);
     expect(result.written).toBe(0);
     expect(result.errors).toEqual([]);
-    expect(existsSync(join(root, 'compute'))).toBe(true);
-    expect(readdirSync(join(root, 'compute'))).toEqual([]);
+    expect(existsSync(join(root, 'compute', 'entries'))).toBe(true);
+    expect(readdirSync(join(root, 'compute', 'entries'))).toEqual([]);
   });
 
   it('forwards topN to the client as n', async () => {
@@ -143,7 +151,7 @@ describe('pullTopGenomes — fetch failure', () => {
     expect(byType['compute'].errors).toEqual(['Fetch failed (500): INTERNAL']);
     expect(byType['compute'].written).toBe(0);
     expect(byType['search'].written).toBe(1);
-    expect(existsSync(join(root, 'search', 'network-ok1.json'))).toBe(true);
+    expect(existsSync(join(root, 'search', 'entries', 'network-ok1.json'))).toBe(true);
   });
 });
 
@@ -221,12 +229,12 @@ describe('pullTopGenomes — write-error resilience (packet 104)', () => {
     // _writeEntry would write to. writeFileSync on a path that's already a
     // directory throws EISDIR. pull.ts must NOT crash the whole pull — it
     // must record the per-entry error and continue with the next entry.
-    const typeDir = join(root, 'compute');
-    mkdirSync(typeDir, { recursive: true });
+    const entriesDir = join(root, 'compute', 'entries');
+    mkdirSync(entriesDir, { recursive: true });
     // Pre-create a directory at the filename _writeEntry will use, so the
     // writeFileSync('w') throws EISDIR (not ENOENT).
-    mkdirSync(join(typeDir, 'network-a.json'), { recursive: true });
-    mkdirSync(join(typeDir, 'network-b.json'), { recursive: true });
+    mkdirSync(join(entriesDir, 'network-a.json'), { recursive: true });
+    mkdirSync(join(entriesDir, 'network-b.json'), { recursive: true });
 
     const client = new StubClient({
       top: {
@@ -252,9 +260,9 @@ describe('pullTopGenomes — write-error resilience (packet 104)', () => {
   it('mixed run: successful entries and failed entries co-exist in the same result (pull.ts:74)', async () => {
     // 'compute' is a real dir with the file path pre-empted by a directory
     // (so writes fail with EISDIR). 'good' is a normal dir with no such trap.
-    const goodType = join(root, 'good');
+    const goodType = join(root, 'good', 'entries');
     mkdirSync(goodType, { recursive: true });
-    const badType = join(root, 'compute');
+    const badType = join(root, 'compute', 'entries');
     mkdirSync(badType, { recursive: true });
     mkdirSync(join(badType, 'network-b1.json'), { recursive: true });
 
@@ -270,7 +278,7 @@ describe('pullTopGenomes — write-error resilience (packet 104)', () => {
 
     expect(byType['good'].written).toBe(1);
     expect(byType['good'].errors).toEqual([]);
-    expect(existsSync(join(root, 'good', 'network-g1.json'))).toBe(true);
+    expect(existsSync(join(root, 'good', 'entries', 'network-g1.json'))).toBe(true);
 
     expect(byType['compute'].written).toBe(0);
     expect(byType['compute'].errors).toHaveLength(1);

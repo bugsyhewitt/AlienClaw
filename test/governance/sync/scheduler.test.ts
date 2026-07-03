@@ -325,7 +325,7 @@ describe('SyncScheduler — cycle summary', () => {
     expect(summary.pull).toHaveLength(1);
     expect(summary.pull[0].received).toBe(1);
     expect(summary.pull[0].written).toBe(1);
-    const written = readdirSync(join(root, 'compute'));
+    const written = readdirSync(join(root, 'compute', 'entries'));
     expect(written.some(f => f.startsWith('network-'))).toBe(true);
 
     scheduler.stop();

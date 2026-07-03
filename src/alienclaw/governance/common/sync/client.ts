@@ -20,9 +20,14 @@ export interface SubmitResponse {
 export interface GenomeEntry {
   genome: string;
   fitness: number;
-  rank: number;
   submission_id: string;
-  martian_type: string;
+  submitted_at: string;
+  leaderboard_name: string;
+  generation?: number;
+  /** Not sent by the deployed server (response is scoped by top-level type). */
+  martian_type?: string;
+  /** Not sent by the deployed server; kept for older payloads. */
+  rank?: number;
 }
 
 export interface TopGenomesResponse {
