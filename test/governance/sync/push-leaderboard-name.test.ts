@@ -72,7 +72,8 @@ function validGenome(seed = 42): string {
 
 /**
  * Write a single population entry to <root>/<martianType>/<name>.json and
- * return the populations root. Mirrors the on-disk shape _loadTopEntries reads.
+ * return the populations root. Mirrors the real PopulationStorage layout
+ * (<type>/entries/*.json) that readTopEntries consumes.
  */
 function seedPopulation(
   martianType: string,
@@ -80,9 +81,9 @@ function seedPopulation(
   fileName = 'entry.json',
 ): string {
   const root = mkdtempSync(join(tmpdir(), 'aclaw-pop-'));
-  const typeDir = join(root, martianType);
-  mkdirSync(typeDir, { recursive: true });
-  writeFileSync(join(typeDir, fileName), JSON.stringify(entry), 'utf8');
+  const entriesDir = join(root, martianType, 'entries');
+  mkdirSync(entriesDir, { recursive: true });
+  writeFileSync(join(entriesDir, fileName), JSON.stringify(entry), 'utf8');
   return root;
 }
 

@@ -15,23 +15,17 @@
  * than dispatched to a guaranteed rejection.
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync } from 'node:fs';
 import type { NetworkAPIClient } from './client.js';
 import { validateLeaderboardName } from '../leaderboard.js';
+import { readTopEntries } from './local-population.js';
+import type { LocalPopulationEntry } from './local-population.js';
 
 export interface PushResult {
   martianType: string;
   pushed: number;
   skipped: number;
   errors: string[];
-}
-
-/** A single local population entry read off disk. */
-interface PopulationEntry {
-  genome: string;
-  fitness: number;
-  run_metadata: Record<string, unknown>;
 }
 
 /**
@@ -105,16 +99,11 @@ async function _pushType(
   defaultLeaderboardName: string,
   topN: number,
 ): Promise<PushResult> {
-  const typeDir = join(populationsRoot, martianType);
   const result: PushResult = { martianType, pushed: 0, skipped: 0, errors: [] };
 
-  let entries: PopulationEntry[];
-  try {
-    entries = _loadTopEntries(typeDir, topN);
-  } catch (err) {
-    result.errors.push(`Failed to read population: ${err}`);
-    return result;
-  }
+  // Reads the real PopulationStorage layout (<type>/entries/*.json);
+  // missing/corrupt data yields an empty list rather than a throw.
+  const entries: LocalPopulationEntry[] = readTopEntries(populationsRoot, martianType, topN);
 
   for (const entry of entries) {
     const leaderboardName = resolveLeaderboardName(entry.run_metadata, defaultLeaderboardName);
@@ -152,32 +141,4 @@ async function _pushType(
   }
 
   return result;
-}
-
-function _loadTopEntries(
-  typeDir: string,
-  topN: number,
-): PopulationEntry[] {
-  let files: string[];
-  try {
-    files = readdirSync(typeDir).filter(f => f.endsWith('.json'));
-  } catch {
-    return [];
-  }
-
-  type Entry = { genome: string; fitness: number; run_metadata?: Record<string, unknown> };
-  const parsed: Entry[] = [];
-  for (const f of files) {
-    try {
-      const raw = readFileSync(join(typeDir, f), 'utf-8');
-      parsed.push(JSON.parse(raw) as Entry);
-    } catch {
-      // Skip corrupted entries
-    }
-  }
-
-  return parsed
-    .sort((a, b) => b.fitness - a.fitness)
-    .slice(0, topN)
-    .map(e => ({ genome: e.genome, fitness: e.fitness, run_metadata: e.run_metadata ?? {} }));
 }

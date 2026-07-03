@@ -44,7 +44,8 @@ afterEach(() => {
 });
 
 function seedGenome(martianType: string, fitness = 0.9): void {
-  const dir = join(root, martianType);
+  // Real PopulationStorage layout: entries live under <type>/entries/.
+  const dir = join(root, martianType, 'entries');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, 'g.json'),
