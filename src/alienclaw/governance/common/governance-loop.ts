@@ -12,6 +12,7 @@ import { Subagent } from './subagent.js';
 import type { SubagentBrief } from './subagent.js';
 import type { MartianSummonAdapter } from './summon-adapter.js';
 import type { DomainResolver } from './domain-resolver.js';
+import type { CreatorBot as CommonCreatorBot } from './creator-bot.js';
 import type { GoalManager }        from './goal-manager.js';
 import type { TaskManager }        from './task-manager.js';
 import type { EscalationHandler }  from './escalation-handler.js';
@@ -58,6 +59,10 @@ export interface GovernanceLoopDeps {
    * instead of silently defaulting to 'compute'.
    */
   domainResolver?:    DomainResolver;
+  /** governance/common CreatorBot with buildSubagent — routes all spawn sites through
+   *  the population-backed summon path (fromPopulation: true). Optional for backward
+   *  compat with existing tests that don't wire it. */
+  campaignCreatorBot?: CommonCreatorBot;
 }
 
 // ── GovernanceLoop ────────────────────────────────────────────────────────────
@@ -99,6 +104,7 @@ export class GovernanceLoop {
   /** Adapter injected into every Subagent spawned for campaign execution. */
   private readonly adapter:            MartianSummonAdapter;
   private readonly domainResolver?:    DomainResolver;
+  private readonly campaignCreatorBot?: CommonCreatorBot;
 
   constructor(deps: GovernanceLoopDeps) {
     this.bossBot           = deps.bossBot;
@@ -111,8 +117,9 @@ export class GovernanceLoop {
     this.completionHandler = deps.completionHandler;
     this.userChannel       = deps.userChannel;
     this.agentChannel      = deps.agentChannel;
-    this.adapter           = deps.adapter;
-    this.domainResolver    = deps.domainResolver;
+    this.adapter            = deps.adapter;
+    this.domainResolver     = deps.domainResolver;
+    this.campaignCreatorBot = deps.campaignCreatorBot;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -382,11 +389,16 @@ export class GovernanceLoop {
       success_criteria: campaign.objective,
     };
 
-    const subagent = new Subagent(this.adapter, {
-      campaignId:  campaign.id,
-      martianType,
-      inputs:      campaignInputs,
-      timeoutMs:   300_000,
+    const subagent = this.campaignCreatorBot!.buildSubagent(rawDomain ?? martianType, {
+      campaignId:        campaign.id,
+      objective:         campaign.objective,
+      successCriteria:   campaign.objective,
+      allowedMartians,
+      inputs:            campaignInputs,
+      timeoutMs:         300_000,
+      backgroundContext: knowledgeBase,
+      knowledgeBase,
+      role:              campaign.name,
     });
 
     const campaignJob: Promise<void> = (async () => {
@@ -604,11 +616,12 @@ export class GovernanceLoop {
       const retryInputs: Record<string, unknown> = {
         plan: task.description, success_criteria: task.description,
       };
-      const retrySubagent = new Subagent(this.adapter, {
-        campaignId:  subGoal.id,
-        martianType: subGoal.domain,
-        inputs:      retryInputs,
-        timeoutMs:   300_000,
+      const retrySubagent = this.campaignCreatorBot!.buildSubagent(subGoal.domain, {
+        campaignId:      subGoal.id,
+        objective:       task.description,
+        allowedMartians: [subGoal.domain],
+        inputs:          retryInputs,
+        timeoutMs:       300_000,
       });
 
       const job = (async () => {
@@ -753,11 +766,12 @@ export class GovernanceLoop {
     const campaignInputs: Record<string, unknown> = {
       plan: subGoal.description, success_criteria: subGoal.description,
     };
-    const subagent = new Subagent(this.adapter, {
-      campaignId:  subGoal.id,
-      martianType: subGoal.domain,
-      inputs:      campaignInputs,
-      timeoutMs:   300_000,
+    const subagent = this.campaignCreatorBot!.buildSubagent(subGoal.domain, {
+      campaignId:      subGoal.id,
+      objective:       subGoal.description,
+      allowedMartians: [subGoal.domain],
+      inputs:          campaignInputs,
+      timeoutMs:       300_000,
     });
 
     const job = (async () => {

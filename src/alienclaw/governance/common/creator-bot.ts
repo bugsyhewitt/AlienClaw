@@ -32,6 +32,11 @@ export interface BuildSubagentSpec {
   allowedMartians?: string[];
   inputs?:          Record<string, unknown>;
   timeoutMs?:       number;
+  /** Overrides `${martianType} Subagent` in SOUL.md's role field. */
+  role?:             string;
+  /** Campaign knowledge base forwarded to the Subagent's workspace. */
+  backgroundContext?: string;
+  knowledgeBase?:    string;
 }
 
 /**
@@ -124,16 +129,16 @@ export class CreatorBot {
 
     const brief: SubagentBrief = {
       campaignId:         spec.campaignId,
-      role:               `${martianType} Subagent`,
+      role:               spec.role ?? `${martianType} Subagent`,
       domain,
       objective:          spec.objective,
       scope:              spec.successCriteria ?? 'Complete the campaign objective.',
       successCriteria:    spec.successCriteria ?? 'Task complete.',
       allowedMartians:    spec.allowedMartians ?? [martianType],
       deliverables:       'Campaign report to BossBot.',
-      backgroundContext:  '',
+      backgroundContext:  spec.backgroundContext ?? '',
       communicationStyle: 'structured',
-      knowledgeBase:      '',
+      knowledgeBase:      spec.knowledgeBase ?? '',
       constraints:        'None',
     };
 
