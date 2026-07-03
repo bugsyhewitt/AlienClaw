@@ -173,7 +173,19 @@ export class CreatorBot {
       request.correlation_id,
     );
 
-    const martian_type = request.payload.allowed_tools?.[0] ?? 'compute';
+    const rawDomain    = request.payload.allowed_tools?.[0];
+    const martian_type = (() => {
+      if (this.domainResolver) {
+        if (rawDomain === undefined) {
+          throw new Error(
+            `campaign '${request.payload.campaign_id}' declares no allowed_tools — ` +
+            `domainResolver cannot resolve martian_type`,
+          );
+        }
+        return this.domainResolver.resolve(rawDomain); // throws for unknown domains
+      }
+      return rawDomain ?? 'compute'; // legacy: no resolver wired
+    })();
 
     const subagent = new Subagent(this.summonAdapter, {
       campaignId:        request.payload.campaign_id,
