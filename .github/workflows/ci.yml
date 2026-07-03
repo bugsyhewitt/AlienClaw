@@ -38,12 +38,15 @@ jobs:
         run: npx vitest run test/genome/ts-fixture-runner.test.ts
       - name: Cross-language brain registry compliance (TypeScript side)
         run: npx vitest run test/brains/ts-fixture-runner.test.ts
+      # Ratcheted 2026-07-03: measured 84.15% lines / 79.46% branches after
+      # the packet-090+ test campaign and salvage rounds landed; thresholds
+      # sit just below measured to absorb v8 jitter while locking the gains.
       - name: Governance loop tests with coverage
         run: |
           npx vitest run test/governance/ \
             --coverage --coverage.provider=v8 \
-            --coverage.thresholds.lines=68 \
-            --coverage.thresholds.branches=65 \
+            --coverage.thresholds.lines=82 \
+            --coverage.thresholds.branches=77 \
             --coverage.include="src/alienclaw/governance/**/*.ts"
       # ── API surface coverage gate ──────────────────────────────────────────
       # Ratchets coverage over the community API tree (src/alienclaw/api/**).
