@@ -184,3 +184,28 @@ class TestPopulationLoad:
         assert pop.all() == []
         with pytest.raises(FileNotFoundError):
             Population.load("compute")
+
+    def test_load_falls_back_when_no_current_gen_entries(self, config):
+        """Population.load() crash-recovery path: if no entries match current_generation,
+        fall back to the last population_size entries on disk rather than returning empty.
+
+        This path is reached when increment_generation() is called but the process
+        crashes before any generation-N entries are written (population.py L87).
+        """
+        pop = Population.create(config)
+        gen0_entries = pop.all()
+        assert len(gen0_entries) == config.population_size
+
+        # Advance the generation counter without writing any gen-1 entries.
+        # Simulates the window between writing children and increment_generation()
+        # that never completes — or a direct call to increment outside the cycle.
+        pop._storage.increment_generation()
+        assert pop._storage.current_generation() == 1
+
+        # Load: gen-1 pool filter returns [], triggering the fallback branch.
+        loaded = Population.load(config.martian_type)
+
+        # Must not crash or return empty — fallback to all_entries[-population_size:]
+        assert len(loaded.all()) == config.population_size
+        # All recovered entries come from generation 0 (the only ones on disk)
+        assert all(e.generation == 0 for e in loaded.all())
