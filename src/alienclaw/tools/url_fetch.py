@@ -5,8 +5,8 @@ from .types import RunResult
 
 _TIMEOUT_S = 30
 _MAX_RESPONSE_BYTES = 2 * 1024 * 1024
-# field_count: 1=url only, 2=+statusCode, 3=+content, 4=+content_length, 5=+contentType
-_FIELDS = ["url", "statusCode", "content", "content_length", "contentType"]
+# field_count: 1=url only, 2=+statusCode, 3=+content, 4=+contentLength, 5=+contentType
+_FIELDS = ["url", "statusCode", "content", "contentLength", "contentType"]
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -66,7 +66,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             if field_count >= 1: output["url"] = url
             if field_count >= 2: output["statusCode"] = status
             if field_count >= 3: output["content"] = content
-            if field_count >= 4: output["content_length"] = len(content)
+            if field_count >= 4: output["contentLength"] = len(content)
             if field_count >= 5: output["contentType"] = content_type
             output["preview"] = "\n".join(preview_lines)  # always included; varies by content_preview param
             return RunResult(ok=True, output=output, tool_calls=total_tool_calls, correctness=1.0)

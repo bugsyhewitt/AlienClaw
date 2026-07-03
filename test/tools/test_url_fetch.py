@@ -96,7 +96,7 @@ class TestFieldCount:
         assert "url" in r.output
         assert "statusCode" in r.output
         assert "content" in r.output
-        assert "content_length" not in r.output
+        assert "contentLength" not in r.output
 
     def test_output_fields_are_camelcase(self, local_server):
         r = run({"url": local_server}, {"field_count": 5})
