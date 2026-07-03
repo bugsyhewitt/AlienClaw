@@ -3,7 +3,7 @@ from typing import Any
 from .types import RunResult
 
 # search_text MSB output contract (seed/msb/search_text.msb) caps text body at 10 MB.
-_MAX_TEXT_BYTES = 10 * 1024 * 1024
+from .limits import MAX_TOOL_IO_BYTES as _MAX_TEXT_BYTES
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:

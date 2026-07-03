@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from .types import RunResult
 
-_MAX_BYTES = 10 * 1024 * 1024  # 10 MiB (matches MSB LIMITATIONS "File size limit: 10MB per read")
+from .limits import MAX_TOOL_IO_BYTES as _MAX_BYTES
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
