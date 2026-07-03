@@ -1,6 +1,7 @@
 import json
 import re
 from typing import Any
+from .limits import MAX_TOOL_IO_BYTES
 from .types import RunResult
 
 
@@ -28,7 +29,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     path = inputs.get("path", "")
     if not raw:
         return RunResult(ok=False, error="Missing 'json' or 'input' field", correctness=0.0)
-    if len(str(raw).encode()) > 10 * 1024 * 1024:
+    if len(str(raw).encode()) > MAX_TOOL_IO_BYTES:
         return RunResult(ok=False, error="Input exceeds 10 MB limit", correctness=0.0)
     try:
         parsed = json.loads(raw)
