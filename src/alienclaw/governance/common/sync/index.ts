@@ -1,6 +1,8 @@
 export { NetworkAPIClient } from './client.js';
 export type { InstallResponse, SubmitResponse, GenomeEntry, TopGenomesResponse, HealthResponse, APIResult } from './client.js';
 export { pushTopGenomes, resolveLeaderboardName } from './push.js';
+export { readTopEntries, readOperatorBest } from './local-population.js';
+export type { LocalPopulationEntry } from './local-population.js';
 export type { PushResult } from './push.js';
 export { pullTopGenomes } from './pull.js';
 export type { PullResult } from './pull.js';
