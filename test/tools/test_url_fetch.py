@@ -88,15 +88,23 @@ class TestFieldCount:
     def test_field_count_1_url_only(self, local_server):
         r = run({"url": local_server}, {"field_count": 1})
         assert "url" in r.output
-        assert "status_code" not in r.output
+        assert "statusCode" not in r.output
         assert "content" not in r.output
 
     def test_field_count_3_includes_content(self, local_server):
         r = run({"url": local_server}, {"field_count": 3})
         assert "url" in r.output
-        assert "status_code" in r.output
+        assert "statusCode" in r.output
         assert "content" in r.output
         assert "content_length" not in r.output
+
+    def test_output_fields_are_camelcase(self, local_server):
+        r = run({"url": local_server}, {"field_count": 5})
+        assert r.ok is True
+        assert "statusCode" in r.output, "MSB OUTPUT CONTRACT requires statusCode"
+        assert "status_code" not in r.output, "snake_case status_code violates MSB OUTPUT CONTRACT"
+        assert "contentType" in r.output, "MSB OUTPUT CONTRACT requires contentType"
+        assert "content_type" not in r.output, "snake_case content_type violates MSB OUTPUT CONTRACT"
 
     def test_preview_always_present(self, local_server):
         for fc in [1, 2, 3, 4, 5]:
