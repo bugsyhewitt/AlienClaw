@@ -126,3 +126,34 @@ class TestRequestCount:
     def test_request_count_clamped_to_5(self, local_server):
         r = run({"url": local_server}, {"request_count": 99})
         assert r.tool_calls == 5
+
+
+# ── UnicodeDecodeError → latin-1 fallback ────────────────────────────────────
+
+class _Latin1Handler(BaseHTTPRequestHandler):
+    """Serves ISO-8859-1 bytes that are invalid UTF-8."""
+    def log_message(self, *a): pass
+    def do_GET(self):
+        body = b'\xe9\xe0\xfc'  # é, à, ü in latin-1 — raises UnicodeDecodeError on utf-8 decode
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=iso-8859-1")
+        self.end_headers()
+        self.wfile.write(body)
+
+@pytest.fixture(scope="module")
+def latin1_server():
+    server = HTTPServer(("127.0.0.1", 0), _Latin1Handler)
+    port = server.server_address[1]
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    yield f"http://127.0.0.1:{port}"
+    server.shutdown()
+
+
+class TestLatin1Fallback:
+    def test_latin1_response_decodes_correctly(self, latin1_server):
+        """L-001: UnicodeDecodeError → latin-1 fallback decodes non-UTF-8 response body."""
+        r = run({"url": latin1_server})
+        assert r.ok is True
+        assert r.correctness == 1.0
+        assert r.output["content"] == "\xe9\xe0\xfc"  # é à ü in latin-1
