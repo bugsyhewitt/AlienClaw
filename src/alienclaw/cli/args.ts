@@ -13,8 +13,17 @@ export interface RunCommandArgs {
   verbosity: VerbosityMode;
 }
 
+export interface EvolveCommandArgs {
+  martianType: string;
+  generations: number;
+  population:  number;
+  seed?:       number;
+  inputs?:     string;
+}
+
 export type CliCommand =
   | { type: 'run';     args: RunCommandArgs }
+  | { type: 'evolve';  args: EvolveCommandArgs }
   | { type: 'version' }
   | { type: 'help' }
   | { type: 'unknown'; raw: string[] };
@@ -31,9 +40,12 @@ export type CliCommand =
  *   alienclaw --help    | -h
  */
 export function parseCliArgs(argv: string[]): CliCommand {
-  // alienclaw.mjs already strips the [node, script] prefix (or detects direct invocation).
-  // We still guard against the interpreter case when called from other entry points.
-  const raw = (argv[0] === 'node' || argv[0] === 'tsx' || argv[0] === 'bun')
+  // Strip the [interpreter, script] prefix of process.argv-style input.
+  // argv[0] is usually a full path (/usr/bin/node), so compare its basename —
+  // the literal comparison used previously never matched real invocations and
+  // sent every command down the OpenClaw passthrough.
+  const interpreter = (argv[0] ?? '').split('/').pop() ?? '';
+  const raw = (interpreter === 'node' || interpreter === 'tsx' || interpreter === 'bun')
     ? argv.slice(2)
     : argv;
 
@@ -42,6 +54,33 @@ export function parseCliArgs(argv: string[]): CliCommand {
   }
   if (raw.includes('--help') || raw.includes('-h')) {
     return { type: 'help' };
+  }
+
+  // `evolve` takes value flags, so it walks the raw token stream — the
+  // boolean-flag filter below would misread `--type compute` as a positional.
+  if (raw[0] === 'evolve') {
+    const args: EvolveCommandArgs = { martianType: '', generations: 10, population: 32 };
+    for (let i = 1; i < raw.length; i++) {
+      const token = raw[i]!;
+      const value = raw[i + 1];
+      switch (token) {
+        case '--type':        args.martianType = value ?? ''; i++; break;
+        case '--generations': args.generations = Number(value); i++; break;
+        case '--population':  args.population  = Number(value); i++; break;
+        case '--seed':        args.seed        = Number(value); i++; break;
+        case '--inputs':      args.inputs      = value; i++; break;
+        default:
+          return { type: 'unknown', raw };
+      }
+    }
+    const numbersOk =
+      Number.isFinite(args.generations) && args.generations >= 1 &&
+      Number.isFinite(args.population)  && args.population  >= 1 &&
+      (args.seed === undefined || Number.isFinite(args.seed));
+    if (!args.martianType || !numbersOk) {
+      return { type: 'unknown', raw };
+    }
+    return { type: 'evolve', args };
   }
 
   const flags       = raw.filter(a => a.startsWith('-'));
