@@ -13,6 +13,8 @@ export type VerbosityMode          = 'silent' | 'normal' | 'verbose';
 export interface UserPreferences {
   verbosity:          VerbosityMode;
   advisorPersistence: AdvisorPersistenceMode;
+  /** Public leaderboard handle (^[A-Z]{8}$), set via `alienclaw submit --name`. */
+  leaderboardName?:   string;
 }
 
 // ── Agent messages ────────────────────────────────────────────────────────────
