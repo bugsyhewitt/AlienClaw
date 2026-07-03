@@ -41,6 +41,8 @@ def _config_to_dict(config: EvolutionConfig) -> dict[str, Any]:
         "crossover_rate": config.crossover_rate,
         "elitism_count": config.elitism_count,
         "seed": config.seed,
+        "selection_strategy": config.selection_strategy,
+        "truncation_top_fraction": config.truncation_top_fraction,
     }
 
 
@@ -53,6 +55,8 @@ def _config_from_dict(d: dict[str, Any]) -> EvolutionConfig:
         crossover_rate=d.get("crossover_rate", 0.5),
         elitism_count=d.get("elitism_count", 2),
         seed=d.get("seed"),
+        selection_strategy=d.get("selection_strategy", "tournament"),
+        truncation_top_fraction=d.get("truncation_top_fraction", 0.5),
     )
 
 

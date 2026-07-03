@@ -23,7 +23,7 @@ from typing import Any, Callable
 from alienclaw.genome.operators import crossover, mutate, mutate_directed
 
 from .population import Population
-from .selection import tournament
+from .selection import roulette_wheel, tournament, truncation
 from .stats import compute_from_entries
 from .types import EvolutionConfig, PopulationEntry
 
@@ -87,16 +87,17 @@ def evaluate_and_evolve(
     pop._storage.write_stats(stats)
 
     # Step 3-4: Select parents, produce children
+    select = _make_selector(config)
     elite = sorted(evaluated, key=lambda e: e.fitness, reverse=True)[: config.elitism_count]
     children_needed = config.population_size - config.elitism_count
     children: list[PopulationEntry] = []
     for _ in range(children_needed):
         if rng.random() < config.crossover_rate:
-            pa = tournament(pop, config.tournament_k, rng).genome
-            pb = tournament(pop, config.tournament_k, rng).genome
+            pa = select(pop, rng).genome
+            pb = select(pop, rng).genome
             child_genome = crossover(pa, pb, rng)
         else:
-            parent_genome = tournament(pop, config.tournament_k, rng).genome
+            parent_genome = select(pop, rng).genome
             if config.brain is not None:
                 child_genome = mutate_directed(parent_genome, [None, config.brain, None, None], rng)
             else:
@@ -121,3 +122,22 @@ def evaluate_and_evolve(
         "stats": stats,
         "children_minted": len(children),
     }
+
+
+def _make_selector(config: EvolutionConfig):
+    """Bind the configured selection strategy to a (pop, rng) callable.
+
+    'tournament' is the v1.0 default and preserves historical behavior
+    exactly; 'roulette_wheel' and 'truncation' opt into the v1.x
+    algorithms. Unknown values fail loudly.
+    """
+    if config.selection_strategy == "tournament":
+        return lambda pop, rng: tournament(pop, config.tournament_k, rng)
+    if config.selection_strategy == "roulette_wheel":
+        return lambda pop, rng: roulette_wheel(pop, rng)
+    if config.selection_strategy == "truncation":
+        return lambda pop, rng: truncation(pop, config.truncation_top_fraction, rng)
+    raise ValueError(
+        f"Unknown selection_strategy '{config.selection_strategy}' — "
+        "valid: tournament, roulette_wheel, truncation"
+    )
