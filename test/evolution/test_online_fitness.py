@@ -47,3 +47,19 @@ class TestOnlineFitnessLog:
 
         assert len(log.read()) == 3
         assert len(pop.all()) == 4  # seeded by Population.create, not from online log
+
+    def test_clear_deletes_existing_log(self, tmp_path):
+        """A-004: clear() removes the file; subsequent read() returns []."""
+        log = OnlineFitnessLog(tmp_path / "of.jsonl")
+        log.record("compute", 0.5)
+        assert (tmp_path / "of.jsonl").exists()
+        log.clear()
+        assert not (tmp_path / "of.jsonl").exists()
+        assert log.read() == []
+
+    def test_clear_is_noop_when_file_does_not_exist(self, tmp_path):
+        """A-005: clear() on a never-written log does not raise FileNotFoundError."""
+        log = OnlineFitnessLog(tmp_path / "of.jsonl")
+        assert not (tmp_path / "of.jsonl").exists()
+        log.clear()  # must not raise
+        assert log.read() == []
