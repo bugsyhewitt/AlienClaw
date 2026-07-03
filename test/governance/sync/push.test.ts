@@ -38,20 +38,20 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-/** Write a genome JSON file into populationsRoot/<martianType>/<name>.json */
+/** Write a genome JSON file into populationsRoot/<martianType>/entries/<name>.json */
 function writeGenome(
   martianType: string,
   name: string,
   body: { genome?: string; fitness?: number; run_metadata?: Record<string, unknown> },
 ): void {
-  const dir = join(root, martianType);
+  const dir = join(root, martianType, 'entries');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${name}.json`), JSON.stringify(body), 'utf-8');
 }
 
-/** Write an arbitrary raw (possibly corrupt) file into a type dir. */
+/** Write an arbitrary raw (possibly corrupt) file into a type's entries dir. */
 function writeRaw(martianType: string, name: string, raw: string): void {
-  const dir = join(root, martianType);
+  const dir = join(root, martianType, 'entries');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, name), raw, 'utf-8');
 }
