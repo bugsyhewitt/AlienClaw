@@ -43,7 +43,8 @@ class TestMakeSelector:
 
     def test_roulette_strategy_is_fitness_proportionate(self):
         pop = _make_pop_with_fitness([0.0, 0.5])
-        select = _make_selector(EvolutionConfig(martian_type="compute", selection_strategy="roulette_wheel"))
+        config = EvolutionConfig(martian_type="compute", selection_strategy="roulette_wheel")
+        select = _make_selector(config)
         rng = random.Random(42)
         for _ in range(25):
             assert select(pop, rng).fitness == pytest.approx(0.5)
@@ -60,8 +61,9 @@ class TestMakeSelector:
             assert select(pop, rng).fitness == pytest.approx(0.9)
 
     def test_unknown_strategy_raises(self):
+        config = EvolutionConfig(martian_type="compute", selection_strategy="darwin_roulette")
         with pytest.raises(ValueError, match="Unknown selection_strategy 'darwin_roulette'"):
-            _make_selector(EvolutionConfig(martian_type="compute", selection_strategy="darwin_roulette"))
+            _make_selector(config)
 
 
 class TestConfigPersistenceRoundTrip:
