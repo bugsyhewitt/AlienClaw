@@ -47,6 +47,8 @@ class EvolutionConfig:
     - mutation_rate=1/256: matches GENOME_SPEC.md per-character rate
     - crossover_rate=0.5: equal mix of mutation-only and crossover children
     - elitism_count=2: top-2 always survive each generation
+    - selection_strategy='tournament': the v1.0 production path;
+      'roulette_wheel' and 'truncation' opt into the v1.x algorithms
     """
     martian_type: str
     population_size: int = 32
@@ -56,3 +58,5 @@ class EvolutionConfig:
     elitism_count: int = 2
     seed: int | None = None
     brain: "BrainSpec | None" = None
+    selection_strategy: str = "tournament"
+    truncation_top_fraction: float = 0.5
