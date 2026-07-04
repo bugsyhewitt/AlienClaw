@@ -123,6 +123,26 @@ class TestMatchLogic:
         assert r.output["totalMatches"] == 0
         assert r.output["matches"] == []
 
+    def test_glob_wildcard_star(self):
+        # flavor="glob": * expands to .* — matches any suffix; anchored full-line
+        r = run({"text": "hello world\nfoo bar\nhello again", "pattern": "hel*", "flavor": "glob"})
+        assert r.ok is True
+        assert r.output["flavor"] == "glob"
+        assert r.output["totalMatches"] == 2  # "hello world" and "hello again"
+
+    def test_glob_wildcard_question_mark(self):
+        # flavor="glob": ? matches exactly one character; ^ca.$ excludes "camel"
+        r = run({"text": "cat\ncar\ncab\ncamel", "pattern": "ca?", "flavor": "glob"})
+        assert r.ok is True
+        assert r.output["totalMatches"] == 3  # cat, car, cab — NOT camel
+
+    def test_unknown_flavor_falls_back_to_literal(self):
+        # Unrecognized flavor silently resets to "literal" (line 28 behavioral invariant)
+        r = run({"text": "hello world", "pattern": "hello", "flavor": "badvalue"})
+        assert r.ok is True
+        assert r.output["totalMatches"] == 1
+        assert r.output["flavor"] == "literal"
+
 
 # ---------------------------------------------------------------------------
 # Class 4 — Truncation flag
