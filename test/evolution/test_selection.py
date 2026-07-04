@@ -143,3 +143,10 @@ class TestTruncation:
         for bad in (0.0, -0.1, 1.5):
             with pytest.raises(ValueError, match="top_fraction"):
                 truncation(pop, bad, random.Random(1))
+
+    def test_empty_pool_raises_canonical_error(self):
+        config = EvolutionConfig(martian_type="compute", population_size=2, seed=7)
+        pop = Population.create(config)
+        pop.replace_pool([])
+        with pytest.raises(RuntimeError, match="empty population"):
+            truncation(pop, 0.5, random.Random(1))
