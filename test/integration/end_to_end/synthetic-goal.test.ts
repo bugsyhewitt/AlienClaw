@@ -219,4 +219,16 @@ describe('Synthetic integration — simplified governance path + real bridge', (
     expect(yaml).toContain('search_then_count');
     expect(yaml).toContain('compute_alone');
   });
+
+  it('buildTransitionTableYaml returns empty string for empty allowedMartians', () => {
+    const brief: SubagentBrief = {
+      campaignId: 'test', role: 'test', domain: 'test',
+      objective: 'test', scope: 'test', successCriteria: 'test',
+      allowedMartians: [],
+      deliverables: 'test', backgroundContext: '', communicationStyle: 'terse',
+      knowledgeBase: '', constraints: '',
+    };
+    const yaml = buildTransitionTableYaml(brief);
+    expect(yaml).toBe('');
+  });
 });
