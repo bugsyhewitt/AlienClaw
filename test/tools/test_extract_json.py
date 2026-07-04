@@ -77,6 +77,13 @@ class TestMsbOutputContract:
         assert r.output["extracted"] == {}
         assert r.output["inputKeys"] == ["a", "b"]
 
+    def test_path_with_leading_dot_skips_empty_segment(self):
+        # re.split(r"\.|(?=\[)", ".foo") → ['', 'foo']
+        # L13: the empty '' part must be silently skipped, not raise KeyError
+        r = run({"json": '{"foo": 42}', "path": ".foo"}, {})
+        assert r.ok is True
+        assert r.output["extracted"][".foo"]["value"] == 42
+
 
 # ── result_format gating (fitness-control parameter) ───────────────────────
 
