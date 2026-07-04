@@ -61,6 +61,8 @@ def kimura_fixation_prob(s: float, N: int) -> float:
     denominator = 1.0 - math.exp(-two_Ns)
 
     if abs(denominator) < 1e-15:
+        # Unreachable in practice: the abs(s) < 1e-10 guard above prevents
+        # two_Ns from being small enough to cause this for any N >= 1.
         return 1.0 / N
 
     return max(0.0, min(1.0, numerator / denominator))

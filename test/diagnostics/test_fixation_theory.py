@@ -49,6 +49,11 @@ class TestKimuraFixationProb:
         with pytest.raises(ValueError):
             kimura_fixation_prob(0.1, 0)
 
+    def test_strong_negative_overflow_guard(self):
+        """s so negative that 2*N*s < -700 → overflow guard returns 0.0."""
+        p = kimura_fixation_prob(-4.0, 100)
+        assert p == 0.0
+
 
 class TestExpectedFixationTime:
     def test_neutral_is_inf(self):
@@ -64,6 +69,11 @@ class TestExpectedFixationTime:
         t_small = expected_fixation_time(0.1, 10)
         t_large = expected_fixation_time(0.1, 1000)
         assert t_large > t_small
+
+    def test_invalid_N_raises(self):
+        """N <= 0 must raise ValueError in expected_fixation_time()."""
+        with pytest.raises(ValueError, match="N must be > 0"):
+            expected_fixation_time(0.1, 0)
 
 
 class TestSelectionCoefficient:
@@ -89,3 +99,10 @@ class TestAnalyzeSelectionRegime:
         result = analyze_selection_regime(0.5, 0.5, 100)
         assert result["s"] == 0.0
         assert result["regime"] in ("neutral", "drift")
+
+    def test_deleterious_drift_regime(self):
+        """Deleterious s (abs(s) > threshold) → else branch: regime='drift'."""
+        result = analyze_selection_regime(0.3, 0.5, 100)
+        assert result["s"] < 0
+        assert result["regime"] == "drift"
+        assert result["selection_acts"] is False
