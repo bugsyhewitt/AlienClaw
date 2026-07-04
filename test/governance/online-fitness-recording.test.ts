@@ -12,7 +12,7 @@
  *   A-003 (R-003): no log wired → spawnCampaign succeeds, no error thrown
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir }              from 'node:os';
 import path                    from 'node:path';
 
@@ -178,5 +178,35 @@ describe('Packet 129 — OnlineFitnessLog wired into GovernanceLoop.spawnCampaig
     expect((deps.goalManager as any).updateCampaign).toHaveBeenCalledWith(
       'goal-1', campaign.id, { status: 'complete' },
     );
+  });
+});
+
+// ── Packet 158 — OnlineFitnessLog.clear() ────────────────────────────────────
+
+describe('OnlineFitnessLog.clear()', () => {
+  let tmpDir:     string;
+  let fitnessLog: OnlineFitnessLog;
+
+  beforeEach(() => {
+    tmpDir     = mkdtempSync(path.join(tmpdir(), 'alienclaw-p158-'));
+    fitnessLog = new OnlineFitnessLog(path.join(tmpDir, 'online_fitness.jsonl'));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('deletes the log file when it exists', () => {
+    fitnessLog.record('compute', 0.8);
+    expect(existsSync(path.join(tmpDir, 'online_fitness.jsonl'))).toBe(true);
+    fitnessLog.clear();
+    expect(existsSync(path.join(tmpDir, 'online_fitness.jsonl'))).toBe(false);
+    expect(fitnessLog.read()).toHaveLength(0);
+  });
+
+  it('is a no-op when the file does not yet exist', () => {
+    const freshLog = new OnlineFitnessLog(path.join(tmpDir, 'never_written.jsonl'));
+    expect(() => freshLog.clear()).not.toThrow();
+    expect(freshLog.read()).toHaveLength(0);
   });
 });
