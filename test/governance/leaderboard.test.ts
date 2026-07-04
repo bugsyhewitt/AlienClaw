@@ -189,6 +189,31 @@ describe('validateLeaderboardResponse', () => {
     });
     expect(() => validateLeaderboardResponse(bad)).toThrow(/submitted_at must be a string/);
   });
+
+  // ── Packet 149 additions: top-level response type-coverage throws ──
+
+  it('rejects null top-level response (L130)', () => {
+    expect(() => validateLeaderboardResponse('null')).toThrow('Leaderboard response is not an object');
+  });
+
+  it('rejects array top-level response (L130)', () => {
+    expect(() => validateLeaderboardResponse('[]')).toThrow('Leaderboard response is not an object');
+  });
+
+  it('rejects non-string martian_type in response (L144)', () => {
+    const bad = JSON.stringify({ martian_type: 42, genomes: [], total_for_type: 0 });
+    expect(() => validateLeaderboardResponse(bad)).toThrow('martian_type must be a string');
+  });
+
+  it('rejects non-integer total_for_type in response (L147)', () => {
+    const bad = JSON.stringify({ martian_type: 'compute', genomes: [], total_for_type: '0' });
+    expect(() => validateLeaderboardResponse(bad)).toThrow('total_for_type must be an integer');
+  });
+
+  it('rejects non-array genomes field in response (L150)', () => {
+    const bad = JSON.stringify({ martian_type: 'compute', total_for_type: 0, genomes: 'not-array' });
+    expect(() => validateLeaderboardResponse(bad)).toThrow('genomes must be an array');
+  });
 });
 
 // ── leaderboardCheck ────────────────────────────────────────────────────────
