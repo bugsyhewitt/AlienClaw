@@ -87,6 +87,34 @@ describe('handleMartianTypes', () => {
     expect(entry?.submission_count).toBe(0);
     expect(entry?.last_submission_at).toBe('');
   });
+
+  it('includes online_fitness:null when OnlineFitnessLog has no entries for the type (R-004)', async () => {
+    // aggregateOnlineFitness reads ~/.alienclaw/online_fitness.jsonl; file absent → {count:0}
+    // handler maps count===0 to online_fitness:null
+    const store = {
+      topForType: async () => [],
+      countForType: async () => 0,
+    } as unknown as SubmissionStore;
+    const [, body] = await handleMartianTypes(new Set(['compute']), store);
+    const entry = body.martian_types[0];
+    expect(entry?.online_fitness).toBeNull();
+  });
+
+  it('online_fitness and current_top_fitness are structurally distinct fields (R-005)', async () => {
+    // current_top_fitness = evolved fitness from leaderboard DB (mocked to 0.95)
+    // online_fitness = runtime mean from OnlineFitnessLog (null — no log file in test env)
+    const store = {
+      topForType: async () => [{ fitness: 0.95, submitted_at: '2026-07-04T00:00:00Z' }],
+      countForType: async () => 1,
+    } as unknown as SubmissionStore;
+    const [, body] = await handleMartianTypes(new Set(['compute']), store);
+    const entry = body.martian_types[0];
+    expect(entry?.current_top_fitness).toBe(0.95);
+    expect(entry?.online_fitness).toBeNull();
+    // Both keys exist on the response object — structurally distinct
+    expect('current_top_fitness' in (entry ?? {})).toBe(true);
+    expect('online_fitness' in (entry ?? {})).toBe(true);
+  });
 });
 
 // ── handleInstall ────────────────────────────────────────────────────────────

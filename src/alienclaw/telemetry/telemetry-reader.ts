@@ -32,6 +32,17 @@ export interface FitnessSummary {
   rate:        number;  // successes / runs (0 if runs === 0)
 }
 
+export interface OnlineFitnessEntry {
+  martian_type: string;
+  fitness:      number;
+  ts:           string;  // ISO 8601
+}
+
+export interface OnlineFitnessAggregate {
+  count:        number;
+  mean_fitness: number;  // 0 when count === 0
+}
+
 // ── Reader ────────────────────────────────────────────────────────────────────
 
 /**
@@ -74,6 +85,33 @@ export async function readRecentMartianReports(sinceMs: number): Promise<Martian
   }
 
   return reports.sort((a, b) => a.ts - b.ts);
+}
+
+/**
+ * Aggregate online fitness entries for a specific martian_type.
+ * Reads ~/.alienclaw/online_fitness.jsonl written by OnlineFitnessLog (Python).
+ * Returns {count:0, mean_fitness:0} when the file is absent or has no matching entries.
+ */
+export async function aggregateOnlineFitness(
+  martianType: string,
+): Promise<OnlineFitnessAggregate> {
+  const logPath = join(PATHS.home, 'online_fitness.jsonl');
+  try {
+    const raw = await readFile(logPath, 'utf-8');
+    const entries = raw
+      .split('\n')
+      .filter(line => line.trim().length > 0)
+      .flatMap(line => {
+        try { return [JSON.parse(line) as OnlineFitnessEntry]; } catch { return []; }
+      })
+      .filter(e => e.martian_type === martianType);
+
+    if (entries.length === 0) return { count: 0, mean_fitness: 0 };
+    const sum = entries.reduce((acc, e) => acc + e.fitness, 0);
+    return { count: entries.length, mean_fitness: sum / entries.length };
+  } catch {
+    return { count: 0, mean_fitness: 0 };
+  }
 }
 
 /**
