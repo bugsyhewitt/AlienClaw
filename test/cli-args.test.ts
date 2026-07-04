@@ -71,6 +71,11 @@ describe('parseCliArgs — unknown / empty', () => {
     expect(parseCliArgs(cli('install'))).toEqual({ type: 'unknown', raw: ['install'] });
   });
 
+  it('R-003: returns unknown with raw [] for completely empty argv (no interpreter prefix)', () => {
+    // Triggers branch 0 arm1 (L55): argv[0] is undefined → argv[0] ?? '' fires
+    expect(parseCliArgs([])).toEqual({ type: 'unknown', raw: [] });
+  });
+
   it('R-004: returns unknown for `run` with no goal', () => {
     expect(parseCliArgs(cli('run'))).toEqual({ type: 'unknown', raw: ['run'] });
   });

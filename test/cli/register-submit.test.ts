@@ -50,6 +50,11 @@ describe('parseCliArgs — submit', () => {
     });
   });
 
+  it('rejects submit --type with no value (dangling flag)', () => {
+    // Triggers branch 16 arm1 (L101): value = raw[i+1] is undefined → value ?? '' fires
+    expect(parseCliArgs(['submit', '--type']).type).toBe('unknown');
+  });
+
   it('rejects submit without --type and with unknown flags', () => {
     expect(parseCliArgs(['submit']).type).toBe('unknown');
     expect(parseCliArgs(['submit', '--type', 'x', '--bogus']).type).toBe('unknown');

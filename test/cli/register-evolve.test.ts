@@ -57,6 +57,11 @@ describe('parseCliArgs — evolve', () => {
     expect(parseCliArgs(['evolve', '--type', 'x', '--bogus', '1']).type).toBe('unknown');
   });
 
+  it('rejects evolve --type with no value (dangling flag)', () => {
+    // Triggers branch 10 arm1 (L75): value = raw[i+1] is undefined → value ?? '' fires
+    expect(parseCliArgs(['evolve', '--type']).type).toBe('unknown');
+  });
+
   it('still routes --help before the evolve branch', () => {
     expect(parseCliArgs(['evolve', '--help']).type).toBe('help');
   });
