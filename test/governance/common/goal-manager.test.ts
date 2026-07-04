@@ -250,6 +250,22 @@ describe('GoalManager.save() — atomic write + lock release', () => {
     await expect(gm.save({ version: '1', activeGoalId: null, goals: [] }))
       .rejects.toThrow(/goals\.json lock not acquired/);
   });
+
+  it('propagates non-EEXIST errors from acquireLock immediately without retrying (L27 arm0)', async () => {
+    // Import fs module — same singleton that goal-manager.ts references as `import * as fs from 'fs'`.
+    const fsModule = await import('node:fs');
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    // Pre-create workspace so ensureGoalsDir() succeeds before acquireLock() is reached.
+    fsModule.mkdirSync(require('node:path').join(homeDir, 'workspace'), { recursive: true });
+    // Inject a single non-EEXIST error (EACCES) — should be re-thrown immediately, not retried.
+    const spy = vi.spyOn(fsModule.promises, 'open').mockRejectedValueOnce(
+      Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }),
+    );
+    await expect(gm.save({ version: '1', activeGoalId: null, goals: [] }))
+      .rejects.toThrow('EACCES');
+    spy.mockRestore();
+  });
 });
 
 // ─── 3. addGoal() ───────────────────────────────────────────────────────────
