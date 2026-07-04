@@ -49,3 +49,16 @@ class TestStubServer:
         with pytest.raises(Exception):
             with socket.create_connection(("127.0.0.1", port), timeout=1):
                 pass
+
+    def test_post_request_served_same_as_get(self):
+        """L41: do_POST delegates to do_GET — POST requests return the configured stub response."""
+        responses = {"/submit": (200, b"accepted", "text/plain")}
+        with StubServer(responses) as base_url:
+            req = urllib.request.Request(
+                base_url + "/submit",
+                data=b"some_payload",
+                method="POST",
+            )
+            with urllib.request.urlopen(req) as resp:
+                assert resp.status == 200
+                assert resp.read() == b"accepted"

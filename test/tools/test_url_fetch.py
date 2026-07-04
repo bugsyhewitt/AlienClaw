@@ -9,6 +9,28 @@ import pytest
 from alienclaw.tools.url_fetch import run
 
 
+# ── Latin-1 handler for UnicodeDecodeError fallback tests ───────────────────
+
+class _Latin1Handler(BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def do_GET(self):
+        body = b"caf\xe9 r\xe9sum\xe9"  # 'café résumé' in latin-1; not valid UTF-8
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=latin-1")
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture(scope="module")
+def latin1_server():
+    server = HTTPServer(("127.0.0.1", 0), _Latin1Handler)
+    port = server.server_address[1]
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    yield f"http://127.0.0.1:{port}"
+    server.shutdown()
+
+
 # ── Minimal in-process HTTP server for success-path tests ───────────────────
 
 class _Handler(BaseHTTPRequestHandler):
@@ -126,3 +148,14 @@ class TestRequestCount:
     def test_request_count_clamped_to_5(self, local_server):
         r = run({"url": local_server}, {"request_count": 99})
         assert r.tool_calls == 5
+
+
+# ── UnicodeDecodeError fallback (L45-46) ────────────────────────────────────
+
+class TestUnicodeDecodeErrorFallback:
+    def test_non_utf8_response_decoded_as_latin1(self, latin1_server):
+        """L45-46: non-UTF-8 response falls back to latin-1 decode instead of failing."""
+        r = run({"url": latin1_server}, {"field_count": 3, "content_preview": 5})
+        assert r.ok is True
+        # 'café résumé' decoded from latin-1
+        assert "café" in r.output.get("preview", "") or "résumé" in r.output.get("preview", "")
