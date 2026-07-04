@@ -160,4 +160,24 @@ describe('mutateDirected — runtime invariants (TS)', () => {
     const out = mutateDirected(g, [null, b, null, null], makeRand(23), 1.0);
     expect(out).toBe(g);
   });
+
+  it('slotBrains shorter than slot indices — short-array guard skips out-of-range slots', () => {
+    // slotIdx iterates [1, 2]; with length=0, L76 fires for both → genome unchanged
+    const out0 = mutateDirected(g, [], makeRand(1));
+    expect(out0.length).toBe(GENOME_LENGTH);
+    // With length=1, both slotIdx=1 (1>=1) and slotIdx=2 (2>=1) trip L76 → neither slot runs
+    const b1: SlotBrain = { parameterSchema: [{ xcodeIndex: 0, rangeMin: 0, rangeMax: 3843, direction: 'none' }] };
+    const out1 = mutateDirected(g, [b1], makeRand(1), 1.0);
+    expect(out1.length).toBe(GENOME_LENGTH);
+  });
+
+  it('non-Base62 chars in genome body — ?? 0 fallback maps invalid char to index 0 without throwing', () => {
+    // base for slot 1, xcodeIndex 0 = 1*64+1+0*2 = 65; corrupt chars[65] and chars[66]
+    const corrupt = g.slice(0, 65) + '!!' + g.slice(67, 192) + g.slice(192);
+    expect(corrupt.length).toBe(GENOME_LENGTH);  // sanity: still 256 chars
+    const b: SlotBrain = { parameterSchema: [{ xcodeIndex: 0, rangeMin: 0, rangeMax: 3843, direction: 'none' }] };
+    // Should not throw; both ?? 0 fallbacks (b9a1 + b10a1) fire covering L85
+    const out = mutateDirected(corrupt, [null, b, null, null], makeRand(5), 1.0);
+    expect(out).toHaveLength(GENOME_LENGTH);
+  });
 });
