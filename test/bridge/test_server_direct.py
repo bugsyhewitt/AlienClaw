@@ -218,6 +218,21 @@ class TestSummonValidation:
         assert err["code"] == "TOOL_RUNNER_FAILED"
         assert err["details"]["slot_index"] == 0
 
+    def test_tool_exception_is_structured_never_crashes(self, monkeypatch):
+        """L130-132: if a tool function raises, bridge returns structured TOOL_RUNNER_FAILED."""
+        from alienclaw.tools import TOOL_REGISTRY
+
+        def raising_tool(inputs, params):
+            raise RuntimeError("tool internal crash")
+
+        monkeypatch.setitem(TOOL_REGISTRY, "compute", raising_tool)
+        resp = handle(_envelope(martian_type="compute_alone", inputs={"input": "2 + 2"}))
+        err = resp["response"]["error"]
+        assert err["code"] == "TOOL_RUNNER_FAILED"
+        assert "runner raised exception" in err["message"]
+        assert "tool internal crash" in err["message"]
+        assert err["details"]["slot_index"] == 0
+
 
 class TestSummonFromPopulationShape:
     @staticmethod
@@ -238,3 +253,86 @@ class TestSummonFromPopulationShape:
     def test_unknown_martian_type(self):
         resp = self._sfp({"martian_type": "no_such_martian", "inputs": {}, "timeout_ms": 1000})
         assert resp["response"]["error"]["code"] == "UNKNOWN_MARTIAN_TYPE"
+
+    def test_sfp_non_dict_inputs_rejected(self):
+        """L262: inputs must be an object in summon-from-population."""
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": "not-a-dict",
+            "timeout_ms": 1000,
+        })
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "inputs" in err["message"]
+
+    def test_sfp_population_load_failure_returns_internal_error(self, monkeypatch):
+        """L279-280: Population.load_or_create raises → INTERNAL error, not crash."""
+        from alienclaw.evolution.population import Population
+
+        def fail_load(config):
+            raise OSError("simulated disk error")
+
+        monkeypatch.setattr(Population, "load_or_create", staticmethod(fail_load))
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": {"input": "2 + 2"},
+            "timeout_ms": 1000,
+        })
+        err = resp["response"]["error"]
+        assert err["code"] == "INTERNAL"
+        assert "Population error" in err["message"]
+        assert "disk error" in err["details"]["exception"]
+
+    def test_sfp_tournament_failure_returns_internal_error(self, monkeypatch):
+        """L286-287: tournament() raises RuntimeError → INTERNAL error, not crash."""
+        from alienclaw.evolution.population import Population
+
+        def fail_sample(self, rng):
+            raise RuntimeError("pool corrupted")
+
+        monkeypatch.setattr(Population, "sample", fail_sample)
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": {"input": "2 + 2"},
+            "timeout_ms": 1000,
+        })
+        err = resp["response"]["error"]
+        assert err["code"] == "INTERNAL"
+        assert "Selection error" in err["message"]
+        assert "pool corrupted" in err["details"]["exception"]
+
+    def test_sfp_martian_failure_annotates_genome_used(self):
+        """L297-311: when sfp execution fails, error details include genome_used."""
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": {"input": "this is not valid math and will fail"},
+            "timeout_ms": 1000,
+        })
+        assert resp["response"]["ok"] is False
+        err = resp["response"]["error"]
+        assert err["code"] == "TOOL_RUNNER_FAILED"
+        assert "genome_used" in err["details"]
+        assert len(err["details"]["genome_used"]) == 256
+
+    def test_sfp_pop_add_failure_in_success_path_is_silenced(self, monkeypatch):
+        """L325-326: pop.add() raises in success feedback path → silenced, response returned."""
+        from alienclaw.evolution.population import Population
+
+        original_add = Population.add
+        calls = {"n": 0}
+
+        def flaky_add(self, genome, fitness, generation, parent_ids, run_metadata):
+            calls["n"] += 1
+            if run_metadata.get("re_evaluated"):
+                raise RuntimeError("write failure")
+            return original_add(self, genome, fitness, generation, parent_ids, run_metadata)
+
+        monkeypatch.setattr(Population, "add", flaky_add)
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": {"input": "2 + 2"},
+            "timeout_ms": 1000,
+        })
+        assert "response" in resp
+        if resp["response"]["ok"]:
+            assert "genome_used" in resp["response"]
