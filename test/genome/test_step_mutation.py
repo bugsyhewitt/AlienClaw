@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import random
 
+import pytest
+
 from alienclaw.brains.types import BrainSpec, GenomeSectionDocs, ParameterSchemaField
 from alienclaw.genome.checksum import compute_checksum
 from alienclaw.genome.codec import (
@@ -49,6 +51,24 @@ def _set_xcode(genome: str, slot_index: int, xcode_index: int, value: int) -> st
 
 
 _BASE_GENOME = random_genome(random.Random(0), "TEST0001")
+
+
+class TestInputValidation:
+    def test_rejects_wrong_length_genome(self) -> None:
+        with pytest.raises(ValueError, match="256 chars"):
+            mutate_directed("0" * 255, [], random.Random(1))
+
+    def test_short_slot_brains_does_not_crash(self) -> None:
+        # len=1: both slot 1 and slot 2 trigger the guard at L290
+        result = mutate_directed(_BASE_GENOME, [None], random.Random(99))
+        # No mutation, just recomputed checksum (noop on valid genome)
+        assert result[:192] == _BASE_GENOME[:192]
+        assert validate(result).valid
+
+    def test_slot_brains_len2_skips_slot2(self) -> None:
+        # len=2: slot 2 triggers the guard; slot 1 is None so also skipped
+        result = mutate_directed(_BASE_GENOME, [None, None], random.Random(99))
+        assert result[:192] == _BASE_GENOME[:192]
 
 
 class TestEmptyBrains:

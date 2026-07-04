@@ -47,3 +47,16 @@ class TestOnlineFitnessLog:
 
         assert len(log.read()) == 3
         assert len(pop.all()) == 4  # seeded by Population.create, not from online log
+
+    def test_clear_deletes_file(self, tmp_path):
+        """A-004: clear() deletes the JSONL file and read() returns [] after."""
+        log = OnlineFitnessLog(tmp_path / "of.jsonl")
+        log.record("compute", 0.5)
+        log.clear()
+        assert log.read() == []
+
+    def test_clear_on_missing_file_is_noop(self, tmp_path):
+        """A-005: clear() on a never-written log does not raise."""
+        log = OnlineFitnessLog(tmp_path / "never.jsonl")
+        log.clear()  # file doesn't exist — must not raise
+        assert log.read() == []
