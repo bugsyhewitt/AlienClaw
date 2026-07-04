@@ -340,6 +340,27 @@ describe('CompletionHandler', () => {
       const msg = userCh.prompt.mock.calls[0]![0] as string;
       expect(msg).toContain('(no items)');
     });
+
+    it('includes completed campaigns in the done summary when goal has a scheme', async () => {
+      goalMgr = makeGoalManager([{
+        id: 'goal-1',
+        description: 'Build X',
+        subGoals: [{ id: 'sg-1', description: 'subgoal one', status: 'complete' }],
+        scheme: { campaigns: [
+          { id: 'camp-1', name: 'Alpha', objective: 'alpha obj', status: 'complete' },
+          { id: 'camp-2', name: 'Beta',  objective: 'beta obj',  status: 'pending'  },
+        ]},
+      }]);
+      userCh = makeUserChannel('yes');
+      handler = new CompletionHandler(
+        advisor as any, goalMgr as any, userCh as any, agentCh as any,
+      );
+      await handler.promptSignoff('goal-1');
+      const msg = userCh.prompt.mock.calls[0]![0] as string;
+      expect(msg).toContain('Alpha');
+      expect(msg).toContain('alpha obj');
+      expect(msg).not.toContain('Beta');   // pending campaign is filtered out
+    });
   });
 
   // ── Constructor + surface area ───────────────────────────────────────────
