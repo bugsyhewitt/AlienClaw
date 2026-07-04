@@ -7,8 +7,13 @@
  *   3. registerEvolveCommand Commander wiring (fake-program pattern,
  *      matching test/cli/cli.test.ts — commander itself is not imported)
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { Command } from 'commander';
+
+vi.mock('../../src/alienclaw/cli/evolve.js', async (importActual) => {
+  const actual = await importActual() as Record<string, unknown>;
+  return { ...actual, runEvolve: vi.fn().mockResolvedValue(0) };
+});
 
 import { parseCliArgs } from '../../src/alienclaw/cli/args.js';
 import { formatGenerationLine, buildRunnerArgs } from '../../src/alienclaw/cli/evolve.js';
@@ -149,5 +154,25 @@ describe('registerEvolveCommand', () => {
     expect(fake.lastCommandName()).toBe('evolve');
     expect(fake.lastAction()).toBeTypeOf('function');
     expect(fake.helpText()).toContain('alienclaw evolve --type compute_alone');
+  });
+});
+
+describe('registerEvolveCommand — action callback', () => {
+  it('passes seed as Number(opts.seed) when seed is provided', async () => {
+    const fake = makeFakeProgram();
+    registerEvolveCommand(fake.program);
+    const action = fake.lastAction() as (opts: Record<string, unknown>) => Promise<void>;
+    await action({ type: 'compute', generations: '3', population: '16', seed: '42' });
+    const { runEvolve } = await import('../../src/alienclaw/cli/evolve.js');
+    expect(runEvolve).toHaveBeenCalledWith(expect.objectContaining({ seed: 42 }));
+  });
+
+  it('passes seed as undefined when seed option is omitted', async () => {
+    const fake = makeFakeProgram();
+    registerEvolveCommand(fake.program);
+    const action = fake.lastAction() as (opts: Record<string, unknown>) => Promise<void>;
+    await action({ type: 'compute', generations: '5', population: '8' });
+    const { runEvolve } = await import('../../src/alienclaw/cli/evolve.js');
+    expect(runEvolve).toHaveBeenCalledWith(expect.objectContaining({ seed: undefined }));
   });
 });
