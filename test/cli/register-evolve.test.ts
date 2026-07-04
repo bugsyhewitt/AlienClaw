@@ -82,6 +82,11 @@ describe('formatGenerationLine', () => {
     const line = JSON.stringify({ note: 'not a generation row' });
     expect(formatGenerationLine(line, 10)).toBe(line);
   });
+
+  it('omits distinct= suffix when distinct_genomes is absent from the generation row', () => {
+    const row = JSON.stringify({ generation: 3, mean_fitness: 0.55, max_fitness: 0.87 });
+    expect(formatGenerationLine(row, 10)).toBe('gen 3/10  max=0.870 mean=0.550');
+  });
 });
 
 describe('buildRunnerArgs', () => {
