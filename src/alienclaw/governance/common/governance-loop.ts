@@ -19,6 +19,7 @@ import type { EscalationHandler }  from './escalation-handler.js';
 import type { CompletionHandler }  from './completion-handler.js';
 import type { UserChannel }        from '../../comms/user-channel.js';
 import type { AgentChannel }        from '../../comms/agent-channel.js';
+import type { OnlineFitnessLog }    from './online-fitness-log.js';
 
 // ── Valid state transitions ───────────────────────────────────────────────────
 
@@ -63,6 +64,8 @@ export interface GovernanceLoopDeps {
    *  the population-backed summon path (fromPopulation: true). Optional for backward
    *  compat with existing tests that don't wire it. */
   campaignCreatorBot?: CommonCreatorBot;
+  /** Optional recorder for observed runtime fitness from live campaign completion. */
+  onlineFitnessLog?: OnlineFitnessLog;
 }
 
 // ── GovernanceLoop ────────────────────────────────────────────────────────────
@@ -105,6 +108,7 @@ export class GovernanceLoop {
   private readonly adapter:            MartianSummonAdapter;
   private readonly domainResolver?:    DomainResolver;
   private readonly campaignCreatorBot?: CommonCreatorBot;
+  private readonly onlineFitnessLog?:  OnlineFitnessLog;
 
   constructor(deps: GovernanceLoopDeps) {
     this.bossBot           = deps.bossBot;
@@ -120,6 +124,7 @@ export class GovernanceLoop {
     this.adapter            = deps.adapter;
     this.domainResolver     = deps.domainResolver;
     this.campaignCreatorBot = deps.campaignCreatorBot;
+    this.onlineFitnessLog   = deps.onlineFitnessLog;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -410,6 +415,7 @@ export class GovernanceLoop {
         const succeeded = campaignResult.termination_reason === 'state_machine_finalized';
 
         if (succeeded) {
+          this.onlineFitnessLog?.record(martianType, campaignResult.fitness);
           await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'complete' });
           this.userChannel.status(`Campaign complete: "${campaign.name}" (fitness: ${campaignResult.fitness.toFixed(2)})`);
           this.pushEvent({
