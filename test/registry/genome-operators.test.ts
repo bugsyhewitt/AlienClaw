@@ -149,4 +149,15 @@ describe('mutateDirected — runtime invariants (TS)', () => {
     expect(out).toHaveLength(256);
     expect(validateGenome(out).valid).toBe(true);
   });
+
+  it('rangeMin === rangeMax: every step clamps back to currParam — genome stays unchanged', () => {
+    // xcodeToParamValue(any, 50, 50) = 50 always (span=1).
+    // Math.max(50, Math.min(50, 50 ± step)) = 50 = currParam → `continue` fires for
+    // every mutation attempt, covering branch 14 arm 0 on L95.
+    const b: SlotBrain = {
+      parameterSchema: [{ xcodeIndex: 0, rangeMin: 50, rangeMax: 50, direction: 'none' }],
+    };
+    const out = mutateDirected(g, [null, b, null, null], makeRand(23), 1.0);
+    expect(out).toBe(g);
+  });
 });
