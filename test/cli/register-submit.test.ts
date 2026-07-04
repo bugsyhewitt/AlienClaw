@@ -13,6 +13,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 
+vi.mock('node:readline/promises', () => ({
+  createInterface: vi.fn(() => ({
+    question: vi.fn(),
+    close:    vi.fn(),
+  })),
+}));
+
+import { createInterface } from 'node:readline/promises';
+
 import { parseCliArgs } from '../../src/alienclaw/cli/args.js';
 import { ensureApiKey, machineHash } from '../../src/alienclaw/governance/common/sync/credentials.js';
 import { runSubmit } from '../../src/alienclaw/cli/submit.js';
@@ -227,6 +236,42 @@ describe('runSubmit — stubbed network', () => {
 
     expect(rc).toBe(0);
     expect(mockAlienClawSave).toHaveBeenCalledWith({ leaderboardName: 'ALIENBOT' });
+  });
+
+  it('yes=false: proceeds when user answers "y"', async () => {
+    seedBest('compute_alone', 0.9);
+    stubFetch();
+    (createInterface as ReturnType<typeof vi.fn>).mockReturnValue({
+      question: vi.fn().mockResolvedValue('y'),
+      close:    vi.fn(),
+    });
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: false, force: false });
+    expect(rc).toBe(0);
+  });
+
+  it('yes=false: aborts when user declines', async () => {
+    seedBest('compute_alone', 0.9);
+    stubFetch();
+    (createInterface as ReturnType<typeof vi.fn>).mockReturnValue({
+      question: vi.fn().mockResolvedValue('n'),
+      close:    vi.fn(),
+    });
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: false, force: false });
+    expect(rc).toBe(1);
+  });
+
+  it('catch: returns 1 and logs when submitFromFile throws an Error', async () => {
+    seedBest('compute_alone', 0.9);
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/v1/install'))
+        return new Response(JSON.stringify({ install_id: 'i-1', known: false }), { status: 201, headers: { 'content-type': 'application/json' } });
+      if (url.includes('/v1/genomes/top'))
+        return new Response(JSON.stringify({ martian_type: 'compute_alone', genomes: [], total_for_type: 0 }), { status: 200, headers: { 'content-type': 'application/json' } });
+      throw new Error('network failure');
+    }));
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
+    expect(rc).toBe(1);
   });
 
   it('uses stored preferences.leaderboardName when no flag and no env set', async () => {
