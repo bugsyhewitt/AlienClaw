@@ -2,6 +2,7 @@ import random
 
 import pytest
 
+from alienclaw.brains.types import BrainSpec, GenomeSectionDocs, ParameterSchemaField
 from alienclaw.evolution.generation import FitnessReport, RunMartianCallback, evaluate_and_evolve
 from alienclaw.evolution.population import Population
 from alienclaw.evolution.types import EvolutionConfig
@@ -115,3 +116,85 @@ class TestEvaluateAndEvolve:
         genomes2 = sorted(e.genome for e in pop2.all())
         # Same seed → same children genomes
         assert genomes1 == [] or genomes1 == genomes2
+
+
+def _minimal_brain() -> BrainSpec:
+    """Minimal BrainSpec with one EXECUTION-slot parameter for directed mutation."""
+    return BrainSpec(
+        tool="test_tool",
+        version="1.0",
+        capabilities="test",
+        limitations="test",
+        failure_modes="test",
+        best_practices="test",
+        execution_order=("step one",),
+        output_contract="{}",
+        genome_sections=GenomeSectionDocs(
+            identity="id", execution="exec", behavior="behav", checksum="cs"
+        ),
+        variables={},
+        parameter_schema=(
+            ParameterSchemaField(
+                name="max_attempts",
+                description="How many attempts",
+                xcode_index=0,
+                range_min=1,
+                range_max=10,
+                default=3,
+                direction="lower",
+            ),
+        ),
+    )
+
+
+class TestBrainDirectedMutation:
+    def test_brain_path_runs_without_error(self):
+        """evaluate_and_evolve with config.brain set takes the mutate_directed path."""
+        brain = _minimal_brain()
+        config = EvolutionConfig(
+            martian_type="compute",
+            population_size=4,
+            elitism_count=1,
+            crossover_rate=0.0,  # force mutation-only path
+            brain=brain,
+            seed=1,
+        )
+        pop = Population.create(config)
+        result = evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(42))
+        assert result["children_minted"] == 3  # population_size - elitism_count
+
+    def test_brain_path_produces_valid_genomes(self):
+        """Children produced by brain-directed mutation are valid 256-char genomes."""
+        brain = _minimal_brain()
+        config = EvolutionConfig(
+            martian_type="compute",
+            population_size=4,
+            crossover_rate=0.0,
+            brain=brain,
+            seed=1,
+        )
+        pop = Population.create(config)
+        evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(42))
+        for entry in pop.all():
+            assert len(entry.genome) == 256
+
+    def test_brain_path_does_not_use_config_mutation_rate(self):
+        """brain mode locks rate to PER_XCODE_MUTATION_RATE; config.mutation_rate is ignored."""
+        brain = _minimal_brain()
+        # Same seed, different mutation_rate — brain path ignores it so outputs must be identical.
+        # Use distinct martian_type values to avoid population-storage collision within one test.
+        config_a = EvolutionConfig(
+            martian_type="compute_ra", population_size=4, crossover_rate=0.0,
+            brain=brain, mutation_rate=1 / 256, seed=1,
+        )
+        config_b = EvolutionConfig(
+            martian_type="compute_rb", population_size=4, crossover_rate=0.0,
+            brain=brain, mutation_rate=0.5, seed=1,
+        )
+        pop_a = Population.create(config_a)
+        pop_b = Population.create(config_b)
+        evaluate_and_evolve(pop_a, config_a, fixed_runner(0.5), random.Random(42))
+        evaluate_and_evolve(pop_b, config_b, fixed_runner(0.5), random.Random(42))
+        genomes_a = sorted(e.genome for e in pop_a.all())
+        genomes_b = sorted(e.genome for e in pop_b.all())
+        assert genomes_a == genomes_b  # mutation_rate ignored; outcomes identical
