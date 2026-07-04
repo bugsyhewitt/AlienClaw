@@ -62,3 +62,25 @@ class TestParseMartian:
     def test_empty_slots_raises(self):
         with pytest.raises(MartianParseError, match="non-empty"):
             parse_martian("martian_type: foo\nslots: []\n")
+
+    def test_slot_not_a_mapping_raises(self):
+        """Line 39: slot entry is a scalar, not a dict."""
+        with pytest.raises(MartianParseError, match="must be a mapping"):
+            parse_martian("martian_type: foo\nslots:\n  - string_not_dict\n")
+
+    def test_slot_missing_required_field_raises(self):
+        """Line 42: slot_index and tool_name are both required."""
+        with pytest.raises(MartianParseError, match="missing 'slot_index'"):
+            parse_martian("martian_type: foo\nslots:\n  - tool_name: compute\n")
+        with pytest.raises(MartianParseError, match="missing 'tool_name'"):
+            parse_martian("martian_type: foo\nslots:\n  - slot_index: 0\n")
+
+    def test_inputs_from_without_fields_key_raises(self):
+        """Line 52: inputs_from must be null or have a 'fields' mapping."""
+        yaml = (
+            "martian_type: foo\nslots:\n"
+            "  - slot_index: 0\n    tool_name: compute\n"
+            "    inputs_from:\n      wrong_key: bar\n"
+        )
+        with pytest.raises(MartianParseError, match="inputs_from must be null or have"):
+            parse_martian(yaml)
