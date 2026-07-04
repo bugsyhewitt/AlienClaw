@@ -18,6 +18,19 @@ import { ensureApiKey, machineHash } from '../../src/alienclaw/governance/common
 import { runSubmit } from '../../src/alienclaw/cli/submit.js';
 import { registerSubmitCommand } from '../../src/alienclaw/cli/register.submit.js';
 
+// ── alienclaw-config mock (Tier 1 / Tier 3 resolveName paths) ────────────────
+const { mockAlienClawSave, mockAlienClawPrefs } = vi.hoisted(() => ({
+  mockAlienClawSave: vi.fn(),
+  mockAlienClawPrefs: {} as { leaderboardName?: string },
+}));
+
+vi.mock('../../src/alienclaw/config/alienclaw-config.js', () => ({
+  alienClawConfig: {
+    savePreferences: mockAlienClawSave,
+    preferences: mockAlienClawPrefs,
+  },
+}));
+
 // ── 1. parseCliArgs submit branch ────────────────────────────────────────────
 
 describe('parseCliArgs — submit', () => {
@@ -193,6 +206,43 @@ describe('runSubmit — stubbed network', () => {
     stubFetch();
     const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
     expect(rc).toBe(1);
+  });
+
+  it('persists --name flag to preferences via savePreferences', async () => {
+    mockAlienClawSave.mockClear();
+    delete mockAlienClawPrefs.leaderboardName;
+    vi.unstubAllEnvs();
+    vi.stubEnv('ALIENCLAW_HOME', home);
+    vi.stubEnv('ALIENCLAW_POPULATIONS_ROOT', popsRoot);
+    vi.stubEnv('ALIENCLAW_API_URL', 'https://api.test.invalid');
+    seedBest('compute_alone', 0.9);
+    stubFetch();
+
+    const rc = await runSubmit({ martianType: 'compute_alone', name: 'ALIENBOT', yes: true, force: true });
+
+    expect(rc).toBe(0);
+    expect(mockAlienClawSave).toHaveBeenCalledWith({ leaderboardName: 'ALIENBOT' });
+  });
+
+  it('uses stored preferences.leaderboardName when no flag and no env set', async () => {
+    mockAlienClawSave.mockClear();
+    mockAlienClawPrefs.leaderboardName = 'PREFNAME';
+    vi.unstubAllEnvs();
+    vi.stubEnv('ALIENCLAW_HOME', home);
+    vi.stubEnv('ALIENCLAW_POPULATIONS_ROOT', popsRoot);
+    vi.stubEnv('ALIENCLAW_API_URL', 'https://api.test.invalid');
+    seedBest('compute_alone', 0.9);
+    const fetchStub = stubFetch();
+
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: true });
+
+    expect(rc).toBe(0);
+    const post = fetchStub.mock.calls.find(c =>
+      (c[1] as RequestInit | undefined)?.method === 'POST' &&
+      String(c[0]).endsWith('/v1/genomes'),
+    );
+    const body = JSON.parse(String((post![1] as RequestInit).body));
+    expect(body.leaderboard_name).toBe('PREFNAME');
   });
 });
 
