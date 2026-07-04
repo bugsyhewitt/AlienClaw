@@ -125,3 +125,16 @@ class TestLandscapeGrid:
                 assert row["fitness"] == pytest.approx(1.0 / 4, abs=0.01)
             else:
                 assert row["fitness"] == pytest.approx(1.0, abs=0.01)
+
+    def test_custom_formulas_override_defaults(self):
+        """Custom formulas dict bypasses the default set (covers the formulas-is-not-None branch)."""
+        custom = {"only_b": option_b}
+        rows = landscape_grid(
+            slot_count=2,
+            correctness_values=[1.0],
+            excess_values=[0],
+            formulas=custom,
+        )
+        assert len(rows) == 1
+        assert rows[0]["formula"] == "only_b"
+        assert rows[0]["fitness"] == pytest.approx(1.0)
