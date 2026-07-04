@@ -166,6 +166,25 @@ describe('decodeXcode', () => {
     expect(() => decodeXcode(g, 0, 31)).toThrow(/xcodeIndex out of range/);
     expect(() => decodeXcode(g, 0, -1)).toThrow(/xcodeIndex out of range/);
   });
+
+  it('silently maps non-Base62 first char to 0 via ?? 0 (arm1 of branch 13)', () => {
+    // genome[base] = '!' (non-Base62): _xcodeIndex['!'] = undefined → ?? 0 → 0
+    // genome[base+1] = '0' (valid, index 0): _xcodeIndex['0'] = 0
+    // Result: 0 * 62 + 0 = 0
+    const g = '0'.repeat(256).split('');
+    g[1] = '!'; // base = 0*64 + 1 + 0*2 = 1, slot 0, xcode 0
+    expect(decodeXcode(g.join(''), 0, 0)).toBe(0);
+  });
+
+  it('silently maps non-Base62 second char to 0 via ?? 0 (arm1 of branch 14)', () => {
+    // genome[base] = 'A' (valid, index 10): _xcodeIndex['A'] = 10
+    // genome[base+1] = '!' (non-Base62): _xcodeIndex['!'] = undefined → ?? 0 → 0
+    // Result: 10 * 62 + 0 = 620
+    const g = '0'.repeat(256).split('');
+    g[1] = 'A'; // base = 1
+    g[2] = '!'; // base+1 = 2
+    expect(decodeXcode(g.join(''), 0, 0)).toBe(620);
+  });
 });
 
 // ---------------------------------------------------------------------------
