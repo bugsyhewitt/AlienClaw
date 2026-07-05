@@ -435,6 +435,14 @@ describe('submitFromFile', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it('rejects artifact with non-string genome before any network call (L270 typeof arm)', async () => {
+    const path = writeArtifact({ genome: 42 as unknown as string });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/256/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('rejects artifact with non-Base62 characters before making any network call', async () => {
     const badGenome = '-'.repeat(256);
     const path = writeArtifact({ genome: badGenome });
