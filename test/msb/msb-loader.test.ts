@@ -470,6 +470,15 @@ describe('msb/msb-loader — parseMsbContent(raw, sourcePath) — supplemental',
     const brain = parseMsbContent(emptyOrderMsb);
     expect(brain.executionOrder).toEqual([]);
   });
+
+  it('R-405: omitting sourcePath → validation-failure error has no location string', () => {
+    let captured: Error | null = null;
+    try { parseMsbContent(INVALID_MSB); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toMatch(/^MSB validation failed:\n/);
+    expect(captured!.message).not.toContain('(');
+  });
 });
 
 // ---------------------------------------------------------------------------
