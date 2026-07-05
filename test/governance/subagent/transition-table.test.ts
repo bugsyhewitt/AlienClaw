@@ -461,3 +461,43 @@ describe('parseConditionInner with all 11 supported kinds', () => {
     }
   });
 });
+
+describe('unquote — single-quoted values in YAML', () => {
+  it('strips single quotes from plan input and goto values', () => {
+    const yaml = `transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: compute_alone
+      inputs:
+        plan: 'my plan'
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: 'FINALIZE'
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states?.step1?.inputs?.plan).toBe('my plan');
+    expect(r.table?.states?.step1?.transitions?.[0]?.goto).toBe('FINALIZE');
+  });
+});
+
+describe('parseConditionInner — no-colon part guard (L139)', () => {
+  it('silently skips condition parts that have no colon separator', () => {
+    const yaml = `transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: compute_alone
+      inputs:
+        plan: "plan"
+      transitions:
+        - when: { all: [{ kind_no_colon martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    const conds = r.table?.states?.step1?.transitions?.[0]?.when?.conditions ?? [];
+    expect(conds.length).toBe(0);
+  });
+});
