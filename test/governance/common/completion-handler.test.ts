@@ -254,6 +254,23 @@ describe('CompletionHandler', () => {
       await handler.review('goal-1');
       expect(callOrder).toEqual(['verbose', 'advise']);
     });
+
+    it('returns proceed: false with empty reopenIds and includes "(no items)" context when goal has no subGoals and no scheme (confidence: low)', async () => {
+      advisor = makeAdvisorBot({ verdict: 'unclear', confidence: 'low' });
+      goalMgr = makeGoalManager([{ id: 'goal-1', description: 'Build X', subGoals: [] }]);
+      handler = new CompletionHandler(
+        advisor as any, goalMgr as any, userCh as any, agentCh as any,
+      );
+
+      const out = await handler.review('goal-1');
+
+      // Branch 7 arm-1: reopenId is undefined → reopenIds = []
+      expect(out).toEqual({ proceed: false, reopenIds: [] });
+
+      // Branch 3 arm-1: summary is empty → '  (no items)' fallback fires
+      const [req] = advisor.advise.mock.calls[0]!;
+      expect(req.context).toContain('(no items)');
+    });
   });
 
   // ── promptSignoff() ──────────────────────────────────────────────────────
