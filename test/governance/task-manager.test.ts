@@ -67,6 +67,15 @@ describe('TaskManager', () => {
     expect(() => tm.resetStrikes('nope')).not.toThrow();
   });
 
+  it('resetStrikes: no extendedBudget arg — strikes cleared, extendedBudget not set', () => {
+    const tm = new TaskManager();
+    const t = mkTask('b', { strikeCount: 2 });
+    tm.register(t);
+    tm.resetStrikes('b');
+    expect(t.strikeCount).toBe(0);
+    expect((t as TaskEnvelope & { extendedBudget?: number }).extendedBudget).toBeUndefined();
+  });
+
   it('getAttemptSummary empty: placeholder for missing and no-attempt task', () => {
     const tm = new TaskManager();
     expect(tm.getAttemptSummary('nope')).toBe('  (no attempts recorded)');
