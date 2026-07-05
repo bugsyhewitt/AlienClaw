@@ -142,6 +142,14 @@ describe('bootstrapRegistry — path handling', () => {
     const fileCount = readdirSync(msDir).filter(f => f.endsWith('.ms')).length;
     expect(runtime.registry.size).toBe(fileCount);
   });
+
+  it('R-203: uses PATHS.home as the registry dir when no alienclawHome argument is supplied', async () => {
+    const { bootstrapRegistry } = await loadBootstrapModule();
+    // alienclawHome omitted → home = PATHS.home, which reads ALIENCLAW_HOME env var
+    // (set to tmpHome by beforeEach). Registry should load the same seed Martians.
+    const runtime = await bootstrapRegistry();
+    expect(runtime.registry.size).toBeGreaterThan(0);
+  });
 });
 
 describe('bootstrapRegistry — idempotency', () => {
