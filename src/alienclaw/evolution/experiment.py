@@ -9,6 +9,7 @@ import random
 from typing import Callable
 
 from .generation import RunMartianCallback, evaluate_and_evolve
+from .governance_gate import GovernanceGate
 from .population import Population
 from .stats import compute_from_entries
 from .types import EvolutionConfig, GenerationStats
@@ -19,6 +20,7 @@ def run_experiment(
     run_martian: RunMartianCallback,
     generations: int,
     on_generation: Callable[[int, dict], None] | None = None,
+    governance_gate: GovernanceGate | None = None,
 ) -> tuple[Population, list[GenerationStats]]:
     """Run an evolution experiment for `generations` generations.
 
@@ -46,5 +48,11 @@ def run_experiment(
         all_stats.append(result["stats"])
         if on_generation:
             on_generation(i, result)
+        # Governance gates each generation: a halt decision stops the run
+        # cleanly, leaving the Martian population persisted (resumable) on disk.
+        if governance_gate is not None:
+            decision = governance_gate.review(result["generation"], result["stats"])
+            if not decision.approved:
+                break
 
     return pop, all_stats
