@@ -431,6 +431,45 @@ describe('msb/msb-loader — parseMsbContent(raw, sourcePath) — supplemental',
     catch (e) { captured = e as Error; }
     expect(captured!.message).toContain(path);
   });
+
+  it('R-404: MSB with EXECUTION ORDER header but empty body → executionOrder is []', () => {
+    // Place EXECUTION ORDER last with no trailing newline — the section-extraction
+    // regex requires '\s*\n' after the header; absent here, extractSection returns ''
+    // (regex non-match → null → ''), and arm 0 of L55 fires → executionOrder is [].
+    // validateMsb passes because it only checks raw.includes('EXECUTION ORDER:').
+    const emptyOrderMsb = [
+      'TOOL: test_tool',
+      'VERSION: 1.0',
+      '',
+      'CAPABILITIES:',
+      'Has capabilities.',
+      '',
+      'LIMITATIONS:',
+      'Has limitations.',
+      '',
+      'FAILURE MODES:',
+      'Has failure modes.',
+      '',
+      'BEST PRACTICES:',
+      'Has best practices.',
+      '',
+      'OUTPUT CONTRACT:',
+      '{}',
+      '',
+      'GENOME SECTIONS:',
+      'IDENTITY: x',
+      'EXECUTION: y',
+      'BEHAVIOR: z',
+      'CHECKSUM: w',
+      '',
+      'VARIABLES:',
+      'task: the task',
+      '',
+      'EXECUTION ORDER:',
+    ].join('\n');
+    const brain = parseMsbContent(emptyOrderMsb);
+    expect(brain.executionOrder).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
