@@ -255,6 +255,22 @@ describe('msb/msb-loader — loadMsbFile(filePath)', () => {
     expect(captured).not.toBeNull();
     expect(captured!.message).toContain(missingPath);
   });
+
+  it('R-004: non-ENOENT read error → rethrows the raw OS error (L204)', () => {
+    // readFileSync on a directory throws EISDIR (code !== 'ENOENT'), so
+    // L204 `throw err` executes — rethrows the raw error as-is.
+    let caught: NodeJS.ErrnoException | undefined;
+    try {
+      loadMsbFile(tmpDir);
+    } catch (e) {
+      caught = e as NodeJS.ErrnoException;
+    }
+    expect(caught).toBeDefined();
+    expect(caught!.code).toBe('EISDIR');
+    // Must NOT be wrapped in the friendly "MSB file not found: ..." prefix —
+    // that would signal the wrong branch (ENOENT path) was taken.
+    expect(caught!.message).not.toMatch(/MSB file not found/);
+  });
 });
 
 // ---------------------------------------------------------------------------
