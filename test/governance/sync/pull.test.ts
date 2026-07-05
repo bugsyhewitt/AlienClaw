@@ -118,6 +118,24 @@ describe('pullTopGenomes — writing fetched genomes', () => {
     await pullTopGenomes(client.asClient(), ['compute'], root, 3);
     expect(client.topGenomesCalls).toEqual([{ martianType: 'compute', n: 3 }]);
   });
+
+  it('falls back to a non-empty ISO timestamp when submitted_at is empty (pull.ts:102)', async () => {
+    const entry = makeGenomeEntry({
+      submission_id: 'empty-ts',
+      submitted_at: '',  // falsy → triggers the || fallback
+    });
+    const client = new StubClient({ top: { compute: topGenomes('compute', [entry]) } });
+
+    await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+
+    const record = JSON.parse(
+      readFileSync(join(root, 'compute', 'entries', 'network-empty-ts.json'), 'utf-8'),
+    );
+    // Fallback fires: created_at should be a valid ISO string (not empty).
+    expect(record.created_at).toBeTruthy();
+    expect(() => new Date(record.created_at)).not.toThrow();
+    expect(record.created_at).not.toBe('');
+  });
 });
 
 // ── fetch failure ────────────────────────────────────────────────────────────
