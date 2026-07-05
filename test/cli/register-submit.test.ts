@@ -311,6 +311,34 @@ describe('runSubmit — stubbed network', () => {
     const body = JSON.parse(String((post![1] as RequestInit).body));
     expect(body.leaderboard_name).toBe('PREFNAME');
   });
+
+  it('success path: prints rank without "new top!" when is_new_top=false (L133 arm-1)', async () => {
+    seedBest('compute_alone', 0.9);
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/v1/install'))
+        return new Response(JSON.stringify({ install_id: 'i-1', known: false }), {
+          status: 201, headers: { 'content-type': 'application/json' },
+        });
+      if (url.includes('/v1/genomes/top'))
+        return new Response(JSON.stringify({
+          martian_type: 'compute_alone', genomes: [], total_for_type: 0,
+        }), { status: 200, headers: { 'content-type': 'application/json' } });
+      if (url.endsWith('/v1/genomes') && (init as RequestInit)?.method === 'POST')
+        return new Response(JSON.stringify({ rank: 3, is_new_top: false }), {
+          status: 201, headers: { 'content-type': 'application/json' },
+        });
+      throw new Error(`unexpected fetch: ${url}`);
+    }));
+
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
+    expect(rc).toBe(0);
+    const submittedLine = consoleSpy.mock.calls.find(c => String(c[0]).includes('Submitted:'));
+    expect(submittedLine?.[0]).toMatch(/rank 3$/);
+    expect(submittedLine?.[0]).not.toContain('new top');
+    consoleSpy.mockRestore();
+  });
 });
 
 // ── 4. Commander wiring ──────────────────────────────────────────────────────
