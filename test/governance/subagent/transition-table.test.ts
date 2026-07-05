@@ -85,6 +85,28 @@ describe('parseTransitionTable', () => {
     expect(cond.kind).toBe('fitness_gt');
     if (cond.kind === 'fitness_gt') expect(cond.n).toBe(0.5);
   });
+
+  it('skips # comment lines at every nesting level', () => {
+    const yaml = `transition_table:
+  initial_state: step1
+  states:
+    # comment between state names
+    step1:
+      # comment inside state body
+      martian_type: compute_alone
+      inputs:
+        # comment inside inputs
+        plan: "\${campaign.plan}"
+      transitions:
+        # comment inside transitions
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['step1']?.martian_type).toBe('compute_alone');
+    expect(r.table?.states['step1']?.transitions[0]?.goto).toBe('FINALIZE');
+  });
 });
 
 describe('validateTransitionTable', () => {
