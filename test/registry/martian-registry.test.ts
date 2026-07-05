@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, statSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -117,6 +117,12 @@ describe('MartianRegistry (registry/martian-registry.ts)', () => {
       await r.ensureDir();
       expect(statSync(tmpDir).isDirectory()).toBe(true);
     });
+
+    it('constructor defaults registryDir to PATHS.ms when no argument is given', () => {
+      const r = new MartianRegistry();  // triggers arm1: registryDir ?? PATHS.ms
+      expect(r).toBeInstanceOf(MartianRegistry);
+      expect(r.size).toBe(0);           // loadAll() not called; store is empty
+    });
   });
 
   // ── loadAll: happy path ───────────────────────────────────────────────────
@@ -190,6 +196,29 @@ describe('MartianRegistry (registry/martian-registry.ts)', () => {
       await r.loadAll();
 
       expect(r.size).toBe(1);
+    });
+
+    it('skips files that throw a non-parse-error and logs with "Failed to load"', async () => {
+      const errFile = join(tmpDir, 'MS_ERR.ms');
+      const okFile  = join(tmpDir, 'MS_OK.ms');
+      writeFileSync(errFile, makeValidMs('MS_ERR'));
+      writeFileSync(okFile,  makeValidMs('MS_OK'));
+      // Remove read permission → readFileSync throws EACCES (non-MsParseError) → else branch
+      chmodSync(errFile, 0o000);
+
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const r = new MartianRegistry(tmpDir);
+      await r.loadAll();
+
+      // MS_ERR unreadable (EACCES) → else branch; MS_OK loads normally
+      expect(r.size).toBe(1);
+      expect(errSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[MartianRegistry] Failed to load'),
+        expect.anything()
+      );
+
+      chmodSync(errFile, 0o644);  // restore before afterEach rmSync
+      errSpy.mockRestore();
     });
   });
 
