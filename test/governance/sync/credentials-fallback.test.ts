@@ -78,3 +78,21 @@ describe('machineHash — fallback paths (vi.mock isolates /etc/machine-id)', ()
     expect(hashB).toBe(hashA);
   });
 });
+
+describe('machineHash — defaultHome() fallback arm (no ALIENCLAW_HOME)', () => {
+  // mockState.machineIdMode is 'real' here (no beforeEach override in this block),
+  // so readFileSync('/etc/machine-id', …) reaches the real implementation.
+  // On Linux /etc/machine-id is readable, so machineHash() never writes to home.
+  // Skipped on non-Linux: /etc/machine-id is absent on macOS/Windows, which would trigger UUID
+  // generation and write to the real ~/.alienclaw directory — a non-hermetic side effect.
+  it.runIf(process.platform === 'linux')('machineHash() without home arg and without ALIENCLAW_HOME uses the homedir fallback', () => {
+    const prev = process.env['ALIENCLAW_HOME'];
+    delete process.env['ALIENCLAW_HOME'];
+    try {
+      const hash = machineHash(); // exercises defaultHome() bid=0 arm=1
+      expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    } finally {
+      if (prev !== undefined) process.env['ALIENCLAW_HOME'] = prev;
+    }
+  });
+});
