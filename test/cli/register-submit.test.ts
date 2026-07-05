@@ -274,6 +274,25 @@ describe('runSubmit — stubbed network', () => {
     expect(rc).toBe(1);
   });
 
+  it('catch: returns 1 and logs String(err) when thrown value is not an Error instance (L139 arm 1)', async () => {
+    seedBest('compute_alone', 0.9);
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/v1/install'))
+        return new Response(JSON.stringify({ install_id: 'i-1', known: false }), {
+          status: 201, headers: { 'content-type': 'application/json' },
+        });
+      if (url.includes('/v1/genomes/top'))
+        return new Response(JSON.stringify({ martian_type: 'compute_alone', genomes: [], total_for_type: 0 }), {
+          status: 200, headers: { 'content-type': 'application/json' },
+        });
+      // Non-Error throw for the POST /v1/genomes → exercises String(err) branch at L139
+      throw 'non-error-string';
+    }));
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
+    expect(rc).toBe(1);
+  });
+
   it('returns 1 when install registration fails (server 503)', async () => {
     seedBest('compute_alone', 0.9);
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
