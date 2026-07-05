@@ -121,6 +121,30 @@ describe('isBlockedHost — IPv6 private / loopback / link-local / mapped', () =
   });
 });
 
+// ── isBlockedHost — IPv6 non-compressed (full 8-hextet) form ────────────────
+
+describe('isBlockedHost — IPv6 non-compressed (full 8-hextet) form', () => {
+  it('blocks non-compressed loopback [0:0:0:0:0:0:0:1]', () => {
+    expect(isBlockedHost('[0:0:0:0:0:0:0:1]')).toBe(true);
+  });
+
+  it('blocks non-compressed unique-local [fc00:0:0:0:0:0:0:1]', () => {
+    expect(isBlockedHost('[fc00:0:0:0:0:0:0:1]')).toBe(true);
+  });
+
+  it('blocks non-compressed link-local [fe80:0:0:0:0:0:0:1]', () => {
+    expect(isBlockedHost('[fe80:0:0:0:0:0:0:1]')).toBe(true);
+  });
+
+  it('does NOT block non-compressed global unicast [2606:4700:4700:0:0:0:0:1111]', () => {
+    expect(isBlockedHost('[2606:4700:4700:0:0:0:0:1111]')).toBe(false);
+  });
+
+  it('fails closed on invalid hextet in non-compressed form [gggg:0:0:0:0:0:0:1]', () => {
+    expect(isBlockedHost('[gggg:0:0:0:0:0:0:1]')).toBe(true);
+  });
+});
+
 // ── isBlockedHost — explicit local hostnames + DNS names ────────────────────
 
 describe('isBlockedHost — hostname tokens', () => {
