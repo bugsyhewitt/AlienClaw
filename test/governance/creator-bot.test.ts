@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CreatorBot } from '../../src/alienclaw/governance/common/creator-bot.js';
 import { MockMartianSummonAdapter } from '../../src/alienclaw/governance/common/summon-adapter.js';
+import type { MartianSummonAdapter } from '../../src/alienclaw/governance/common/summon-adapter.js';
 import { InMemorySink, Logger } from '../../src/alienclaw/governance/common/logger.js';
 import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/common/messages.js';
 import type { CampaignRequestMessage } from '../../src/alienclaw/governance/common/messages.js';
@@ -71,6 +72,25 @@ describe('CreatorBot', () => {
     expect(sink.byEvent('summon-issued')).toHaveLength(1);
     expect(sink.byEvent('summon-complete')).toHaveLength(1);
     expect(sink.byEvent('campaign-report-sent')).toHaveLength(1);
+  });
+
+  it('on summon failure with no error message, summary falls back to "unknown error"', async () => {
+    // Covers bid=19 L226 and bid=22 L244 — ?? fallback arms fired when error field is absent.
+    const silentFailAdapter: MartianSummonAdapter = {
+      async summon(request) {
+        return {
+          summon_id:    request.summon_id,
+          ok:           false,
+          error:        undefined,   // optional — triggers both ?? 'unknown' arms
+          fitness:      0.0,
+          run_metadata: { tool_calls: 0, wall_clock_ms: 0 },
+        };
+      },
+    };
+    const bot    = makeBot(silentFailAdapter);
+    const report = await bot.runCampaign(makeRequest());
+    expect(report.payload.summary).toContain('failed');
+    expect(report.payload.summary).toContain('unknown error');
   });
 
   it('uses fallback scope and successCriteria when success_criteria is absent', async () => {
