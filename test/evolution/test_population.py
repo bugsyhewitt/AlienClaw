@@ -185,6 +185,17 @@ class TestPopulationLoad:
         with pytest.raises(FileNotFoundError):
             Population.load("compute")
 
+    def test_load_returns_empty_when_storage_exists_but_no_entries(self, config):
+        """Population.load() returns an empty population when storage was initialized
+        but no entries were written — models a crash between initialize() and write_entry()."""
+        from alienclaw.evolution.storage import PopulationStorage
+        storage = PopulationStorage(config.martian_type)
+        storage.initialize(config)
+        # entries_dir is empty — no write_entry() calls made
+
+        loaded = Population.load(config.martian_type)
+        assert loaded.all() == []
+
     def test_load_falls_back_when_no_current_gen_entries(self, config):
         """Population.load() crash-recovery path: if no entries match current_generation,
         fall back to the last population_size entries on disk rather than returning empty.
