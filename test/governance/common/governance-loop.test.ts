@@ -107,6 +107,38 @@ describe('GovernanceLoop.resumeGoal — legacy sub-goal dispatch (packet 096)', 
     expect(subGoalDispatchCalled).toBe(true);
   });
 
+  it('returns silently without state change when goalId is not found in the goal file', async () => {
+    const file = {
+      version:      '1',
+      activeGoalId: null,
+      goals: [],
+    };
+
+    const goalManager = {
+      load: () => file,
+      save: async () => {},
+    } as unknown as GoalManager;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot:        noopAdvisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+
+    // Should not throw and must not change any state
+    await expect(loop.resumeGoal('nonexistent-goal-id')).resolves.toBeUndefined();
+    expect((loop as any).currentGoalId).toBeNull();
+    expect((loop as any).state).toBe('IDLE');
+  });
+
   it('resets active sub-goals to pending for a scheme goal with folded-in sub-goals (Scenario B, packet 097)', async () => {
     const file = {
       version:      '1',
