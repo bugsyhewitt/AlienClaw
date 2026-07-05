@@ -294,6 +294,29 @@ describe('Packet 125 — GovernanceLoop spawn sites route through buildSubagent'
     expect(verboseSpy).not.toHaveBeenCalledWith(expect.stringContaining('no martian tags'));
   });
 
+  // ── A-009 (Packet 207) ────────────────────────────────────────────────────
+  it('A-009: spawnCampaign with domainResolver + empty martianTags pushes JOB_FAILED (L353 bid=16 arm=0)', async () => {
+    const deps = makeDeps({ commonBot, adapter, resolver });
+    const loop = new GovernanceLoop(deps);
+
+    // Campaign with a subagent that declares NO martian tags — rawDomain === undefined
+    const campaign = makeCampaign({
+      id:       'camp-no-tags',
+      name:     'No-Tag Campaign',
+      subagents: [{ role: 'Worker', domain: 'compute', knowledgeBase: '', martianTags: [] }],
+    });
+
+    await (loop as any).spawnCampaign('goal-1', campaign);
+
+    // JOB_FAILED event must have been pushed (L357-L364 catch block)
+    const queue: unknown[] = (loop as any).eventQueue;
+    expect(queue).toHaveLength(1);
+    const evt = queue[0] as { type: string; subGoalId: string; error: string };
+    expect(evt.type).toBe('JOB_FAILED');
+    expect(evt.subGoalId).toBe('camp-no-tags');
+    expect(evt.error).toContain('declares no subagent martian tags');
+  });
+
   // ── A-008 ─────────────────────────────────────────────────────────────────
   it('A-008: no domainResolver + rawDomain undefined — defaults to compute, emits verbose warning (L367-L372 arm B)', async () => {
     const buildSubagentSpy = vi.spyOn(commonBot, 'buildSubagent');
