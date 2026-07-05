@@ -358,6 +358,19 @@ describe('runSubmit — stubbed network', () => {
     expect(submittedLine?.[0]).not.toContain('new top');
     consoleSpy.mockRestore();
   });
+
+  it('returns 1 when stored preferences leaderboardName is invalid', async () => {
+    mockAlienClawSave.mockClear();
+    mockAlienClawPrefs.leaderboardName = 'bad';      // fails /^[A-Z]{8}$/ → arm=1 fires
+    vi.unstubAllEnvs();
+    vi.stubEnv('ALIENCLAW_HOME', home);
+    vi.stubEnv('ALIENCLAW_POPULATIONS_ROOT', popsRoot);
+    vi.stubEnv('ALIENCLAW_API_URL', 'https://api.test.invalid');
+    seedBest('compute_alone', 0.9);
+    // no ALIENCLAW_LEADERBOARD_NAME, no --name flag → falls through to prefs → 'bad' invalid → null
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
+    expect(rc).toBe(1);
+  });
 });
 
 // ── 4. Commander wiring ──────────────────────────────────────────────────────
