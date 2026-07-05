@@ -5,7 +5,7 @@ import { CreatorBot } from '../../src/alienclaw/governance/common/creator-bot.js
 import { MockMartianSummonAdapter } from '../../src/alienclaw/governance/common/summon-adapter.js';
 import { InMemorySink, Logger } from '../../src/alienclaw/governance/common/logger.js';
 import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/common/messages.js';
-import type { UserGoalMessage } from '../../src/alienclaw/governance/common/messages.js';
+import type { UserGoalMessage, AdviceMessage, AdvisorConsultMessage } from '../../src/alienclaw/governance/common/messages.js';
 
 const makeGoal = (goal = 'summarize HN'): UserGoalMessage => ({
   from: 'user', to: 'BossBot', kind: 'user-goal',
@@ -84,5 +84,27 @@ describe('BossBot', () => {
     const response = await boss.handleUserGoal(makeGoal());
     expect(response.kind).toBe('user-response');
     expect(response.payload.summary).toContain('failed');
+  });
+
+  it('concern_count defaults to 0 when advice.payload.concerns is undefined', async () => {
+    // Stub advisor returns AdviceMessage with concerns omitted — triggers the ?? 0 fallback at boss-bot.ts:85
+    const stubAdvisor = {
+      consult: async (consult: AdvisorConsultMessage): Promise<AdviceMessage> => ({
+        from: 'AdvisorBot', to: 'BossBot', kind: 'advice',
+        payload: { refined_plan: consult.payload.draft_plan },
+        correlation_id: consult.correlation_id,
+        timestamp: nowIso(),
+      }),
+    };
+    const adapter = new MockMartianSummonAdapter();
+    const creator = new CreatorBot(new Logger(sink, 'CreatorBot'), adapter);
+    const boss = new BossBot(new Logger(sink, 'BossBot'), stubAdvisor as AdvisorBot, creator);
+
+    const response = await boss.handleUserGoal(makeGoal('test concern_count fallback'));
+    expect(response.kind).toBe('user-response');
+
+    const dispatched = sink.byEvent('campaign-dispatched');
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]!.data?.['concern_count']).toBe(0);
   });
 });
