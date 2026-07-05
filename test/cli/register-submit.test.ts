@@ -274,6 +274,23 @@ describe('runSubmit — stubbed network', () => {
     expect(rc).toBe(1);
   });
 
+  it('returns 1 when install registration fails (server 503)', async () => {
+    seedBest('compute_alone', 0.9);
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes('/v1/install')) {
+        return new Response(
+          JSON.stringify({ error: { code: 'SERVICE_UNAVAILABLE', message: 'try later' } }),
+          { status: 503, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`unexpected fetch: ${String(input)}`);
+    }));
+
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
+
+    expect(rc).toBe(1);
+  });
+
   it('uses stored preferences.leaderboardName when no flag and no env set', async () => {
     mockAlienClawSave.mockClear();
     mockAlienClawPrefs.leaderboardName = 'PREFNAME';
