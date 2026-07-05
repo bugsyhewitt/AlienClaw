@@ -53,6 +53,17 @@ Legend:
 
 ---
 
+## In Queue (E2 — Live Fitness Drives Population)
+
+Fitness is observed in production but not yet wired back to real selection/promotion
+decisions. E2 closes four gaps:
+1. Bootstrap wires OnlineFitnessLog into GovernanceLoop (campaign-level recording)
+2. Pool pruning keeps population bounded at population_size under live add() calls
+3. live_evo.py + scheduled job: when a martian_type accumulates LIVE_EVO_THRESHOLD
+   observations, runs evaluate_and_evolve to replace the pool with evolved children
+4. Integration test verifying the full live-fitness chain end-to-end
+5. live-fitness-summary.json written on each fitness-update tick for briefings
+
 ## Next
 
 - alienclaw.net donate button: the live Next.js site (alienclaw-site repo)
