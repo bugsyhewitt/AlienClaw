@@ -137,4 +137,24 @@ describe('Subagent MEMORY.md semantics', () => {
 
     spec.erase();
   });
+
+  it('rewriteMemorySection() preserves the following section when target is not at end-of-file', () => {
+    const spec = makeSubagent(baseDir);
+    spec.birth(makeBrief());
+
+    // Write two sections: target first, follower second
+    spec.appendMemory('## Primary\n\nOriginal primary content.\n');
+    spec.appendMemory('## Secondary\n\nSecond section content.\n');
+
+    spec.rewriteMemorySection('Primary', 'Replaced primary content.');
+
+    const memory = readFileSync(path.join(spec.workspaceDir, 'MEMORY.md'), 'utf-8');
+    expect(memory).toContain('Replaced primary content.');
+    expect(memory).not.toContain('Original primary content.');
+    // Following section must be fully preserved
+    expect(memory).toContain('## Secondary');
+    expect(memory).toContain('Second section content.');
+
+    spec.erase();
+  });
 });
