@@ -418,6 +418,22 @@ slots:
     const spec = parseMartian(md);
     expect(spec.slots[0]!.inputsFrom).toEqual({ fields: { n: '42' } });
   });
+
+  it('parses boolean-literal and empty-mapping scalars (bid=11 L78, bid=12 L79, bid=14 L81)', () => {
+    const mkSpec = (descVal: string) => `
+martian_type: x
+description: ${descVal}
+slots:
+  - slot_index: 0
+    tool_name: t
+`;
+    const trueSpec  = parseMartian(mkSpec('true'));
+    const falseSpec = parseMartian(mkSpec('false'));
+    const emptyMap  = parseMartian(mkSpec('{}'));
+    expect(trueSpec.description).toBe('true');
+    expect(falseSpec.description).toBe('false');
+    expect(emptyMap.description).toBe('[object Object]');
+  });
 });
 
 // ── describe: MartianParseError ────────────────────────────────────────
