@@ -341,6 +341,34 @@ describe('leaderboardCheck', () => {
       leaderboardCheck(operatorBest, { ...config, leaderboardName: 'invalid1' })
     ).rejects.toThrow(/\^/);
   });
+
+  it('hardenedFetch throws on a non-OK HTTP response (leaderboard.ts:L86)', async () => {
+    // Simulate server returning 503 Service Unavailable.
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      body: {
+        getReader() {
+          return { read: async () => ({ done: true, value: undefined }), cancel: () => {} };
+        },
+      },
+    });
+    await expect(
+      hardenedFetch('https://example.com')
+    ).rejects.toThrow('HTTP 503');
+  });
+
+  it('hardenedFetch throws when response body is null (leaderboard.ts:L92)', async () => {
+    // response.body is null — getReader() would be called on undefined.
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: null,
+    });
+    await expect(
+      hardenedFetch('https://example.com')
+    ).rejects.toThrow('No response body');
+  });
 });
 
 // ── submitFromFile ──────────────────────────────────────────────────────────
