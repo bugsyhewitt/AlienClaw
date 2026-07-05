@@ -72,4 +72,14 @@ describe('CreatorBot', () => {
     expect(sink.byEvent('summon-complete')).toHaveLength(1);
     expect(sink.byEvent('campaign-report-sent')).toHaveLength(1);
   });
+
+  it('uses fallback scope and successCriteria when success_criteria is absent', async () => {
+    const bot    = makeBot();
+    // Cast bypasses the required-string type constraint to exercise the ?? fallback arms
+    // at creator-bot.ts:204 and :205 — a genuine runtime-reachable path.
+    const req    = makeRequest({ success_criteria: undefined as unknown as string });
+    const report = await bot.runCampaign(req);
+    expect(report.from).toBe('CreatorBot');
+    expect(report.to).toBe('BossBot');
+  });
 });
