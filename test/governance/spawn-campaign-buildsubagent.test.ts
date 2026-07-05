@@ -73,7 +73,7 @@ function makeCampaign(override: Partial<Campaign> = {}): Campaign {
 function makeDeps(opts: {
   commonBot: CommonCreatorBot;
   adapter:   MartianSummonAdapter;
-  resolver:  DomainResolver;
+  resolver?: DomainResolver;
 }): GovernanceLoopDeps {
   const file: GoalsFile = {
     version:      '1',
@@ -255,5 +255,72 @@ describe('Packet 125 — GovernanceLoop spawn sites route through buildSubagent'
       count = 0;
     }
     expect(count).toBe(0);
+  });
+
+  // ── A-007 ─────────────────────────────────────────────────────────────────
+  it('A-007: no domainResolver + rawDomain defined — uses rawDomain directly, no JOB_FAILED (L366/L372 arm A)', async () => {
+    // Use a CreatorBot whose resolver knows 'analyst' so buildSubagent succeeds.
+    // GovernanceLoop has no resolver → legacy path passes 'analyst' through unchanged.
+    const analystResolver = new DomainResolver(['analyst']);
+    const analystBot = new CommonCreatorBot(
+      new Logger(new InMemorySink(), 'creator-bot-p125-a007'),
+      adapter,
+      baseDir,
+      analystResolver,
+    );
+    const buildSubagentSpy = vi.spyOn(analystBot, 'buildSubagent');
+    const verboseSpy = vi.fn();
+
+    const deps = makeDeps({ commonBot: analystBot, adapter /* no resolver */ });
+    (deps.userChannel as any).verbose = verboseSpy;
+    const loop = new GovernanceLoop(deps);
+
+    const campaign: Campaign = {
+      id:        'camp-no-resolver-a',
+      name:      'Legacy Campaign A',
+      objective: 'test obj',
+      subagents: [{ role: 'Analyst', domain: 'analyst', martianTags: ['analyst'], knowledgeBase: '' }],
+      dependsOn: [],
+      status:    'pending',
+    };
+
+    await (loop as any).spawnCampaign('goal-1', campaign);
+
+    // buildSubagent called with rawDomain ('analyst'), NOT 'compute'
+    expect(buildSubagentSpy).toHaveBeenCalledOnce();
+    expect(buildSubagentSpy.mock.calls[0]![0]).toBe('analyst');
+
+    // No verbose warning about missing tags
+    expect(verboseSpy).not.toHaveBeenCalledWith(expect.stringContaining('no martian tags'));
+  });
+
+  // ── A-008 ─────────────────────────────────────────────────────────────────
+  it('A-008: no domainResolver + rawDomain undefined — defaults to compute, emits verbose warning (L367-L372 arm B)', async () => {
+    const buildSubagentSpy = vi.spyOn(commonBot, 'buildSubagent');
+    const verboseMessages: string[] = [];
+
+    const deps = makeDeps({ commonBot, adapter /* no resolver */ });
+    (deps.userChannel as any).verbose = (msg: string) => verboseMessages.push(msg);
+    const loop = new GovernanceLoop(deps);
+
+    const campaign: Campaign = {
+      id:        'camp-no-resolver-b',
+      name:      'Legacy Campaign B',
+      objective: 'test obj',
+      subagents: [{ role: 'Compute Worker', domain: 'compute', martianTags: [], knowledgeBase: '' }],
+      dependsOn: [],
+      status:    'pending',
+    };
+
+    await (loop as any).spawnCampaign('goal-1', campaign);
+
+    // buildSubagent called with 'compute' (the ?? default)
+    expect(buildSubagentSpy).toHaveBeenCalledOnce();
+    expect(buildSubagentSpy.mock.calls[0]![0]).toBe('compute');
+
+    // Verbose warning must mention the campaign name and 'defaulting to compute'
+    expect(verboseMessages.some(m =>
+      m.includes('Legacy Campaign B') && m.includes("defaulting to 'compute'")
+    )).toBe(true);
   });
 });
