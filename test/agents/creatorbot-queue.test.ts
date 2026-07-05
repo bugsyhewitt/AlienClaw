@@ -122,6 +122,18 @@ describe('CreatorBot subagent lifecycle (agents/creatorbot.ts:145-181)', () => {
     expect(notable).toHaveLength(1);
     expect(notable[0]?.observation).toContain('cb-boom');
   });
+
+  it('spawnSubagent wraps non-Error thrown value in Error before passing to onError', async () => {
+    const cb = new CreatorBot();
+    let caught: unknown;
+    cb.spawnSubagent(
+      { task: 'non-error-task', domain: 'd-wrap', onError: e => { caught = e; } },
+      async () => { throw 'plain string thrown'; },
+    );
+    await new Promise(r => setTimeout(r, 20));
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toBe('plain string thrown');
+  });
 });
 
 describe('CreatorBot scheduler (agents/creatorbot.ts:100-137)', () => {
