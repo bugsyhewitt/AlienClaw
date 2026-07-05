@@ -172,4 +172,26 @@ describe('parseSchemeDraft (agents/bossbot.ts:54)', () => {
     const out = parseSchemeDraft('g', raw);
     expect(out.campaigns[0]!.subagents[0]!.martianTags).toEqual([]);
   });
+
+  it('defaults missing campaign dependsOn to []', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'c1', objective: 'o', subagents: [] },  // no dependsOn key
+      ],
+    });
+    const out = parseSchemeDraft('g', raw);
+    expect(out.campaigns[0]!.dependsOn).toEqual([]);
+  });
+
+  it('defaults missing rationale to empty string', () => {
+    const raw = JSON.stringify({
+      // no rationale key
+      campaigns: [
+        { name: 'c1', objective: 'o', dependsOn: [], subagents: [] },
+      ],
+    });
+    const out = parseSchemeDraft('g', raw);
+    expect(out.rationale).toBe('');
+  });
 });
