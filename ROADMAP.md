@@ -50,12 +50,19 @@ Legend:
 
 ---
 
+## In Queue (E2 — Live Fitness Drives Population)
+
+Fitness is observed in production but not yet wired back to real selection/promotion
+decisions. E2 closes four gaps:
+1. Bootstrap wires OnlineFitnessLog into GovernanceLoop (campaign-level recording)
+2. Pool pruning keeps population bounded at population_size under live add() calls
+3. live_evo.py + scheduled job: when a martian_type accumulates LIVE_EVO_THRESHOLD
+   observations, runs evaluate_and_evolve to replace the pool with evolved children
+4. Integration test verifying the full live-fitness chain end-to-end
+5. live-fitness-summary.json written on each fitness-update tick for briefings
+
 ## Next
 
-- Subagent spawning wiring: route campaign spawns through
-  CreatorBot.buildSubagent end-to-end — real-bridge population summons,
-  BossBot goal-loop integration, and an online-fitness design that stays
-  out of the selection Population (per 2026-07-02 architecture review)
 - alienclaw.net donate button: the live Next.js site (alienclaw-site repo)
   already covers description, GitHub link, docs, and leaderboard; donate
   needs a sponsorship destination decision first. The in-repo site/ is
