@@ -245,3 +245,30 @@ describe('Subagent runCampaign stateDef-null defensive branch (line 530-536)', (
     expect(result.subagentId).toBe(spec.subagentId);
   });
 });
+
+// ── §3: buildCampaignMd fallback arms (lines 176, 184) ─────────────────────
+
+describe('Subagent buildCampaignMd fallback text (L176/L184)', () => {
+  let baseDir: string;
+
+  beforeEach(() => {
+    baseDir = mkdtempSync(path.join(tmpdir(), 'alienclaw-189-fallback-'));
+  });
+
+  afterEach(() => {
+    if (existsSync(baseDir)) rmSync(baseDir, { recursive: true, force: true });
+  });
+
+  it('R-NEW: buildCampaignMd writes fallback text for empty scope and constraints (L176/L184)', () => {
+    const brief = makeBrief({ scope: '', constraints: '' });
+    const sub   = makeSubagent(baseDir);
+    sub.birth(brief);
+
+    const campaign = readFileSync(
+      path.join(sub.workspaceDir, 'CAMPAIGN.md'),
+      'utf-8',
+    );
+    expect(campaign).toContain('(not specified)');   // brief.scope || '(not specified)'
+    expect(campaign).toContain('None');              // brief.constraints || 'None'
+  });
+});
