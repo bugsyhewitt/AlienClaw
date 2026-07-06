@@ -287,6 +287,15 @@ describe('executeMartian()', () => {
       expect(result.outcome).toBe('FAILURE');
       expect(result.failForward).toBe(false);
     });
+
+    it('uses DEFAULT_MSB_DIR when msbDir is omitted', async () => {
+      const martian = makeMartian({ tools: [], msbRefs: [] });
+      // Omit msbDir so L155 resolves to DEFAULT_MSB_DIR (arm 1).
+      // Empty-tools guard at L162 fires before any file-system access.
+      const result = await executeMartian(makeInput(martian));
+      expect(result.outcome).toBe('FAILURE');
+      expect(result.error).toMatch(/no tools declared/);
+    });
   });
 
   // -------------------------------------------------------------------------

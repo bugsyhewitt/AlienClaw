@@ -85,6 +85,28 @@ describe('parseTransitionTable', () => {
     expect(cond.kind).toBe('fitness_gt');
     if (cond.kind === 'fitness_gt') expect(cond.n).toBe(0.5);
   });
+
+  it('skips # comment lines at every nesting level', () => {
+    const yaml = `transition_table:
+  initial_state: step1
+  states:
+    # comment between state names
+    step1:
+      # comment inside state body
+      martian_type: compute_alone
+      inputs:
+        # comment inside inputs
+        plan: "\${campaign.plan}"
+      transitions:
+        # comment inside transitions
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['step1']?.martian_type).toBe('compute_alone');
+    expect(r.table?.states['step1']?.transitions[0]?.goto).toBe('FINALIZE');
+  });
 });
 
 describe('validateTransitionTable', () => {
@@ -499,5 +521,83 @@ describe('parseConditionInner — no-colon part guard (L139)', () => {
     expect(r.ok).toBe(true);
     const conds = r.table?.states?.step1?.transitions?.[0]?.when?.conditions ?? [];
     expect(conds.length).toBe(0);
+  });
+});
+
+describe('parseTransitionTable embedded in full CAMPAIGN.md (code-fence)', () => {
+  it('parses correctly when YAML is wrapped in a ```yaml code fence', () => {
+    const campaignMd = `# Campaign Brief — test-001
+
+## Allowed Martian types
+
+- compute_alone
+
+## Transition table
+
+\`\`\`yaml
+transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: compute_alone
+      inputs:
+        plan: "\${campaign.plan}"
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+\`\`\`
+
+## Extra section after the fence
+
+This content should not affect parsing.
+`;
+    const r = parseTransitionTable(campaignMd);
+    expect(r.ok).toBe(true);
+    expect(r.table?.initial_state).toBe('step1');
+    expect(r.table?.states['step1']?.martian_type).toBe('compute_alone');
+  });
+
+  it('stops at ```yaml fence even when trailing content has transition_table: keyword', () => {
+    const campaignMd = `# Brief
+
+\`\`\`yaml
+transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: compute_alone
+      inputs: {}
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+\`\`\`
+
+<!-- transition_table: second reference should be ignored -->
+`;
+    const r = parseTransitionTable(campaignMd);
+    expect(r.ok).toBe(true);
+    expect(Object.keys(r.table?.states ?? {}).length).toBe(1);
+  });
+});
+
+describe('parseTransitionTable YAML block with internal comment lines', () => {
+  it('skips # comment lines inside the transition_table block', () => {
+    const yaml = `transition_table:
+  # comment: this should be ignored
+  initial_state: step1
+  states:
+    step1:
+      # another comment
+      martian_type: compute_alone
+      inputs:
+        plan: "plan"
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.initial_state).toBe('step1');
+    expect(r.table?.states['step1']?.martian_type).toBe('compute_alone');
   });
 });

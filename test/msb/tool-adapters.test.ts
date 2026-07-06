@@ -431,6 +431,18 @@ describe('wireToolAdapters wiring', () => {
       /web_search: query is empty/,
     );
   });
+
+  // Packet 196 — L327 arm 1: input['query'] is absent, input['task'] supplies the query.
+  it('web_search accepts the alternate "task" key as query source', async () => {
+    const out = (await webSearch({ task: 'alien species' })) as {
+      query: string;
+      results: unknown[];
+      _stub?: boolean;
+    };
+    expect(out.query).toBe('alien species');
+    expect(out.results).toEqual([]);
+    expect(out._stub).toBe(true);
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────

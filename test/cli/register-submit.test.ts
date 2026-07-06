@@ -274,6 +274,25 @@ describe('runSubmit — stubbed network', () => {
     expect(rc).toBe(1);
   });
 
+  it('catch: returns 1 and logs String(err) when thrown value is not an Error instance (L139 arm 1)', async () => {
+    seedBest('compute_alone', 0.9);
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/v1/install'))
+        return new Response(JSON.stringify({ install_id: 'i-1', known: false }), {
+          status: 201, headers: { 'content-type': 'application/json' },
+        });
+      if (url.includes('/v1/genomes/top'))
+        return new Response(JSON.stringify({ martian_type: 'compute_alone', genomes: [], total_for_type: 0 }), {
+          status: 200, headers: { 'content-type': 'application/json' },
+        });
+      // Non-Error throw for the POST /v1/genomes → exercises String(err) branch at L139
+      throw 'non-error-string';
+    }));
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
+    expect(rc).toBe(1);
+  });
+
   it('returns 1 when install registration fails (server 503)', async () => {
     seedBest('compute_alone', 0.9);
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
@@ -310,6 +329,47 @@ describe('runSubmit — stubbed network', () => {
     );
     const body = JSON.parse(String((post![1] as RequestInit).body));
     expect(body.leaderboard_name).toBe('PREFNAME');
+  });
+
+  it('success path: prints rank without "new top!" when is_new_top=false (L133 arm-1)', async () => {
+    seedBest('compute_alone', 0.9);
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/v1/install'))
+        return new Response(JSON.stringify({ install_id: 'i-1', known: false }), {
+          status: 201, headers: { 'content-type': 'application/json' },
+        });
+      if (url.includes('/v1/genomes/top'))
+        return new Response(JSON.stringify({
+          martian_type: 'compute_alone', genomes: [], total_for_type: 0,
+        }), { status: 200, headers: { 'content-type': 'application/json' } });
+      if (url.endsWith('/v1/genomes') && (init as RequestInit)?.method === 'POST')
+        return new Response(JSON.stringify({ rank: 3, is_new_top: false }), {
+          status: 201, headers: { 'content-type': 'application/json' },
+        });
+      throw new Error(`unexpected fetch: ${url}`);
+    }));
+
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
+    expect(rc).toBe(0);
+    const submittedLine = consoleSpy.mock.calls.find(c => String(c[0]).includes('Submitted:'));
+    expect(submittedLine?.[0]).toMatch(/rank 3$/);
+    expect(submittedLine?.[0]).not.toContain('new top');
+    consoleSpy.mockRestore();
+  });
+
+  it('returns 1 when stored preferences leaderboardName is invalid', async () => {
+    mockAlienClawSave.mockClear();
+    mockAlienClawPrefs.leaderboardName = 'bad';      // fails /^[A-Z]{8}$/ → arm=1 fires
+    vi.unstubAllEnvs();
+    vi.stubEnv('ALIENCLAW_HOME', home);
+    vi.stubEnv('ALIENCLAW_POPULATIONS_ROOT', popsRoot);
+    vi.stubEnv('ALIENCLAW_API_URL', 'https://api.test.invalid');
+    seedBest('compute_alone', 0.9);
+    // no ALIENCLAW_LEADERBOARD_NAME, no --name flag → falls through to prefs → 'bad' invalid → null
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
+    expect(rc).toBe(1);
   });
 });
 
