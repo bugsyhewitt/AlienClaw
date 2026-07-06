@@ -41,7 +41,7 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-import { machineHash } from '../../../src/alienclaw/governance/common/sync/credentials.js';
+import { machineHash, ensureApiKey } from '../../../src/alienclaw/governance/common/sync/credentials.js';
 
 describe('machineHash — fallback paths (vi.mock isolates /etc/machine-id)', () => {
   let home: string;
@@ -76,6 +76,30 @@ describe('machineHash — fallback paths (vi.mock isolates /etc/machine-id)', ()
     const hashA = machineHash(home);
     const hashB = machineHash(home);
     expect(hashB).toBe(hashA);
+  });
+});
+
+describe('ensureApiKey — governance-local coverage', () => {
+  let eHome: string;
+
+  beforeEach(() => { eHome = mkdtempSync(join(tmpdir(), 'aclaw-eapikey-')); });
+  afterEach(() => { rmSync(eHome, { recursive: true, force: true }); });
+
+  it('mints a fresh Base62 key when api-key.txt does not exist (catch path)', () => {
+    const key = ensureApiKey(eHome);
+    expect(key).toMatch(/^[0-9A-Za-z]{43}$/);
+  });
+
+  it('reuses the key when api-key.txt already has a valid key (L31 true arm)', () => {
+    const k1 = ensureApiKey(eHome);
+    const k2 = ensureApiKey(eHome);
+    expect(k2).toBe(k1);
+  });
+
+  it('remints when api-key.txt exists but is empty or whitespace-only (L31 false arm)', () => {
+    writeFileSync(join(eHome, 'api-key.txt'), '\n', { encoding: 'utf-8', mode: 0o600 });
+    const key = ensureApiKey(eHome);
+    expect(key).toMatch(/^[0-9A-Za-z]{43}$/);
   });
 });
 
