@@ -201,6 +201,10 @@ def handle(raw: bytes) -> dict:
 
     kind = req.get("kind")
 
+    # ── live-evo (E2 item 3) ───────────────────────────────────────────────
+    if kind == "live-evo":
+        return _handle_live_evo(request_id, req, t0)
+
     # ── summon-from-population (v1.x extension) ────────────────────────────
     if kind == "summon-from-population":
         return _handle_summon_from_population(request_id, req, t0)
@@ -211,7 +215,11 @@ def handle(raw: bytes) -> dict:
         return _error_response(request_id, "MALFORMED_REQUEST", f"Missing required fields: {missing}", {"missing_fields": missing})
 
     if kind != "summon":
-        return _error_response(request_id, "MALFORMED_REQUEST", f"request.kind must be 'summon' or 'summon-from-population', got '{kind}'", {"missing_fields": []})
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            f"request.kind must be 'summon', 'summon-from-population', or 'live-evo', got '{kind}'",
+            {"missing_fields": []},
+        )
 
     genome = req["genome"]
     validation = validate_genome(genome)
@@ -243,6 +251,47 @@ def handle(raw: bytes) -> dict:
         martian_spec, genome, req["inputs"], brains, t0, request_id,
     )
     return response
+
+
+def _handle_live_evo(request_id: str | None, req: dict, t0: float) -> dict:
+    """Handle kind='live-evo' — threshold-triggered generational evolution step."""
+    from alienclaw.evolution.live_evo import check_and_evolve, LIVE_EVO_THRESHOLD
+
+    martian_type = req.get("martian_type")
+    if not martian_type:
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "Missing field: martian_type",
+            {"missing_fields": ["martian_type"]},
+        )
+    threshold = int(req.get("threshold", LIVE_EVO_THRESHOLD))
+    try:
+        result = check_and_evolve(martian_type, threshold)
+    except Exception as exc:
+        wall_ms = int((time.monotonic() - t0) * 1000)
+        return _error_response(
+            request_id, "INTERNAL",
+            f"live-evo error: {exc}",
+            {"exception": str(exc)},
+            wall_ms,
+        )
+    wall_ms = int((time.monotonic() - t0) * 1000)
+    if result is None:
+        payload: dict = {"ok": True, "evolved": False, "reason": "below_threshold"}
+    else:
+        payload = {
+            "ok": True,
+            "evolved": True,
+            "generation": result["generation"],
+            "next_generation": result["next_generation"],
+            "children_minted": result["children_minted"],
+            "new_observations": result["new_observations"],
+        }
+    return {
+        "bridge_version": _SUPPORTED_VERSION,
+        "request_id": request_id,
+        "response": payload,
+    }
 
 
 def _handle_summon_from_population(request_id: str | None, req: dict, t0: float) -> dict:

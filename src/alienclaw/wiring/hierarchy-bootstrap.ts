@@ -12,6 +12,7 @@ import {
   GENOME_AUDIT_INTERVAL_MS,
   FITNESS_UPDATE_INTERVAL_MS,
   ADVISE_FROM_TELEMETRY_INTERVAL_MS,
+  LIVE_EVO_CHECK_INTERVAL_MS,
   FITNESS_EMA_ALPHA,
   FITNESS_EVOLUTION_THRESHOLD,
   PATHS,
@@ -35,6 +36,7 @@ import type { AdviceRequest } from '../types.js';
 import * as fsSync            from 'node:fs';
 import { writeFile, mkdir }   from 'node:fs/promises';
 import { join }               from 'node:path';
+import { spawn }              from 'node:child_process';
 
 export interface BootstrapResult {
   /** The BossBot governance loop — call loop.start() to begin processing goals */
@@ -249,6 +251,33 @@ export function bootstrap(): BootstrapResult {
     },
   });
 
+  /** Spawn `python3 -m alienclaw.bridge` and send a live-evo request (fire-and-forget). */
+  function callLiveEvoBridge(martianType: string): Promise<void> {
+    return new Promise((resolve) => {
+      const req = JSON.stringify({
+        bridge_version: '1.0',
+        request_id:     'live-evo-check',
+        request:        { kind: 'live-evo', martian_type: martianType },
+      });
+      const child = spawn('python3', ['-m', 'alienclaw.bridge'], { shell: false });
+      child.stdin.write(req + '\n');
+      child.stdin.end();
+      child.on('close', () => resolve());
+      child.on('error',  () => resolve());
+    });
+  }
+
+  /** live-evo-check: trigger threshold-gated generational evolution per martian type */
+  creatorBot.registerScheduledJob({
+    label: 'live-evo-check',
+    intervalMs: LIVE_EVO_CHECK_INTERVAL_MS,
+    fn: async () => {
+      for (const martianType of knownMartianTypes) {
+        await callLiveEvoBridge(martianType);
+      }
+    },
+  });
+
   // ── Start all three agents simultaneously ─────────────────────────────────
   // AdvisorBot: stateless between calls — ready immediately.
   // CreatorBot: scheduler starts now, runs independently of GovernanceLoop.
@@ -259,7 +288,7 @@ export function bootstrap(): BootstrapResult {
     '[Bootstrap] All 3 Tier-A agents online:\n' +
     '  BossBot    — awaiting loop.start()\n' +
     '  AdvisorBot — ready\n' +
-    `  CreatorBot — scheduler running (4 jobs registered)`
+    `  CreatorBot — scheduler running (5 jobs registered)`
   );
 
   // ── Shutdown handle ───────────────────────────────────────────────────────

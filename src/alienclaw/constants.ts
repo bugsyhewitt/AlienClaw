@@ -47,8 +47,9 @@ export const MAX_STRIKE_COUNT         = 3;
 export const FAILFORWARD_MAX_ATTEMPTS = 2;
 
 // Scheduled job intervals
-export const REGISTRY_HEALTH_INTERVAL_MS = 5 * 60 * 1000;   // 5 minutes
-export const GENOME_AUDIT_INTERVAL_MS    = 15 * 60 * 1000;  // 15 minutes
+export const REGISTRY_HEALTH_INTERVAL_MS  = 5 * 60 * 1000;   // 5 minutes
+export const GENOME_AUDIT_INTERVAL_MS     = 15 * 60 * 1000;  // 15 minutes
+export const LIVE_EVO_CHECK_INTERVAL_MS   = 10 * 60 * 1000;  // 10 minutes
 
 // Fitness loop
 export const FITNESS_UPDATE_INTERVAL_MS       = 5 * 60 * 1000;  // 5 minutes

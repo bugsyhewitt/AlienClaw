@@ -234,6 +234,74 @@ class TestSummonValidation:
         assert err["details"]["slot_index"] == 0
 
 
+class TestLiveEvoHandler:
+    """Tests for kind='live-evo' bridge handler (E2 item 3)."""
+
+    @staticmethod
+    def _live_evo(request: dict) -> dict:
+        import json
+        request["kind"] = "live-evo"
+        return handle(json.dumps({
+            "bridge_version": "1.0",
+            "request_id": "r-live-evo",
+            "request": request,
+        }).encode())
+
+    def test_missing_martian_type_returns_malformed(self) -> None:
+        resp = self._live_evo({})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["details"]["missing_fields"]
+
+    def test_below_threshold_returns_evolved_false(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        from alienclaw.evolution.live_evo import LIVE_EVO_THRESHOLD
+        import alienclaw.evolution.live_evo as le_mod
+
+        monkeypatch.setattr(
+            le_mod, "check_and_evolve",
+            lambda mt, th, **kw: None,
+        )
+        resp = self._live_evo({"martian_type": "compute"})
+        r = resp["response"]
+        assert r["ok"] is True
+        assert r["evolved"] is False
+        assert r["reason"] == "below_threshold"
+
+    def test_above_threshold_returns_evolved_true(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        import alienclaw.evolution.live_evo as le_mod
+
+        monkeypatch.setattr(
+            le_mod, "check_and_evolve",
+            lambda mt, th, **kw: {
+                "generation": 0, "next_generation": 1,
+                "children_minted": 28, "new_observations": 12,
+            },
+        )
+        resp = self._live_evo({"martian_type": "compute"})
+        r = resp["response"]
+        assert r["ok"] is True
+        assert r["evolved"] is True
+        assert r["generation"] == 0
+        assert r["next_generation"] == 1
+        assert r["children_minted"] == 28
+
+    def test_live_evo_internal_error_returns_structured(self, monkeypatch) -> None:
+        import alienclaw.evolution.live_evo as le_mod
+
+        def _boom(mt, th, **kw):
+            raise RuntimeError("disk full")
+
+        monkeypatch.setattr(le_mod, "check_and_evolve", _boom)
+        resp = self._live_evo({"martian_type": "compute"})
+        err = resp["response"]["error"]
+        assert err["code"] == "INTERNAL"
+        assert "disk full" in err["details"]["exception"]
+
+
 class TestSummonFromPopulationShape:
     @staticmethod
     def _sfp(request: dict[str, Any]) -> dict:
