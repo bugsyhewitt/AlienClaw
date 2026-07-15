@@ -7,22 +7,16 @@ so no real bridge subprocess is spawned.
 """
 from __future__ import annotations
 
-import json
-import random
 from pathlib import Path
-from unittest.mock import MagicMock
 
-import pytest
-
+from alienclaw.evolution.generation import FitnessReport
 from alienclaw.evolution.live_evo import (
     LIVE_EVO_THRESHOLD,
-    check_and_evolve,
     _read_watermark,
     _write_watermark,
+    check_and_evolve,
 )
-from alienclaw.evolution.generation import FitnessReport
 from alienclaw.evolution.online_fitness import OnlineFitnessLog
-
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
