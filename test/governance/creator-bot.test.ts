@@ -23,7 +23,7 @@ describe('CreatorBot', () => {
 
   beforeEach(() => { sink = new InMemorySink(); });
 
-  function makeBot(adapter = new MockMartianSummonAdapter()) {
+  function makeBot(adapter: MartianSummonAdapter = new MockMartianSummonAdapter()) {
     return new CreatorBot(new Logger(sink, 'CreatorBot'), adapter);
   }
 
