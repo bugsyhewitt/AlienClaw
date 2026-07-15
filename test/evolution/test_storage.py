@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -153,10 +154,18 @@ class TestPopulationStorage:
 
     # --- Category 2: pre-init / post-clear read guards ---
 
+    def test_read_all_entries_when_entries_dir_missing(self):
+        s = PopulationStorage("uninit_type")
+        assert s.read_all_entries() == []
+
     def test_read_all_entries_returns_empty_after_clear(self, storage):
         storage.write_entry(_make_entry())
         storage.clear()
         assert storage.read_all_entries() == []
+
+    def test_read_all_stats_when_stats_dir_missing(self):
+        s = PopulationStorage("uninit_type")
+        assert s.read_all_stats() == []
 
     def test_read_all_stats_returns_empty_after_clear(self, storage):
         storage.write_stats(_make_stats())
@@ -196,13 +205,10 @@ class TestPopulationStorage:
         assert stray == [], f"temp file not cleaned up: {stray}"
 
     def test_atomic_write_cleanup_tolerates_already_gone_tmp(self, tmp_path, monkeypatch):
-        # Cover L193-194: unlink raises FileNotFoundError; inner except suppresses it
-        import os as _os
-
         def _unlink_raises_fnf(p):
             raise FileNotFoundError(p)
 
-        monkeypatch.setattr(_os, "unlink", _unlink_raises_fnf)
+        monkeypatch.setattr(os, "unlink", _unlink_raises_fnf)
         path = tmp_path / "output.json"
         with pytest.raises(TypeError):
             PopulationStorage._atomic_write_json(path, {"bad": object()})
