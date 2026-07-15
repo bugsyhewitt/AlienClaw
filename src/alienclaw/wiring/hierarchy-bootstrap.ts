@@ -156,50 +156,65 @@ export function bootstrap(): BootstrapResult {
     fn: async () => {
       const sinceMs = Date.now() - FITNESS_UPDATE_INTERVAL_MS;
       const reports = await readRecentMartianReports(sinceMs);
-      if (reports.length === 0) return;
 
-      // Group by martianId
-      const byMartian = new Map<string, typeof reports>();
-      for (const r of reports) {
-        const arr = byMartian.get(r.martianId) ?? [];
-        arr.push(r);
-        byMartian.set(r.martianId, arr);
+      if (reports.length > 0) {
+        // Group by martianId
+        const byMartian = new Map<string, typeof reports>();
+        for (const r of reports) {
+          const arr = byMartian.get(r.martianId) ?? [];
+          arr.push(r);
+          byMartian.set(r.martianId, arr);
+        }
+
+        for (const [martianId, martianReports] of byMartian) {
+          const ms = registry.get(martianId);
+          if (!ms) continue;
+
+          const total = martianReports.length;
+          const successes = martianReports.filter(r => r.outcome === 'SUCCESS').length;
+          const successRate = total > 0 ? successes / total : 0;
+          const newFitness = FITNESS_EMA_ALPHA * successRate + (1 - FITNESS_EMA_ALPHA) * ms.fitness;
+
+          // Update in-memory registry
+          ms.fitness = newFitness;
+
+          // Atomically rewrite the .ms file
+          const msPath = join(PATHS.ms, `${martianId}.ms`);
+          try {
+            const raw = fsSync.readFileSync(msPath, 'utf-8');
+            const updated = raw.replace(
+              /^# fitness:.*$/m,
+              `# fitness: ${newFitness.toFixed(2)}`,
+            );
+            const tmpPath = msPath + '.tmp';
+            fsSync.writeFileSync(tmpPath, updated, 'utf-8');
+            fsSync.renameSync(tmpPath, msPath);
+          } catch {
+            // Non-fatal: keep in-memory updated
+          }
+
+          if (newFitness < FITNESS_EVOLUTION_THRESHOLD) {
+            creatorBot.enqueue(
+              'URGENT',
+              `evolve genome ${martianId} — fitness ${newFitness.toFixed(2)} below threshold ${FITNESS_EVOLUTION_THRESHOLD}`,
+              'fitness-update',
+            );
+          }
+        }
       }
 
-      for (const [martianId, martianReports] of byMartian) {
-        const ms = registry.get(martianId);
-        if (!ms) continue;
-
-        const total = martianReports.length;
-        const successes = martianReports.filter(r => r.outcome === 'SUCCESS').length;
-        const successRate = total > 0 ? successes / total : 0;
-        const newFitness = FITNESS_EMA_ALPHA * successRate + (1 - FITNESS_EMA_ALPHA) * ms.fitness;
-
-        // Update in-memory registry
-        ms.fitness = newFitness;
-
-        // Atomically rewrite the .ms file
-        const msPath = join(PATHS.ms, `${martianId}.ms`);
-        try {
-          const raw = fsSync.readFileSync(msPath, 'utf-8');
-          const updated = raw.replace(
-            /^# fitness:.*$/m,
-            `# fitness: ${newFitness.toFixed(2)}`,
-          );
-          const tmpPath = msPath + '.tmp';
-          fsSync.writeFileSync(tmpPath, updated, 'utf-8');
-          fsSync.renameSync(tmpPath, msPath);
-        } catch {
-          // Non-fatal: keep in-memory updated
-        }
-
-        if (newFitness < FITNESS_EVOLUTION_THRESHOLD) {
-          creatorBot.enqueue(
-            'URGENT',
-            `evolve genome ${martianId} — fitness ${newFitness.toFixed(2)} below threshold ${FITNESS_EVOLUTION_THRESHOLD}`,
-            'fitness-update',
-          );
-        }
+      // Write live-fitness summary every tick so status readers see fresh data
+      try {
+        const allMs = registry.list();
+        const summary = JSON.stringify({
+          generated_at: new Date().toISOString(),
+          martians: allMs.map(ms => ({ id: ms.id, fitness: ms.fitness })),
+        }, null, 2);
+        const tmpSummary = PATHS.liveFitnessSummary + '.tmp';
+        fsSync.writeFileSync(tmpSummary, summary, 'utf-8');
+        fsSync.renameSync(tmpSummary, PATHS.liveFitnessSummary);
+      } catch {
+        // Non-fatal
       }
     },
   });

@@ -81,15 +81,16 @@ export const ALIENCLAW_HOME = process.env['ALIENCLAW_HOME']
   ?? `${homedir()}/.alienclaw`;
 
 export const PATHS = {
-  home:        ALIENCLAW_HOME,
-  workspace:   `${ALIENCLAW_HOME}/workspace`,
-  config:      `${ALIENCLAW_HOME}/alienclaw.json`,
-  preferences: `${ALIENCLAW_HOME}/preferences.json`,
-  goals:       `${ALIENCLAW_HOME}/workspace/goals.json`,
-  output:      `${ALIENCLAW_HOME}/workspace/output`,
-  registry:    `${ALIENCLAW_HOME}/registry`,
-  ms:          `${ALIENCLAW_HOME}/registry/ms`,
-  msb:         `${ALIENCLAW_HOME}/registry/msb`,
-  lineage:     `${ALIENCLAW_HOME}/registry/lineage/lineage.json`,
-  telemetry:   `${ALIENCLAW_HOME}/registry/telemetry`,
+  home:               ALIENCLAW_HOME,
+  workspace:          `${ALIENCLAW_HOME}/workspace`,
+  config:             `${ALIENCLAW_HOME}/alienclaw.json`,
+  preferences:        `${ALIENCLAW_HOME}/preferences.json`,
+  goals:              `${ALIENCLAW_HOME}/workspace/goals.json`,
+  output:             `${ALIENCLAW_HOME}/workspace/output`,
+  registry:           `${ALIENCLAW_HOME}/registry`,
+  ms:                 `${ALIENCLAW_HOME}/registry/ms`,
+  msb:                `${ALIENCLAW_HOME}/registry/msb`,
+  lineage:            `${ALIENCLAW_HOME}/registry/lineage/lineage.json`,
+  telemetry:          `${ALIENCLAW_HOME}/registry/telemetry`,
+  liveFitnessSummary: `${ALIENCLAW_HOME}/live-fitness-summary.json`,
 } as const;
