@@ -47,8 +47,9 @@ export const MAX_STRIKE_COUNT         = 3;
 export const FAILFORWARD_MAX_ATTEMPTS = 2;
 
 // Scheduled job intervals
-export const REGISTRY_HEALTH_INTERVAL_MS = 5 * 60 * 1000;   // 5 minutes
-export const GENOME_AUDIT_INTERVAL_MS    = 15 * 60 * 1000;  // 15 minutes
+export const REGISTRY_HEALTH_INTERVAL_MS  = 5 * 60 * 1000;   // 5 minutes
+export const GENOME_AUDIT_INTERVAL_MS     = 15 * 60 * 1000;  // 15 minutes
+export const LIVE_EVO_CHECK_INTERVAL_MS   = 10 * 60 * 1000;  // 10 minutes
 
 // Fitness loop
 export const FITNESS_UPDATE_INTERVAL_MS       = 5 * 60 * 1000;  // 5 minutes
@@ -80,15 +81,16 @@ export const ALIENCLAW_HOME = process.env['ALIENCLAW_HOME']
   ?? `${homedir()}/.alienclaw`;
 
 export const PATHS = {
-  home:        ALIENCLAW_HOME,
-  workspace:   `${ALIENCLAW_HOME}/workspace`,
-  config:      `${ALIENCLAW_HOME}/alienclaw.json`,
-  preferences: `${ALIENCLAW_HOME}/preferences.json`,
-  goals:       `${ALIENCLAW_HOME}/workspace/goals.json`,
-  output:      `${ALIENCLAW_HOME}/workspace/output`,
-  registry:    `${ALIENCLAW_HOME}/registry`,
-  ms:          `${ALIENCLAW_HOME}/registry/ms`,
-  msb:         `${ALIENCLAW_HOME}/registry/msb`,
-  lineage:     `${ALIENCLAW_HOME}/registry/lineage/lineage.json`,
-  telemetry:   `${ALIENCLAW_HOME}/registry/telemetry`,
+  home:               ALIENCLAW_HOME,
+  workspace:          `${ALIENCLAW_HOME}/workspace`,
+  config:             `${ALIENCLAW_HOME}/alienclaw.json`,
+  preferences:        `${ALIENCLAW_HOME}/preferences.json`,
+  goals:              `${ALIENCLAW_HOME}/workspace/goals.json`,
+  output:             `${ALIENCLAW_HOME}/workspace/output`,
+  registry:           `${ALIENCLAW_HOME}/registry`,
+  ms:                 `${ALIENCLAW_HOME}/registry/ms`,
+  msb:                `${ALIENCLAW_HOME}/registry/msb`,
+  lineage:            `${ALIENCLAW_HOME}/registry/lineage/lineage.json`,
+  telemetry:          `${ALIENCLAW_HOME}/registry/telemetry`,
+  liveFitnessSummary: `${ALIENCLAW_HOME}/live-fitness-summary.json`,
 } as const;

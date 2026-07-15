@@ -234,6 +234,74 @@ class TestSummonValidation:
         assert err["details"]["slot_index"] == 0
 
 
+class TestLiveEvoHandler:
+    """Tests for kind='live-evo' bridge handler (E2 item 3)."""
+
+    @staticmethod
+    def _live_evo(request: dict) -> dict:
+        import json
+        request["kind"] = "live-evo"
+        return handle(json.dumps({
+            "bridge_version": "1.0",
+            "request_id": "r-live-evo",
+            "request": request,
+        }).encode())
+
+    def test_missing_martian_type_returns_malformed(self) -> None:
+        resp = self._live_evo({})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["details"]["missing_fields"]
+
+    def test_below_threshold_returns_evolved_false(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        from alienclaw.evolution.live_evo import LIVE_EVO_THRESHOLD
+        import alienclaw.evolution.live_evo as le_mod
+
+        monkeypatch.setattr(
+            le_mod, "check_and_evolve",
+            lambda mt, th, **kw: None,
+        )
+        resp = self._live_evo({"martian_type": "compute"})
+        r = resp["response"]
+        assert r["ok"] is True
+        assert r["evolved"] is False
+        assert r["reason"] == "below_threshold"
+
+    def test_above_threshold_returns_evolved_true(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        import alienclaw.evolution.live_evo as le_mod
+
+        monkeypatch.setattr(
+            le_mod, "check_and_evolve",
+            lambda mt, th, **kw: {
+                "generation": 0, "next_generation": 1,
+                "children_minted": 28, "new_observations": 12,
+            },
+        )
+        resp = self._live_evo({"martian_type": "compute"})
+        r = resp["response"]
+        assert r["ok"] is True
+        assert r["evolved"] is True
+        assert r["generation"] == 0
+        assert r["next_generation"] == 1
+        assert r["children_minted"] == 28
+
+    def test_live_evo_internal_error_returns_structured(self, monkeypatch) -> None:
+        import alienclaw.evolution.live_evo as le_mod
+
+        def _boom(mt, th, **kw):
+            raise RuntimeError("disk full")
+
+        monkeypatch.setattr(le_mod, "check_and_evolve", _boom)
+        resp = self._live_evo({"martian_type": "compute"})
+        err = resp["response"]["error"]
+        assert err["code"] == "INTERNAL"
+        assert "disk full" in err["details"]["exception"]
+
+
 class TestSummonFromPopulationShape:
     @staticmethod
     def _sfp(request: dict[str, Any]) -> dict:
@@ -336,3 +404,64 @@ class TestSummonFromPopulationShape:
         assert "response" in resp
         if resp["response"]["ok"]:
             assert "genome_used" in resp["response"]
+
+    def test_sfp_caps_pool_to_population_size_before_tournament(self, monkeypatch):
+        """Pool exceeding population_size is capped (top by fitness) before tournament (E2 item 2).
+
+        Regression guard: prior to the cap, each bridge subprocess loaded all entries
+        from the current generation, growing the pool unboundedly across live runs and
+        diluting tournament selection with old low-fitness entries.
+        """
+        import random
+        import alienclaw.evolution.selection as sel_mod
+        from alienclaw.evolution.population import Population
+        from alienclaw.evolution.types import EvolutionConfig
+        from alienclaw.genome.operators import random_genome
+
+        # Build an oversized population: default population_size=32 + 18 extra = 50 entries
+        config = EvolutionConfig(martian_type="compute")
+        pop = Population.create(config)                          # 32 seeded entries, fitness=0.0
+        rng = random.Random(42)
+        for i in range(18):
+            pop.add(
+                genome=random_genome(rng, "COMPUT01"),
+                fitness=(i + 1) * 0.05,                        # 0.05..0.90 — all valid
+                generation=0,
+                parent_ids=(),
+                run_metadata={"test": True},
+            )
+        assert len(pop.all()) == 50, "pre-condition: pool is oversized"
+
+        # Record the expected cap (top population_size by fitness) BEFORE the bridge call
+        # so the assertion is unaffected by the pop.add() that runs inside the bridge.
+        expected_top_fitnesses = sorted(e.fitness for e in pop.top(config.population_size))
+
+        # Patch load_or_create to return the oversized population
+        monkeypatch.setattr(Population, "load_or_create", staticmethod(lambda _config: pop))
+
+        # Spy on tournament to capture what pool it receives
+        captured: list = []
+        orig_tournament = sel_mod.tournament
+
+        def spy_tournament(population, k, r):
+            captured[:] = population.all()
+            return orig_tournament(population, k, r)
+
+        monkeypatch.setattr(sel_mod, "tournament", spy_tournament)
+
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": {"input": "2 + 2"},
+            "timeout_ms": 30_000,
+        })
+
+        # Bridge must cap the pool to population_size before tournament
+        assert len(captured) <= config.population_size, (
+            f"tournament received {len(captured)} entries but cap is {config.population_size}"
+        )
+        # Cap keeps the highest-fitness entries (18 measured > 32 zero-seeded entries)
+        assert sorted(e.fitness for e in captured) == expected_top_fitnesses, (
+            "cap must preserve the top-fitness entries, not an arbitrary subset"
+        )
+        # Bridge still produced a valid response after the cap
+        assert "ok" in resp["response"]
