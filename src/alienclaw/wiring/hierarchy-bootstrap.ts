@@ -26,6 +26,7 @@ import { RealMartianSummonAdapter } from '../governance/common/real-summon-adapt
 import { CreatorBot as CommonCreatorBot } from '../governance/common/creator-bot.js';
 import { DomainResolver }                 from '../governance/common/domain-resolver.js';
 import { Logger, JsonStdoutSink }         from '../governance/common/logger.js';
+import { OnlineFitnessLog }               from '../governance/common/online-fitness-log.js';
 import { UserChannel }       from '../comms/user-channel.js';
 import { AgentChannel,
          agentChannel }       from '../comms/agent-channel.js';
@@ -93,6 +94,8 @@ export function bootstrap(): BootstrapResult {
     commonLogger, adapter, undefined, commonDomainResolver,
   );
 
+  const onlineFitnessLog = new OnlineFitnessLog();
+
   const loop = new GovernanceLoop({
     bossBot,
     advisorBot,
@@ -106,6 +109,7 @@ export function bootstrap(): BootstrapResult {
     agentChannel,
     adapter,
     campaignCreatorBot: commonCreatorBot,
+    onlineFitnessLog,
   });
 
   // ── CreatorBot scheduled jobs ─────────────────────────────────────────────
