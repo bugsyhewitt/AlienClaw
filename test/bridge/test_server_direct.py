@@ -336,3 +336,64 @@ class TestSummonFromPopulationShape:
         assert "response" in resp
         if resp["response"]["ok"]:
             assert "genome_used" in resp["response"]
+
+    def test_sfp_caps_pool_to_population_size_before_tournament(self, monkeypatch):
+        """Pool exceeding population_size is capped (top by fitness) before tournament (E2 item 2).
+
+        Regression guard: prior to the cap, each bridge subprocess loaded all entries
+        from the current generation, growing the pool unboundedly across live runs and
+        diluting tournament selection with old low-fitness entries.
+        """
+        import random
+        import alienclaw.evolution.selection as sel_mod
+        from alienclaw.evolution.population import Population
+        from alienclaw.evolution.types import EvolutionConfig
+        from alienclaw.genome.operators import random_genome
+
+        # Build an oversized population: default population_size=32 + 18 extra = 50 entries
+        config = EvolutionConfig(martian_type="compute")
+        pop = Population.create(config)                          # 32 seeded entries, fitness=0.0
+        rng = random.Random(42)
+        for i in range(18):
+            pop.add(
+                genome=random_genome(rng, "COMPUT01"),
+                fitness=(i + 1) * 0.05,                        # 0.05..0.90 — all valid
+                generation=0,
+                parent_ids=(),
+                run_metadata={"test": True},
+            )
+        assert len(pop.all()) == 50, "pre-condition: pool is oversized"
+
+        # Record the expected cap (top population_size by fitness) BEFORE the bridge call
+        # so the assertion is unaffected by the pop.add() that runs inside the bridge.
+        expected_top_fitnesses = sorted(e.fitness for e in pop.top(config.population_size))
+
+        # Patch load_or_create to return the oversized population
+        monkeypatch.setattr(Population, "load_or_create", staticmethod(lambda _config: pop))
+
+        # Spy on tournament to capture what pool it receives
+        captured: list = []
+        orig_tournament = sel_mod.tournament
+
+        def spy_tournament(population, k, r):
+            captured[:] = population.all()
+            return orig_tournament(population, k, r)
+
+        monkeypatch.setattr(sel_mod, "tournament", spy_tournament)
+
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": {"input": "2 + 2"},
+            "timeout_ms": 30_000,
+        })
+
+        # Bridge must cap the pool to population_size before tournament
+        assert len(captured) <= config.population_size, (
+            f"tournament received {len(captured)} entries but cap is {config.population_size}"
+        )
+        # Cap keeps the highest-fitness entries (18 measured > 32 zero-seeded entries)
+        assert sorted(e.fitness for e in captured) == expected_top_fitnesses, (
+            "cap must preserve the top-fitness entries, not an arbitrary subset"
+        )
+        # Bridge still produced a valid response after the cap
+        assert "ok" in resp["response"]

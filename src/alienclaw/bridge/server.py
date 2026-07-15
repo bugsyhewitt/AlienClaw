@@ -279,6 +279,10 @@ def _handle_summon_from_population(request_id: str | None, req: dict, t0: float)
     except Exception as exc:
         return _error_response(request_id, "INTERNAL", f"Population error: {exc}", {"exception": str(exc)})
 
+    # Cap in-memory pool to population_size — prevents unbounded growth diluting tournament selection
+    if len(pop.all()) > config.population_size:
+        pop.replace_pool(pop.top(config.population_size))
+
     rng = random.Random()
     try:
         selected = tournament(pop, config.tournament_k, rng)
