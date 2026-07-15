@@ -371,6 +371,30 @@ describe('runSubmit — stubbed network', () => {
     const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: false });
     expect(rc).toBe(1);
   });
+
+  it('falls back to default populationsRoot and DEFAULT_API_URL when env vars are unset', async () => {
+    // Unset ALIENCLAW_POPULATIONS_ROOT → L35 arm=1 fires: join(home, 'populations')
+    // Unset ALIENCLAW_API_URL          → L60 arm=1 fires: 'https://api.alienclaw.net'
+    vi.unstubAllEnvs();
+    vi.stubEnv('ALIENCLAW_HOME', home);              // keep safe — prevents writes to real ~/.alienclaw
+    vi.stubEnv('ALIENCLAW_LEADERBOARD_NAME', 'TESTNAME');
+    // ALIENCLAW_POPULATIONS_ROOT and ALIENCLAW_API_URL intentionally not set
+
+    // seed best.json at the fallback populations root = join(home, 'populations', ...)
+    const fallbackPops = join(home, 'populations', 'compute_alone', 'entries');
+    mkdirSync(fallbackPops, { recursive: true });
+    writeFileSync(
+      join(fallbackPops, 'best.json'),
+      JSON.stringify({ genome: GENOME, fitness: 0.9, generation: 3, run_metadata: {} }),
+      'utf-8',
+    );
+
+    // fetch stub still matches on path fragments regardless of base domain
+    stubFetch();
+
+    const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: true });
+    expect(rc).toBe(0);
+  });
 });
 
 // ── 4. Commander wiring ──────────────────────────────────────────────────────
