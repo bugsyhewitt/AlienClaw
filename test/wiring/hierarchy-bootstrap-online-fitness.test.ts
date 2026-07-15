@@ -146,7 +146,7 @@ describe('hierarchy-bootstrap — OnlineFitnessLog wiring (E2 item 1)', () => {
     expect(vi.mocked(GovernanceLoop)).toHaveBeenCalledOnce();
 
     // Deps passed to the constructor must include onlineFitnessLog
-    const deps = vi.mocked(GovernanceLoop).mock.calls[0]![0] as Record<string, unknown>;
+    const deps = vi.mocked(GovernanceLoop).mock.calls[0]![0] as unknown as Record<string, unknown>;
     expect(deps['onlineFitnessLog']).toBeInstanceOf(OnlineFitnessLog);
 
     result.shutdown();
