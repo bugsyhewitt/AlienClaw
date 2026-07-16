@@ -38,6 +38,7 @@ export function parseTransitionTable(campaignMd: string): ParseResult {
     }
     return { ok: true, table };
   } catch (e) {
+    /* v8 ignore next — _parseTableYaml is a pure string parser that cannot throw; catch is defensive dead code */
     return { ok: false, error: `Parse error: ${e instanceof Error ? e.message : String(e)}` };
   }
 }
