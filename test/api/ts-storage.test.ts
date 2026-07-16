@@ -247,14 +247,27 @@ dbDescribe('MySQL storage — persistence assertions', () => {
     expect(s.top_fitness_by_type['web_search']).toBeCloseTo(0.6);
   });
 
-  // ── Fail-fast behavior ────────────────────────────────────────────────────
+});
 
-  it('initPool() throws immediately when ALIENCLAW_DB_URL is not provided', () => {
-    expect(() => initPool(undefined)).toThrow('ALIENCLAW_DB_URL');
+// ── initPool guard (DB-free) ─────────────────────────────────────────────────
+//
+// These tests verify the fail-fast guard in initPool() that fires *before*
+// mysql.createPool() is ever called. No MySQL connection is needed.
+describe('initPool guard — no database required', () => {
+  it('throws when called with empty string', () => {
+    // Empty string is non-nullish so `??` does not coalesce to the env var,
+    // but !'' is true so the guard fires immediately.
+    expect(() => initPool('')).toThrow('ALIENCLAW_DB_URL');
   });
 
-  it('initPool() throws with empty string URL', () => {
-    expect(() => initPool('')).toThrow('ALIENCLAW_DB_URL');
+  it('throws when called with undefined and ALIENCLAW_DB_URL is absent', () => {
+    const saved = process.env['ALIENCLAW_DB_URL'];
+    delete process.env['ALIENCLAW_DB_URL'];
+    try {
+      expect(() => initPool(undefined)).toThrow('ALIENCLAW_DB_URL');
+    } finally {
+      if (saved !== undefined) process.env['ALIENCLAW_DB_URL'] = saved;
+    }
   });
 });
 
