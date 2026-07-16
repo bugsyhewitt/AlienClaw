@@ -235,4 +235,30 @@ describe('Packet 130 — goal-loop E2E: scheme dispatch drives buildSubagent ×N
 
     expect(legacyJobSpy).not.toHaveBeenCalled();
   });
+
+  // ── Packet 241 ────────────────────────────────────────────────────────────
+  it('handleUserGoal — non-IDLE state delegates to handleUserInput with fold-into-plan status', async () => {
+    const bossBotMock = {
+      schemeWithAdvisor: vi.fn(),
+      buildTask:         vi.fn(),
+      generateSubGoals:  vi.fn(async () => []),
+    };
+    const { creatorBot: campaignCreatorBot } = makeStubCreatorBot();
+    const deps = makeDeps({ goalManager, campaignCreatorBot, bossBotMock, resolver });
+    const loop = new GovernanceLoop(deps);
+
+    // Put loop in a non-IDLE state with an active goal (simulates mid-execution)
+    (loop as any).state = 'EXECUTING';
+    (loop as any).currentGoalId = 'existing-goal-id';
+
+    // Spy on handleUserInput to capture delegation without running the full chain
+    const handleUserInputSpy = vi.spyOn(loop as any, 'handleUserInput').mockResolvedValue(undefined);
+
+    await (loop as any).handleUserGoal('urgent new goal');
+
+    expect(deps.userChannel.status).toHaveBeenCalledWith(
+      'New input while goal is active — folding into plan.'
+    );
+    expect(handleUserInputSpy).toHaveBeenCalledWith('urgent new goal');
+  });
 });
