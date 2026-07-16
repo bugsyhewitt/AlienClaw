@@ -382,6 +382,24 @@ class TestSummonFromPopulationShape:
         assert "genome_used" in err["details"]
         assert len(err["details"]["genome_used"]) == 256
 
+    def test_sfp_pop_add_failure_in_error_path_is_silenced(self, monkeypatch):
+        """L360-361: pop.add() raises in failure feedback path → silenced, error response returned."""
+        from alienclaw.evolution.population import Population
+
+        def always_raise(self, genome, fitness, generation, parent_ids, run_metadata):
+            raise RuntimeError("simulated write failure")
+
+        monkeypatch.setattr(Population, "add", always_raise)
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": {"input": "this is not valid math"},
+            "timeout_ms": 1000,
+        })
+        assert resp["response"]["ok"] is False
+        # Write failure silenced — genome_used still annotated (continues after except)
+        assert "genome_used" in resp["response"]["error"]["details"]
+        assert len(resp["response"]["error"]["details"]["genome_used"]) == 256
+
     def test_sfp_pop_add_failure_in_success_path_is_silenced(self, monkeypatch):
         """L325-326: pop.add() raises in success feedback path → silenced, response returned."""
         from alienclaw.evolution.population import Population
