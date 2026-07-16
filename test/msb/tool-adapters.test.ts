@@ -31,6 +31,7 @@ import {
   rmSync,
   existsSync,
   readFileSync,
+  chmodSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -559,6 +560,102 @@ describe('isBlockedHost — parseIpv4Octets out-of-range octet guard (L101, pack
   it('correctly parses a valid max-octet address 255.255.255.255 (control)', () => {
     // All octets at 255 are valid; the address is in the >=240 reserved range → blocked.
     expect(isBlockedHost('255.255.255.255')).toBe(true);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// expandIpv6 edge cases — cold branch arms in the IPv6 parser (packet 253)
+//
+//   bid=25 arm=0  L153  addr.length===0 → early-return undefined
+//   bid=26 arm=1  L159  lastColon<0 cond-expr else arm → maybeV4=''
+//   bid=28 arm=0  L162  maybeV4.includes('.') true → embedded IPv4 path
+//   bid=35 arm=0  L188  groups.length!==8 → return undefined
+//
+// All four arms are reachable through isBlockedHost (the exported surface).
+// The embedded-IPv4 arm (bid=28) is exercised by the static-import ssrf test
+// but is not tracked in this file's (dynamic-import) coverage context;
+// repeating it here ensures it registers in the merged report.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('expandIpv6 cold branch arms (empty addr / no-colon / embedded-IPv4 / wrong-length)', () => {
+  it('blocks [] — expandIpv6 early-return on empty addr (bid=25 arm=0)', () => {
+    // '[]' → isBlockedIpv6('') → expandIpv6('')
+    // addr.length===0 → return undefined → isBlockedIpv6 fails closed → true
+    expect(isBlockedHost('[]')).toBe(true);
+  });
+
+  it('blocks [abc] — no-colon addr → lastColon<0 cond-expr else + groups≠8 (bid=26/35)', () => {
+    // '[abc]' → isBlockedIpv6('abc') → expandIpv6('abc')
+    // lastColon=-1 → maybeV4='' (bid=26 arm=1, else branch); no '::'; parts=['abc'];
+    // g=[0xabc], groups.length=1 ≠ 8 → return undefined (bid=35 arm=0) → fail closed
+    expect(isBlockedHost('[abc]')).toBe(true);
+  });
+
+  it('blocks [::ffff:1.2.3.4] — embedded dotted-quad IPv4 tail (bid=28 arm=0)', () => {
+    // expandIpv6('::ffff:1.2.3.4'): lastColon=6, maybeV4='1.2.3.4'
+    // maybeV4.includes('.') → true (bid=28 arm=0); tailGroups built from v4 octets.
+    // Resulting groups hit the isV4Mapped guard → blocked.
+    expect(isBlockedHost('[::ffff:1.2.3.4]')).toBe(true);
+  });
+
+  it('blocks [::1.2.3.4] — IPv4-compatible embedded form (bid=28 arm=0, control)', () => {
+    // Another embedded-v4 form: all-zero prefix with dotted-quad tail.
+    // expandIpv6 enters the maybeV4.includes('.') block; six-zero prefix triggers
+    // the IPv4-compatible / unspecified-adjacent guard → blocked.
+    expect(isBlockedHost('[::1.2.3.4]')).toBe(true);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// webSearch + fileRead ?? fallback arms (bid=59 arm=2, bid=67 arm=2)
+//
+//   bid=59 L327  input['query'] ?? input['task'] ?? '' — '' arm when both absent
+//   bid=67 L389  input['path']  ?? input['task'] ?? '' — '' arm when both absent
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('adapter ?? fallback arms — missing input keys (bid=59/67 arm=2)', () => {
+  it('web_search throws "query is empty" when both query and task keys are absent (bid=59 arm=2)', async () => {
+    // {} → query=undefined, task=undefined → '' fallback (bid=59 arm=2) → trimmed '' → throws
+    await expect(webSearch({})).rejects.toThrow(/web_search: query is empty/);
+  });
+
+  it('file_read throws when both path and task keys are absent (bid=67 arm=2)', async () => {
+    // {} → rawPath='' (bid=67 arm=2); path.resolve(workspace,'')=workspace dir itself;
+    // assertInsideBoundary passes (resolved===boundary); readFile on a dir → EISDIR
+    await expect(fileRead({})).rejects.toThrow();
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// file_write — non-EEXIST error rethrow (bid=73 arm=0)
+//
+//   The catch at L429 has two branches:
+//     arm=0  code !== 'EEXIST' → throw err   (e.g. EISDIR)      ← NOT covered
+//     arm=1  code === 'EEXIST' → fall-through throw err          (covered by overwrite tests)
+//
+//   Trigger: write to a path that resolves to an existing directory → EISDIR.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('fileWriteAdapter — non-EEXIST error rethrow (bid=73 arm=0)', () => {
+  it('rethrows EACCES (non-EEXIST) when the parent subdir is not writable (bid=73 arm=0)', async () => {
+    // Create a chmod-555 subdirectory inside OUTPUT_DIR.
+    // mkdir(existing-dir, recursive) succeeds (no write needed);
+    // writeFile(new-file-inside-555-dir, …) → EACCES (code !== 'EEXIST') → bid=73 arm=0 fires.
+    const lockedDir = path.join(PATHS.output, 'locked-sub');
+    mkdirSync(lockedDir, { recursive: true });
+    chmodSync(lockedDir, 0o555);
+
+    let caught: NodeJS.ErrnoException | undefined;
+    try {
+      await fileWrite({ path: 'locked-sub/out.txt', content: 'data' });
+    } catch (e) {
+      caught = e as NodeJS.ErrnoException;
+    } finally {
+      chmodSync(lockedDir, 0o755); // always restore so afterEach cleanup can remove it
+    }
+    expect(caught).toBeDefined();
+    // EACCES ≠ EEXIST → the non-EEXIST rethrow arm (bid=73 arm=0) was taken.
+    expect(caught!.code).toBe('EACCES');
   });
 });
 
