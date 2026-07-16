@@ -117,6 +117,13 @@ describe('isBlockedHost — IPv6 private / loopback / link-local / mapped', () =
     expect(isBlockedHost('[gggg::1]')).toBe(true);        // non-hex → fail closed
   });
 
+  it('fails closed on over-specified :: form (> 8 groups) — fillCount < 0 path', () => {
+    // '1:2:3:4:5:6:7:8::9': 8 groups before :: + 1 after = 9 > 8.
+    // expandIpv6: fillCount = 8 - (8+1) = -1 < 0 → return undefined
+    //             → isBlockedIpv6 fails closed → isBlockedHost returns true.
+    expect(isBlockedHost('[1:2:3:4:5:6:7:8::9]')).toBe(true);
+  });
+
   it('does NOT block a public/global-unicast IPv6 literal', () => {
     expect(isBlockedHost('[2606:4700:4700::1111]')).toBe(false); // Cloudflare DNS
     expect(isBlockedHost('[2001:4860:4860::8888]')).toBe(false); // Google DNS
