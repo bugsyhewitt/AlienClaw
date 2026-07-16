@@ -6,19 +6,17 @@
  * 2 registry/, 1 msb/) but currently has ZERO direct unit tests (verified
  * 2026-06-19T20:15Z, see packet 063 Grounding Ledger §G-1).
  *
- * Scope: this packet covers ONLY the 5 exported functions.
+ * Scope: this packet covers the core exported functions.
  *   - sleep(ms)                          — Promise-based timer
  *   - extractText(msg)                   — joins text parts of an AssistantMessage
  *   - errorMessage(err)                  — extracts user-friendly message from unknown
  *   - normalizeInput(str)                — trim + lowercase
- *   - generateIdSuffix()                 — 8-char uppercase hex from crypto.randomUUID
  *
  * Reverse-imports and behaviors tested:
  *   - sleep returns a Promise that resolves after >=ms ms (no false-positive on 0ms)
  *   - extractText handles empty arrays, mixed-type arrays, and text-only arrays
  *   - errorMessage extracts .message from Error, returns String(...) for non-Errors
  *   - normalizeInput trims surrounding whitespace and lowercases ASCII
- *   - generateIdSuffix returns an 8-char [0-9A-F]+ string (uuid hex slice+upper)
  *
  * Run: ./node_modules/.bin/vitest run test/utils.test.ts
  */
@@ -30,7 +28,6 @@ import {
   extractText,
   errorMessage,
   normalizeInput,
-  generateIdSuffix,
 } from '../src/alienclaw/utils.js';
 
 // Build a minimally-typed AssistantMessage that satisfies the type-system (role,
@@ -156,24 +153,3 @@ describe('normalizeInput', () => {
   });
 });
 
-// ──────────────────────────────────────────────────────────────────────────
-// generateIdSuffix
-// ──────────────────────────────────────────────────────────────────────────
-
-describe('generateIdSuffix', () => {
-  it('returns an 8-character string', () => {
-    expect(generateIdSuffix()).toHaveLength(8);
-  });
-
-  it('returns only uppercase hex characters [0-9A-F]', () => {
-    const s = generateIdSuffix();
-    expect(/^[0-9A-F]{8}$/.test(s)).toBe(true);
-  });
-
-  it('returns a different value on each call (probabilistic — uuid slice)', () => {
-    const seen = new Set<string>();
-    for (let i = 0; i < 50; i++) seen.add(generateIdSuffix());
-    // 50 calls of 8-char hex → collision probability ≈ 50²/(2·16^8) ≈ 3e-6
-    expect(seen.size).toBeGreaterThanOrEqual(49);
-  });
-});

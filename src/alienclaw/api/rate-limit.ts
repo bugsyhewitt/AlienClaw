@@ -6,9 +6,9 @@
  * Flat-file persistence; in-memory cache; lazy-loaded.
  */
 
-import { existsSync, mkdirSync, writeFileSync, readFileSync, renameSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { atomicWrite } from '../utils.js';
 
 const _LIMIT = 100;
 const _WINDOW = 3600; // seconds
@@ -59,10 +59,7 @@ export class RateLimiter {
     const data: RateState = { install_id: installId, window_timestamps: isoList };
     try {
       mkdirSync(dirname(path), { recursive: true });
-      const tmp = join(dirname(path), `.tmp-${randomBytes(6).toString('hex')}`);
-      writeFileSync(tmp, JSON.stringify(data, null, 0), 'utf8');
-      // Atomic rename
-      renameSync(tmp, path);
+      atomicWrite(path, JSON.stringify(data, null, 0));
     } catch {
       // Persistence failure is silent; in-memory state still works
     }

@@ -8,13 +8,14 @@
 import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, fsyncSync, openSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
+import { dateStamp } from '../utils.js';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
 }
 
 function todayUtc(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dateStamp();
 }
 
 interface AuditEntry {

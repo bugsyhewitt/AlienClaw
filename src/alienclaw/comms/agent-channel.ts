@@ -16,6 +16,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join }              from 'node:path';
 import { PATHS }             from '../constants.js';
 import type { TierAAgent }   from '../constants.js';
+import { dateStamp }         from '../utils.js';
 
 // ── Message type ──────────────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ export class AgentChannel {
   // ── Audit file ────────────────────────────────────────────────────────────
 
   private async _writeAuditFile(msg: AgentMessage): Promise<void> {
-    const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const date = dateStamp(); // YYYY-MM-DD
     const dir  = join(this._baseDir, date, 'agent-channel');
     const filename = `${msg.from}-${msg.to}-${msg.ts}.json`;
     try {

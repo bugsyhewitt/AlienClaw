@@ -17,6 +17,10 @@ TOOL_ID_TABLE: dict[str, int] = {
 }
 EMPTY_SLOT_ID: int = 0
 
+# Maximum number of parameter slots a Martian may declare (Packet 16).
+# Valid slot_index values are therefore 0 .. MAX_MARTIAN_SLOTS - 1.
+MAX_MARTIAN_SLOTS: int = 2
+
 
 @dataclass(frozen=True)
 class InputWiring:

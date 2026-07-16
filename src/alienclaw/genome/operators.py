@@ -38,7 +38,7 @@ from .alphabet import (
     random_genome_chars,
 )
 from .checksum import compute_checksum
-from .codec import assemble
+from .codec import _XCODE_INDEX, XCODE_MAX, assemble, encode_xcode
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -99,8 +99,6 @@ def mutate(
     Raises:
         ValueError: if genome is not a valid 256-char Base62 string.
     """
-    from .codec import _XCODE_INDEX, XCODE_MAX, encode_xcode
-
     if len(genome) != GENOME_LENGTH:
         raise ValueError(
             f"genome must be exactly {GENOME_LENGTH} chars; got {len(genome)}"

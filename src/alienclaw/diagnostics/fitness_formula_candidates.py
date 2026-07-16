@@ -27,6 +27,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from alienclaw.fitness.function import clamp01
+
 
 @dataclass(frozen=True)
 class FitnessFormulaResult:
@@ -47,7 +49,7 @@ def option_current(
 
     Caps k-slot compositions at 1/k for perfect execution.
     """
-    fitness = max(0.0, min(1.0, correctness * (1.0 / max(1, tool_calls))))
+    fitness = clamp01(correctness * (1.0 / max(1, tool_calls)))
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
@@ -65,7 +67,7 @@ def option_b(
     Perfect k-slot execution (tool_calls = slot_count) → fitness = correctness.
     No ceiling for perfect compositions.
     """
-    fitness = max(0.0, min(1.0, correctness * (slot_count / max(1, tool_calls))))
+    fitness = clamp01(correctness * (slot_count / max(1, tool_calls)))
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
@@ -85,7 +87,7 @@ def option_c_prime(
     No penalty when tool_calls = slot_count. Multiplicative excess penalty.
     """
     excess = max(0, tool_calls - slot_count)
-    fitness = max(0.0, min(1.0, correctness / (1.0 + alpha * excess)))
+    fitness = clamp01(correctness / (1.0 + alpha * excess))
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
@@ -106,7 +108,7 @@ def option_d(
     """
     excess = max(0, tool_calls - slot_count)
     penalty = beta * excess / max(1, slot_count)
-    fitness = max(0.0, min(1.0, correctness - penalty))
+    fitness = clamp01(correctness - penalty)
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,

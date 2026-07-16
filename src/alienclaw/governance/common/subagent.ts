@@ -12,13 +12,14 @@
  * Lifecycle: birth(brief) → execute() | runCampaign() → erase()
  */
 
-import { mkdirSync, writeFileSync, rmSync, renameSync, appendFileSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, appendFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { MartianSummonAdapter, MartianSummonResult } from './summon-adapter.js';
 import { randomGenome } from './random-genome.js';
 import { nowIso } from './messages.js';
+import { atomicWrite } from '../../utils.js';
 
 import {
   decide,
@@ -58,6 +59,28 @@ export interface SubagentBrief {
   budgetOverrides?:  Partial<BudgetLimits>;
 }
 
+/**
+ * Build a SubagentBrief from the fields that vary per call site, supplying
+ * the boilerplate every site used to repeat (scope/successCriteria mirror
+ * the objective, structured communication, no constraints). Any default can
+ * be overridden by passing the field explicitly.
+ */
+export function makeSubagentBrief(
+  brief: Pick<SubagentBrief, 'campaignId' | 'role' | 'domain' | 'objective' | 'allowedMartians'>
+    & Partial<SubagentBrief>,
+): SubagentBrief {
+  return {
+    scope:              brief.objective,
+    successCriteria:    brief.objective,
+    deliverables:       'Sub-goal result.',
+    backgroundContext:  '',
+    communicationStyle: 'structured',
+    knowledgeBase:      '',
+    constraints:        'None',
+    ...brief,
+  };
+}
+
 export type HeartbeatState = 'RUNNING' | 'STALLED' | 'COMPLETE' | 'FAILED';
 
 export interface SubagentOptions {
@@ -93,14 +116,6 @@ export interface CampaignResult {
 }
 
 // ── Workspace helpers ───────────────────────────────────────────────────────
-
-/** Write file atomically: tmp sibling → rename. */
-function atomicWrite(filePath: string, content: string): void {
-  const dir     = path.dirname(filePath);
-  const tmpPath = path.join(dir, `.tmp-${randomUUID()}`);
-  writeFileSync(tmpPath, content, { encoding: 'utf-8' });
-  renameSync(tmpPath, filePath);
-}
 
 /** Build SOUL.md content from a SubagentBrief. */
 function buildSoulMd(brief: SubagentBrief): string {

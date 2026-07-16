@@ -8,7 +8,7 @@ import {
   type Context,
 } from '@mariozechner/pi-ai';
 import { AGENT_MODELS, ALIENCLAW_PROVIDER } from '../constants.js';
-import { extractText }                       from '../utils.js';
+import { extractText, parseModelJson }       from '../utils.js';
 import type {
   AdviceRequest, AdviceResponse,
   AdvisorySession, AgentMessage,
@@ -76,23 +76,21 @@ export class AdvisorBot {
   }
 
   static parseResponse(raw: string): AdviceResponse {
-    // Strip optional markdown fences
-    const clean = raw.replace(/```(?:json)?\n?/g, '').trim();
-    try {
-      return JSON.parse(clean) as AdviceResponse;
-    } catch {
-      return {
-        verdict:        clean.trim() || raw.trim(),
+    return parseModelJson(
+      raw,
+      parsed => parsed as AdviceResponse,
+      clean => ({
+        verdict:        clean || raw.trim(),
         confidence:     'medium',
         blindspots:     [],
         recommendation: '',
-      };
-    }
+      }),
+    );
   }
 
   /**
    * Get formal advisory from AdvisorBot via a real LLM call.
-   * Routes through OpenClaw's provider layer (anthropic provider, claude-opus-4-5).
+   * Routes through OpenClaw's provider layer (model from AGENT_MODELS.AdvisorBot).
    *
    * @param req     The advice request (requesterId, context, question).
    * @param taskId  Optional task ID — if provided, the session history for

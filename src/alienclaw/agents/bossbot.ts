@@ -9,7 +9,7 @@ import {
   type Context,
 } from '@mariozechner/pi-ai';
 import { AGENT_MODELS, ALIENCLAW_PROVIDER }         from '../constants.js';
-import { extractText, normalizeInput }             from '../utils.js';
+import { extractText, normalizeInput, parseModelJson } from '../utils.js';
 import type {
   TaskEnvelope, AdviceRequest, SubGoal,
   Scheme, Campaign, SubagentRole,
@@ -22,39 +22,35 @@ const SOUL_PATH  = join(__dirname, '..', 'prompts', 'bossbot.soul.md');
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function parseSubGoals(raw: string): SubGoal[] {
-  // Strip markdown code fences the LLM may add
-  const clean = raw.replace(/```(?:json)?\n?/g, '').trim();
-  try {
-    const parsed = JSON.parse(clean) as Array<{
+  return parseModelJson(
+    raw,
+    parsed => (parsed as Array<{
       description: string;
       domain?: string;
       dependsOn?: string[];
-    }>;
-    return parsed.map(item => ({
+    }>).map(item => ({
       id:          crypto.randomUUID(),
       description: item.description,
       domain:      item.domain ?? 'general',
       status:      'pending' as const,
       dependsOn:   item.dependsOn ?? [],
-    }));
-  } catch {
+    })),
     // Graceful fallback: treat raw text as a single sub-goal
-    return [{
+    clean => [{
       id:          crypto.randomUUID(),
       description: clean.slice(0, 200),
       domain:      'general',
       status:      'pending',
       dependsOn:   [],
-    }];
-  }
+    }],
+  );
 }
 
 // ── Scheme parser ─────────────────────────────────────────────────────────────
 
 export function parseSchemeDraft(goalId: string, raw: string): Scheme {
-  const clean = raw.replace(/```(?:json)?\n?/g, '').trim();
-  try {
-    const parsed = JSON.parse(clean) as {
+  return parseModelJson(raw, (json) => {
+    const parsed = json as {
       rationale: string;
       campaigns: Array<{
         name:        string;
@@ -98,28 +94,27 @@ export function parseSchemeDraft(goalId: string, raw: string): Scheme {
       advisorEndorsement: '',
       createdAt:          Date.now(),
     };
-  } catch {
-    // Graceful fallback — single campaign, single generalist role
-    return {
-      goalId,
-      rationale: 'LLM produced non-JSON output; falling back to single-campaign scheme.',
-      campaigns: [{
-        id:          crypto.randomUUID(),
-        name:        'Main Campaign',
-        objective:   clean.slice(0, 200),
-        dependsOn:   [],
-        status:      'pending',
-        subagents:   [{
-          role:          'Generalist',
-          domain:        'general',
-          knowledgeBase: '',
-          martianTags:   ['web_search', 'file_read', 'file_write'],
-        }],
+  },
+  // Graceful fallback — single campaign, single generalist role
+  clean => ({
+    goalId,
+    rationale: 'LLM produced non-JSON output; falling back to single-campaign scheme.',
+    campaigns: [{
+      id:          crypto.randomUUID(),
+      name:        'Main Campaign',
+      objective:   clean.slice(0, 200),
+      dependsOn:   [],
+      status:      'pending',
+      subagents:   [{
+        role:          'Generalist',
+        domain:        'general',
+        knowledgeBase: '',
+        martianTags:   ['web_search', 'file_read', 'file_write'],
       }],
-      advisorEndorsement: '',
-      createdAt:          Date.now(),
-    };
-  }
+    }],
+    advisorEndorsement: '',
+    createdAt:          Date.now(),
+  }));
 }
 
 // ── BossBot ───────────────────────────────────────────────────────────────────
@@ -152,30 +147,40 @@ export class BossBot {
   }
 
   /**
+   * Run one LLM round-trip: soul + task section as system prompt, a single
+   * user message, plain text back. Shared shell for all BossBot LLM calls.
+   */
+  private async ask(section: string, userContent: string): Promise<string> {
+    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
+    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
+    const context: Context = {
+      systemPrompt: `${this.soul}\n\n${section}`,
+      messages: [{
+        role:      'user',
+        content:   userContent,
+        timestamp: Date.now(),
+      }],
+    };
+    const response = await completeSimple(model, context, { apiKey });
+    return extractText(response);
+  }
+
+  /**
    * Classify mid-execution user input into one of three categories.
    */
   async classifyUserInput(
     input: string
   ): Promise<'new_subgoal' | 'constraint' | 'direction_change'> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
-    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
-    const context: Context = {
-      systemPrompt:
-        `${this.soul}\n\n` +
-        `## Classify User Input\n` +
-        `Classify the user message as exactly one of:\n` +
-        `- new_subgoal: user is adding new work to the plan\n` +
-        `- constraint: user is adding a restriction (don't do X, must use Y)\n` +
-        `- direction_change: user wants to change approach or reprioritize\n\n` +
-        `Respond with exactly one word. No punctuation. No explanation.`,
-      messages: [{
-        role:      'user',
-        content:   `Classify this input:\n${input}`,
-        timestamp: Date.now(),
-      }],
-    };
-    const response = await completeSimple(model, context, { apiKey });
-    const raw = normalizeInput(extractText(response));
+    const text = await this.ask(
+      `## Classify User Input\n` +
+      `Classify the user message as exactly one of:\n` +
+      `- new_subgoal: user is adding new work to the plan\n` +
+      `- constraint: user is adding a restriction (don't do X, must use Y)\n` +
+      `- direction_change: user wants to change approach or reprioritize\n\n` +
+      `Respond with exactly one word. No punctuation. No explanation.`,
+      `Classify this input:\n${input}`,
+    );
+    const raw = normalizeInput(text);
     if (raw.includes('constraint'))        return 'constraint';
     if (raw.includes('direction_change'))  return 'direction_change';
     return 'new_subgoal';
@@ -190,12 +195,8 @@ export class BossBot {
    * before being finalised in schemeWithAdvisor().
    */
   async draftScheme(goalId: string, goalDescription: string): Promise<Scheme> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
-    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
-    const context: Context = {
-      systemPrompt:
-        `${this.soul}\n\n` +
-        `## Scheme Planning\n` +
+    const text = await this.ask(
+      `## Scheme Planning\n` +
         `You are designing a Scheme — a full campaign plan to achieve a goal.\n` +
         `A Scheme contains Campaigns. Each Campaign has a name, objective, dependency edges,\n` +
         `and a list of Subagent roles (each with a domain, knowledge base, and Martian tags).\n\n` +
@@ -222,14 +223,9 @@ export class BossBot {
         `Valid martianTags: web_search, url_fetch, file_read, file_write (or any registered tool tag).\n` +
         `Set dependsOn to [] for campaigns that can start immediately in parallel.\n` +
         `Campaigns that depend on others must list those campaign names in dependsOn.`,
-      messages: [{
-        role:      'user',
-        content:   `Draft a Scheme for this goal:\n\n${goalDescription}`,
-        timestamp: Date.now(),
-      }],
-    };
-    const response = await completeSimple(model, context, { apiKey });
-    return parseSchemeDraft(goalId, extractText(response));
+      `Draft a Scheme for this goal:\n\n${goalDescription}`,
+    );
+    return parseSchemeDraft(goalId, text);
   }
 
   /**
@@ -313,51 +309,30 @@ export class BossBot {
     current:         Scheme,
     feedback:        string
   ): Promise<Scheme> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
-    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
-    const context: Context = {
-      systemPrompt:
-        `${this.soul}\n\n` +
-        `## Scheme Refinement\n` +
-        `You are refining a campaign Scheme based on AdvisorBot feedback.\n` +
-        `Respond ONLY with the revised JSON object (same schema as before) — no prose, no fences.`,
-      messages: [
-        {
-          role:      'user',
-          content:
-            `Goal: "${goalDescription}"\n\n` +
-            `Current Scheme:\n${JSON.stringify(current, null, 2)}\n\n` +
-            `AdvisorBot feedback:\n${feedback}\n\n` +
-            `Produce a revised Scheme that addresses this feedback.`,
-          timestamp: Date.now(),
-        },
-      ],
-    };
-    const response = await completeSimple(model, context, { apiKey });
-    return parseSchemeDraft(goalId, extractText(response));
+    const text = await this.ask(
+      `## Scheme Refinement\n` +
+      `You are refining a campaign Scheme based on AdvisorBot feedback.\n` +
+      `Respond ONLY with the revised JSON object (same schema as before) — no prose, no fences.`,
+      `Goal: "${goalDescription}"\n\n` +
+      `Current Scheme:\n${JSON.stringify(current, null, 2)}\n\n` +
+      `AdvisorBot feedback:\n${feedback}\n\n` +
+      `Produce a revised Scheme that addresses this feedback.`,
+    );
+    return parseSchemeDraft(goalId, text);
   }
 
   /**
    * Generate sub-goals from a user input string (new_subgoal or direction_change path).
    */
   async generateSubGoals(input: string): Promise<SubGoal[]> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
-    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
-    const context: Context = {
-      systemPrompt:
-        `${this.soul}\n\n` +
-        `## Generate Sub-Goals\n` +
-        `Given user input, generate the sub-goals it implies.\n` +
-        `Respond ONLY with a JSON array — no prose, no markdown fences.\n` +
-        `Schema: [{"description":"string","domain":"string","dependsOn":[]}]`,
-      messages: [{
-        role:      'user',
-        content:   `Generate sub-goals for:\n\n${input}`,
-        timestamp: Date.now(),
-      }],
-    };
-    const response = await completeSimple(model, context, { apiKey });
-    return parseSubGoals(extractText(response));
+    const text = await this.ask(
+      `## Generate Sub-Goals\n` +
+      `Given user input, generate the sub-goals it implies.\n` +
+      `Respond ONLY with a JSON array — no prose, no markdown fences.\n` +
+      `Schema: [{"description":"string","domain":"string","dependsOn":[]}]`,
+      `Generate sub-goals for:\n\n${input}`,
+    );
+    return parseSubGoals(text);
   }
 }
 

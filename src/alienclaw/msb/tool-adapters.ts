@@ -419,18 +419,12 @@ const fileWriteAdapter: ToolFn = async (input) => {
   const resolved = assertInsideBoundary(rawPath, OUTPUT_DIR);
   await fsPromises.mkdir(path.dirname(resolved), { recursive: true });
 
-  let created = false;
-  try {
-    // Atomic create-or-fail: 'wx' fails if file already exists
-    await fsPromises.writeFile(resolved, content, { flag: 'wx', encoding: 'utf-8' });
-    created = true;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-    throw err;  // refuse to overwrite — fail explicitly
-  }
+  // Atomic create-or-fail: 'wx' throws EEXIST if the file already exists —
+  // refuse to overwrite, fail explicitly.
+  await fsPromises.writeFile(resolved, content, { flag: 'wx', encoding: 'utf-8' });
 
   const sizeBytes = Buffer.byteLength(content, 'utf-8');
-  return { path: rawPath, sizeBytes, created };
+  return { path: rawPath, sizeBytes, created: true };
 };
 
 // ---------------------------------------------------------------------------

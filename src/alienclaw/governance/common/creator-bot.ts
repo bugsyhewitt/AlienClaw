@@ -20,7 +20,7 @@ import { nowIso } from './messages.js';
 import { assertLegalSend } from './comm-graph.js';
 import type { Logger } from './logger.js';
 import type { MartianSummonAdapter } from './summon-adapter.js';
-import { Subagent } from './subagent.js';
+import { Subagent, makeSubagentBrief } from './subagent.js';
 import type { SubagentBrief } from './subagent.js';
 import type { DomainResolver } from './domain-resolver.js';
 
@@ -127,20 +127,18 @@ export class CreatorBot {
       subagentsBaseDir: this.subagentsBaseDir,
     });
 
-    const brief: SubagentBrief = {
-      campaignId:         spec.campaignId,
-      role:               spec.role ?? `${martianType} Subagent`,
+    const brief = makeSubagentBrief({
+      campaignId:        spec.campaignId,
+      role:              spec.role ?? `${martianType} Subagent`,
       domain,
-      objective:          spec.objective,
-      scope:              spec.successCriteria ?? 'Complete the campaign objective.',
-      successCriteria:    spec.successCriteria ?? 'Task complete.',
-      allowedMartians:    spec.allowedMartians ?? [martianType],
-      deliverables:       'Campaign report to BossBot.',
-      backgroundContext:  spec.backgroundContext ?? '',
-      communicationStyle: 'structured',
-      knowledgeBase:      spec.knowledgeBase ?? '',
-      constraints:        'None',
-    };
+      objective:         spec.objective,
+      scope:             spec.successCriteria ?? 'Complete the campaign objective.',
+      successCriteria:   spec.successCriteria ?? 'Task complete.',
+      allowedMartians:   spec.allowedMartians ?? [martianType],
+      deliverables:      'Campaign report to BossBot.',
+      backgroundContext: spec.backgroundContext ?? '',
+      knowledgeBase:     spec.knowledgeBase ?? '',
+    });
 
     subagent.birth(brief);
 
@@ -196,20 +194,16 @@ export class CreatorBot {
     });
 
     // Build birth brief from campaign request
-    const brief: SubagentBrief = {
-      campaignId:        request.payload.campaign_id,
-      role:              `${martian_type} Subagent`,
-      domain:            martian_type,
-      objective:         request.payload.plan,
-      scope:             request.payload.success_criteria ?? 'Complete the campaign plan.',
-      successCriteria:   request.payload.success_criteria ?? 'Task complete.',
-      allowedMartians:   request.payload.allowed_tools ?? [martian_type],
-      deliverables:      'Campaign report to BossBot.',
-      backgroundContext: '',
-      communicationStyle: 'structured',
-      knowledgeBase:     '',
-      constraints:       'None',
-    };
+    const brief = makeSubagentBrief({
+      campaignId:      request.payload.campaign_id,
+      role:            `${martian_type} Subagent`,
+      domain:          martian_type,
+      objective:       request.payload.plan,
+      scope:           request.payload.success_criteria ?? 'Complete the campaign plan.',
+      successCriteria: request.payload.success_criteria ?? 'Task complete.',
+      allowedMartians: request.payload.allowed_tools ?? [martian_type],
+      deliverables:    'Campaign report to BossBot.',
+    });
 
     subagent.birth(brief);
 

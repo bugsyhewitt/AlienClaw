@@ -18,17 +18,15 @@ export const AGENT_MODELS: Record<TierAAgent, typeof ALIENCLAW_MODELS[keyof type
 
 export const EMPLOYEE_DEFAULT_MODEL = ALIENCLAW_MODELS.FAST;
 
-// Genome hard invariants — 256-char Base62, 4 sections × 64 chars
-// Section 0: IDENTITY   (chars 0-63)   — ID, generation, tool family
-// Section 1: EXECUTION  (chars 64-127) — flow type, retry, performance
-// Section 2: BEHAVIOR   (chars 128-191)— escalation policy, output contract
-// Section 3: CHECKSUM   (chars 192-255)— FNV-1a over sections 0-2
-export const GENOME_LENGTH        = 256;
-export const GENOME_SECTION_COUNT = 4;
-export const GENOME_SECTION_SIZE  = 64;
+// Genome hard invariants (length, section size/count) are owned by
+// registry/genome-codec.ts — import them from there.
 
 // Martian tool cap — a single Martian file may declare at most 4 tools
 export const MAX_MS_TOOLS = 4;
+
+// Martian slot cap — a wiring may reference at most 2 parameter slots
+// (slot_index 0 and 1). Distinct from MAX_MS_TOOLS above.
+export const MAX_MARTIAN_SLOTS = 2;
 
 // Martian cannot spawn other Martian (depth must stay at 0)
 export const MAX_MARTIAN_DEPTH = 0;
@@ -69,9 +67,6 @@ export const MAX_FILE_READ_BYTES = 10 * 1024 * 1024;
 
 // Default budget extension (number of extra attempts when resuming with budget)
 export const DEFAULT_BUDGET_EXTENSION  = 3;
-
-// Domain slug max length (used in subagent ID generation)
-export const DOMAIN_SLUG_MAX = 6;
 
 // CreatorBot queue capacity — oldest entries evicted when exceeded
 export const CREATOR_QUEUE_MAX = 1000;

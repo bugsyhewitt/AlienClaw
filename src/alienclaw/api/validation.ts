@@ -10,15 +10,16 @@
  * and alphabet but an invalid checksum is now refused, not persisted.
  */
 
-import { BASE62_ALPHABET, computeChecksum, SECTION_SIZE } from '../registry/genome-codec.js';
-import { GENOME_LENGTH } from '../constants.js';
+import { BASE62_ALPHABET, computeChecksum, GENOME_LENGTH, SECTION_SIZE } from '../registry/genome-codec.js';
+import { LEADERBOARD_NAME_RE, validateLeaderboardName } from '../utils.js';
 import type { SubmissionRequest, InstallRequest } from './types.js';
+
+export { validateLeaderboardName };
 
 const _BASE62_SET = new Set(BASE62_ALPHABET);
 // Sections 0-2 (IDENTITY, EXECUTION, BEHAVIOR) occupy the first 192 chars;
 // section 3 (CHECKSUM) is the trailing 64 chars verified against them.
 const _GENOME_BODY_LENGTH = SECTION_SIZE * 3;
-const _LEADERBOARD_NAME_RE = /^[A-Z]{8}$/;
 const _API_KEY_LENGTH = 43;
 
 export interface ValidationResult {
@@ -34,10 +35,6 @@ function fail(
   details: Record<string, unknown> = {}
 ): ValidationResult {
   return { valid: false, error: { code, message, details } };
-}
-
-export function validateLeaderboardName(name: string): boolean {
-  return _LEADERBOARD_NAME_RE.test(name);
 }
 
 export function validateSubmission(
@@ -90,10 +87,10 @@ export function validateSubmission(
     return fail('MISSING_LEADERBOARD_NAME',
       'leaderboard_name is required. Choose 8 uppercase letters (e.g. ALIENBOT).');
   }
-  if (!_LEADERBOARD_NAME_RE.test(req.leaderboard_name)) {
+  if (!validateLeaderboardName(req.leaderboard_name)) {
     return fail('INVALID_LEADERBOARD_NAME',
       'leaderboard_name must be exactly 8 uppercase ASCII letters (A-Z).',
-      { received: req.leaderboard_name, pattern: '^[A-Z]{8}$' });
+      { received: req.leaderboard_name, pattern: LEADERBOARD_NAME_RE.source });
   }
 
   // 7. run_metadata size

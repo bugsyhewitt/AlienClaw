@@ -42,10 +42,11 @@ def roulette_wheel(pop: Population, rng: random.Random) -> PopulationEntry:
     no negative-weight handling is needed.
     """
     entries = pop.all()
-    total = sum(e.fitness for e in entries)
+    weights = [e.fitness for e in entries]
+    total = sum(weights)
     if total <= 0.0:
         return pop.sample(rng)  # also raises the canonical error on empty pools
-    return rng.choices(entries, weights=[e.fitness for e in entries], k=1)[0]
+    return rng.choices(entries, weights=weights, k=1)[0]
 
 
 def truncation(pop: Population, top_fraction: float, rng: random.Random) -> PopulationEntry:
