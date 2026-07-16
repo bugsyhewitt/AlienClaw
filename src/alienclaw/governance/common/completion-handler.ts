@@ -1,4 +1,5 @@
 import { normalizeInput } from '../../utils.js';
+import { REVIEW_THRESHOLD } from './advisor-bot.js';
 import type { AdvisorBot }  from '../../agents/advisorbot.js';
 import type { AgentChannel } from '../../comms/agent-channel.js';
 import type { GoalManager } from './goal-manager.js';
@@ -48,10 +49,21 @@ export class CompletionHandler {
    * Phase 2B: stub AdvisorBot always approves. Low-confidence stubs
    * cause a reopen so the state machine exercises that path.
    */
-  async review(goalId: string): Promise<CompletionReview> {
+  async review(goalId: string, martianFitness?: number): Promise<CompletionReview> {
     const file    = this.goalManager.load();
     const goal    = file.goals.find(g => g.id === goalId);
     if (!goal) throw new Error(`Goal ${goalId} not found`);
+
+    // Fitness gate: short-circuit before calling the LLM when objective signal is clear.
+    if (martianFitness !== undefined && martianFitness < REVIEW_THRESHOLD) {
+      const firstIncompleteSubGoal   = goal.subGoals.find(s => s.status !== 'complete');
+      const firstIncompleteCampaign  = (goal.scheme?.campaigns ?? [])
+        .find(c => c.status !== 'complete');
+      const reopenId = firstIncompleteSubGoal?.id
+        ?? firstIncompleteCampaign?.id
+        ?? goal.subGoals[0]?.id;
+      return { proceed: false, reopenIds: reopenId ? [reopenId] : [] };
+    }
 
     const summary = goalStatusLines(goal);
 
