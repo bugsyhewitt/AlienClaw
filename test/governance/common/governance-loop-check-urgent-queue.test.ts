@@ -135,3 +135,46 @@ describe('GovernanceLoop.checkUrgentQueue — Path C (packet 169)', () => {
     expect((loop as any).state).toBe('EXECUTING');
   });
 });
+
+// ── Path A — no urgent item (L812) ───────────────────────────────────────────
+
+describe('GovernanceLoop.checkUrgentQueue — Path A (packet 240)', () => {
+  it('no urgent item → early return, consumeUrgent and advise not called', async () => {
+    const consumeSpy = vi.fn();
+    const adviseSpy  = vi.fn();
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager:       noopGoalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+      creatorBot: {
+        peekUrgent:    vi.fn(() => undefined),
+        consumeUrgent: consumeSpy,
+        flushNotable:  vi.fn(() => []),
+      } as unknown as CreatorBot,
+      advisorBot: {
+        destroyTaskSessions: vi.fn(),
+        advise: adviseSpy,
+      } as unknown as AdvisorBot,
+      userChannel: {
+        required: vi.fn(),
+        verbose:  vi.fn(),
+        status:   vi.fn(),
+        close:    vi.fn(),
+      } as unknown as UserChannel,
+    } satisfies GovernanceLoopDeps);
+
+    (loop as any).transition.call(loop, 'CREATOR_BUILDING', 'setup');
+    (loop as any).transition.call(loop, 'EXECUTING',        'setup');
+
+    await (loop as any).checkUrgentQueue();
+
+    expect(consumeSpy).not.toHaveBeenCalled();
+    expect(adviseSpy).not.toHaveBeenCalled();
+  });
+});
