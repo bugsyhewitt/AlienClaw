@@ -649,3 +649,63 @@ describe('parseTransitionTable — non-when line in transitions block (L310)', (
     }
   });
 });
+
+describe('_parseTableYaml parser edge cases', () => {
+  it('silently ignores an unrecognized top-level key (bid=31 arm=1)', () => {
+    // description: is not initial_state or states — hits the false arm at L215, i++ at L329
+    const yaml = `transition_table:
+  initial_state: s
+  description: this key is not initial_state or states
+  states:
+    s:
+      martian_type: compute_alone
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.initial_state).toBe('s');
+    expect(r.table?.states['s']).toBeDefined();
+    expect(r.table?.states['s']?.martian_type).toBe('compute_alone');
+  });
+
+  it('treats an empty inputs: block as an empty object (bid=45 arm=0)', () => {
+    // inputs: at bIndent=6; next line transitions: also at indent=6 → iIndent <= bIndent → break immediately
+    const yaml = `transition_table:
+  initial_state: s
+  states:
+    s:
+      martian_type: compute_alone
+      inputs:
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['s']?.inputs).toEqual({});
+  });
+
+  it('skips malformed input lines and keeps only the valid k:v pair (bid=49 arm=1)', () => {
+    // :starts_with_colon  → colonIdx=0, not > 0 → false arm, skipped
+    // no_colon_at_all     → colonIdx=-1, not > 0 → false arm, skipped
+    // valid_key: valid_value → colonIdx=9 > 0 → parsed normally
+    const yaml = `transition_table:
+  initial_state: s
+  states:
+    s:
+      martian_type: compute_alone
+      inputs:
+        :starts_with_colon
+        no_colon_at_all
+        valid_key: valid_value
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['s']?.inputs).toEqual({ valid_key: 'valid_value' });
+  });
+});
