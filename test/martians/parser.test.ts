@@ -468,6 +468,24 @@ slots:
     // With the fix active: key resolves to 'martian"type' (not 'martian_type').
     expect(() => parseMartian(md)).toThrow(/missing required field 'martian_type'/);
   });
+
+  it('line 209 (_findKeyColon backslash skip): escaped double-quote before colon in key is not a separator', () => {
+    // A fields key of "a\"b: c" contains an escaped double-quote followed by
+    // a colon. Without the backslash-skip at L209 the \" prematurely closes the
+    // quoted string and the colon inside the key is returned as the separator,
+    // silently producing the wrong field name.
+    const md = [
+      'martian_type: test',
+      'slots:',
+      '  - slot_index: 1',
+      '    tool_name: test_tool',
+      '    inputs_from:',
+      '      fields:',
+      '        "a\\"b: c": source_field',
+    ].join('\n');
+    const spec = parseMartian(md);
+    expect(spec.slots[0]!.inputsFrom!.fields).toHaveProperty('a"b: c', 'source_field');
+  });
 });
 
 // ── describe: MartianParseError ────────────────────────────────────────
