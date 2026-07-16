@@ -162,6 +162,24 @@ slots:
   });
 });
 
+// ── describe: parseMartian — slots ────────────────────────────────────
+describe('parseMartian — slots', () => {
+  it('returns empty fields when inputs_from.fields is not a plain object (L300 bid=73)', () => {
+    // fields: [] is valid YAML but is an array, not a mapping.
+    // _isPlainObject([]) is false → the fields loop is skipped → { fields: {} } is returned.
+    const md = `\
+martian_type: x
+slots:
+  - slot_index: 0
+    tool_name: t
+    inputs_from:
+      fields: []
+`;
+    const spec = parseMartian(md);
+    expect(spec.slots[0]!.inputsFrom).toEqual({ fields: {} });
+  });
+});
+
 // ── describe: parseMartian — required-field errors ─────────────────────
 describe('parseMartian — required-field errors', () => {
   it('throws MartianParseError when top-level is not a mapping (sequence)', () => {
