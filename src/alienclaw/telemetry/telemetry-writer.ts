@@ -19,6 +19,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, sep }        from 'node:path';
 import { PATHS }            from '../constants.js';
+import { dateStamp }        from '../utils.js';
 
 /**
  * Allowed characters for a telemetry filename segment.
@@ -101,7 +102,7 @@ export function sanitizeFilenameSegment(value: string, label = 'filename segment
 
 export class TelemetryWriter {
   private dirForDate(date: Date = new Date()): string {
-    return join(PATHS.telemetry, date.toISOString().slice(0, 10));
+    return join(PATHS.telemetry, dateStamp(date));
   }
 
   private async ensureDir(dir: string): Promise<void> {

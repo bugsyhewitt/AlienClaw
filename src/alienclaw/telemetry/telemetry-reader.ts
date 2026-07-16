@@ -10,6 +10,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join }              from 'node:path';
 import { PATHS }             from '../constants.js';
+import { dateStamp }         from '../utils.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ export async function readRecentMartianReports(sinceMs: number): Promise<Martian
   try {
     const dateDirs = await readdir(telemetryRoot);
     for (const dateDir of dateDirs) {
-      if (dateDir < cutoffDate.toISOString().slice(0, 10)) continue; // skip old dates
+      if (dateDir < dateStamp(cutoffDate)) continue; // skip old dates
       const dirPath = join(telemetryRoot, dateDir);
       let entries: string[];
       try {

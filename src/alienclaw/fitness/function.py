@@ -1,6 +1,11 @@
 from .types import FitnessInputs, FitnessResult
 
 
+def clamp01(value: float) -> float:
+    """Clamp a value into the closed unit interval [0.0, 1.0]."""
+    return max(0.0, min(1.0, value))
+
+
 _ALPHA = 0.1  # Bayesian-optimized in Packet 27; hardcoded per Packet 28 decision
 
 
@@ -20,9 +25,9 @@ def evaluate(inputs: FitnessInputs) -> FitnessResult:
         return FitnessResult(fitness=0.0, correctness=inputs.correctness, efficiency=0.0,
                              formula_version="v2.0")
 
-    correctness = max(0.0, min(1.0, inputs.correctness))
+    correctness = clamp01(inputs.correctness)
     excess = max(0, inputs.tool_calls - inputs.slot_count)
     efficiency = 1.0 / (1.0 + _ALPHA * excess)
-    fitness = max(0.0, min(1.0, correctness * efficiency))
+    fitness = clamp01(correctness * efficiency)
     return FitnessResult(fitness=fitness, correctness=correctness, efficiency=efficiency,
                          formula_version="v2.0")

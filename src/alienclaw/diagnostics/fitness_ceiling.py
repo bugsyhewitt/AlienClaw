@@ -14,6 +14,8 @@ This module provides functions to:
 """
 from __future__ import annotations
 
+from alienclaw.fitness.function import clamp01
+
 
 def compute_ceiling(k_slots: int) -> float:
     """Maximum achievable fitness for a k-slot composition.
@@ -70,10 +72,10 @@ def analyze_formula(
 
     k = len(slot_correctnesses)
     correctness_agg = min(slot_correctnesses) if slot_correctnesses else 0.0
-    correctness_agg = max(0.0, min(1.0, correctness_agg))
+    correctness_agg = clamp01(correctness_agg)
     tool_calls_agg = sum(slot_tool_calls)
     efficiency = 1.0 / max(1, tool_calls_agg)
-    fitness = max(0.0, min(1.0, correctness_agg * efficiency))
+    fitness = clamp01(correctness_agg * efficiency)
 
     ceiling = compute_ceiling(k)
     at_ceiling = abs(fitness - ceiling) < 1e-9

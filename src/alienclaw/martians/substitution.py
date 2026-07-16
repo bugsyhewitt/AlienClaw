@@ -12,7 +12,10 @@ import json
 import re
 from typing import Any
 
-_PATTERN = re.compile(
+# Grammar for input-wiring substitution tokens. Defined once here and reused by
+# the martian validator (see validator.py) so both stay in lockstep.
+# Groups: 1=namespace, 2=slot index (None for campaign), 3=field name.
+SUBSTITUTION_TOKEN_RE = re.compile(
     r"\$\{(slot\[(\d+)\]\.output|campaign)\.([a-zA-Z_][a-zA-Z0-9_]*)\}"
 )
 
@@ -70,7 +73,7 @@ def substitute(
                 )
             return _coerce_to_str(campaign_inputs[field_name])
 
-    return _PATTERN.sub(replace, template)
+    return SUBSTITUTION_TOKEN_RE.sub(replace, template)
 
 
 def resolve_inputs(

@@ -4,13 +4,15 @@
  */
 import type { MartianSpec } from './types.js';
 import { TOOL_ID_TABLE } from './types.js';
+import { SUBST_PATTERN_SOURCE } from './substitution.js';
+import { MAX_MARTIAN_SLOTS } from '../constants.js';
 
 export interface MartianValidationResult {
   valid:  boolean;
   errors: string[];
 }
 
-const _SUBST_PATTERN = /\$\{(slot\[(\d+)\]\.output|campaign)\.([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
+const _SUBST_PATTERN = new RegExp(SUBST_PATTERN_SOURCE, 'g');
 
 /**
  * Validate a MartianSpec. Returns a result with errors (never throws).
@@ -41,9 +43,10 @@ export function validateMartian(
     );
   }
   for (const s of spec.slots) {
-    if (s.slotIndex > 1) {
+    if (s.slotIndex >= MAX_MARTIAN_SLOTS) {
       errors.push(
-        `slot_index=${s.slotIndex} exceeds max 1 (only 2 parameter sections available in Packet 16).`
+        `slot_index=${s.slotIndex} exceeds max ${MAX_MARTIAN_SLOTS - 1} ` +
+        `(only ${MAX_MARTIAN_SLOTS} parameter sections available in Packet 16).`
       );
     }
   }

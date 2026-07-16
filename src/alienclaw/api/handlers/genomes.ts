@@ -35,7 +35,11 @@ export async function handleSubmitGenome(opts: {
     apiKeyHash:  opts.apiKeyHash,
   });
   if (dup) {
-    const rank = await opts.store.rankForFitness(opts.req.martian_type, opts.req.fitness);
+    // Independent reads — run concurrently
+    const [rank, isTop] = await Promise.all([
+      opts.store.rankForFitness(opts.req.martian_type, opts.req.fitness),
+      opts.store.isNewTop(opts.req.martian_type, opts.req.fitness),
+    ]);
     opts.auditLog?.record({
       apiKeyHash:  opts.apiKeyHash,
       martianType: opts.req.martian_type,
@@ -48,11 +52,17 @@ export async function handleSubmitGenome(opts: {
       submission_id: dup.submission_id,
       submitted_at:  dup.submitted_at,
       rank,
-      is_new_top:    await opts.store.isNewTop(opts.req.martian_type, opts.req.fitness),
+      is_new_top:    isTop,
     }];
   }
 
-  const isTop = await opts.store.isNewTop(opts.req.martian_type, opts.req.fitness);
+  // Both are pre-save reads: isNewTop must see the table without this
+  // submission, and rank counts strictly-greater fitness so the new row
+  // (equal fitness) never affects it. Independent → run concurrently.
+  const [isTop, rank] = await Promise.all([
+    opts.store.isNewTop(opts.req.martian_type, opts.req.fitness),
+    opts.store.rankForFitness(opts.req.martian_type, opts.req.fitness),
+  ]);
   const [sid, submittedAt] = await opts.store.save({
     genome:          opts.req.genome,
     martianType:     opts.req.martian_type,
@@ -61,7 +71,6 @@ export async function handleSubmitGenome(opts: {
     runMetadata:     opts.req.run_metadata,
     leaderboardName: opts.req.leaderboard_name,
   });
-  const rank = await opts.store.rankForFitness(opts.req.martian_type, opts.req.fitness);
 
   opts.auditLog?.record({
     apiKeyHash:  opts.apiKeyHash,
@@ -106,9 +115,12 @@ export async function handleTopGenomes(opts: {
   if (!opts.registeredTypes.has(opts.martianType)) {
     throw Object.assign(new Error('UNKNOWN_MARTIAN_TYPE'), { martianType: opts.martianType });
   }
-  const n       = clampTopN(opts.n);
-  const raw     = await opts.store.topForType(opts.martianType, n);
-  const total   = await opts.store.countForType(opts.martianType);
+  const n = clampTopN(opts.n);
+  // Independent reads — run concurrently (same pattern as GlobalStats.get)
+  const [raw, total] = await Promise.all([
+    opts.store.topForType(opts.martianType, n),
+    opts.store.countForType(opts.martianType),
+  ]);
   const entries: GenomeEntry[] = raw.map(e => ({
     genome:           e.genome,
     fitness:          e.fitness,

@@ -22,10 +22,10 @@
 
 import { writeFileSync, readFileSync } from 'node:fs';
 import { BASE62_ALPHABET } from '../../registry/genome-codec.js';
+import { LEADERBOARD_NAME_RE, validateLeaderboardName } from '../../utils.js';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const LEADERBOARD_NAME_RE = /^[A-Z]{8}$/;
 const MAX_RESPONSE_BYTES = 256 * 1024;   // 256 KB — reject oversized responses
 const FETCH_TIMEOUT_MS   = 10_000;       // 10 s
 
@@ -103,14 +103,7 @@ export async function hardenedFetch(
       }
       chunks.push(value);
     }
-    return new TextDecoder().decode(
-      chunks.reduce((acc, c) => {
-        const merged = new Uint8Array(acc.length + c.length);
-        merged.set(acc);
-        merged.set(c, acc.length);
-        return merged;
-      }, new Uint8Array(0))
-    );
+    return new TextDecoder().decode(Buffer.concat(chunks));
   } finally {
     clearTimeout(timer);
   }
@@ -301,7 +294,6 @@ export async function submitFromFile(
 }
 
 // ── Name validation helper (used at setup and submission) ──────────────────
+// Owned by utils.ts; re-exported here for existing importers.
 
-export function validateLeaderboardName(name: string): boolean {
-  return LEADERBOARD_NAME_RE.test(name);
-}
+export { validateLeaderboardName };

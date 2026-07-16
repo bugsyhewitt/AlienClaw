@@ -8,8 +8,8 @@ import type { BossBot }    from '../../agents/bossbot.js';
 import type { AdvisorBot } from '../../agents/advisorbot.js';
 import type { CreatorBot } from '../../agents/creatorbot.js';
 import type { AgentRegistry } from '../../agents/agent-registry.js';
-import { Subagent } from './subagent.js';
-import type { SubagentBrief } from './subagent.js';
+import { Subagent, makeSubagentBrief } from './subagent.js';
+import type { CampaignResult, SubagentBrief } from './subagent.js';
 import type { MartianSummonAdapter } from './summon-adapter.js';
 import type { DomainResolver } from './domain-resolver.js';
 import type { CreatorBot as CommonCreatorBot } from './creator-bot.js';
@@ -377,20 +377,16 @@ export class GovernanceLoop {
     const allowedMartians = [...new Set(campaign.subagents.flatMap(s => s.martianTags))];
     const knowledgeBase   = campaign.subagents.map(s => s.knowledgeBase).filter(Boolean).join('\n\n');
 
-    const brief: SubagentBrief = {
-      campaignId:         campaign.id,
-      role:               campaign.name,
-      domain:             martianType,
-      objective:          campaign.objective,
-      scope:              campaign.objective,
-      successCriteria:    campaign.objective,
+    const brief = makeSubagentBrief({
+      campaignId:        campaign.id,
+      role:              campaign.name,
+      domain:            martianType,
+      objective:         campaign.objective,
       allowedMartians,
-      deliverables:       'Campaign results to BossBot.',
-      backgroundContext:  knowledgeBase,
-      communicationStyle: 'structured',
+      deliverables:      'Campaign results to BossBot.',
+      backgroundContext: knowledgeBase,
       knowledgeBase,
-      constraints:        'None',
-    };
+    });
 
     const campaignInputs: Record<string, unknown> = {
       plan:             campaign.objective,
@@ -409,55 +405,84 @@ export class GovernanceLoop {
       role:              campaign.name,
     });
 
-    const campaignJob: Promise<void> = (async () => {
+    const campaignJob = this.runJob({
+      subagent,
+      brief,
+      inputs:            campaignInputs,
+      subGoalId:         campaign.id,
+      goalId,
+      terminatedPrefix:  `Campaign "${campaign.name}" terminated`,
+      thrownPrefix:      `Campaign "${campaign.name}" threw`,
+      onSuccess: async (campaignResult) => {
+        this.onlineFitnessLog?.record(martianType, campaignResult.fitness);
+        const _scores = this.goalMinFitness.get(goalId) ?? [];
+        _scores.push(campaignResult.fitness);
+        this.goalMinFitness.set(goalId, _scores);
+        await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'complete' });
+        this.userChannel.status(`Campaign complete: "${campaign.name}" (fitness: ${campaignResult.fitness.toFixed(2)})`);
+        this.pushEvent({
+          type:      'JOB_COMPLETE',
+          subGoalId: campaign.id,
+          goalId,
+          result: {
+            taskId:     campaign.id,
+            subagentId: campaign.name,
+            outcome:    'SUCCESS',
+            summary:    `Campaign "${campaign.name}" completed (fitness: ${campaignResult.fitness.toFixed(2)}).`,
+            ts:         Date.now(),
+          },
+        });
+      },
+    }).finally(() => {
+      this.activeJobs.delete(campaign.id);
+    });
+
+    this.activeJobs.set(campaign.id, campaignJob);
+  }
+
+  /**
+   * Run one subagent job: birth → runCampaign → erase, then push
+   * JOB_COMPLETE (via onSuccess) or JOB_FAILED from the termination reason.
+   * Shared core of spawnCampaign, sub-goal retry, and spawnLegacyJob.
+   */
+  private runJob(opts: {
+    subagent:          Subagent;
+    brief:             SubagentBrief;
+    inputs:            Record<string, unknown>;
+    subGoalId:         string;
+    goalId:            string;
+    /** Prefix for the JOB_FAILED error when the campaign terminates abnormally. */
+    terminatedPrefix:  string;
+    /** Prefix for the JOB_FAILED error when the job throws; omit for the bare message. */
+    thrownPrefix?:     string;
+    onSuccess:         (result: CampaignResult) => void | Promise<void>;
+  }): Promise<void> {
+    return (async () => {
+      const { subagent, brief } = opts;
       try {
         subagent.birth(brief);
-        const campaignResult = await subagent.runCampaign(brief, campaignInputs);
+        const result = await subagent.runCampaign(brief, opts.inputs);
         subagent.erase();
-
-        const succeeded = campaignResult.termination_reason === 'state_machine_finalized';
-
-        if (succeeded) {
-          this.onlineFitnessLog?.record(martianType, campaignResult.fitness);
-          const _scores = this.goalMinFitness.get(goalId) ?? [];
-          _scores.push(campaignResult.fitness);
-          this.goalMinFitness.set(goalId, _scores);
-          await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'complete' });
-          this.userChannel.status(`Campaign complete: "${campaign.name}" (fitness: ${campaignResult.fitness.toFixed(2)})`);
-          this.pushEvent({
-            type:      'JOB_COMPLETE',
-            subGoalId: campaign.id,
-            goalId,
-            result: {
-              taskId:     campaign.id,
-              subagentId: campaign.name,
-              outcome:    'SUCCESS',
-              summary:    `Campaign "${campaign.name}" completed (fitness: ${campaignResult.fitness.toFixed(2)}).`,
-              ts:         Date.now(),
-            },
-          });
+        if (result.termination_reason === 'state_machine_finalized') {
+          await opts.onSuccess(result);
         } else {
           this.pushEvent({
             type:      'JOB_FAILED',
-            subGoalId: campaign.id,
-            goalId,
-            error:     `Campaign "${campaign.name}" terminated: ${campaignResult.termination_reason}${campaignResult.error ? ` — ${campaignResult.error}` : ''}`,
+            subGoalId: opts.subGoalId,
+            goalId:    opts.goalId,
+            error:     `${opts.terminatedPrefix}: ${result.termination_reason}${result.error ? ` — ${result.error}` : ''}`,
           });
         }
       } catch (err) {
         subagent.erase();
         this.pushEvent({
           type:      'JOB_FAILED',
-          subGoalId: campaign.id,
-          goalId,
-          error:     `Campaign "${campaign.name}" threw: ${errorMessage(err)}`,
+          subGoalId: opts.subGoalId,
+          goalId:    opts.goalId,
+          error:     opts.thrownPrefix ? `${opts.thrownPrefix}: ${errorMessage(err)}` : errorMessage(err),
         });
       }
-    })().finally(() => {
-      this.activeJobs.delete(campaign.id);
-    });
-
-    this.activeJobs.set(campaign.id, campaignJob);
+    })();
   }
 
   // ── Campaign vs legacy sub-goal ID resolution ───────────────────────────────
@@ -611,20 +636,13 @@ export class GovernanceLoop {
       this.taskManager.assign(task.taskId, subGoal.domain);
       this.transition('EXECUTING', `Sub-goal retry (strike ${task.strikeCount})`);
 
-      const retryBrief: SubagentBrief = {
-        campaignId:         subGoal.id,
-        role:               subGoal.domain,
-        domain:             subGoal.domain,
-        objective:          task.description,
-        scope:              task.description,
-        successCriteria:    task.description,
-        allowedMartians:    [subGoal.domain],
-        deliverables:       'Sub-goal result.',
-        backgroundContext:  '',
-        communicationStyle: 'structured',
-        knowledgeBase:      '',
-        constraints:        'None',
-      };
+      const retryBrief = makeSubagentBrief({
+        campaignId:      subGoal.id,
+        role:            subGoal.domain,
+        domain:          subGoal.domain,
+        objective:       task.description,
+        allowedMartians: [subGoal.domain],
+      });
       const retryInputs: Record<string, unknown> = {
         plan: task.description, success_criteria: task.description,
       };
@@ -636,25 +654,20 @@ export class GovernanceLoop {
         timeoutMs:       300_000,
       });
 
-      const job = (async () => {
-        try {
-          retrySubagent.birth(retryBrief);
-          const cr = await retrySubagent.runCampaign(retryBrief, retryInputs);
-          retrySubagent.erase();
-          if (cr.termination_reason === 'state_machine_finalized') {
-            this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: event.subGoalId, goalId: event.goalId,
-              result: { taskId: task.taskId, subagentId: subGoal.domain, outcome: 'SUCCESS',
-                summary: `Sub-goal retry succeeded.`, ts: Date.now() },
-            });
-          } else {
-            this.pushEvent({ type: 'JOB_FAILED', subGoalId: event.subGoalId, goalId: event.goalId,
-              error: `Sub-goal retry terminated: ${cr.termination_reason}${cr.error ? ` — ${cr.error}` : ''}` });
-          }
-        } catch (err) {
-          retrySubagent.erase();
-          this.pushEvent({ type: 'JOB_FAILED', subGoalId: event.subGoalId, goalId: event.goalId, error: errorMessage(err) });
-        }
-      })();
+      const job = this.runJob({
+        subagent:         retrySubagent,
+        brief:            retryBrief,
+        inputs:           retryInputs,
+        subGoalId:        event.subGoalId,
+        goalId:           event.goalId,
+        terminatedPrefix: 'Sub-goal retry terminated',
+        onSuccess: () => {
+          this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: event.subGoalId, goalId: event.goalId,
+            result: { taskId: task.taskId, subagentId: subGoal.domain, outcome: 'SUCCESS',
+              summary: `Sub-goal retry succeeded.`, ts: Date.now() },
+          });
+        },
+      });
       this.legacyJobs.set(event.subGoalId, job);
     }
   }
@@ -764,20 +777,13 @@ export class GovernanceLoop {
 
     this.userChannel.status(`Dispatching [${subGoal.domain}]: "${subGoal.description}"`);
 
-    const brief: SubagentBrief = {
-      campaignId:         subGoal.id,
-      role:               subGoal.domain,
-      domain:             subGoal.domain,
-      objective:          subGoal.description,
-      scope:              subGoal.description,
-      successCriteria:    subGoal.description,
-      allowedMartians:    [subGoal.domain],
-      deliverables:       'Sub-goal result.',
-      backgroundContext:  '',
-      communicationStyle: 'structured',
-      knowledgeBase:      '',
-      constraints:        'None',
-    };
+    const brief = makeSubagentBrief({
+      campaignId:      subGoal.id,
+      role:            subGoal.domain,
+      domain:          subGoal.domain,
+      objective:       subGoal.description,
+      allowedMartians: [subGoal.domain],
+    });
     const campaignInputs: Record<string, unknown> = {
       plan: subGoal.description, success_criteria: subGoal.description,
     };
@@ -789,25 +795,20 @@ export class GovernanceLoop {
       timeoutMs:       300_000,
     });
 
-    const job = (async () => {
-      try {
-        subagent.birth(brief);
-        const cr = await subagent.runCampaign(brief, campaignInputs);
-        subagent.erase();
-        if (cr.termination_reason === 'state_machine_finalized') {
-          this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: subGoal.id, goalId,
-            result: { taskId: task.taskId, subagentId: subGoal.domain, outcome: 'SUCCESS',
-              summary: `Sub-goal "${subGoal.description}" completed.`, ts: Date.now() },
-          });
-        } else {
-          this.pushEvent({ type: 'JOB_FAILED', subGoalId: subGoal.id, goalId,
-            error: `Sub-goal terminated: ${cr.termination_reason}${cr.error ? ` — ${cr.error}` : ''}` });
-        }
-      } catch (err) {
-        subagent.erase();
-        this.pushEvent({ type: 'JOB_FAILED', subGoalId: subGoal.id, goalId, error: errorMessage(err) });
-      }
-    })().finally(() => {
+    const job = this.runJob({
+      subagent,
+      brief,
+      inputs:           campaignInputs,
+      subGoalId:        subGoal.id,
+      goalId,
+      terminatedPrefix: 'Sub-goal terminated',
+      onSuccess: () => {
+        this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: subGoal.id, goalId,
+          result: { taskId: task.taskId, subagentId: subGoal.domain, outcome: 'SUCCESS',
+            summary: `Sub-goal "${subGoal.description}" completed.`, ts: Date.now() },
+        });
+      },
+    }).finally(() => {
       this.legacyJobs.delete(subGoal.id);
     });
 

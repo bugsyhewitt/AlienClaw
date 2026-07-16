@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .types import MartianSpec, TOOL_ID_TABLE
+from .substitution import SUBSTITUTION_TOKEN_RE
+from .types import MAX_MARTIAN_SLOTS, MartianSpec, TOOL_ID_TABLE
 
 
 @dataclass
@@ -25,7 +26,6 @@ def validate_martian(
     brain_registry: Any,  # BrainRegistry
 ) -> MartianValidationResult:
     """Validate a MartianSpec. Returns a result with errors (never raises)."""
-    import re
     errors: list[str] = []
 
     if not spec.slots:
@@ -39,7 +39,7 @@ def validate_martian(
             f"slot_index values must be contiguous starting at 0. Got: {sorted(indices)}"
         )
     for s in spec.slots:
-        if s.slot_index > 1:
+        if s.slot_index >= MAX_MARTIAN_SLOTS:
             errors.append(
                 f"slot_index={s.slot_index} exceeds max 1 (only 2 parameter sections available in Packet 16)."
             )
@@ -50,14 +50,11 @@ def validate_martian(
         if brain_registry.lookup_by_name(s.tool_name) is None:
             errors.append(f"Tool '{s.tool_name}' not in brain registry.")
 
-    _SUBST_PATTERN = re.compile(
-        r"\$\{(slot\[(\d+)\]\.output|campaign)\.([a-zA-Z_][a-zA-Z0-9_]*)\}"
-    )
     for s in spec.slots:
         if s.inputs_from is None:
             continue
         for field, template in s.inputs_from.fields.items():
-            for m in _SUBST_PATTERN.finditer(template):
+            for m in SUBSTITUTION_TOKEN_RE.finditer(template):
                 slot_num_str = m.group(2)
                 if slot_num_str is not None:
                     ref_slot = int(slot_num_str)
@@ -66,7 +63,7 @@ def validate_martian(
                             f"Slot {s.slot_index} field '{field}': "
                             f"forward reference to slot[{ref_slot}] (must be < {s.slot_index})."
                         )
-            remaining = re.sub(_SUBST_PATTERN, "", template)
+            remaining = SUBSTITUTION_TOKEN_RE.sub("", template)
             if "${" in remaining:
                 errors.append(
                     f"Slot {s.slot_index} field '{field}': malformed substitution token in {template!r}"

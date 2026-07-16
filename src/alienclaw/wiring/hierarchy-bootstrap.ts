@@ -7,6 +7,7 @@ import { wireToolAdapters } from '../msb/tool-adapters.js';
 import { getRegistry }      from '../registry/registry.js';
 import { validateGenome }   from '../registry/genome-codec.js';
 import { installSeeds }     from '../registry/seed-installer.js';
+import { atomicWrite }      from '../utils.js';
 import {
   REGISTRY_HEALTH_INTERVAL_MS,
   GENOME_AUDIT_INTERVAL_MS,
@@ -186,9 +187,7 @@ export function bootstrap(): BootstrapResult {
               /^# fitness:.*$/m,
               `# fitness: ${newFitness.toFixed(2)}`,
             );
-            const tmpPath = msPath + '.tmp';
-            fsSync.writeFileSync(tmpPath, updated, 'utf-8');
-            fsSync.renameSync(tmpPath, msPath);
+            atomicWrite(msPath, updated);
           } catch {
             // Non-fatal: keep in-memory updated
           }
@@ -210,9 +209,7 @@ export function bootstrap(): BootstrapResult {
           generated_at: new Date().toISOString(),
           martians: allMs.map(ms => ({ id: ms.id, fitness: ms.fitness })),
         }, null, 2);
-        const tmpSummary = PATHS.liveFitnessSummary + '.tmp';
-        fsSync.writeFileSync(tmpSummary, summary, 'utf-8');
-        fsSync.renameSync(tmpSummary, PATHS.liveFitnessSummary);
+        atomicWrite(PATHS.liveFitnessSummary, summary);
       } catch {
         // Non-fatal
       }

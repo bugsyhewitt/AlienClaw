@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import math
 
+from alienclaw.fitness.function import clamp01
+
 
 def kimura_fixation_prob(s: float, N: int) -> float:
     """Probability that a beneficial mutation fixes in a haploid population.
@@ -52,7 +54,7 @@ def kimura_fixation_prob(s: float, N: int) -> float:
     if two_Ns > 700:
         # Strong selection: numerator ≈ 1 - exp(-2s) ≈ 2s for small s
         # denominator ≈ 1
-        return max(0.0, min(1.0, 1.0 - math.exp(-two_s)))
+        return clamp01(1.0 - math.exp(-two_s))
     if two_Ns < -700:
         # Strong negative selection: P_fix ≈ 0
         return 0.0
@@ -65,7 +67,7 @@ def kimura_fixation_prob(s: float, N: int) -> float:
         # two_Ns from being small enough to cause this for any N >= 1.
         return 1.0 / N
 
-    return max(0.0, min(1.0, numerator / denominator))
+    return clamp01(numerator / denominator)
 
 
 def expected_fixation_time(s: float, N: int) -> float:

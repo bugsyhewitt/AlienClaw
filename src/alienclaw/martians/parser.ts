@@ -12,6 +12,7 @@
  * in a full YAML dependency.
  */
 import type { InputWiring, MartianSpec, SlotDeclaration } from './types.js';
+import { errorMessage } from '../utils.js';
 
 export class MartianParseError extends Error {
   constructor(message: string) {
@@ -246,8 +247,7 @@ export function parseMartian(content: string, sourcePath = '<string>'): MartianS
     if (exc instanceof MartianParseError) {
       throw new MartianParseError(`YAML error in ${sourcePath}: ${exc.message}`);
     }
-    const msg = exc instanceof Error ? exc.message : String(exc);
-    throw new MartianParseError(`YAML error in ${sourcePath}: ${msg}`);
+    throw new MartianParseError(`YAML error in ${sourcePath}: ${errorMessage(exc)}`);
   }
 
   if (!_isPlainObject(raw)) {

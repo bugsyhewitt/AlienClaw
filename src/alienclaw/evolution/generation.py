@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from alienclaw.fitness.function import clamp01
 from alienclaw.genome.operators import crossover, mutate, mutate_directed
 
 from .population import Population
@@ -47,7 +48,7 @@ def _make_entry(
     return PopulationEntry(
         entry_id=str(uuid.uuid4()),
         genome=genome,
-        fitness=max(0.0, min(1.0, fitness)),
+        fitness=clamp01(fitness),
         generation=generation,
         parent_ids=parent_ids,
         run_metadata=dict(run_metadata),

@@ -23,6 +23,7 @@ import { readOperatorBest } from '../governance/common/sync/local-population.js'
 import { ensureApiKey, machineHash } from '../governance/common/sync/credentials.js';
 import { NetworkAPIClient } from '../governance/common/sync/client.js';
 import type { SubmitCommandArgs } from './args.js';
+import { errorMessage } from '../utils.js';
 
 const DEFAULT_API_URL = 'https://api.alienclaw.net';
 
@@ -136,7 +137,7 @@ export async function runSubmit(args: SubmitCommandArgs): Promise<number> {
     );
     return 0;
   } catch (err) {
-    console.error(`alienclaw submit: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`alienclaw submit: ${errorMessage(err)}`);
     return 1;
   }
 }

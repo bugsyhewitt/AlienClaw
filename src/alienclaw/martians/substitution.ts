@@ -13,7 +13,15 @@
  */
 import type { InputWiring } from './types.js';
 
-const _PATTERN = /\$\{(slot\[(\d+)\]\.output|campaign)\.([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
+/**
+ * The substitution-token grammar, defined once per language. Exported as a
+ * pattern source (not a compiled RegExp) so each consumer owns its own
+ * lastIndex state. Mirrors _SUBST_PATTERN in Python substitution.py.
+ */
+export const SUBST_PATTERN_SOURCE =
+  String.raw`\$\{(slot\[(\d+)\]\.output|campaign)\.([a-zA-Z_][a-zA-Z0-9_]*)\}`;
+
+const _PATTERN = new RegExp(SUBST_PATTERN_SOURCE, 'g');
 
 function _coerceToStr(value: unknown): string {
   if (typeof value === 'string') return value;

@@ -13,6 +13,7 @@ import type {
   ConditionGroup,
 } from './decision_engine.js';
 import { substitute } from '../../../martians/substitution.js';
+import { errorMessage } from '../../../utils.js';
 
 export interface ParseResult {
   ok: boolean;
@@ -39,7 +40,7 @@ export function parseTransitionTable(campaignMd: string): ParseResult {
     return { ok: true, table };
   } catch (e) {
     /* v8 ignore next — _parseTableYaml is a pure string parser that cannot throw; catch is defensive dead code */
-    return { ok: false, error: `Parse error: ${e instanceof Error ? e.message : String(e)}` };
+    return { ok: false, error: `Parse error: ${errorMessage(e)}` };
   }
 }
 
