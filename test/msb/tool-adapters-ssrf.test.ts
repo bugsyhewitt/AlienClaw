@@ -55,6 +55,8 @@ describe('isBlockedHost — IPv4 private / loopback / link-local / metadata', ()
     ['RFC1918 10/8 edge', '10.255.255.255'],
     ['RFC1918 172.16/12 low', '172.16.0.1'],
     ['RFC1918 172.16/12 high', '172.31.255.255'],
+    ['IETF proto-assignments 192.0.0/24 low',  '192.0.0.1'],
+    ['IETF proto-assignments 192.0.0/24 high', '192.0.0.255'],
     ['RFC1918 192.168/16', '192.168.1.1'],
     ['unspecified 0.0.0.0', '0.0.0.0'],
     ['0/8', '0.10.20.30'],
