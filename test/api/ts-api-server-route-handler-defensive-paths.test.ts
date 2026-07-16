@@ -350,4 +350,34 @@ describe('API server: route-handler defensive paths', () => {
     const res = await fetch(`${sizeBase}/v1/health`, { method: 'PUT' });
     expect(res.status).toBe(405);
   });
+
+  // ── (L135) readJson non-object body guard: null → 400 MALFORMED_REQUEST ──
+  // server.ts:135 checks `parsed === null || typeof parsed !== 'object' ||
+  // Array.isArray(parsed)` and returns { ok:false, reason:'malformed' }.
+  // Without this guard, a null body causes `'api_key' in null` to throw a
+  // TypeError (500); an array body yields wrong error code MISSING_FIELDS.
+
+  it('POST /v1/install with JSON null body returns 400 MALFORMED_REQUEST', async () => {
+    const res = await fetch(`${sizeBase}/v1/install`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'null',
+    });
+    let parsed: unknown = null;
+    try { parsed = await res.json(); } catch { /* keep null */ }
+    expect(res.status).toBe(400);
+    expect((parsed as { error: { code: string } }).error.code).toBe('MALFORMED_REQUEST');
+  });
+
+  it('POST /v1/install with JSON array body returns 400 MALFORMED_REQUEST', async () => {
+    const res = await fetch(`${sizeBase}/v1/install`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '[1, 2, 3]',
+    });
+    let parsed: unknown = null;
+    try { parsed = await res.json(); } catch { /* keep null */ }
+    expect(res.status).toBe(400);
+    expect((parsed as { error: { code: string } }).error.code).toBe('MALFORMED_REQUEST');
+  });
 });
