@@ -38,6 +38,13 @@ export interface EngineConfig {
   rng: () => number;
   persist: EvolutionStore;
   config: ReflectiveEvolutionConfig;
+  /**
+   * Optional generic validation gate (P14-02). Runs on each proposed child
+   * (and merged candidate) BEFORE evaluation. A rejection costs zero
+   * metric-calls and records an INVALID lineage edge — invalid topologies
+   * and subagents never enter the population.
+   */
+  validate?: (candidate: Genome) => { ok: true } | { ok: false; violation: string };
   log?: (msg: string) => void;
 }
 
@@ -129,6 +136,22 @@ export async function runReflectiveEvolution(cfg: EngineConfig): Promise<Evoluti
       continue;
     }
 
+    // P14-02 generic validation gate: reject graph-illegal children before
+    // they cost a metric-call. Records an INVALID lineage edge for audit.
+    if (cfg.validate) {
+      const vr = cfg.validate(child);
+      if (!vr.ok) {
+        log(`re.validate.rejected child=${child.id.slice(0, 8)} violation="${vr.violation}"`);
+        await cfg.persist.recordLineage({
+          parentId: parent.id,
+          childId: child.id,
+          op: "mutate",
+          reflection: { ...reflection, lesson: `INVALID: ${vr.violation}` },
+        });
+        continue; // no metric-call charged
+      }
+    }
+
     await cfg.persist.recordLineage({
       parentId: parent.id,
       childId: child.id,
@@ -166,6 +189,19 @@ export async function runReflectiveEvolution(cfg: EngineConfig): Promise<Evoluti
         } catch {
           log("re.merge.failed");
           continue;
+        }
+        // P14-02 generic validation gate on merged candidates too.
+        if (cfg.validate) {
+          const vr = cfg.validate(merged);
+          if (!vr.ok) {
+            log(`re.validate.rejected merged=${merged.id.slice(0, 8)} violation="${vr.violation}"`);
+            await cfg.persist.recordLineage({
+              parentId: pair[0].genomeId,
+              childId: merged.id,
+              op: "merge",
+            });
+            continue; // no metric-call charged
+          }
         }
         if (state.metricCallsUsed + batch.length <= cfg.maxMetricCalls) {
           const mEval = await cfg.adapter.evaluate(merged, batch, {
