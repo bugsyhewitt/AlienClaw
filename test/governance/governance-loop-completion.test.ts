@@ -386,3 +386,71 @@ describe('GovernanceLoop.runCompletionFlow — completion review gap path (packe
     );
   });
 });
+
+describe('GovernanceLoop.runCompletionFlow — signoff.approved=false path (packet 211)', () => {
+  it('when user declines sign-off, folds instructions into plan and re-dispatches sub-goals', async () => {
+    const goalId = 'goal-signoff-reject';
+    const goal = makeGoalWithCampaigns(goalId, [makeCampaign('camp-1', 'complete')]);
+
+    const newSubGoals = [{ id: 'sg-new', description: 'Add more tests' }];
+
+    const deps = makeCompleteDeps({
+      goal,
+      review: { proceed: true },
+      schemeComplete: true,
+    });
+
+    // Override promptSignoff to return approved=false with change instructions.
+    (deps.completionHandler as any).promptSignoff = vi.fn(async () => ({
+      approved: false,
+      instructions: 'Add more tests',
+    }));
+
+    // Wire generateSubGoals on bossBot (not in makeCompleteDeps default stub).
+    (deps.bossBot as any).generateSubGoals = vi.fn(async () => newSubGoals);
+
+    // Wire foldUserInput on goalManager (not in makeGoalManagerStub default).
+    (deps.goalManager as any).foldUserInput = vi.fn(async () => {});
+
+    const loop = new GovernanceLoop(deps);
+    const dispatchSubGoalsSpy = vi.spyOn(loop as any, 'dispatchReadySubGoals').mockResolvedValue(undefined);
+
+    const result = await runCompletion(loop, goalId);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(`runCompletionFlow threw on approved=false arm: ${String(result.error)}`);
+    }
+    expect((deps.bossBot as any).generateSubGoals).toHaveBeenCalledWith('Add more tests');
+    expect((deps.goalManager as any).foldUserInput).toHaveBeenCalledWith(goalId, newSubGoals);
+    expect(dispatchSubGoalsSpy).toHaveBeenCalledWith(goalId);
+    // Loop must land in EXECUTING (not COMPLETE or IDLE) — changes were requested.
+    expect((loop as any).state).toBe('EXECUTING');
+  });
+
+  it('when user declines sign-off, emits the status message before folding', async () => {
+    const goalId = 'goal-signoff-reject-status';
+    const goal = makeGoalWithCampaigns(goalId, [makeCampaign('camp-1', 'complete')]);
+
+    const deps = makeCompleteDeps({
+      goal,
+      review: { proceed: true },
+      schemeComplete: true,
+    });
+
+    (deps.completionHandler as any).promptSignoff = vi.fn(async () => ({
+      approved: false,
+      instructions: 'Rewrite the plan',
+    }));
+    (deps.bossBot as any).generateSubGoals = vi.fn(async () => []);
+    (deps.goalManager as any).foldUserInput = vi.fn(async () => {});
+
+    const loop = new GovernanceLoop(deps);
+    vi.spyOn(loop as any, 'dispatchReadySubGoals').mockResolvedValue(undefined);
+
+    const result = await runCompletion(loop, goalId);
+
+    expect(result.ok).toBe(true);
+    expect(deps.userChannel.status).toHaveBeenCalledWith('Changes requested. Folding into plan.');
+  });
+});
