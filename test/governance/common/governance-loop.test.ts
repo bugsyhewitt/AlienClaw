@@ -660,3 +660,270 @@ describe('GovernanceLoop.handleJobFailed — campaign failure surface-to-user pa
     expect((loop as any).state).toBe('AWAITING_USER_INPUT');
   });
 });
+
+// ── handleJobComplete — all 4 execution paths (packet 259) ───────────────────
+//
+// `handleJobComplete` had zero test coverage (8 cold branch arms confirmed):
+//   bid=23 arm=0/1 (L478)  — if (isCampaign) both arms
+//   bid=24 arm=0/1 (L484)  — if (isSchemeComplete) both arms
+//   bid=25 arm=0/1 (L494)  — if (subGoal?.taskId) both arms
+//   bid=27 arm=0/1 (L500)  — if (isGoalComplete) both arms
+//
+// Four distinct paths through the method are tested here.
+
+describe('GovernanceLoop.handleJobComplete — campaign and legacy paths (packet 259)', () => {
+  it('A: campaign JOB_COMPLETE pushes CAMPAIGN_READY when scheme is not yet done', async () => {
+    const GOAL_ID     = 'goal-A';
+    const CAMPAIGN_ID = 'camp-A';
+
+    const file = {
+      version:      '1',
+      activeGoalId: GOAL_ID,
+      goals: [{
+        id:          GOAL_ID,
+        description: 'scheme goal A',
+        subGoals:    [],
+        status:      'active' as const,
+        createdAt:   0,
+        scheme: {
+          goalId:             GOAL_ID,
+          rationale:          'test',
+          campaigns: [{
+            id:        CAMPAIGN_ID,
+            name:      'Campaign A',
+            objective: 'do it',
+            subagents: [],
+            dependsOn: [],
+            status:    'active' as const,
+          }],
+          advisorEndorsement: '',
+          createdAt:          0,
+        },
+      }],
+    };
+
+    const goalManager = {
+      load:             () => file,
+      isSchemeComplete: () => false,
+    } as unknown as GoalManager;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot:        noopAdvisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+
+    await (loop as any).handleJobComplete({
+      type:      'JOB_COMPLETE' as const,
+      subGoalId: CAMPAIGN_ID,
+      goalId:    GOAL_ID,
+      result:    { taskId: 't1', subagentId: 'sa1', outcome: 'SUCCESS', summary: 'done', ts: 0 },
+    });
+
+    const queue: unknown[] = (loop as any).eventQueue;
+    expect(queue).toHaveLength(1);
+    expect(queue[0]).toMatchObject({ type: 'CAMPAIGN_READY', goalId: GOAL_ID, campaignId: CAMPAIGN_ID });
+  });
+
+  it('B: campaign JOB_COMPLETE calls runCompletionFlow when all campaigns are done', async () => {
+    const GOAL_ID     = 'goal-B';
+    const CAMPAIGN_ID = 'camp-B';
+
+    const file = {
+      version:      '1',
+      activeGoalId: GOAL_ID,
+      goals: [{
+        id:          GOAL_ID,
+        description: 'scheme goal B',
+        subGoals:    [],
+        status:      'active' as const,
+        createdAt:   0,
+        scheme: {
+          goalId:             GOAL_ID,
+          rationale:          'test',
+          campaigns: [{
+            id:        CAMPAIGN_ID,
+            name:      'Campaign B',
+            objective: 'do it',
+            subagents: [],
+            dependsOn: [],
+            status:    'active' as const,
+          }],
+          advisorEndorsement: '',
+          createdAt:          0,
+        },
+      }],
+    };
+
+    const goalManager = {
+      load:             () => file,
+      isSchemeComplete: () => true,
+    } as unknown as GoalManager;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot:        noopAdvisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+
+    let completionCalledWith: string | null = null;
+    (loop as any).runCompletionFlow = async (id: string) => { completionCalledWith = id; };
+
+    await (loop as any).handleJobComplete({
+      type:      'JOB_COMPLETE' as const,
+      subGoalId: CAMPAIGN_ID,
+      goalId:    GOAL_ID,
+      result:    { taskId: 't2', subagentId: 'sa1', outcome: 'SUCCESS', summary: 'done', ts: 0 },
+    });
+
+    expect(completionCalledWith).toBe(GOAL_ID);
+    expect((loop as any).eventQueue).toHaveLength(0);
+  });
+
+  it('C: legacy sub-goal JOB_COMPLETE with taskId cleans up sessions and dispatches next sub-goals', async () => {
+    const GOAL_ID    = 'goal-C';
+    const SUBGOAL_ID = 'sg-C';
+    const TASK_ID    = 'task-C';
+
+    const file = {
+      version:      '1',
+      activeGoalId: GOAL_ID,
+      goals: [{
+        id:          GOAL_ID,
+        description: 'legacy goal C',
+        subGoals: [{
+          id:          SUBGOAL_ID,
+          description: 'sub-goal with task',
+          domain:      'compute',
+          status:      'active' as const,
+          taskId:      TASK_ID,
+          dependsOn:   [],
+        }],
+        status:    'active' as const,
+        createdAt: 0,
+        // no scheme → isCampaign = false
+      }],
+    };
+
+    const goalManager = {
+      load:           () => file,
+      updateSubGoal:  async () => {},
+      isGoalComplete: () => false,
+    } as unknown as GoalManager;
+
+    let destroyCalledWith: string | null = null;
+    let deregisterCalledWith: string | null = null;
+    const advisorBot = {
+      destroyTaskSessions: (id: string) => { destroyCalledWith = id; },
+    } as unknown as AdvisorBot;
+    const taskManager = {
+      deregister: (id: string) => { deregisterCalledWith = id; },
+    } as unknown as TaskManager;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+
+    let dispatchCalled = false;
+    (loop as any).dispatchReadySubGoals = async () => { dispatchCalled = true; };
+
+    await (loop as any).handleJobComplete({
+      type:      'JOB_COMPLETE' as const,
+      subGoalId: SUBGOAL_ID,
+      goalId:    GOAL_ID,
+      result:    { taskId: TASK_ID, subagentId: 'sa1', outcome: 'SUCCESS', summary: 'done', ts: 0 },
+    });
+
+    expect(destroyCalledWith).toBe(TASK_ID);
+    expect(deregisterCalledWith).toBe(TASK_ID);
+    expect(dispatchCalled).toBe(true);
+  });
+
+  it('D: legacy sub-goal JOB_COMPLETE without taskId calls runCompletionFlow when goal is done', async () => {
+    const GOAL_ID    = 'goal-D';
+    const SUBGOAL_ID = 'sg-D';
+
+    const file = {
+      version:      '1',
+      activeGoalId: GOAL_ID,
+      goals: [{
+        id:          GOAL_ID,
+        description: 'legacy goal D',
+        subGoals: [{
+          id:          SUBGOAL_ID,
+          description: 'taskless sub-goal',
+          domain:      'compute',
+          status:      'active' as const,
+          // no taskId — destroyTaskSessions must NOT be called
+          dependsOn:   [],
+        }],
+        status:    'active' as const,
+        createdAt: 0,
+      }],
+    };
+
+    const goalManager = {
+      load:           () => file,
+      updateSubGoal:  async () => {},
+      isGoalComplete: () => true,
+    } as unknown as GoalManager;
+
+    let destroyCalled = false;
+    const advisorBot = {
+      destroyTaskSessions: () => { destroyCalled = true; },
+    } as unknown as AdvisorBot;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+
+    let completionCalledWith: string | null = null;
+    (loop as any).runCompletionFlow = async (id: string) => { completionCalledWith = id; };
+
+    await (loop as any).handleJobComplete({
+      type:      'JOB_COMPLETE' as const,
+      subGoalId: SUBGOAL_ID,
+      goalId:    GOAL_ID,
+      result:    { taskId: 'x', subagentId: 'sa1', outcome: 'SUCCESS', summary: 'done', ts: 0 },
+    });
+
+    expect(completionCalledWith).toBe(GOAL_ID);
+    expect(destroyCalled).toBe(false);
+  });
+});
