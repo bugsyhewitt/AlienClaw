@@ -77,4 +77,20 @@ describe('runEvolve', () => {
     expect(rc).toBe(1);
     expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('ENOENT'));
   });
+
+  it('formats and logs stdout lines as they arrive (L76 readline callback)', async () => {
+    const child = makeChild();
+    mockSpawn.mockReturnValue(child as ReturnType<typeof spawn>);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const p = runEvolve({ martianType: 'compute_alone', generations: 5, population: 4 });
+    child.stdout.push('{"generation":2,"mean_fitness":0.55,"max_fitness":0.87}\n');
+    child.stdout.push(null);
+    child.emit('close', 0);
+    await p;
+    // readline processes 'readable' events asynchronously in Node v17+; drain one tick
+    await new Promise(resolve => setImmediate(resolve));
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('gen 2/5'));
+  });
 });
