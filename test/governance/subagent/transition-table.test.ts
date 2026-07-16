@@ -601,3 +601,51 @@ describe('parseTransitionTable YAML block with internal comment lines', () => {
     expect(r.table?.states['step1']?.martian_type).toBe('compute_alone');
   });
 });
+
+describe('parseTransitionTable — multi-line when clause (L301)', () => {
+  it('accumulates continuation lines onto whenStr before parseConditionGroup', () => {
+    const yaml = `transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: compute_alone
+      inputs:
+        plan: "plan"
+      transitions:
+        - when: { all: [{ kind: martian_succeeded },
+            { kind: fitness_gt, n: 0.5 }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    if (r.ok && r.table) {
+      const t = r.table.states['step1']!.transitions[0]!;
+      expect(t.goto).toBe('FINALIZE');
+      // whenStr was assembled from continuation line; conditions should be present
+      expect(t.when.conditions.length).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
+describe('parseTransitionTable — non-when line in transitions block (L310)', () => {
+  it('skips unrecognized lines inside transitions and still parses the valid entry', () => {
+    const yaml = `transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: compute_alone
+      inputs:
+        plan: "plan"
+      transitions:
+        unrecognized_key: ignored_value
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    if (r.ok && r.table) {
+      expect(r.table.states['step1']!.transitions.length).toBe(1);
+      expect(r.table.states['step1']!.transitions[0]!.goto).toBe('FINALIZE');
+    }
+  });
+});
