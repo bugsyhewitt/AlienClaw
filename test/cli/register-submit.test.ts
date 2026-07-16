@@ -395,6 +395,21 @@ describe('runSubmit — stubbed network', () => {
     const rc = await runSubmit({ martianType: 'compute_alone', yes: true, force: true });
     expect(rc).toBe(0);
   });
+
+  it('home/populationsRoot/apiUrl fall back to defaults when env vars absent', async () => {
+    vi.unstubAllEnvs();
+    mockAlienClawPrefs.leaderboardName = 'TESTNAME';
+    const rc = await runSubmit({
+      martianType: 'definitely_not_a_real_martian_type_238',
+      yes: true,
+      force: false,
+    });
+    // readOperatorBest → null → rc=1 (no local population)
+    // L30 arm fires: join(homedir(), '.alienclaw')
+    // L35 arm fires: join(home(), 'populations')
+    // L60 arm fires: DEFAULT_API_URL
+    expect(rc).toBe(1);
+  });
 });
 
 // ── 4. Commander wiring ──────────────────────────────────────────────────────
