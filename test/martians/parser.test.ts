@@ -692,3 +692,21 @@ slots:
     }
   });
 });
+
+// ── describe: _parseSequence L162 non-dash at sequence indent (packet 242) ─
+describe('parseMartian — _parseSequence L162: non-dash line at sequence indent', () => {
+  it('throws MartianParseError (not silent corruption) when a non-dash key appears at the slots sequence indent', () => {
+    const md = [
+      'martian_type: alpha',
+      'description: test martian',
+      'slots:',
+      '  - slot_index: 1',
+      '    tool_name: my_tool',
+      '  bad_key: oops',
+    ].join('\n');
+    // L162 arm0 fires: _parseSequence breaks; outer _parseMapping throws on unexpected indent.
+    // Without L162, 'd_key: oops' would silently be added to the slots array.
+    expect(() => parseMartian(md)).toThrow(MartianParseError);
+    expect(() => parseMartian(md)).toThrow(/unexpected indent/);
+  });
+});
