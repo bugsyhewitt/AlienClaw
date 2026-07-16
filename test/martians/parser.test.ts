@@ -587,6 +587,29 @@ slots:
     expect(spec.slots[0]!.toolName).toBe('t');
   });
 
+  it('line 117 (_parseMapping indent break): multi-slot bare-dash block exits mapping at lower indent', () => {
+    // When a bare-dash sequence has multiple slots, _parseMapping is called
+    // with baseIndent=4 over the full lines array. After consuming slot 0,
+    // it encounters the second "  -" at indent=2 < 4 and breaks at L117
+    // — exercising the only cold arm of the indent guard in _parseMapping.
+    const md = `\
+martian_type: x
+slots:
+  -
+    slot_index: 0
+    tool_name: t
+  -
+    slot_index: 1
+    tool_name: u
+`;
+    const spec = parseMartian(md);
+    expect(spec.slots).toHaveLength(2);
+    expect(spec.slots[0]!.slotIndex).toBe(0);
+    expect(spec.slots[0]!.toolName).toBe('t');
+    expect(spec.slots[1]!.slotIndex).toBe(1);
+    expect(spec.slots[1]!.toolName).toBe('u');
+  });
+
   it('lines 170-172: nested mapping under empty-after sequence item fails slot-mapping validation', () => {
     // The 170-172 path pushes the parsed nested block onto the array.
     // When the nested block is a SEQUENCE (not a mapping), the resulting
