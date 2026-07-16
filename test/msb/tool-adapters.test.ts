@@ -538,6 +538,30 @@ describe('fileReadAdapter — non-ENOENT error rethrow (L399, packet 106)', () =
   });
 });
 
+// ───────────────────────────────────────────────────────────────────────────
+// isBlockedHost — parseIpv4Octets out-of-range octet guard (L101, packet 237)
+//   "256.0.0.1" passes /^\d{1,3}$/ (3 digits) but n=256 > 255 → L101 fires →
+//   parseIpv4Octets returns undefined → isBlockedHost returns false (not an IP
+//   literal). Tests the TRUE arm of `if (n < 0 || n > 255) return undefined`.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('isBlockedHost — parseIpv4Octets out-of-range octet guard (L101, packet 237)', () => {
+  it('treats a dotted-quad with an octet > 255 as a non-IP hostname (L101)', () => {
+    // "256.0.0.1" passes the /^\d{1,3}$/ regex but n=256 > 255.
+    // parseIpv4Octets returns undefined → isBlockedHost returns false (not an IP literal).
+    expect(isBlockedHost('256.0.0.1')).toBe(false);
+  });
+
+  it('treats a dotted-quad with a 3-digit octet 999 as a non-IP hostname (L101)', () => {
+    expect(isBlockedHost('999.1.1.1')).toBe(false);
+  });
+
+  it('correctly parses a valid max-octet address 255.255.255.255 (control)', () => {
+    // All octets at 255 are valid; the address is in the >=240 reserved range → blocked.
+    expect(isBlockedHost('255.255.255.255')).toBe(true);
+  });
+});
+
 // ── helpers ────────────────────────────────────────────────────────────────
 
 /** Escape a string for safe interpolation into a RegExp. */
