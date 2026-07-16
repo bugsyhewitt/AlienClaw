@@ -287,6 +287,36 @@ describe('installMsSeeds — EEXIST catch → overwrite=true branch (lines 188-1
   });
 });
 
+describe('installMsbSeeds — EEXIST catch → overwrite=false silent skip (L168 b5 arm=1)', () => {
+  it('installMsbSeeds silently skips EEXIST when overwrite=false — no retry, no throw', async () => {
+    mockState.copyFileMode = 'eexist-once';
+    const { installSeeds } = await loadSeedInstaller();
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(() => installSeeds({ overwrite: false })).not.toThrow();
+    const logMessages = consoleSpy.mock.calls.map((args) => String(args[0]));
+    // The overwrite branch was NOT taken — no "Overwrote msb/" log
+    expect(logMessages.some((m) => m.includes('Overwrote msb/'))).toBe(false);
+    consoleSpy.mockRestore();
+    // 8 seed .msb files; first throws EEXIST, silently skipped; 7 succeed; no retry call
+    expect(mockState.copyFileCallCount).toBe(8);
+  });
+});
+
+describe('installMsSeeds — EEXIST catch → overwrite=false silent skip (L189 b7 arm=1)', () => {
+  it('installMsSeeds silently skips EEXIST when overwrite=false — no retry, no throw', async () => {
+    mockState.writeFileMode = 'eexist-once';
+    const { installSeeds } = await loadSeedInstaller();
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(() => installSeeds({ overwrite: false })).not.toThrow();
+    const logMessages = consoleSpy.mock.calls.map((args) => String(args[0]));
+    // The overwrite branch was NOT taken — no "Overwrote ms/" log
+    expect(logMessages.some((m) => m.includes('Overwrote ms/'))).toBe(false);
+    consoleSpy.mockRestore();
+    // 3 SEED_SPECS; first writeFileSync throws EEXIST, silently skipped; 2 succeed; no retry call
+    expect(mockState.writeFileCallCount).toBe(3);
+  });
+});
+
 describe('wall-clean (banned-term grep on the SOURCE file under test)', () => {
   it('src/alienclaw/registry/seed-installer.ts contains zero references to banned wall terms', async () => {
     const sourcePath = join(process.cwd(), 'src', 'alienclaw', 'registry', 'seed-installer.ts');
