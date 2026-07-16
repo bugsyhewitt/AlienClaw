@@ -649,3 +649,105 @@ describe('parseTransitionTable — non-when line in transitions block (L310)', (
     }
   });
 });
+
+describe('parseTransitionTable — unknown key at transition_table level + line after states block (L215 arm=1, L231 arm=0)', () => {
+  it('silently skips unknown top-level keys and trailing keys after the states block', () => {
+    // L215 arm=1: the outer while loop encounters `version: 1` which is neither
+    //   `initial_state:...` nor `states:` — the false arm of the if fires.
+    // L231 arm=0: after processing step1, `trailing_key: val` is at indent=2
+    //   which is less than stateNameIndent=4 — the break arm fires, exiting the
+    //   states loop. That same line then hits L215 arm=1 again in the outer loop.
+    const yaml = `transition_table:
+  initial_state: step1
+  version: 1
+  states:
+    step1:
+      martian_type: compute_alone
+      inputs:
+        plan: "plan"
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+  trailing_key: also_ignored
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.initial_state).toBe('step1');
+    expect(r.table?.states['step1']?.martian_type).toBe('compute_alone');
+    expect(r.table?.states['step1']?.transitions[0]?.goto).toBe('FINALIZE');
+  });
+});
+
+describe('parseTransitionTable — state name failing regex + deeper body line (L235 arm=0, L232 arm=0)', () => {
+  it('skips a hyphenated state key and any body lines nested under it', () => {
+    // L235 arm=0: `bad-state-name:` at stateNameIndent does not match
+    //   /^([A-Za-z_][\w]*)\s*:\s*$/ (hyphen is not [\w]) — the skip arm fires.
+    // L232 arm=0: `nested_key: ignored` at indent=6 > stateNameIndent=4 is
+    //   encountered in the outer states loop — the skip arm fires.
+    const yaml = `transition_table:
+  initial_state: step1
+  states:
+    bad-state-name:
+      nested_key: ignored
+    step1:
+      martian_type: compute_alone
+      inputs:
+        plan: "plan"
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(Object.keys(r.table?.states ?? {})).toEqual(['step1']);
+    expect(r.table?.states['step1']?.martian_type).toBe('compute_alone');
+  });
+});
+
+describe('parseTransitionTable — inputs block terminated by code fence (L260 arm=0)', () => {
+  it('stops inputs parsing when the closing ``` fence immediately follows the inputs block', () => {
+    // L260 arm=0: `isOutsideBlock` fires on the closing ``` line while the inputs
+    //   parsing loop is still running — the break arm fires before transitions: is seen.
+    const campaignMd = `\`\`\`yaml
+transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: compute_alone
+      inputs:
+        plan: "plan"
+        key2: "value2"
+\`\`\``;
+    const r = parseTransitionTable(campaignMd);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['step1']?.inputs).toMatchObject({ plan: 'plan', key2: 'value2' });
+    expect(r.table?.states['step1']?.transitions.length).toBe(0);
+  });
+});
+
+describe('parseTransitionTable — inputs line with no colon or colon at position 0 (L266 arm=1)', () => {
+  it('silently skips malformed input lines that have no colon or start with a colon', () => {
+    // L266 arm=1: `colonIdx` is -1 (no colon) for `bareword` and 0 (colon-first)
+    //   for `: colon_first` — both trigger the false arm, silently skipping the line.
+    const yaml = `transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: compute_alone
+      inputs:
+        plan: "plan"
+        bareword
+        : colon_first
+        key2: value2
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    const inputs = r.table?.states['step1']?.inputs ?? {};
+    expect(inputs['plan']).toBe('plan');
+    expect(inputs['key2']).toBe('value2');
+    expect(Object.keys(inputs).length).toBe(2);
+  });
+});
