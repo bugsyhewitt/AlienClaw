@@ -142,7 +142,13 @@ export class MockGenomeAdapter implements GenomeAdapter {
 
 /** Build a test genome with a specific θ encoded in tool_slots editable. */
 export function makeTestGenome(theta: number[], rawSuffix = ""): Genome {
-  const raw = ("A".repeat(255) + (rawSuffix || "A")).slice(0, 256);
+  // Derive raw from theta (Base62-safe digits) so distinct thetas yield
+  // distinct genome ids; previously every default call hashed to one id,
+  // which let cross-test rows collide (including a child==parent lineage
+  // self-cycle). Same args still produce the same genome, deterministically.
+  const thetaTag = theta.map(v => String(Math.round(v * 1000)).padStart(4, "0")).join("");
+  const payload = thetaTag + rawSuffix;
+  const raw = ("A".repeat(Math.max(0, 256 - payload.length)) + payload).slice(0, 256);
   const id = createHash("sha256").update(raw, "utf8").digest("hex");
   return {
     id,

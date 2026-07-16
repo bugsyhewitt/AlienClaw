@@ -44,6 +44,11 @@ export interface EvolutionStore {
 
 // ── MySQL implementation ─────────────────────────────────────────────────────
 
+/** mysql2 returns JSON columns pre-parsed as objects; text-protocol paths return strings. */
+function fromJsonColumn<T>(v: unknown): T {
+  return (typeof v === "string" ? JSON.parse(v) : v) as T;
+}
+
 export class MySQLEvolutionStore implements EvolutionStore {
   constructor(private readonly pool: mysql.Pool) {}
 
@@ -134,8 +139,8 @@ export class MySQLEvolutionStore implements EvolutionStore {
     return {
       id: row["id"] as string,
       raw: row["raw"] as string,
-      toolSlots: JSON.parse(row["tool_slots"] as string) as string[],
-      editable: JSON.parse(row["editable"] as string) as Record<string, string>,
+      toolSlots: fromJsonColumn<string[]>(row["tool_slots"]),
+      editable: fromJsonColumn<Record<string, string>>(row["editable"]),
     };
   }
 
@@ -162,9 +167,12 @@ export class MySQLEvolutionStore implements EvolutionStore {
     // Walk parent_id chain to root, collect non-null lessons (newest first, deduped)
     const lessons: string[] = [];
     const seen = new Set<string>();
+    const visited = new Set<string>();
     let current: string | null = genomeId;
 
     while (current) {
+      if (visited.has(current)) break; // corrupt lineage (cycle) — stop rather than hang
+      visited.add(current);
       const lineageResult = await this.pool.execute<mysql.RowDataPacket[]>(
         "SELECT parent_id, lesson FROM re_lineage WHERE child_id = ?",
         [current],
@@ -207,7 +215,7 @@ export class MySQLEvolutionStore implements EvolutionStore {
     const frontier: CandidateScore[] = snapRows.map(r => ({
       genomeId: r["genome_id"] as string,
       perInstance: new Map(),  // full reconstruction requires joining re_run
-      aggregate: JSON.parse(r["aggregate"] as string) as ObjectiveVector,
+      aggregate: fromJsonColumn<ObjectiveVector>(r["aggregate"]),
       legacyScalar: 0,
     }));
 

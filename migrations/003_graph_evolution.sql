@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS re_subagent_genome (
 CREATE TABLE IF NOT EXISTS re_topology_genome (
   id              CHAR(64)     NOT NULL PRIMARY KEY,
   subagent_ids    JSON         NOT NULL,
-  partition       JSON         NOT NULL,
+  `partition`     JSON         NOT NULL,
   compose         ENUM('concat','merge','adjudicate') NOT NULL,
   created_at      DATETIME(3)  NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -39,8 +39,10 @@ CREATE TABLE IF NOT EXISTS re_graph_violation (
 
 -- Add artifact_kind discriminator to shared lineage/frontier tables
 -- Default 'leaf' preserves Packet 01 semantics for all existing rows
+-- (plain ADD COLUMN: MySQL 8.0 has no IF NOT EXISTS here; migrations run
+--  once against a fresh database)
 ALTER TABLE re_lineage
-  ADD COLUMN IF NOT EXISTS artifact_kind ENUM('leaf','subagent','topology') NOT NULL DEFAULT 'leaf';
+  ADD COLUMN artifact_kind ENUM('leaf','subagent','topology') NOT NULL DEFAULT 'leaf';
 
 ALTER TABLE re_frontier_snapshot
-  ADD COLUMN IF NOT EXISTS artifact_kind ENUM('leaf','subagent','topology') NOT NULL DEFAULT 'leaf';
+  ADD COLUMN artifact_kind ENUM('leaf','subagent','topology') NOT NULL DEFAULT 'leaf';

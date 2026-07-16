@@ -8,7 +8,7 @@
 
 CREATE TABLE IF NOT EXISTS re_genome (
   id           CHAR(64)    NOT NULL PRIMARY KEY,   -- SHA-256 content hash
-  raw          CHAR(256)   NOT NULL,
+  raw          VARCHAR(256) NOT NULL,
   tool_slots   JSON        NOT NULL,
   editable     JSON        NOT NULL,
   created_at   DATETIME(3) NOT NULL,

@@ -260,7 +260,8 @@ describeIfDb("MySQL storage — re_* tables (Bug #14 compliance)", () => {
     );
     expect(rows.length).toBeGreaterThanOrEqual(1);
     expect(Number(rows[0]!["generation"])).toBe(0);
-    const agg = JSON.parse(rows[0]!["aggregate"] as string) as ObjectiveVector;
+    const aggRaw = rows[0]!["aggregate"];
+    const agg = (typeof aggRaw === "string" ? JSON.parse(aggRaw) : aggRaw) as ObjectiveVector;
     expect(agg.correctness).toBeCloseTo(0.8);
   });
 
