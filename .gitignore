@@ -130,3 +130,10 @@ alienclaw-phase*.zip
 
 # Packet execution reports (local records, not source)
 .packet-reports/
+
+# Stray coverage artifacts (root-level tool droppings)
+/coverage*.json
+*,cover
+
+# Plan-mode working files
+/Plans/
