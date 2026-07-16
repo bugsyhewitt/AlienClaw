@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { Logger, InMemorySink, JsonStdoutSink } from '../../src/alienclaw/governance/common/logger.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Logger, InMemorySink, JsonStdoutSink, type LogEntry } from '../../src/alienclaw/governance/common/logger.js';
 
 describe('Logger / InMemorySink', () => {
   let sink: InMemorySink;
@@ -66,5 +66,22 @@ describe('Logger / InMemorySink', () => {
 describe('JsonStdoutSink', () => {
   it('constructs without throwing', () => {
     expect(() => new JsonStdoutSink()).not.toThrow();
+  });
+
+  it('emit() writes a JSONL line to process.stdout', () => {
+    const entry: LogEntry = {
+      timestamp: '2026-07-06T07:00:00.000Z',
+      level: 'info',
+      source: 'TestSource',
+      event: 'test-event',
+    };
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      new JsonStdoutSink().emit(entry);
+      expect(writeSpy).toHaveBeenCalledOnce();
+      expect(writeSpy).toHaveBeenCalledWith(JSON.stringify(entry) + '\n');
+    } finally {
+      writeSpy.mockRestore();
+    }
   });
 });
