@@ -120,6 +120,31 @@ Preview the installer without running it: `bash install.sh --dry-run`
 
 Uninstall (leaves OpenClaw and your config intact): `bash install.sh --uninstall`
 
+## Leaderboard
+
+Evolve Martian genomes locally (offline — no network, no LLM calls) and
+submit your best to the community leaderboard at api.alienclaw.net:
+
+```bash
+# Evolve 10 generations for a Martian type (populations persist under
+# ~/.alienclaw/populations)
+alienclaw evolve --type compute_alone --generations 10 --inputs '{"input": "2 + 2"}'
+
+# Submit your best genome under a public 8-uppercase-letter handle.
+# Explicit and confirmed — nothing is submitted in the background.
+alienclaw submit --type compute_alone --name ALIENBOT
+```
+
+See the current public top for any type:
+
+```bash
+curl "https://api.alienclaw.net/v1/genomes/top?martian_type=compute_alone&n=10" | jq '.genomes'
+```
+
+The server validates every genome (length, Base62 alphabet, embedded
+checksum) and rate-limits submissions; a self-generated api key is
+persisted at `~/.alienclaw/api-key.txt` on first submit.
+
 ## Project Structure
 
 ```

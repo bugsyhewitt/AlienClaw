@@ -151,8 +151,14 @@
         }
       },
       "expected_ok": true,
-      "expected_output_field": "value",
-      "expected_output_value": "alice"
+      "expected_output_field": "extracted",
+      "expected_output_value": {
+        "name": {
+          "value": "alice",
+          "type": "str",
+          "found": true
+        }
+      }
     },
     {
       "description": "extract_json: nested key",
@@ -171,8 +177,14 @@
         }
       },
       "expected_ok": true,
-      "expected_output_field": "value",
-      "expected_output_value": 99
+      "expected_output_field": "extracted",
+      "expected_output_value": {
+        "user.id": {
+          "value": 99,
+          "type": "int",
+          "found": true
+        }
+      }
     },
     {
       "description": "extract_json: array index",
@@ -191,8 +203,14 @@
         }
       },
       "expected_ok": true,
-      "expected_output_field": "value",
-      "expected_output_value": "first"
+      "expected_output_field": "extracted",
+      "expected_output_value": {
+        "items[0]": {
+          "value": "first",
+          "type": "str",
+          "found": true
+        }
+      }
     },
     {
       "description": "extract_json: bad JSON = TOOL_RUNNER_FAILED",
@@ -230,7 +248,7 @@
         }
       },
       "expected_ok": true,
-      "expected_output_field": "match_count",
+      "expected_output_field": "totalMatches",
       "expected_output_value": 2
     },
     {
@@ -251,7 +269,7 @@
         }
       },
       "expected_ok": true,
-      "expected_output_field": "match_count",
+      "expected_output_field": "totalMatches",
       "expected_output_value": 1
     },
     {
@@ -271,7 +289,7 @@
         }
       },
       "expected_ok": true,
-      "expected_output_field": "match_count",
+      "expected_output_field": "totalMatches",
       "expected_output_value": 0
     },
     {

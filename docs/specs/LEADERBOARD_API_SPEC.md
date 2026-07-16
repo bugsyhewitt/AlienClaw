@@ -412,6 +412,7 @@ Known error codes:
 | `INVALID_FITNESS_RANGE` | 422 | Fitness not in [0.0, 1.0] |
 | `UNKNOWN_MARTIAN_TYPE` | 422 | martian_type not registered |
 | `METADATA_TOO_LARGE` | 422 | run_metadata exceeds 4096 bytes |
+| `PAYLOAD_TOO_LARGE` | 413 | Request body exceeds 64 KiB (`details.limit_bytes`, `details.received_bytes`) |
 | `RATE_LIMIT_EXCEEDED` | 429 | Rate limit hit |
 | `INTERNAL_ERROR` | 500 | Server-side error |
 

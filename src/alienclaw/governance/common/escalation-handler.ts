@@ -78,7 +78,7 @@ export class EscalationHandler {
     // Record attempt with the AdvisorBot verdict and post-increment strike count
     this.taskManager.recordAttempt(task.taskId, {
       attemptNumber:  task.strikeCount + 1,
-      employeeId:     task.assignedTo ?? 'unknown',
+      subagentId:     task.assignedTo ?? 'unknown',
       failureReason,
       advisorVerdict: advice.verdict,
       ts:             Date.now(),
@@ -95,7 +95,7 @@ export class EscalationHandler {
     });
 
     // Caller (GovernanceLoop) spawns a fresh Subagent for the retry.
-    void toolTags; // parameter kept for API stability; no longer used to build an EmployeeSpec
+    void toolTags; // parameter kept for API stability; no longer used to build a SubagentSpec
     return { action: 'REBUILD' };
   }
 

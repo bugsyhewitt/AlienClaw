@@ -1,0 +1,129 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { BossBot } from '../../src/alienclaw/governance/common/boss-bot.js';
+import { CreatorBot } from '../../src/alienclaw/governance/common/creator-bot.js';
+import { MockMartianSummonAdapter } from '../../src/alienclaw/governance/common/summon-adapter.js';
+import { InMemorySink, Logger } from '../../src/alienclaw/governance/common/logger.js';
+import { newCorrelationId, nowIso } from '../../src/alienclaw/governance/common/messages.js';
+import type {
+  AdvisorConsultMessage,
+  AdviceMessage,
+  UserGoalMessage,
+} from '../../src/alienclaw/governance/common/messages.js';
+
+// Stub AdvisorBot — structural type substitute for the AdvisorBot class.
+// TypeScript class types are structural, so an object with the right
+// `consult` method is accepted by BossBot's `private readonly advisor: AdvisorBot`
+// parameter (verified at packet authoring — see §G-9 in the packet).
+//
+// These stubs are designed to drive the defensive `?. ?? 0` fallback at
+// boss-bot.ts:85 (and structurally identical advisor-bot.ts:55). In production,
+// AdvisorBot ALWAYS populates `advice.payload.concerns`, so these branches
+// are unreachable. The tests pin the defensive behavior for future patches
+// (e.g., a future LLM-backed AdvisorBot that may return advice without concerns).
+
+const stubAdvisorNoConcerns = {
+  async consult(_consult: AdvisorConsultMessage): Promise<AdviceMessage> {
+    return {
+      from: 'AdvisorBot',
+      to:   'BossBot',
+      kind: 'advice',
+      payload: { refined_plan: 'plan' }, // concerns OMITTED — drives `?.` short-circuit
+      correlation_id: _consult.correlation_id,
+      timestamp: nowIso(),
+    };
+  },
+};
+
+const stubAdvisorNullConcerns = {
+  async consult(_consult: AdvisorConsultMessage): Promise<AdviceMessage> {
+    return {
+      from: 'AdvisorBot',
+      to:   'BossBot',
+      kind: 'advice',
+      payload: { refined_plan: 'plan', concerns: null as unknown as string[] }, // length null drives `??`
+      correlation_id: _consult.correlation_id,
+      timestamp: nowIso(),
+    };
+  },
+};
+
+const stubAdvisorEmptyConcerns = {
+  async consult(_consult: AdvisorConsultMessage): Promise<AdviceMessage> {
+    return {
+      from: 'AdvisorBot',
+      to:   'BossBot',
+      kind: 'advice',
+      payload: { refined_plan: 'plan', concerns: [] }, // length=0 — distinct numeric branch
+      correlation_id: _consult.correlation_id,
+      timestamp: nowIso(),
+    };
+  },
+};
+
+const makeGoal = (goal = 'summarize HN'): UserGoalMessage => ({
+  from: 'user', to: 'BossBot', kind: 'user-goal',
+  payload: { goal },
+  correlation_id: newCorrelationId(),
+  timestamp: nowIso(),
+});
+
+describe('BossBot — stub AdvisorBot branch coverage (packet 105)', () => {
+  let sink: InMemorySink;
+
+  beforeEach(() => { sink = new InMemorySink(); });
+
+  function makeBossWithAdvisor(stub: typeof stubAdvisorNoConcerns) {
+    const adapter = new MockMartianSummonAdapter();
+    const creator = new CreatorBot(new Logger(sink, 'CreatorBot'), adapter);
+    // BossBot constructor signature: (logger, advisor, creator) — pass stub via `unknown`
+    // cast because TypeScript class types are structural but the stub object literal
+    // needs an explicit widening for the BossBot constructor parameter (verified at
+    // packet authoring — see §G-9 in the packet).
+    return new BossBot(new Logger(sink, 'BossBot'), stub as never, creator);
+  }
+
+  it('boss-bot.ts:85 logs concern_count=0 when AdvisorBot returns advice without concerns field', async () => {
+    const boss = makeBossWithAdvisor(stubAdvisorNoConcerns);
+    await boss.handleUserGoal(makeGoal());
+    const dispatched = sink.byEvent('campaign-dispatched');
+    expect(dispatched).toHaveLength(1);
+    expect((dispatched[0]!.data as { concern_count: number }).concern_count).toBe(0);
+  });
+
+  it('boss-bot.ts:85 logs concern_count=0 when AdvisorBot returns advice with concerns=null', async () => {
+    const boss = makeBossWithAdvisor(stubAdvisorNullConcerns);
+    await boss.handleUserGoal(makeGoal());
+    const dispatched = sink.byEvent('campaign-dispatched');
+    expect(dispatched).toHaveLength(1);
+    expect((dispatched[0]!.data as { concern_count: number }).concern_count).toBe(0);
+  });
+
+  it('boss-bot.ts:85 logs concern_count=0 when concerns is an empty array (length=0 branch)', async () => {
+    const boss = makeBossWithAdvisor(stubAdvisorEmptyConcerns);
+    await boss.handleUserGoal(makeGoal());
+    const dispatched = sink.byEvent('campaign-dispatched');
+    expect(dispatched).toHaveLength(1);
+    expect((dispatched[0]!.data as { concern_count: number }).concern_count).toBe(0);
+  });
+
+  it('sanity — stub AdvisorBot responses have no concerns (pins defensive behavior)', async () => {
+    const advice1 = await stubAdvisorNoConcerns.consult({
+      from: 'BossBot', to: 'AdvisorBot', kind: 'planning-consult',
+      payload: { draft_plan: 'plan' },
+      correlation_id: newCorrelationId(), timestamp: nowIso(),
+    });
+    expect(advice1.payload.concerns).toBeUndefined();
+    const advice2 = await stubAdvisorNullConcerns.consult({
+      from: 'BossBot', to: 'AdvisorBot', kind: 'planning-consult',
+      payload: { draft_plan: 'plan' },
+      correlation_id: newCorrelationId(), timestamp: nowIso(),
+    });
+    expect(advice2.payload.concerns).toBeNull();
+    const advice3 = await stubAdvisorEmptyConcerns.consult({
+      from: 'BossBot', to: 'AdvisorBot', kind: 'planning-consult',
+      payload: { draft_plan: 'plan' },
+      correlation_id: newCorrelationId(), timestamp: nowIso(),
+    });
+    expect(advice3.payload.concerns).toEqual([]);
+  });
+});

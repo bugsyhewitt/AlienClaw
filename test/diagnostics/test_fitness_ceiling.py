@@ -72,6 +72,10 @@ class TestAnalyzeFormula:
         result = analyze_formula([0.0], [1])
         assert result["fitness"] >= 0.0
 
+    def test_mismatched_lengths_raises(self):
+        with pytest.raises(ValueError, match="same length"):
+            analyze_formula([1.0, 1.0], [1])
+
 
 class TestVerifyCeilingFromFormula:
     def test_k1_ceiling_confirmed(self):

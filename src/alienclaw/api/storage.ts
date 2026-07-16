@@ -85,9 +85,21 @@ export class SubmissionStore {
   }
 
   async topForType(martianType: string, n = 10): Promise<StoredSubmission[]> {
-    // LIMIT cannot be a prepared-statement parameter in MySQL 8.0 server-side mode.
-    // n is a controlled integer (caller enforces max 100), safe to inline.
-    const limit = Math.max(1, Math.floor(n));
+    // LIMIT cannot be a prepared-statement parameter in MySQL 8.0 server-side mode,
+    // so the value is inlined into the SQL string. To keep that inlining safe this
+    // method is the self-defending boundary: it asserts the limit is an integer in
+    // [1, 100] and throws otherwise, rather than silently coercing. Callers
+    // (handleTopGenomes) are the single source of truth for clamping the caller-
+    // supplied value into range before reaching here; this guard ensures no other
+    // caller — present or future — can ever push a non-integer or out-of-range
+    // value into the inlined LIMIT.
+    const limit = n;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error(
+        `topForType: limit must be an integer in [1, 100]; got ${String(limit)}. ` +
+        `This value is inlined into SQL and must be validated by the caller.`
+      );
+    }
     const [rows] = await this._pool.execute<mysql.RowDataPacket[]>(
       `SELECT submission_id, genome, martian_type, fitness, leaderboard_name,
               api_key_hash, run_metadata,

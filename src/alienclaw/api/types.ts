@@ -59,10 +59,11 @@ export interface TopGenomesResponse {
 // ── Martian types ─────────────────────────────────────────────────────────
 
 export interface MartianTypeInfo {
-  name:               string;
-  current_top_fitness: number;
-  submission_count:   number;
-  last_submission_at: string;
+  name:                string;
+  current_top_fitness: number;       // evolved fitness from leaderboard DB
+  submission_count:    number;
+  last_submission_at:  string;
+  online_fitness:      number | null; // mean runtime fitness from OnlineFitnessLog; null when no entries
 }
 
 export interface MartianTypesResponse {

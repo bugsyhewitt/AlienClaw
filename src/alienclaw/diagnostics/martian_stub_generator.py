@@ -39,9 +39,9 @@ def get_composition_inputs(
         Dict of campaign inputs appropriate for this Martian. Returns {}
         for unknown Martian types.
     """
-    # search_then_count: slot 0 = search_text, slot 1 = compute(${slot[0].output.match_count})
+    # search_then_count: slot 0 = search_text, slot 1 = compute(${slot[0].output.totalMatches})
     # 20 lines containing "fox" so max_results param produces different
-    # match_count values across genome pairs → composition sensitivity.
+    # totalMatches values across genome pairs → composition sensitivity.
     if martian_type == "search_then_count":
         text = "\n".join(f"The fox was spotted on line {i}" for i in range(1, 21))
         return {"text": text, "pattern": "fox"}

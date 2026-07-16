@@ -1,0 +1,128 @@
+diff --git a/test/msb/tool-adapters.test.ts b/test/msb/tool-adapters.test.ts
+index cd9521a9..b2d913a8 100644
+--- a/test/msb/tool-adapters.test.ts
++++ b/test/msb/tool-adapters.test.ts
+@@ -41,6 +41,7 @@ type ToolFn = (input: Record<string, unknown>) => Promise<unknown>;
+ 
+ interface ToolAdaptersModule {
+   wireToolAdapters: () => void;
++  isBlockedHost: (hostname: string) => boolean;
+ }
+ interface ExecutorModule {
+   getToolAdapter: (name: string) => ToolFn | undefined;
+@@ -60,6 +61,7 @@ let fileRead!: ToolFn;
+ let fileWrite!: ToolFn;
+ let urlFetch!: ToolFn;
+ let webSearch!: ToolFn;
++let isBlockedHost!: (hostname: string) => boolean;
+ 
+ beforeAll(async () => {
+   // 1. Throwaway home — set BEFORE the modules under test are imported.
+@@ -91,6 +93,7 @@ beforeAll(async () => {
+ 
+   // 3. Register the adapters, then fetch them the way the executor does.
+   adapters.wireToolAdapters();
++  isBlockedHost = adapters.isBlockedHost;
+ 
+   fileRead = executor.getToolAdapter('file_read')!;
+   fileWrite = executor.getToolAdapter('file_write')!;
+@@ -428,6 +431,99 @@ describe('wireToolAdapters wiring', () => {
+   });
+ });
+ 
++// ───────────────────────────────────────────────────────────────────────────
++// Packet 106 — uncovered branches: hextet invalid-hex (L140), web_search
++// wired-branch (L340), file_read non-ENOENT rethrow (L399).
++//
++// All three are runtime-reachable:
++//   • L140  — drive isBlockedHost('[::xyz]') or '[::12345]' → expandIpv6
++//             hits hextet's invalid-hex fallback (return undefined).
++//   • L340  — module-private `_webSearchFn`; runtime branch is unreachable
++//             in v0.1 (same pattern as _webFetchFn covered at
++//             tool-adapters-ssrf.test.ts:298-303). Pinned by source-grep
++//             mirroring the existing redirect:'error' contract test.
++//   • L399  — file_read on a path that resolves to a DIRECTORY throws
++//             EISDIR (not ENOENT), so the catch's `throw err` branch runs.
++// ───────────────────────────────────────────────────────────────────────────
++
++describe('isBlockedHost — IPv6 hextet parser (L140, packet 106)', () => {
++  // isBlockedHost is exported from tool-adapters.ts. Invalid hex characters
++  // in an IPv6 hextet (e.g. 'xyz', or a 5-char group) must be treated as
++  // BLOCKED (fail-closed): the worst-case behaviour for an SSRF guard is to
++  // let a malformed address slip through to a fetch — this tests we don't.
++
++  it('blocks a bracketed IPv6 with a non-hex character in a hextet (L140)', () => {
++    expect(isBlockedHost('[::xyz]')).toBe(true);
++  });
++
++  it('blocks a bracketed IPv6 with a > 4-char hextet (L140)', () => {
++    // 5 hex digits is invalid; expandIpv6 → hextet('12345') returns undefined.
++    expect(isBlockedHost('[::12345]')).toBe(true);
++  });
++
++  it('blocks an unbracketed IPv6 with a non-hex character (L140)', () => {
++    // Bare-colon path also flows through expandIpv6 → hextet.
++    expect(isBlockedHost('::xyz')).toBe(true);
++  });
++
++  it('does NOT block a syntactically valid public IPv6 (control)', () => {
++    // 2001:db8::1 is in the documentation prefix — must NOT be blocked.
++    expect(isBlockedHost('[2001:db8::1]')).toBe(false);
++  });
++
++  it('blocks the loopback ::1 (control — fail-closed, separate from L140)', () => {
++    expect(isBlockedHost('[::1]')).toBe(true);
++  });
++});
++
++describe('webSearchAdapter — wired branch contract (L340, packet 106)', () => {
++  // `_webSearchFn` is a module-private let (line 323) with no setter. The
++  // runtime "wired" branch at L340 is unreachable from the public API in
++  // v0.1 (the openclaw global is not yet installed). We pin the contract
++  // at the source level, mirroring the redirect:'error' guard pinned at
++  // tool-adapters-ssrf.test.ts:298-303.
++
++  it('the adapter source delegates the query arg to the wired fetch fn (L340)', async () => {
++    const { readFileSync } = await import('node:fs');
++    const { fileURLToPath } = await import('node:url');
++    const here = fileURLToPath(import.meta.url);
++    const src = readFileSync(
++      here.replace(/test\/msb\/tool-adapters\.test\.ts$/, 'src/alienclaw/msb/tool-adapters.ts'),
++      'utf8',
++    );
++    // The wired branch at L340 must hand the query through to the fetch fn.
++    expect(src).toMatch(/_webSearchFn\(\s*\{\s*query\s*\}/);
++  });
++});
++
++describe('fileReadAdapter — non-ENOENT error rethrow (L399, packet 106)', () => {
++  // The file_read catch at L96-103 has TWO branches:
++  //   1. ENOENT → throw new Error('file_read: not found: ...')   (covered)
++  //   2. anything else → throw err                                (NOT covered)
++  //
++  // To force a non-ENOENT error from a real readFile call, point file_read
++  // at a path that resolves to a DIRECTORY — Node's readFile throws EISDIR.
++
++  it('rethrows a raw EISDIR error when the path is a directory (L399)', async () => {
++    const dirPath = path.join(PATHS.workspace, 'is-a-directory');
++    mkdirSync(dirPath, { recursive: true });
++
++    let caught: NodeJS.ErrnoException | undefined;
++    try {
++      await fileRead({ path: 'is-a-directory' });
++    } catch (e) {
++      caught = e as NodeJS.ErrnoException;
++    }
++    // The error must be rethrown AS-IS (not wrapped in 'file_read: ...').
++    expect(caught).toBeDefined();
++    expect(caught!.code).toBe('EISDIR');
++    // Belt-and-suspenders: the message must NOT carry the 'file_read: not
++    // found:' prefix that the ENOENT branch (L98) produces — that would
++    // mean the wrong branch was taken.
++    expect(caught!.message).not.toMatch(/^file_read: not found:/);
++  });
++});
++
+ // ── helpers ────────────────────────────────────────────────────────────────
+ 
+ /** Escape a string for safe interpolation into a RegExp. */

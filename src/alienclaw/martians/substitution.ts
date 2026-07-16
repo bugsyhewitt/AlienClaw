@@ -35,9 +35,17 @@ export function substitute(
     if (slotNumStr !== undefined) {
       const slotN = parseInt(slotNumStr, 10);
       if (slotN >= slotOutputs.length) {
+        // slotOutputs only ever holds the outputs of *prior* slots, so any
+        // index >= length necessarily points at the current slot or a later
+        // one — a forward/self reference, not merely an out-of-range index.
+        const validRange = slotOutputs.length === 0
+          ? 'no prior slot outputs are available'
+          : `valid indices are 0..${slotOutputs.length - 1}`;
         throw new Error(
           `Substitution references slot[${slotN}].output.${fieldName} ` +
-          `but only ${slotOutputs.length} prior slot(s) have output.`
+          `but only ${slotOutputs.length} prior slot(s) have output. ` +
+          `This is a forward/self reference: a slot may only read outputs ` +
+          `of slots before it (${validRange}).`
         );
       }
       const out = slotOutputs[slotN]!;

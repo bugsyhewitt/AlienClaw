@@ -11,12 +11,15 @@ import type { AgentRegistry } from '../../agents/agent-registry.js';
 import { Subagent } from './subagent.js';
 import type { SubagentBrief } from './subagent.js';
 import type { MartianSummonAdapter } from './summon-adapter.js';
+import type { DomainResolver } from './domain-resolver.js';
+import type { CreatorBot as CommonCreatorBot } from './creator-bot.js';
 import type { GoalManager }        from './goal-manager.js';
 import type { TaskManager }        from './task-manager.js';
 import type { EscalationHandler }  from './escalation-handler.js';
 import type { CompletionHandler }  from './completion-handler.js';
 import type { UserChannel }        from '../../comms/user-channel.js';
 import type { AgentChannel }        from '../../comms/agent-channel.js';
+import type { OnlineFitnessLog }    from './online-fitness-log.js';
 
 // ── Valid state transitions ───────────────────────────────────────────────────
 
@@ -27,10 +30,10 @@ const VALID_TRANSITIONS: Record<GovernanceState, GovernanceState[]> = {
   CREATOR_BUILDING:      ['EXECUTING'],
   EXECUTING:             ['AWAITING_ADVICE', 'CREATOR_BUILDING', 'CREATOR_INTERRUPT',
                           'AWAITING_USER_INPUT', 'REVIEWING_COMPLETION'],
-  AWAITING_ADVICE:       ['EXECUTING', 'CREATOR_BUILDING', 'DECOMPOSING', 'SCHEMING'],
+  AWAITING_ADVICE:       ['EXECUTING', 'CREATOR_BUILDING', 'DECOMPOSING', 'SCHEMING', 'AWAITING_USER_INPUT'],
   CREATOR_INTERRUPT:     ['EXECUTING', 'AWAITING_ADVICE'],
   AWAITING_USER_INPUT:   ['EXECUTING', 'COMPLETE'],
-  REVIEWING_COMPLETION:  ['AWAITING_USER_SIGNOFF'],
+  REVIEWING_COMPLETION:  ['AWAITING_USER_SIGNOFF', 'EXECUTING'],
   AWAITING_USER_SIGNOFF: ['COMPLETE', 'EXECUTING'],
   COMPLETE:              ['IDLE'],
   ESCALATED:             ['IDLE'],
@@ -51,6 +54,18 @@ export interface GovernanceLoopDeps {
   agentChannel:        AgentChannel;
   /** Adapter passed to new Subagents spawned for each campaign. */
   adapter:            MartianSummonAdapter;
+  /**
+   * Optional strict domain→martian_type resolver for campaign spawns.
+   * When wired, unknown or missing campaign domains fail the campaign
+   * instead of silently defaulting to 'compute'.
+   */
+  domainResolver?:    DomainResolver;
+  /** governance/common CreatorBot with buildSubagent — routes all spawn sites through
+   *  the population-backed summon path (fromPopulation: true). Optional for backward
+   *  compat with existing tests that don't wire it. */
+  campaignCreatorBot?: CommonCreatorBot;
+  /** Optional recorder for observed runtime fitness from live campaign completion. */
+  onlineFitnessLog?: OnlineFitnessLog;
 }
 
 // ── GovernanceLoop ────────────────────────────────────────────────────────────
@@ -72,6 +87,9 @@ export class GovernanceLoop {
   /** subGoalId → Promise for legacy/fallback sub-goal dispatch */
   private legacyJobs     = new Map<string, Promise<void>>();
 
+  /** In-memory per-campaign strike counter — reset on fresh dispatch, capped at MAX_STRIKE_COUNT. */
+  private readonly campaignStrikes = new Map<string, number>();
+
   private transitionHooks: TransitionHook[] = [];
   private running         = false;
 
@@ -88,6 +106,9 @@ export class GovernanceLoop {
   private readonly agentChannel:       AgentChannel;
   /** Adapter injected into every Subagent spawned for campaign execution. */
   private readonly adapter:            MartianSummonAdapter;
+  private readonly domainResolver?:    DomainResolver;
+  private readonly campaignCreatorBot?: CommonCreatorBot;
+  private readonly onlineFitnessLog?:  OnlineFitnessLog;
 
   constructor(deps: GovernanceLoopDeps) {
     this.bossBot           = deps.bossBot;
@@ -100,7 +121,10 @@ export class GovernanceLoop {
     this.completionHandler = deps.completionHandler;
     this.userChannel       = deps.userChannel;
     this.agentChannel      = deps.agentChannel;
-    this.adapter           = deps.adapter;
+    this.adapter            = deps.adapter;
+    this.domainResolver     = deps.domainResolver;
+    this.campaignCreatorBot = deps.campaignCreatorBot;
+    this.onlineFitnessLog   = deps.onlineFitnessLog;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -141,6 +165,9 @@ export class GovernanceLoop {
       for (const c of goal.scheme.campaigns) {
         if (c.status === 'active') { c.status = 'pending'; dirty = true; }
       }
+      for (const sg of goal.subGoals) {
+        if (sg.status === 'active') { sg.status = 'pending'; sg.taskId = undefined; dirty = true; }
+      }
       if (dirty) await this.goalManager.save(file);
     } else {
       // Legacy sub-goal goal
@@ -161,6 +188,7 @@ export class GovernanceLoop {
     // Subagents are created inline in spawnCampaign — no pre-build needed.
     this.transition('EXECUTING', 'Crash recovery — dispatching ready campaigns');
     await this.dispatchReadyCampaigns(goalId);
+    await this.dispatchReadySubGoals(goalId);
   }
 
   // ── State machine ──────────────────────────────────────────────────────────
@@ -308,13 +336,41 @@ export class GovernanceLoop {
    * The Subagent is created inline — no pre-build phase is needed.
    */
   private async spawnCampaign(goalId: string, campaign: Campaign): Promise<void> {
+    this.campaignStrikes.delete(campaign.id);
     await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'active' });
     this.userChannel.status(
       `Campaign started: "${campaign.name}" — ${campaign.objective}`
     );
 
-    // Derive martian type and allowed Martians from SubagentRoles.
-    const martianType    = campaign.subagents[0]?.martianTags[0] ?? 'compute';
+    // Derive the martian type from SubagentRoles. With a wired resolver,
+    // unknown or missing domains fail the campaign through the normal
+    // JOB_FAILED path; without one, the legacy 'compute' default survives
+    // for existing callers but is logged so it is never silent.
+    const rawDomain = campaign.subagents[0]?.martianTags[0];
+    let martianType: string;
+    if (this.domainResolver) {
+      try {
+        if (rawDomain === undefined) {
+          throw new Error(`campaign '${campaign.id}' declares no subagent martian tags`);
+        }
+        martianType = this.domainResolver.resolve(rawDomain);
+      } catch (err) {
+        this.pushEvent({
+          type:      'JOB_FAILED',
+          subGoalId: campaign.id,
+          goalId,
+          error:     `Campaign "${campaign.name}" rejected: ${errorMessage(err)}`,
+        });
+        return;
+      }
+    } else {
+      if (rawDomain === undefined) {
+        this.userChannel.verbose(
+          `Campaign "${campaign.name}" has no martian tags; defaulting to 'compute' (legacy path — wire domainResolver to enforce)`
+        );
+      }
+      martianType = rawDomain ?? 'compute';
+    }
     const allowedMartians = [...new Set(campaign.subagents.flatMap(s => s.martianTags))];
     const knowledgeBase   = campaign.subagents.map(s => s.knowledgeBase).filter(Boolean).join('\n\n');
 
@@ -338,11 +394,16 @@ export class GovernanceLoop {
       success_criteria: campaign.objective,
     };
 
-    const subagent = new Subagent(this.adapter, {
-      campaignId:  campaign.id,
-      martianType,
-      inputs:      campaignInputs,
-      timeoutMs:   300_000,
+    const subagent = this.campaignCreatorBot!.buildSubagent(rawDomain ?? martianType, {
+      campaignId:        campaign.id,
+      objective:         campaign.objective,
+      successCriteria:   campaign.objective,
+      allowedMartians,
+      inputs:            campaignInputs,
+      timeoutMs:         300_000,
+      backgroundContext: knowledgeBase,
+      knowledgeBase,
+      role:              campaign.name,
     });
 
     const campaignJob: Promise<void> = (async () => {
@@ -354,6 +415,7 @@ export class GovernanceLoop {
         const succeeded = campaignResult.termination_reason === 'state_machine_finalized';
 
         if (succeeded) {
+          this.onlineFitnessLog?.record(martianType, campaignResult.fitness);
           await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'complete' });
           this.userChannel.status(`Campaign complete: "${campaign.name}" (fitness: ${campaignResult.fitness.toFixed(2)})`);
           this.pushEvent({
@@ -362,7 +424,7 @@ export class GovernanceLoop {
             goalId,
             result: {
               taskId:     campaign.id,
-              employeeId: campaign.name,
+              subagentId: campaign.name,
               outcome:    'SUCCESS',
               summary:    `Campaign "${campaign.name}" completed (fitness: ${campaignResult.fitness.toFixed(2)}).`,
               ts:         Date.now(),
@@ -457,16 +519,20 @@ export class GovernanceLoop {
         `Campaign failed: "${campaign?.name ?? event.subGoalId}" — ${event.error}`
       );
 
+      const strikes = (this.campaignStrikes.get(event.subGoalId) ?? 0) + 1;
+      this.campaignStrikes.set(event.subGoalId, strikes);
+
       this.transition('AWAITING_ADVICE', 'Campaign failure — consulting AdvisorBot');
       const adviceReq = {
         requesterId: 'BossBot' as const,
-        context:     `Campaign "${campaign?.name}" failed: ${event.error}`,
+        context:     `Campaign "${campaign?.name}" failed (attempt ${strikes}): ${event.error}`,
         question:    'Should we rebuild subagents and retry, or surface to the user?',
       };
       const advice = await this.advisorBot.advise(adviceReq, event.goalId);
       this.userChannel.verbose(`AdvisorBot on campaign failure: ${advice.verdict}`);
 
-      if (normalizeInput(advice.recommendation).includes('user') ||
+      if (strikes >= MAX_STRIKE_COUNT ||
+          normalizeInput(advice.recommendation).includes('user') ||
           advice.confidence === 'low') {
         // Surface to user
         this.transition('AWAITING_USER_INPUT', 'Campaign failure — surfacing to user');
@@ -556,11 +622,12 @@ export class GovernanceLoop {
       const retryInputs: Record<string, unknown> = {
         plan: task.description, success_criteria: task.description,
       };
-      const retrySubagent = new Subagent(this.adapter, {
-        campaignId:  subGoal.id,
-        martianType: subGoal.domain,
-        inputs:      retryInputs,
-        timeoutMs:   300_000,
+      const retrySubagent = this.campaignCreatorBot!.buildSubagent(subGoal.domain, {
+        campaignId:      subGoal.id,
+        objective:       task.description,
+        allowedMartians: [subGoal.domain],
+        inputs:          retryInputs,
+        timeoutMs:       300_000,
       });
 
       const job = (async () => {
@@ -570,7 +637,7 @@ export class GovernanceLoop {
           retrySubagent.erase();
           if (cr.termination_reason === 'state_machine_finalized') {
             this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: event.subGoalId, goalId: event.goalId,
-              result: { taskId: task.taskId, employeeId: subGoal.domain, outcome: 'SUCCESS',
+              result: { taskId: task.taskId, subagentId: subGoal.domain, outcome: 'SUCCESS',
                 summary: `Sub-goal retry succeeded.`, ts: Date.now() },
             });
           } else {
@@ -638,8 +705,7 @@ export class GovernanceLoop {
         }
       }
       this.userChannel.status(`AdvisorBot flagged gaps. Re-opening ${review.reopenIds.length} item(s).`);
-      this.transition('AWAITING_ADVICE', 'AdvisorBot flagged gaps');
-      this.transition('EXECUTING', 'Re-dispatching after gap identified');
+      this.transition('EXECUTING', 'AdvisorBot flagged gaps — re-dispatching');
       await this.dispatchReadyCampaigns(goalId);
       await this.dispatchReadySubGoals(goalId);
       return;
@@ -706,11 +772,12 @@ export class GovernanceLoop {
     const campaignInputs: Record<string, unknown> = {
       plan: subGoal.description, success_criteria: subGoal.description,
     };
-    const subagent = new Subagent(this.adapter, {
-      campaignId:  subGoal.id,
-      martianType: subGoal.domain,
-      inputs:      campaignInputs,
-      timeoutMs:   300_000,
+    const subagent = this.campaignCreatorBot!.buildSubagent(subGoal.domain, {
+      campaignId:      subGoal.id,
+      objective:       subGoal.description,
+      allowedMartians: [subGoal.domain],
+      inputs:          campaignInputs,
+      timeoutMs:       300_000,
     });
 
     const job = (async () => {
@@ -720,7 +787,7 @@ export class GovernanceLoop {
         subagent.erase();
         if (cr.termination_reason === 'state_machine_finalized') {
           this.pushEvent({ type: 'JOB_COMPLETE', subGoalId: subGoal.id, goalId,
-            result: { taskId: task.taskId, employeeId: subGoal.domain, outcome: 'SUCCESS',
+            result: { taskId: task.taskId, subagentId: subGoal.domain, outcome: 'SUCCESS',
               summary: `Sub-goal "${subGoal.description}" completed.`, ts: Date.now() },
           });
         } else {

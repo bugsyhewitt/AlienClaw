@@ -92,6 +92,21 @@ describe('decide() — transition evaluation', () => {
     if (action.kind === 'Fail') expect(action.reason).toContain('state_not_found');
   });
 
+  it('unknown goto target → Fail("state_not_found:<goto>")', () => {
+    // current_state is valid, but the goto target refers to a non-existent state.
+    // Distinct from the unknown current_state test (which exercises the
+    // state_not_found emission for current_state itself).
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'martian_succeeded' }] }, goto: 'ghost_state' },
+      ] } },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult(), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('state_not_found:ghost_state');
+  });
+
   it('martian_correctness_gt(0.5) passes when correctness=0.8', () => {
     const table: TransitionTable = {
       initial_state: 's',
@@ -166,6 +181,145 @@ describe('decide() — transition evaluation', () => {
       expect(a.target_state).toBe('s2');
       expect(a.martian_type).toBe('B');
     }
+  });
+});
+
+describe('decide() — Retry action', () => {
+  it('self-loop goto → Retry', () => {
+    // A state whose error transition points back at itself means "retry this martian".
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: {
+        s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+          { when: { kind: 'all', conditions: [{ kind: 'error_present' }] }, goto: 's' },
+          { when: { kind: 'all', conditions: [{ kind: 'martian_succeeded' }] }, goto: 'FINALIZE' },
+        ] },
+      },
+    };
+    const a = decide({
+      current_state: 's',
+      last_result: makeResult({ error: 'transient', fitness: 0 }),
+      table,
+      history: [],
+    });
+    expect(a.kind).toBe('Retry');
+  });
+
+  it('self-loop does not fire when condition does not match', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: {
+        s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+          { when: { kind: 'all', conditions: [{ kind: 'error_present' }] }, goto: 's' },
+          { when: { kind: 'all', conditions: [{ kind: 'martian_succeeded' }] }, goto: 'FINALIZE' },
+        ] },
+      },
+    };
+    const a = decide({
+      current_state: 's',
+      last_result: makeResult({ error: null, fitness: 0.7 }),
+      table,
+      history: [],
+    });
+    expect(a.kind).toBe('Finalize');
+  });
+});
+
+describe('decide() — uncovered evalCondition branches', () => {
+  it('martian_correctness_lt fires on low correctness', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'martian_correctness_lt', n: 0.5 }] }, goto: 'FAIL:low_correctness' },
+      ] } },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult({ correctness: 0.2 }), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('low_correctness');
+  });
+
+  it('martian_correctness_lt does not fire when correctness is above threshold', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'martian_correctness_lt', n: 0.5 }] }, goto: 'FAIL:low_correctness' },
+      ] } },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult({ correctness: 0.8 }), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
+
+  it('tool_calls_gt fires when tool_calls exceeds threshold', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'tool_calls_gt', n: 5 }] }, goto: 'FAIL:too_many_calls' },
+      ] } },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult({ tool_calls: 10 }), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('too_many_calls');
+  });
+
+  it('tool_calls_gt does not fire at or below threshold', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'tool_calls_gt', n: 5 }] }, goto: 'FAIL:too_many_calls' },
+      ] } },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult({ tool_calls: 5 }), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
+
+  it('tool_calls_lt fires when tool_calls is below threshold', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'tool_calls_lt', n: 3 }] }, goto: 'FAIL:too_few_calls' },
+      ] } },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult({ tool_calls: 1 }), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('too_few_calls');
+  });
+
+  it('output_field_eq matches exact value → Finalize', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'output_field_eq', field: 'status', value: 'done' }] }, goto: 'FINALIZE' },
+      ] } },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult({ output: { status: 'done' } }), table, history: [] });
+    expect(a.kind).toBe('Finalize');
+  });
+
+  it('output_field_eq no-match → Fail(no_matching_transition)', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'output_field_eq', field: 'status', value: 'done' }] }, goto: 'FINALIZE' },
+      ] } },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult({ output: { status: 'pending' } }), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
+
+  it('output_field_eq uses strict equality — type mismatch does not match', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        { when: { kind: 'all', conditions: [{ kind: 'output_field_eq', field: 'count', value: 42 }] }, goto: 'FINALIZE' },
+      ] } },
+    };
+    // '42' (string) !== 42 (number) — strict equality
+    const a = decide({ current_state: 's', last_result: makeResult({ output: { count: '42' } }), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
   });
 });
 

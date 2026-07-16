@@ -133,6 +133,87 @@ describe('validateLeaderboardResponse', () => {
     });
     expect(() => validateLeaderboardResponse(bad)).toThrow('martian_type');
   });
+
+  // ── Packet 100 additions: validateLeaderboardResponse type-coverage throws ──
+
+  it('rejects non-object entry (string in genomes array) (line 159)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: ['not an object'],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/is not an object/);
+  });
+
+  it('rejects null entry (line 159 — typeof null === "object" guard)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [null],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/is not an object/);
+  });
+
+  it('rejects array entry (line 159 — Array.isArray guard)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [['nested', 'array']],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/is not an object/);
+  });
+
+  it('rejects non-string leaderboard_name in entry (line 168)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, leaderboard_name: 12345 }],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/leaderboard_name must be a string/);
+  });
+
+  it('rejects non-string submission_id in entry (line 181)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, submission_id: 999 }],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/submission_id must be a string/);
+  });
+
+  it('rejects non-string submitted_at in entry (line 184)', () => {
+    const bad = JSON.stringify({
+      martian_type: 'compute',
+      total_for_type: 1,
+      genomes: [{ ...validEntry, submitted_at: 1717000000 }],
+    });
+    expect(() => validateLeaderboardResponse(bad)).toThrow(/submitted_at must be a string/);
+  });
+
+  // ── Packet 149 additions: top-level response type-coverage throws ──
+
+  it('rejects null top-level response (L130)', () => {
+    expect(() => validateLeaderboardResponse('null')).toThrow('Leaderboard response is not an object');
+  });
+
+  it('rejects array top-level response (L130)', () => {
+    expect(() => validateLeaderboardResponse('[]')).toThrow('Leaderboard response is not an object');
+  });
+
+  it('rejects non-string martian_type in response (L144)', () => {
+    const bad = JSON.stringify({ martian_type: 42, genomes: [], total_for_type: 0 });
+    expect(() => validateLeaderboardResponse(bad)).toThrow('martian_type must be a string');
+  });
+
+  it('rejects non-integer total_for_type in response (L147)', () => {
+    const bad = JSON.stringify({ martian_type: 'compute', genomes: [], total_for_type: '0' });
+    expect(() => validateLeaderboardResponse(bad)).toThrow('total_for_type must be an integer');
+  });
+
+  it('rejects non-array genomes field in response (L150)', () => {
+    const bad = JSON.stringify({ martian_type: 'compute', total_for_type: 0, genomes: 'not-array' });
+    expect(() => validateLeaderboardResponse(bad)).toThrow('genomes must be an array');
+  });
 });
 
 // ── leaderboardCheck ────────────────────────────────────────────────────────
@@ -259,6 +340,148 @@ describe('leaderboardCheck', () => {
     await expect(
       leaderboardCheck(operatorBest, { ...config, leaderboardName: 'invalid1' })
     ).rejects.toThrow(/\^/);
+  });
+
+  it('hardenedFetch throws on a non-OK HTTP response (leaderboard.ts:L86)', async () => {
+    // Simulate server returning 503 Service Unavailable.
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      body: {
+        getReader() {
+          return { read: async () => ({ done: true, value: undefined }), cancel: () => {} };
+        },
+      },
+    });
+    await expect(
+      hardenedFetch('https://example.com')
+    ).rejects.toThrow('HTTP 503');
+  });
+
+  it('hardenedFetch throws when response body is null (leaderboard.ts:L92)', async () => {
+    // response.body is null — getReader() would be called on undefined.
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: null,
+    });
+    await expect(
+      hardenedFetch('https://example.com')
+    ).rejects.toThrow('No response body');
+  });
+});
+
+// ── submitFromFile ──────────────────────────────────────────────────────────
+
+describe('submitFromFile', () => {
+  const VALID_GENOME = 'A'.repeat(256);
+  const VALID_HASH   = 'a'.repeat(64);
+
+  const mockFetch = vi.fn();
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch);
+    mockFetch.mockReset();
+  });
+
+  function writeArtifact(artifact: Partial<SubmissionArtifact>): string {
+    const path = join(tmpdir(), `submit-test-${Math.random().toString(36).slice(2)}.json`);
+    writeFileSync(path, JSON.stringify({
+      leaderboard_name: 'ALIENBOT',
+      genome:           VALID_GENOME,
+      genome_hash:      VALID_HASH,
+      martian_type:     'compute',
+      fitness:          0.95,
+      checked_at:       '2026-06-18T00:00:00Z',
+      ...artifact,
+    }), 'utf8');
+    return path;
+  }
+
+  it('happy path: POSTs the 256-char genome string and returns rank/is_new_top', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ rank: 1, is_new_top: true }),
+    });
+
+    const path = writeArtifact({});
+    const result = await submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes');
+
+    expect(result).toEqual({ rank: 1, is_new_top: true });
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.genome).toBe(VALID_GENOME);
+  });
+
+  it('sends the 256-char genome, not the 64-char hash (regression lock)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ rank: 2, is_new_top: false }),
+    });
+
+    const path = writeArtifact({});
+    await submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes');
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.genome).toBe(VALID_GENOME);
+    expect(body.genome).toHaveLength(256);
+    expect(body.genome).not.toBe(VALID_HASH);
+    expect(body.genome).not.toHaveLength(64);
+  });
+
+  it('rejects artifact with wrong-length genome before making any network call', async () => {
+    const path = writeArtifact({ genome: VALID_HASH }); // 64-char hash where genome should be
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/256/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects artifact with non-string genome before any network call (L270 typeof arm)', async () => {
+    const path = writeArtifact({ genome: 42 as unknown as string });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/256/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects artifact with non-Base62 characters before making any network call', async () => {
+    const badGenome = '-'.repeat(256);
+    const path = writeArtifact({ genome: badGenome });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/non-Base62/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('propagates server 400 with the error body in the message', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      text: async () => JSON.stringify({ error: 'INVALID_GENOME_LENGTH' }),
+    });
+
+    const path = writeArtifact({});
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow('INVALID_GENOME_LENGTH');
+  });
+
+  it('rejects invalid artifact JSON with a clear message', async () => {
+    const path = join(tmpdir(), `submit-garbage-${Math.random().toString(36).slice(2)}.json`);
+    writeFileSync(path, 'not valid json at all!!!', 'utf8');
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow('Invalid submission artifact');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  // ── Packet 100 addition: submitFromFile artifact leaderboard_name validation (line 263) ──
+
+  it('rejects invalid leaderboard_name in submitFromFile artifact (line 263)', async () => {
+    const path = writeArtifact({ leaderboard_name: 'lowercase' });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/leaderboard_name violates/);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 

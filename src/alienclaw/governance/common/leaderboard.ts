@@ -174,8 +174,10 @@ export function validateLeaderboardResponse(raw: string): LeaderboardResponse {
     if (typeof e.fitness !== 'number' || e.fitness < 0 || e.fitness > 1) {
       throw new Error(`genomes[${i}].fitness must be a number in [0,1]`);
     }
-    if (typeof e.martian_type !== 'string') {
-      throw new Error(`genomes[${i}].martian_type must be a string`);
+    // The deployed server omits per-entry martian_type (the response is
+    // already scoped by the top-level field); accept absent, reject non-string.
+    if (e.martian_type !== undefined && typeof e.martian_type !== 'string') {
+      throw new Error(`genomes[${i}].martian_type must be a string when present`);
     }
     if (typeof e.submission_id !== 'string') {
       throw new Error(`genomes[${i}].submission_id must be a string`);
@@ -186,7 +188,7 @@ export function validateLeaderboardResponse(raw: string): LeaderboardResponse {
     return {
       leaderboard_name: e.leaderboard_name,
       fitness:          e.fitness,
-      martian_type:     e.martian_type,
+      martian_type:     (e.martian_type as string | undefined) ?? String(obj.martian_type),
       submission_id:    e.submission_id,
       submitted_at:     e.submitted_at,
     };

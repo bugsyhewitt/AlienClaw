@@ -1,8 +1,10 @@
 import json
+import os
+from pathlib import Path
 
 import pytest
 
-from alienclaw.evolution.storage import PopulationStorage
+from alienclaw.evolution.storage import PopulationStorage, populations_root
 from alienclaw.evolution.types import EvolutionConfig, GenerationStats, PopulationEntry
 
 
@@ -33,6 +35,21 @@ def _make_entry(genome="A" * 256, fitness=0.5, generation=0):
         parent_ids=(),
         run_metadata={"seeded": True},
         created_at="2026-01-01T00:00:00+00:00",
+    )
+
+
+def _make_stats(generation=0):
+    return GenerationStats(
+        martian_type="compute",
+        generation=generation,
+        count=4,
+        mean_fitness=0.5,
+        median_fitness=0.5,
+        max_fitness=1.0,
+        min_fitness=0.0,
+        stddev_fitness=0.25,
+        distinct_genomes=4,
+        captured_at="2026-01-01T00:00:00+00:00",
     )
 
 
@@ -127,3 +144,71 @@ class TestPopulationStorage:
         with path.open() as f:
             data = json.load(f)
         assert data["key"] == "value"
+
+    # --- Category 1: populations_root() default path ---
+
+    def test_populations_root_default_uses_home(self, monkeypatch):
+        monkeypatch.delenv("ALIENCLAW_POPULATIONS_ROOT", raising=False)
+        result = populations_root()
+        assert result == Path.home() / ".alienclaw" / "populations"
+
+    # --- Category 2: pre-init / post-clear read guards ---
+
+    def test_read_all_entries_when_entries_dir_missing(self):
+        s = PopulationStorage("uninit_type")
+        assert s.read_all_entries() == []
+
+    def test_read_all_entries_returns_empty_after_clear(self, storage):
+        storage.write_entry(_make_entry())
+        storage.clear()
+        assert storage.read_all_entries() == []
+
+    def test_read_all_stats_when_stats_dir_missing(self):
+        s = PopulationStorage("uninit_type")
+        assert s.read_all_stats() == []
+
+    def test_read_all_stats_returns_empty_after_clear(self, storage):
+        storage.write_stats(_make_stats())
+        storage.clear()
+        assert storage.read_all_stats() == []
+
+    def test_current_generation_before_initialize_returns_zero(self):
+        s = PopulationStorage("never_init")
+        assert s.current_generation() == 0
+
+    # --- Category 3: non-JSON file skip ---
+
+    def test_non_json_files_skipped_in_entries(self, storage):
+        storage.write_entry(_make_entry())
+        (storage.entries_dir / "stray.tmp").write_text("noise")
+        assert len(storage.read_all_entries()) == 1
+
+    def test_non_json_files_skipped_in_stats(self, storage):
+        storage.write_stats(_make_stats())
+        (storage.stats_dir / "stray.bak").write_text("noise")
+        assert len(storage.read_all_stats()) == 1
+
+    # --- Category 4: clear() no-op on uninitialized storage ---
+
+    def test_clear_is_safe_on_uninitialized_storage(self):
+        s = PopulationStorage("never_init")
+        s.clear()  # no-op: root doesn't exist
+        assert not s.root.exists()
+
+    # --- Category 5: _atomic_write_json exception cleanup ---
+
+    def test_atomic_write_cleans_up_on_failure(self, tmp_path):
+        path = tmp_path / "output.json"
+        with pytest.raises(TypeError):
+            PopulationStorage._atomic_write_json(path, {"bad": object()})
+        stray = list(tmp_path.glob(".tmp-*"))
+        assert stray == [], f"temp file not cleaned up: {stray}"
+
+    def test_atomic_write_cleanup_tolerates_already_gone_tmp(self, tmp_path, monkeypatch):
+        def _unlink_raises_fnf(p):
+            raise FileNotFoundError(p)
+
+        monkeypatch.setattr(os, "unlink", _unlink_raises_fnf)
+        path = tmp_path / "output.json"
+        with pytest.raises(TypeError):
+            PopulationStorage._atomic_write_json(path, {"bad": object()})

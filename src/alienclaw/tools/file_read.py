@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from .types import RunResult
 
-_MAX_BYTES = 1 * 1024 * 1024  # 1 MiB
+from .limits import MAX_TOOL_IO_BYTES as _MAX_BYTES
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -18,7 +18,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         return RunResult(ok=False, error=f"Not a file: {path_str}", correctness=0.0)
     size = os.path.getsize(path)
     if size > _MAX_BYTES:
-        return RunResult(ok=False, error=f"File exceeds 1 MiB ({size} bytes)", correctness=0.0)
+        return RunResult(ok=False, error=f"File exceeds 10 MiB ({size} bytes)", correctness=0.0)
     try:
         raw = path.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
@@ -53,10 +53,8 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         output={
             "path": str(path),
             "content": content,
-            "size_bytes": size,
-            "lines_returned": lines_returned,
-            "total_lines": total_lines,
-            "chunk_count": chunk_count,
+            "encoding": "utf-8",
+            "sizeBytes": size,
         },
         tool_calls=chunk_count,
         correctness=correctness,

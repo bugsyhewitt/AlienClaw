@@ -12,6 +12,7 @@ import {
   GENOME_AUDIT_INTERVAL_MS,
   FITNESS_UPDATE_INTERVAL_MS,
   ADVISE_FROM_TELEMETRY_INTERVAL_MS,
+  LIVE_EVO_CHECK_INTERVAL_MS,
   FITNESS_EMA_ALPHA,
   FITNESS_EVOLUTION_THRESHOLD,
   PATHS,
@@ -23,6 +24,10 @@ import { EscalationHandler } from '../governance/common/escalation-handler.js';
 import { CompletionHandler } from '../governance/common/completion-handler.js';
 import { GovernanceLoop }    from '../governance/common/governance-loop.js';
 import { RealMartianSummonAdapter } from '../governance/common/real-summon-adapter.js';
+import { CreatorBot as CommonCreatorBot } from '../governance/common/creator-bot.js';
+import { DomainResolver }                 from '../governance/common/domain-resolver.js';
+import { Logger, JsonStdoutSink }         from '../governance/common/logger.js';
+import { OnlineFitnessLog }               from '../governance/common/online-fitness-log.js';
 import { UserChannel }       from '../comms/user-channel.js';
 import { AgentChannel,
          agentChannel }       from '../comms/agent-channel.js';
@@ -31,6 +36,7 @@ import type { AdviceRequest } from '../types.js';
 import * as fsSync            from 'node:fs';
 import { writeFile, mkdir }   from 'node:fs/promises';
 import { join }               from 'node:path';
+import { spawn }              from 'node:child_process';
 
 export interface BootstrapResult {
   /** The BossBot governance loop — call loop.start() to begin processing goals */
@@ -81,6 +87,17 @@ export function bootstrap(): BootstrapResult {
 
   const adapter = new RealMartianSummonAdapter();
 
+  const knownMartianTypes    = registry.list().map(ms => ms.id);
+  const commonLogger         = new Logger(new JsonStdoutSink(), 'creator-bot-common');
+  const commonDomainResolver = new DomainResolver(
+    knownMartianTypes.length > 0 ? knownMartianTypes : ['compute'],
+  );
+  const commonCreatorBot = new CommonCreatorBot(
+    commonLogger, adapter, undefined, commonDomainResolver,
+  );
+
+  const onlineFitnessLog = new OnlineFitnessLog();
+
   const loop = new GovernanceLoop({
     bossBot,
     advisorBot,
@@ -93,6 +110,8 @@ export function bootstrap(): BootstrapResult {
     userChannel,
     agentChannel,
     adapter,
+    campaignCreatorBot: commonCreatorBot,
+    onlineFitnessLog,
   });
 
   // ── CreatorBot scheduled jobs ─────────────────────────────────────────────
@@ -137,50 +156,65 @@ export function bootstrap(): BootstrapResult {
     fn: async () => {
       const sinceMs = Date.now() - FITNESS_UPDATE_INTERVAL_MS;
       const reports = await readRecentMartianReports(sinceMs);
-      if (reports.length === 0) return;
 
-      // Group by martianId
-      const byMartian = new Map<string, typeof reports>();
-      for (const r of reports) {
-        const arr = byMartian.get(r.martianId) ?? [];
-        arr.push(r);
-        byMartian.set(r.martianId, arr);
+      if (reports.length > 0) {
+        // Group by martianId
+        const byMartian = new Map<string, typeof reports>();
+        for (const r of reports) {
+          const arr = byMartian.get(r.martianId) ?? [];
+          arr.push(r);
+          byMartian.set(r.martianId, arr);
+        }
+
+        for (const [martianId, martianReports] of byMartian) {
+          const ms = registry.get(martianId);
+          if (!ms) continue;
+
+          const total = martianReports.length;
+          const successes = martianReports.filter(r => r.outcome === 'SUCCESS').length;
+          const successRate = total > 0 ? successes / total : 0;
+          const newFitness = FITNESS_EMA_ALPHA * successRate + (1 - FITNESS_EMA_ALPHA) * ms.fitness;
+
+          // Update in-memory registry
+          ms.fitness = newFitness;
+
+          // Atomically rewrite the .ms file
+          const msPath = join(PATHS.ms, `${martianId}.ms`);
+          try {
+            const raw = fsSync.readFileSync(msPath, 'utf-8');
+            const updated = raw.replace(
+              /^# fitness:.*$/m,
+              `# fitness: ${newFitness.toFixed(2)}`,
+            );
+            const tmpPath = msPath + '.tmp';
+            fsSync.writeFileSync(tmpPath, updated, 'utf-8');
+            fsSync.renameSync(tmpPath, msPath);
+          } catch {
+            // Non-fatal: keep in-memory updated
+          }
+
+          if (newFitness < FITNESS_EVOLUTION_THRESHOLD) {
+            creatorBot.enqueue(
+              'URGENT',
+              `evolve genome ${martianId} — fitness ${newFitness.toFixed(2)} below threshold ${FITNESS_EVOLUTION_THRESHOLD}`,
+              'fitness-update',
+            );
+          }
+        }
       }
 
-      for (const [martianId, martianReports] of byMartian) {
-        const ms = registry.get(martianId);
-        if (!ms) continue;
-
-        const total = martianReports.length;
-        const successes = martianReports.filter(r => r.outcome === 'SUCCESS').length;
-        const successRate = total > 0 ? successes / total : 0;
-        const newFitness = FITNESS_EMA_ALPHA * successRate + (1 - FITNESS_EMA_ALPHA) * ms.fitness;
-
-        // Update in-memory registry
-        ms.fitness = newFitness;
-
-        // Atomically rewrite the .ms file
-        const msPath = join(PATHS.ms, `${martianId}.ms`);
-        try {
-          const raw = fsSync.readFileSync(msPath, 'utf-8');
-          const updated = raw.replace(
-            /^# fitness:.*$/m,
-            `# fitness: ${newFitness.toFixed(2)}`,
-          );
-          const tmpPath = msPath + '.tmp';
-          fsSync.writeFileSync(tmpPath, updated, 'utf-8');
-          fsSync.renameSync(tmpPath, msPath);
-        } catch {
-          // Non-fatal: keep in-memory updated
-        }
-
-        if (newFitness < FITNESS_EVOLUTION_THRESHOLD) {
-          creatorBot.enqueue(
-            'URGENT',
-            `evolve genome ${martianId} — fitness ${newFitness.toFixed(2)} below threshold ${FITNESS_EVOLUTION_THRESHOLD}`,
-            'fitness-update',
-          );
-        }
+      // Write live-fitness summary every tick so status readers see fresh data
+      try {
+        const allMs = registry.list();
+        const summary = JSON.stringify({
+          generated_at: new Date().toISOString(),
+          martians: allMs.map(ms => ({ id: ms.id, fitness: ms.fitness })),
+        }, null, 2);
+        const tmpSummary = PATHS.liveFitnessSummary + '.tmp';
+        fsSync.writeFileSync(tmpSummary, summary, 'utf-8');
+        fsSync.renameSync(tmpSummary, PATHS.liveFitnessSummary);
+      } catch {
+        // Non-fatal
       }
     },
   });
@@ -232,6 +266,33 @@ export function bootstrap(): BootstrapResult {
     },
   });
 
+  /** Spawn `python3 -m alienclaw.bridge` and send a live-evo request (fire-and-forget). */
+  function callLiveEvoBridge(martianType: string): Promise<void> {
+    return new Promise((resolve) => {
+      const req = JSON.stringify({
+        bridge_version: '1.0',
+        request_id:     'live-evo-check',
+        request:        { kind: 'live-evo', martian_type: martianType },
+      });
+      const child = spawn('python3', ['-m', 'alienclaw.bridge'], { shell: false });
+      child.stdin.write(req + '\n');
+      child.stdin.end();
+      child.on('close', () => resolve());
+      child.on('error',  () => resolve());
+    });
+  }
+
+  /** live-evo-check: trigger threshold-gated generational evolution per martian type */
+  creatorBot.registerScheduledJob({
+    label: 'live-evo-check',
+    intervalMs: LIVE_EVO_CHECK_INTERVAL_MS,
+    fn: async () => {
+      for (const martianType of knownMartianTypes) {
+        await callLiveEvoBridge(martianType);
+      }
+    },
+  });
+
   // ── Start all three agents simultaneously ─────────────────────────────────
   // AdvisorBot: stateless between calls — ready immediately.
   // CreatorBot: scheduler starts now, runs independently of GovernanceLoop.
@@ -242,7 +303,7 @@ export function bootstrap(): BootstrapResult {
     '[Bootstrap] All 3 Tier-A agents online:\n' +
     '  BossBot    — awaiting loop.start()\n' +
     '  AdvisorBot — ready\n' +
-    `  CreatorBot — scheduler running (4 jobs registered)`
+    `  CreatorBot — scheduler running (5 jobs registered)`
   );
 
   // ── Shutdown handle ───────────────────────────────────────────────────────

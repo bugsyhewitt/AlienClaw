@@ -81,6 +81,17 @@ class TestValidate:
     def test_required_sections_count(self) -> None:
         assert len(REQUIRED_SECTIONS) == 10
 
+    def test_valid_result_is_truthy_in_boolean_context(self) -> None:
+        """ValidationResult.__bool__ returns True for valid=True."""
+        result = validate(MINIMAL_MSB)
+        assert result  # exercises __bool__ at types.py:104
+
+    def test_invalid_result_is_falsy_in_boolean_context(self) -> None:
+        """ValidationResult.__bool__ returns False for valid=False."""
+        bad = MINIMAL_MSB.replace("TOOL: test_minimal", "")
+        result = validate(bad)
+        assert not result  # exercises __bool__ at types.py:104
+
 
 class TestParseMsb:
     def test_parses_tool_name(self) -> None:

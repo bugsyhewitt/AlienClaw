@@ -25,7 +25,7 @@ export interface MartianSpec {
   /** .msb filenames referenced in [TOOLS] section (e.g. "web_search.msb") */
   msbRefs:     string[];
 
-  /** Tags derived from tools — used by Employee for selection */
+  /** Tags derived from tools — used by Subagent for selection */
   toolTags:    string[];
 
   /** Raw 256-char Base62 genome string */

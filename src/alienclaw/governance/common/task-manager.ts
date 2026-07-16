@@ -12,10 +12,10 @@ export class TaskManager {
     return this.tasks.get(taskId);
   }
 
-  assign(taskId: string, employeeId: string): void {
+  assign(taskId: string, subagentId: string): void {
     const task = this.tasks.get(taskId);
     if (!task) throw new Error(`Task ${taskId} not found`);
-    task.assignedTo = employeeId;
+    task.assignedTo = subagentId;
   }
 
   recordAttempt(taskId: string, attempt: TaskAttempt): void {
@@ -49,7 +49,7 @@ export class TaskManager {
     const task = this.tasks.get(taskId);
     if (!task || task.attempts.length === 0) return '  (no attempts recorded)';
     return task.attempts
-      .map((a, i) => `  ${i + 1}. [${a.employeeId}] ${a.failureReason}`)
+      .map((a, i) => `  ${i + 1}. [${a.subagentId}] ${a.failureReason}`)
       .join('\n');
   }
 }

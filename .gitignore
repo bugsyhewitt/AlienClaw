@@ -126,3 +126,14 @@ dist/protocol.schema.json
 alienclaw-phase*.zip
 *.podman.env.local
 .env.hostinger
+.coverage
+
+# Packet execution reports (local records, not source)
+.packet-reports/
+
+# Stray coverage artifacts (root-level tool droppings)
+/coverage*.json
+*,cover
+
+# Plan-mode working files
+/Plans/

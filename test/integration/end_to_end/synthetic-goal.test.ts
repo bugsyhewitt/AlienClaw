@@ -116,7 +116,7 @@ describe('Synthetic integration — simplified governance path + real bridge', (
       // 5. Verify campaign ran and produced results
       expect(result.campaignId).toBe(CAMPAIGN_ID);
       expect(result.summon_count).toBeGreaterThan(0);
-      // search_then_count: search_text finds fox -> compute evaluates match_count
+      // search_then_count: search_text finds fox -> compute evaluates totalMatches
       expect(result.fitness).toBeGreaterThanOrEqual(0);
       expect([
         'state_machine_finalized',
@@ -218,5 +218,17 @@ describe('Synthetic integration — simplified governance path + real bridge', (
     expect(yaml).toContain('step2');
     expect(yaml).toContain('search_then_count');
     expect(yaml).toContain('compute_alone');
+  });
+
+  it('buildTransitionTableYaml returns empty string for empty allowedMartians', () => {
+    const brief: SubagentBrief = {
+      campaignId: 'test', role: 'test', domain: 'test',
+      objective: 'test', scope: 'test', successCriteria: 'test',
+      allowedMartians: [],
+      deliverables: 'test', backgroundContext: '', communicationStyle: 'terse',
+      knowledgeBase: '', constraints: '',
+    };
+    const yaml = buildTransitionTableYaml(brief);
+    expect(yaml).toBe('');
   });
 });

@@ -13,6 +13,8 @@ export type VerbosityMode          = 'silent' | 'normal' | 'verbose';
 export interface UserPreferences {
   verbosity:          VerbosityMode;
   advisorPersistence: AdvisorPersistenceMode;
+  /** Public leaderboard handle (^[A-Z]{8}$), set via `alienclaw submit --name`. */
+  leaderboardName?:   string;
 }
 
 // ── Agent messages ────────────────────────────────────────────────────────────
@@ -69,7 +71,7 @@ export interface TaskEnvelope {
 
 export interface TaskAttempt {
   attemptNumber:  number;
-  employeeId:     string;
+  subagentId:     string;
   failureReason:  string;
   advisorVerdict: string;
   ts:             number;
@@ -115,7 +117,7 @@ export interface Goal {
 export type CampaignStatus = 'pending' | 'active' | 'complete' | 'failed';
 
 /**
- * A Subagent is a campaign-scoped Employee with deep domain knowledge.
+ * A Subagent is a campaign-scoped Subagent with deep domain knowledge.
  * It is created by CreatorBot and disposed when its Campaign ends.
  * Subagents never call tools directly — they summon Martian intentionally.
  */
@@ -194,7 +196,7 @@ export type GovernanceEvent =
 
 export interface TaskResult {
   taskId:         string;
-  employeeId:     string;
+  subagentId:     string;
   outcome:        'SUCCESS' | 'FAILURE' | 'ESCALATED';
   summary:        string;
   failureReason?: string;
