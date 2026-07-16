@@ -112,6 +112,7 @@ vi.mock('../../src/alienclaw/telemetry/telemetry-reader.js', () => ({
 
 import { bootstrap }  from '../../src/alienclaw/wiring/hierarchy-bootstrap.js';
 import { creatorBot } from '../../src/alienclaw/agents/creatorbot.js';
+import { readRecentMartianReports } from '../../src/alienclaw/telemetry/telemetry-reader.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -132,7 +133,9 @@ describe('fitness-update — live-fitness-summary.json (E2 item 5)', () => {
     mkdirSync('/tmp/ac-test-fit-sum', { recursive: true });
     mockFakeRegistry.list.mockReset();
     mockFakeRegistry.list.mockImplementation(function() { return []; });
+    mockFakeRegistry.get.mockReset();
     vi.mocked(creatorBot.registerScheduledJob).mockClear();
+    vi.mocked(creatorBot.enqueue).mockClear();
   });
 
   afterEach(() => {
@@ -176,6 +179,47 @@ describe('fitness-update — live-fitness-summary.json (E2 item 5)', () => {
     expect(Number.isNaN(new Date(data.generated_at).getTime())).toBe(false);
     expect(data.generated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     expect(data.martians).toHaveLength(0);
+
+    shutdown();
+  });
+
+  it('FUS-103: EMA fitness update fires when reports present; enqueues URGENT when new fitness below threshold', async () => {
+    // Mutable so the in-memory mutation (ms.fitness = newFitness) is observable.
+    const mutable: { id: string; fitness: number } = { id: 'compute_alone', fitness: 0.5 };
+    mockFakeRegistry.list.mockReturnValue([mutable]);
+    mockFakeRegistry.get.mockImplementation(function(id: string) {
+      return id === 'compute_alone' ? mutable : undefined;
+    });
+
+    // 3 failures for compute_alone → successRate = 0 → newFitness = 0.3*0 + 0.7*0.5 = 0.35 < 0.4 (threshold)
+    // 1 success for ghost_martian (not in registry) → get() returns undefined → skipped via ms guard
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      { reportCode: 'r1', ts: 1000, taskId: 't1', subagentId: 's1', martianId: 'compute_alone', domain: 'compute', outcome: 'FAILURE', summary: 'fail' },
+      { reportCode: 'r2', ts: 1001, taskId: 't1', subagentId: 's1', martianId: 'compute_alone', domain: 'compute', outcome: 'FAILURE', summary: 'fail' },
+      { reportCode: 'r3', ts: 1002, taskId: 't1', subagentId: 's1', martianId: 'compute_alone', domain: 'compute', outcome: 'FAILURE', summary: 'fail' },
+      { reportCode: 'r4', ts: 1003, taskId: 't1', subagentId: 's2', martianId: 'ghost_martian', domain: 'search',  outcome: 'SUCCESS', summary: 'ok'   },
+    ]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    // EMA: 0.3 * 0 + 0.7 * 0.5 = 0.35 — in-memory mutation is observable
+    expect(mutable.fitness).toBeCloseTo(0.35, 10);
+
+    // Fitness 0.35 < FITNESS_EVOLUTION_THRESHOLD (0.4) → URGENT enqueue
+    expect(creatorBot.enqueue).toHaveBeenCalledWith(
+      'URGENT',
+      expect.stringContaining('compute_alone'),
+      'fitness-update',
+    );
+
+    // Summary written, reflects updated fitness
+    const data = JSON.parse(readFileSync(SUMMARY_PATH, 'utf-8')) as {
+      martians: Array<{ id: string; fitness: number }>;
+    };
+    expect(data.martians).toHaveLength(1);
+    expect(data.martians[0]!.id).toBe('compute_alone');
+    expect(data.martians[0]!.fitness).toBeCloseTo(0.35, 10);
 
     shutdown();
   });
