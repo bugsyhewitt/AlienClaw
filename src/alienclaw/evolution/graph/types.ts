@@ -4,7 +4,7 @@
  * Two-level hierarchy evolves: Subagents (MIDDLE) and Topology (TOP-of-middle).
  * Governance nodes (boss/advisor/creator) and Martians (BOTTOM) are NOT genomes.
  *
- * NAMING (AGENTS.md wall): the canonical term is "Subagent", never "Specialist".
+ * NAMING (AGENTS.md wall): the canonical term is "Subagent", never "Subagent".
  */
 
 /** Communication-graph node kinds. */

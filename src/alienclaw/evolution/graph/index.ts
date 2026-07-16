@@ -6,7 +6,7 @@
  * a lightweight {ok, violation}). To keep the barrel unambiguous we re-export
  * the canonical graph-validator versions by name and alias the assembly ones.
  *
- * NAMING (AGENTS.md wall): "Subagent", never "Specialist".
+ * NAMING (AGENTS.md wall): "Subagent", never "Subagent".
  */
 export * from "./types.js";
 export * from "./graph-validator.js";

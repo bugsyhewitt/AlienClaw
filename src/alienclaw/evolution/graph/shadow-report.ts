@@ -5,7 +5,7 @@
  * are compared per campaign. This module produces the report shape; the mock
  * generator lets us validate the schema and docs without burning LLM budget.
  *
- * NAMING (AGENTS.md wall): "Subagent", never "Specialist".
+ * NAMING (AGENTS.md wall): "Subagent", never "Subagent".
  */
 export interface ShadowComparison {
   campaignId: string;

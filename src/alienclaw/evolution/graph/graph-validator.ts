@@ -6,7 +6,7 @@
  * boss<->martian is structurally impossible — governance never talks to the
  * bottom layer directly. Every rejection returns a precise violation string.
  *
- * NAMING (AGENTS.md wall): "Subagent", never "Specialist".
+ * NAMING (AGENTS.md wall): "Subagent", never "Subagent".
  */
 import type {
   SubagentGenome,

@@ -5,7 +5,7 @@
  * runs its summon fan. Here we score from the editable fields so the engine
  * loop is exercisable with zero LLM/tool cost. No Martian runtime is touched.
  *
- * NAMING (AGENTS.md wall): "Subagent", never "Specialist".
+ * NAMING (AGENTS.md wall): "Subagent", never "Subagent".
  */
 import { randomUUID, createHash } from "node:crypto";
 import type { GenomeAdapter } from "../reflective/adapter.js";

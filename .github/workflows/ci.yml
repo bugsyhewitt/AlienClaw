@@ -59,7 +59,7 @@ jobs:
       # Requires MySQL: the api integration + storage suites skip without a DB,
       # which would otherwise collapse measured coverage. See the `test` job.
       - name: Run migrations (API coverage gate)
-        run: mysql -h 127.0.0.1 -u root -ptest alienclaw_test < migrations/001_leaderboard.sql
+        run: for f in migrations/*.sql; do mysql -h 127.0.0.1 -u root -ptest alienclaw_test < "$f"; done
       - name: API surface tests with coverage
         env:
           ALIENCLAW_TEST_DB_URL: mysql://root:test@127.0.0.1:3306/alienclaw_test
@@ -97,7 +97,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Run migrations
-        run: mysql -h 127.0.0.1 -u root -ptest alienclaw_test < migrations/001_leaderboard.sql
+        run: for f in migrations/*.sql; do mysql -h 127.0.0.1 -u root -ptest alienclaw_test < "$f"; done
       - name: Run tests
         env:
           ALIENCLAW_TEST_DB_URL: mysql://root:test@127.0.0.1:3306/alienclaw_test

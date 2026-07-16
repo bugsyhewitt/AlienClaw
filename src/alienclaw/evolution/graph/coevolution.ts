@@ -5,7 +5,7 @@
  * Freeze-and-evolve alternation is stable, debuggable, and captures most gains:
  *   round r → evolve subagents (topology frozen) → evolve topology (subagents frozen).
  *
- * NAMING (AGENTS.md wall): "Subagent", never "Specialist".
+ * NAMING (AGENTS.md wall): "Subagent", never "Subagent".
  */
 import type { Genome, TaskInstance } from "../reflective/types.js";
 import type { GenomeAdapter } from "../reflective/adapter.js";

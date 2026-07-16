@@ -6,7 +6,7 @@
  * the editable subagent count and partition size so the loop is exercisable
  * with zero LLM/tool cost. No Martian runtime is touched.
  *
- * NAMING (AGENTS.md wall): "Subagent", never "Specialist".
+ * NAMING (AGENTS.md wall): "Subagent", never "Subagent".
  */
 import { randomUUID } from "node:crypto";
 import type { GenomeAdapter } from "../reflective/adapter.js";
