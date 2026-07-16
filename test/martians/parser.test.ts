@@ -452,6 +452,22 @@ slots:
     expect(falseSpec.description).toBe('false');
     expect(emptyMap.description).toBe('[object Object]');
   });
+
+  it('_findKeyColon: backslash-escaped quote inside double-quoted key (parser.ts L209 bid=42 arm=0)', () => {
+    // "martian\"type": x — the \" inside the double-quoted key is an escape sequence.
+    // _findKeyColon must skip the escaped " (i++; continue) so it does not
+    // misread it as closing the quoted string. Without the skip, _findKeyColon would
+    // exit inDouble=false at i=9, never find an unquoted colon, return -1, and
+    // _parseMapping would throw "expected 'key: value' mapping entry" instead.
+    const md = `\
+"martian\\"type": x
+slots:
+  - slot_index: 0
+    tool_name: t
+`;
+    // With the fix active: key resolves to 'martian"type' (not 'martian_type').
+    expect(() => parseMartian(md)).toThrow(/missing required field 'martian_type'/);
+  });
 });
 
 // ── describe: MartianParseError ────────────────────────────────────────
