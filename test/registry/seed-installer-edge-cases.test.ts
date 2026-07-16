@@ -63,12 +63,14 @@ const mockState = {
   // copyFileSync modes:
   //   'real'         → pass through always
   //   'eexist-once'  → throw EEXIST on first call; real for the rest
-  copyFileMode: 'real' as 'real' | 'eexist-once',
+  //   'eacces-once'  → throw EACCES on first call; real for the rest
+  copyFileMode: 'real' as 'real' | 'eexist-once' | 'eacces-once',
   copyFileCallCount: 0,
   // writeFileSync modes:
   //   'real'         → pass through always
   //   'eexist-once'  → throw EEXIST on first call; real for the rest
-  writeFileMode: 'real' as 'real' | 'eexist-once',
+  //   'eacces-once'  → throw EACCES on first call; real for the rest
+  writeFileMode: 'real' as 'real' | 'eexist-once' | 'eacces-once',
   writeFileCallCount: 0,
 };
 
@@ -119,6 +121,13 @@ vi.mock('node:fs', async (importOriginal) => {
           throw err;
         }
       }
+      if (mockState.copyFileMode === 'eacces-once') {
+        if (mockState.copyFileCallCount === 1) {
+          const err: NodeJS.ErrnoException = new Error('EACCES (mock)');
+          err.code = 'EACCES';
+          throw err;
+        }
+      }
       return real.copyFileSync(src, dest, mode);
     }) as typeof real.copyFileSync,
     writeFileSync: ((file: any, data: any, ...rest: any[]) => {
@@ -127,6 +136,13 @@ vi.mock('node:fs', async (importOriginal) => {
         if (mockState.writeFileCallCount === 1) {
           const err: NodeJS.ErrnoException = new Error('EEXIST (mock)');
           err.code = 'EEXIST';
+          throw err;
+        }
+      }
+      if (mockState.writeFileMode === 'eacces-once') {
+        if (mockState.writeFileCallCount === 1) {
+          const err: NodeJS.ErrnoException = new Error('EACCES (mock)');
+          err.code = 'EACCES';
           throw err;
         }
       }
@@ -284,6 +300,22 @@ describe('installMsSeeds — EEXIST catch → overwrite=true branch (lines 188-1
     // All 3 .ms files were eventually installed (catch ran on first; subsequent calls went through)
     const msDir = join(homeDir, 'registry', 'ms');
     expect(readdirSync(msDir).sort()).toEqual(['MS_FREAD0001.ms', 'MS_FWRITE001.ms', 'MS_WEB00001.ms']);
+  });
+});
+
+describe('installMsbSeeds — non-EEXIST catch → re-throw (line 167 bid=4 arm=0)', () => {
+  it('re-throws non-EEXIST errors from copyFileSync (e.g., EACCES)', async () => {
+    mockState.copyFileMode = 'eacces-once';
+    const { installSeeds } = await loadSeedInstaller();
+    expect(() => installSeeds()).toThrow(/EACCES/);
+  });
+});
+
+describe('installMsSeeds — non-EEXIST catch → re-throw (line 188 bid=6 arm=0)', () => {
+  it('re-throws non-EEXIST errors from writeFileSync (e.g., EACCES)', async () => {
+    mockState.writeFileMode = 'eacces-once';
+    const { installSeeds } = await loadSeedInstaller();
+    expect(() => installSeeds()).toThrow(/EACCES/);
   });
 });
 
