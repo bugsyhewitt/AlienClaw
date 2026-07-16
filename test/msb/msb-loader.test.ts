@@ -495,6 +495,43 @@ describe('msb/msb-loader — parseMsbContent(raw, sourcePath) — supplemental',
     expect(captured!.message).toMatch(/^MSB validation failed:\n/);
     expect(captured!.message).not.toContain('(');
   });
+
+  it('R-406: GENOME SECTIONS block with only IDENTITY sub-key → missing sub-keys return empty string', () => {
+    const partialGenomeSectionsMsb = [
+      'TOOL: partial_tool',
+      'VERSION: 1.0',
+      '',
+      'CAPABILITIES:',
+      'Has capabilities.',
+      '',
+      'LIMITATIONS:',
+      'Has limitations.',
+      '',
+      'FAILURE MODES:',
+      'Has failure modes.',
+      '',
+      'BEST PRACTICES:',
+      'Has best practices.',
+      '',
+      'EXECUTION ORDER:',
+      '1. Do thing',
+      '',
+      'OUTPUT CONTRACT:',
+      '{}',
+      '',
+      'GENOME SECTIONS:',
+      'IDENTITY: only identity present',
+      '',
+      'VARIABLES:',
+      'task: the task',
+      '',
+    ].join('\n');
+    const brain = parseMsbContent(partialGenomeSectionsMsb);
+    expect(brain.genomeSections.identity).toBe('only identity present');
+    expect(brain.genomeSections.execution).toBe('');
+    expect(brain.genomeSections.behavior).toBe('');
+    expect(brain.genomeSections.checksum).toBe('');
+  });
 });
 
 // ---------------------------------------------------------------------------
