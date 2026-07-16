@@ -61,14 +61,16 @@ const mockState = {
   readdirMode: 'real' as 'real' | 'enoent' | 'enoent-once' | 'empty-msb',
   readdirCallCount: 0,
   // copyFileSync modes:
-  //   'real'         → pass through always
-  //   'eexist-once'  → throw EEXIST on first call; real for the rest
-  copyFileMode: 'real' as 'real' | 'eexist-once',
+  //   'real'              → pass through always
+  //   'eexist-once'       → throw EEXIST on first call; real for the rest
+  //   'non-eexist-once'   → throw EPERM on first call; real for the rest
+  copyFileMode: 'real' as 'real' | 'eexist-once' | 'non-eexist-once',
   copyFileCallCount: 0,
   // writeFileSync modes:
-  //   'real'         → pass through always
-  //   'eexist-once'  → throw EEXIST on first call; real for the rest
-  writeFileMode: 'real' as 'real' | 'eexist-once',
+  //   'real'              → pass through always
+  //   'eexist-once'       → throw EEXIST on first call; real for the rest
+  //   'non-eexist-once'   → throw EPERM on first call; real for the rest
+  writeFileMode: 'real' as 'real' | 'eexist-once' | 'non-eexist-once',
   writeFileCallCount: 0,
 };
 
@@ -119,6 +121,13 @@ vi.mock('node:fs', async (importOriginal) => {
           throw err;
         }
       }
+      if (mockState.copyFileMode === 'non-eexist-once') {
+        if (mockState.copyFileCallCount === 1) {
+          const err: NodeJS.ErrnoException = new Error('EPERM (mock)');
+          err.code = 'EPERM';
+          throw err;
+        }
+      }
       return real.copyFileSync(src, dest, mode);
     }) as typeof real.copyFileSync,
     writeFileSync: ((file: any, data: any, ...rest: any[]) => {
@@ -127,6 +136,13 @@ vi.mock('node:fs', async (importOriginal) => {
         if (mockState.writeFileCallCount === 1) {
           const err: NodeJS.ErrnoException = new Error('EEXIST (mock)');
           err.code = 'EEXIST';
+          throw err;
+        }
+      }
+      if (mockState.writeFileMode === 'non-eexist-once') {
+        if (mockState.writeFileCallCount === 1) {
+          const err: NodeJS.ErrnoException = new Error('EPERM (mock)');
+          err.code = 'EPERM';
           throw err;
         }
       }
@@ -284,6 +300,48 @@ describe('installMsSeeds — EEXIST catch → overwrite=true branch (lines 188-1
     // All 3 .ms files were eventually installed (catch ran on first; subsequent calls went through)
     const msDir = join(homeDir, 'registry', 'ms');
     expect(readdirSync(msDir).sort()).toEqual(['MS_FREAD0001.ms', 'MS_FWRITE001.ms', 'MS_WEB00001.ms']);
+  });
+});
+
+describe('installMsbSeeds — non-EEXIST rethrow (line 167 arm0)', () => {
+  it('installMsbSeeds re-throws non-EEXIST errors from copyFileSync (e.g. EPERM)', async () => {
+    mockState.copyFileMode = 'non-eexist-once';
+    const { installSeeds } = await loadSeedInstaller();
+    expect(() => installSeeds()).toThrow(/EPERM/);
+  });
+});
+
+describe('installMsbSeeds — overwrite=false + EEXIST silent skip (lines 168-171 arm1)', () => {
+  it('installMsbSeeds skips silently on EEXIST when overwrite=false (no Overwrote log, no second copy)', async () => {
+    mockState.copyFileMode = 'eexist-once';
+    const { installSeeds } = await loadSeedInstaller();
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(() => installSeeds({ overwrite: false })).not.toThrow();
+    const logMessages = consoleSpy.mock.calls.map((args) => String(args[0]));
+    // No retry means no "Overwrote" log — this is the contract under test
+    expect(logMessages.some((m) => m.includes('Overwrote msb/'))).toBe(false);
+    consoleSpy.mockRestore();
+  });
+});
+
+describe('installMsSeeds — non-EEXIST rethrow (line 188 arm0)', () => {
+  it('installMsSeeds re-throws non-EEXIST errors from writeFileSync (e.g. EPERM)', async () => {
+    mockState.writeFileMode = 'non-eexist-once';
+    const { installSeeds } = await loadSeedInstaller();
+    expect(() => installSeeds()).toThrow(/EPERM/);
+  });
+});
+
+describe('installMsSeeds — overwrite=false + EEXIST silent skip (lines 189-192 arm1)', () => {
+  it('installMsSeeds skips silently on EEXIST when overwrite=false (no Overwrote log, no second write)', async () => {
+    mockState.writeFileMode = 'eexist-once';
+    const { installSeeds } = await loadSeedInstaller();
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(() => installSeeds({ overwrite: false })).not.toThrow();
+    const logMessages = consoleSpy.mock.calls.map((args) => String(args[0]));
+    // No retry means no "Overwrote" log — this is the contract under test
+    expect(logMessages.some((m) => m.includes('Overwrote ms/'))).toBe(false);
+    consoleSpy.mockRestore();
   });
 });
 
