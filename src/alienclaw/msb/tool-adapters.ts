@@ -358,8 +358,6 @@ const webSearchAdapter: ToolFn = async (input) => {
 // `redirect: 'error'` hint alongside the (already-validated) url.
 // ---------------------------------------------------------------------------
 
-let _webFetchFn: ((arg: unknown) => Promise<unknown>) | undefined;
-
 const urlFetchAdapter: ToolFn = async (input) => {
   const rawUrl = String(input['url'] ?? '');
 
@@ -367,18 +365,19 @@ const urlFetchAdapter: ToolFn = async (input) => {
   // off-allowlist hosts. Use the canonicalised URL string downstream.
   const safeUrl = assertSafeFetchUrl(rawUrl).toString();
 
-  if (!_webFetchFn) {
-    _webFetchFn = undefined; // TODO v0.2: wire to globally-installed openclaw package
+  // redirect:'error' — a permitted origin must not be able to 30x-redirect
+  // the fetch toward an internal endpoint after the allowlist check passes.
+  // globalThis.fetch is read at invocation time so vi.stubGlobal can intercept it in tests.
+  let resp: Response;
+  try {
+    resp = await globalThis.fetch(safeUrl, { redirect: 'error' });
+  } catch (err) {
+    throw new Error(`url_fetch: request failed: ${(err as Error).message}`);
   }
 
-  if (typeof _webFetchFn === 'function') {
-    // redirect:'error' — a permitted origin must not be able to 30x-redirect
-    // the fetch toward an internal endpoint after the allowlist check passes.
-    const content = await _webFetchFn({ url: safeUrl, redirect: 'error' });
-    return { url: safeUrl, statusCode: 200, content: String(content ?? ''), contentType: 'text/html' };
-  }
-
-  return { url: safeUrl, statusCode: 0, content: '', _stub: true };
+  const content     = await resp.text();
+  const contentType = resp.headers.get('content-type') ?? '';
+  return { url: safeUrl, statusCode: resp.status, content, contentType };
 };
 
 // ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@
  * Ship gate: private-IP and disallowed-host URLs rejected; allowed https host
  * passes; vitest green.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import {
   assertSafeFetchUrl,
@@ -265,6 +265,8 @@ describe('urlFetchAdapter via getToolAdapter', () => {
     adapter = a;
   });
 
+  afterEach(() => { vi.unstubAllGlobals(); });
+
   it('rejects a private-IP URL before doing any fetch', async () => {
     await expect(adapter({ url: 'https://169.254.169.254/latest/meta-data/' }))
       .rejects.toThrow(/private\/loopback\/link-local\/metadata/);
@@ -284,18 +286,23 @@ describe('urlFetchAdapter via getToolAdapter', () => {
     await expect(adapter({})).rejects.toThrow(/malformed|non-https/);
   });
 
-  it('passes an allowed https host through and returns the canonicalised URL', async () => {
-    // No OpenClaw fetch fn is wired in v0.1, so the adapter takes the stub path.
-    // The key guarantee: an allowed URL is NOT rejected, and the returned url is
-    // the canonicalised form produced by the guard (proving the guard ran).
+  it('passes an allowed https host through and calls globalThis.fetch with the canonicalised URL', async () => {
+    const stubFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: (_: string) => null },
+      async text() { return ''; },
+    } as unknown as Response);
+    vi.stubGlobal('fetch', stubFetch);
+
     const out = (await adapter({ url: 'https://api.alienclaw.net/v1/health' })) as {
       url: string;
       statusCode: number;
-      _stub?: boolean;
+      content: string;
     };
     expect(out.url).toBe('https://api.alienclaw.net/v1/health');
-    expect(out.statusCode).toBe(0);
-    expect(out._stub).toBe(true);
+    expect(out.statusCode).toBe(200);
+    expect(stubFetch).toHaveBeenCalledWith('https://api.alienclaw.net/v1/health', { redirect: 'error' });
   });
 
   it('does not leak a private-IP target into any output on rejection', async () => {
@@ -314,23 +321,33 @@ describe('urlFetchAdapter via getToolAdapter', () => {
 
 // ── redirect:'error' contract (transport-side) ──────────────────────────────
 //
-// In v0.1 the OpenClaw fetch fn is not yet wired (the adapter returns a stub),
-// so we cannot observe the call from the public surface. We assert the contract
-// at the source level: the url_fetch adapter must forward redirect:'error' to
-// whatever fetch fn it delegates to, mirroring PR #46's hardenedFetch /
-// NetworkAPIClient. This guards against a future wiring change silently dropping
-// the redirect guard.
+// The url_fetch adapter calls globalThis.fetch(safeUrl, { redirect: 'error' })
+// so a permitted origin cannot 30x-redirect to an internal endpoint after the
+// allowlist check passes. Now that the fetch fn is wired, this is tested
+// behaviourally rather than by source regex.
 
 describe("redirect:'error' contract", () => {
-  it('the adapter source forwards redirect:\'error\' to the delegated fetch fn', async () => {
-    const { readFileSync } = await import('node:fs');
-    const { fileURLToPath } = await import('node:url');
-    const here = fileURLToPath(import.meta.url);
-    const src = readFileSync(
-      here.replace(/test\/msb\/tool-adapters-ssrf\.test\.ts$/, 'src/alienclaw/msb/tool-adapters.ts'),
-      'utf8',
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('passes redirect:\'error\' option to globalThis.fetch for an allowed URL', async () => {
+    wireToolAdapters();
+    const adap = getToolAdapter('url_fetch')!;
+
+    const stubFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: (_: string) => null },
+      async text() { return ''; },
+    } as unknown as Response);
+    vi.stubGlobal('fetch', stubFetch);
+
+    await adap({ url: 'https://api.alienclaw.net/test' });
+
+    expect(stubFetch).toHaveBeenCalledWith(
+      'https://api.alienclaw.net/test',
+      { redirect: 'error' },
     );
-    // The wired branch must hand redirect:'error' to the fetch fn.
-    expect(src).toMatch(/_webFetchFn\(\s*\{[^}]*redirect:\s*'error'/s);
   });
 });

@@ -23,7 +23,7 @@
  * code path an attacker would hit.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import {
   mkdtempSync,
   mkdirSync,
@@ -383,21 +383,89 @@ describe('urlFetchAdapter (https-only guard, L80)', () => {
     );
   });
 
-  it('accepts an https:// url and returns the v0.1 stub contract', async () => {
-    // Use an allowlisted host (ALLOWED_FETCH_HOSTS — PR #53 SSRF hardening).
-    // `assertSafeFetchUrl` returns the canonicalised URL.toString(), which
-    // appends the implicit "/" path for an origin-only input.
-    const out = (await urlFetch({ url: 'https://api.alienclaw.net/page' })) as {
-      url: string;
-      statusCode: number;
-      content: string;
-      _stub?: boolean;
-    };
-    // Guard passed; OpenClaw wiring is a v0.2 stub.
-    expect(out.url).toBe('https://api.alienclaw.net/page');
-    expect(out.statusCode).toBe(0);
-    expect(out.content).toBe('');
-    expect(out._stub).toBe(true);
+  it('accepts an https:// url, calls globalThis.fetch, and returns the HTTP response', async () => {
+    const stubFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: (name: string) => name === 'content-type' ? 'text/html' : null },
+      async text() { return 'api response body'; },
+    } as unknown as Response);
+    vi.stubGlobal('fetch', stubFetch);
+
+    try {
+      const out = (await urlFetch({ url: 'https://api.alienclaw.net/page' })) as {
+        url: string;
+        statusCode: number;
+        content: string;
+        contentType: string;
+        _stub?: boolean;
+      };
+      expect(out.url).toBe('https://api.alienclaw.net/page');
+      expect(out.statusCode).toBe(200);
+      expect(out.content).toBe('api response body');
+      expect(out.contentType).toBe('text/html');
+      expect(out._stub).toBeUndefined();
+      expect(stubFetch).toHaveBeenCalledWith('https://api.alienclaw.net/page', { redirect: 'error' });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Packet 246 — url_fetch integration: adapter must use real HTTP response body
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('urlFetchAdapter — real HTTP via globalThis.fetch (packet 246)', () => {
+  // RED on old code: the v0.1 stub returns { statusCode: 0, content: '', _stub: true }
+  // regardless of what any fetch fn would return.
+
+  it('returns the actual HTTP body from the underlying fetch (not a stub constant)', async () => {
+    const stubBody = 'Hello from the stub server';
+    const stubFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: (name: string) => name === 'content-type' ? 'text/plain' : null },
+      async text() { return stubBody; },
+    } as unknown as Response);
+    vi.stubGlobal('fetch', stubFetch);
+
+    try {
+      const out = (await urlFetch({ url: 'https://api.alienclaw.net/test' })) as {
+        url: string;
+        statusCode: number;
+        content: string;
+        contentType: string;
+        _stub?: boolean;
+      };
+
+      // The adapter must use the response body — not the old hardcoded constant.
+      expect(out.content).toBe(stubBody);
+      expect(out.statusCode).toBe(200);
+      expect(out.contentType).toBe('text/plain');
+      expect(out._stub).toBeUndefined();
+      expect(stubFetch).toHaveBeenCalledWith(
+        'https://api.alienclaw.net/test',
+        { redirect: 'error' },
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('propagates a network error as url_fetch: request failed: <message>', async () => {
+    const stubFetch = vi.fn().mockRejectedValueOnce(
+      new TypeError('Failed to fetch'),
+    );
+    vi.stubGlobal('fetch', stubFetch);
+
+    try {
+      await expect(urlFetch({ url: 'https://api.alienclaw.net/test' })).rejects.toThrow(
+        /^url_fetch: request failed: Failed to fetch$/,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
