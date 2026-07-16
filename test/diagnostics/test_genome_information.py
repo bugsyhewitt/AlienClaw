@@ -71,6 +71,12 @@ class TestMutualInformation:
         assert mi2 >= 0
         assert mi10 >= 0
 
+    def test_single_sample_returns_zero(self):
+        assert mutual_information([42], [0.5]) == 0.0
+
+    def test_empty_returns_zero(self):
+        assert mutual_information([], []) == 0.0
+
 
 class TestGenomeByteMutualInformation:
     def _make_synthetic_genomes(self, n: int, seed: int = 42) -> tuple[list[str], list[float]]:
@@ -112,6 +118,17 @@ class TestGenomeByteMutualInformation:
         result = genome_byte_mutual_information(genomes, fitnesses, byte_indices=range(5))
         assert result["summary"]["max_byte_mi"] == 0.0
 
+    def test_empty_genomes_returns_zero_summary(self):
+        result = genome_byte_mutual_information([], [])
+        assert result == {
+            "summary": {
+                "max_byte_mi": 0.0,
+                "mean_byte_mi": 0.0,
+                "n_significant_bytes": 0,
+                "threshold_nats": 0.01,
+            }
+        }
+
 
 class TestSummarizeGenomeFitnessMi:
     def test_structure(self):
@@ -124,3 +141,9 @@ class TestSummarizeGenomeFitnessMi:
         for key in ("n_samples", "global_max_byte_mi", "section_max_mi"):
             assert key in result
         assert result["n_samples"] == 30
+
+
+# ── Dead-code exclusions (no test required) ───────────────────────────────────
+# L30: _freedman_diaconis_nbins branch `if h <= 0 or span <= 0` is unreachable.
+# The only caller (mutual_information) guards n<2 first; once _freedman_diaconis_nbins
+# is reached, iqr>0 (checked at L25), so h>0 and span>=iqr>0 always hold.
