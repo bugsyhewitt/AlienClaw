@@ -485,6 +485,102 @@ function makeGoalManager(): GoalManager {
   } as unknown as GoalManager;
 }
 
+// ── Packet 233: resumeGoal() dirty=false arms ─────────────────────────────────
+//
+// All five false-arm branches (b[2]-b[6]) in resumeGoal()'s dirty-detection block
+// were cold: every existing test supplied campaigns/sub-goals already in 'active'
+// status, so dirty was always true and save() was always called.
+//
+// These two cases cover the "clean restart" scenario: a goal file is already in
+// a consistent state (all campaigns/sub-goals already pending), so no mutations
+// occur and save() must NOT be called.
+
+describe('GovernanceLoop.resumeGoal — dirty=false guard (packet 233)', () => {
+  it('does NOT save when all campaigns are already pending (scheme goal, dirty=false)', async () => {
+    const file = {
+      version:      '1',
+      activeGoalId: 'goal-x',
+      goals: [{
+        id:          'goal-x',
+        description: 'scheme goal',
+        subGoals: [{ id: 'sg-pending', description: 'pending task', domain: 'compute', status: 'pending' as const, dependsOn: [] }],
+        status:      'active' as const,
+        createdAt:   0,
+        scheme: {
+          campaigns: [
+            { id: 'c1', name: 'c1', objective: '', subagents: [], dependsOn: [], status: 'pending' as const },
+          ],
+        },
+      }],
+    };
+    let saveCalled = false;
+    const goalManager = {
+      load:              () => file,
+      save:              async () => { saveCalled = true; },
+      getReadyCampaigns: () => [],
+      getReadySubGoals:  () => [],
+      attachScheme:      async () => {},
+    } as unknown as GoalManager;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot:        noopAdvisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+    (loop as any).dispatchReadyCampaigns = async () => {};
+
+    await loop.resumeGoal('goal-x');
+    expect(saveCalled).toBe(false); // dirty=false; guard prevents unnecessary write
+  });
+
+  it('does NOT save when all sub-goals are already pending (legacy goal, dirty=false)', async () => {
+    const file = {
+      version:      '1',
+      activeGoalId: 'goal-y',
+      goals: [{
+        id:          'goal-y',
+        description: 'legacy goal',
+        subGoals: [{ id: 'sg-1', description: 'task', domain: 'compute', status: 'pending' as const, dependsOn: [] }],
+        status:    'active' as const,
+        createdAt: 0,
+      }],
+    };
+    let saveCalled = false;
+    const goalManager = {
+      load:              () => file,
+      save:              async () => { saveCalled = true; },
+      getReadyCampaigns: () => [],
+      getReadySubGoals:  () => [],
+    } as unknown as GoalManager;
+
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot:        noopAdvisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+    (loop as any).dispatchReadySubGoals = async () => {};
+
+    await loop.resumeGoal('goal-y');
+    expect(saveCalled).toBe(false); // dirty=false; guard prevents unnecessary write
+  });
+});
+
 describe('GovernanceLoop.handleJobFailed — campaign failure surface-to-user path (packet 095)', () => {
   it('transitions to AWAITING_USER_INPUT without throwing when campaign fails and advisor recommends surfacing to user', async () => {
     const advisorBot = {
