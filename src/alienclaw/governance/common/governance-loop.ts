@@ -90,6 +90,9 @@ export class GovernanceLoop {
   /** In-memory per-campaign strike counter — reset on fresh dispatch, capped at MAX_STRIKE_COUNT. */
   private readonly campaignStrikes = new Map<string, number>();
 
+  /** Per-goal fitness accumulator: goalId → fitness scores from all completed campaigns this run. */
+  private readonly goalMinFitness  = new Map<string, number[]>();
+
   private transitionHooks: TransitionHook[] = [];
   private running         = false;
 
@@ -416,6 +419,9 @@ export class GovernanceLoop {
 
         if (succeeded) {
           this.onlineFitnessLog?.record(martianType, campaignResult.fitness);
+          const _scores = this.goalMinFitness.get(goalId) ?? [];
+          _scores.push(campaignResult.fitness);
+          this.goalMinFitness.set(goalId, _scores);
           await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'complete' });
           this.userChannel.status(`Campaign complete: "${campaign.name}" (fitness: ${campaignResult.fitness.toFixed(2)})`);
           this.pushEvent({
@@ -690,7 +696,10 @@ export class GovernanceLoop {
     }
 
     this.transition('REVIEWING_COMPLETION', 'All campaigns complete — reviewing with AdvisorBot');
-    const review = await this.completionHandler.review(goalId);
+    const _fitnessScores = this.goalMinFitness.get(goalId) ?? [];
+    const _minFitness    = _fitnessScores.length > 0 ? Math.min(..._fitnessScores) : undefined;
+    this.goalMinFitness.delete(goalId);
+    const review = await this.completionHandler.review(goalId, _minFitness);
 
     if (!review.proceed) {
       const file = this.goalManager.load();

@@ -42,6 +42,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { CompletionHandler } from '../../../src/alienclaw/governance/common/completion-handler.js';
+import { REVIEW_THRESHOLD } from '../../../src/alienclaw/governance/common/advisor-bot.js';
 
 // ── Stub factories ──────────────────────────────────────────────────────────
 // These match the shape of the real interfaces but capture every call so we
@@ -271,6 +272,74 @@ describe('CompletionHandler', () => {
       const [req] = advisor.advise.mock.calls[0]!;
       expect(req.context).toContain('(no items)');
     });
+
+    // ── Fitness gate (R-001 through R-006) ──────────────────────────────────
+
+    it('A-001: returns proceed: false with first incomplete subgoal id when fitness < threshold, without calling AdvisorBot', async () => {
+      advisor = makeAdvisorBot({ verdict: 'ok', confidence: 'high' });
+      goalMgr = makeGoalManager([makeGoal({
+        subGoals: [
+          { id: 'sg-1', description: 'done',   status: 'complete' },
+          { id: 'sg-2', description: 'undone', status: 'pending'  },
+        ],
+      })]);
+      handler = new CompletionHandler(advisor as any, goalMgr as any, userCh as any, agentCh as any);
+
+      const out = await handler.review('goal-1', 0.5);
+      expect(out).toEqual({ proceed: false, reopenIds: ['sg-2'] });
+      expect(advisor.advise).not.toHaveBeenCalled();
+    });
+
+    it('A-002: returns proceed: false with first pending campaign id when all subgoals complete and fitness < threshold', async () => {
+      advisor = makeAdvisorBot({ verdict: 'ok', confidence: 'high' });
+      goalMgr = makeGoalManager([makeGoal({
+        subGoals: [{ id: 'sg-1', description: 'done', status: 'complete' }],
+        campaignStatus: 'pending',
+      })]);
+      handler = new CompletionHandler(advisor as any, goalMgr as any, userCh as any, agentCh as any);
+
+      const out = await handler.review('goal-1', 0.5);
+      expect(out).toEqual({ proceed: false, reopenIds: ['camp-1'] });
+      expect(advisor.advise).not.toHaveBeenCalled();
+    });
+
+    it('A-003: falls back to first subgoal id when all items complete and fitness < threshold', async () => {
+      advisor = makeAdvisorBot({ verdict: 'ok', confidence: 'high' });
+      handler = new CompletionHandler(advisor as any, goalMgr as any, userCh as any, agentCh as any);
+
+      const out = await handler.review('goal-1', 0.5);
+      expect(out).toEqual({ proceed: false, reopenIds: ['sg-1'] });
+      expect(advisor.advise).not.toHaveBeenCalled();
+    });
+
+    it('A-004: returns proceed: false with empty reopenIds when goal has no items and fitness < threshold', async () => {
+      advisor = makeAdvisorBot({ verdict: 'ok', confidence: 'high' });
+      goalMgr = makeGoalManager([{ id: 'goal-1', description: 'Build X', subGoals: [] }]);
+      handler = new CompletionHandler(advisor as any, goalMgr as any, userCh as any, agentCh as any);
+
+      const out = await handler.review('goal-1', 0.5);
+      expect(out).toEqual({ proceed: false, reopenIds: [] });
+      expect(advisor.advise).not.toHaveBeenCalled();
+    });
+
+    it('A-005: does NOT fire fitness gate when fitness equals REVIEW_THRESHOLD (boundary exclusive)', async () => {
+      // 0.7 exactly = not below threshold → normal AdvisorBot path
+      const out = await handler.review('goal-1', 0.7);
+      expect(advisor.advise).toHaveBeenCalledOnce();
+      expect(out).toEqual({ proceed: true });
+    });
+
+    it('A-006: does NOT fire fitness gate when fitness is above REVIEW_THRESHOLD', async () => {
+      const out = await handler.review('goal-1', 0.85);
+      expect(advisor.advise).toHaveBeenCalledOnce();
+      expect(out).toEqual({ proceed: true });
+    });
+
+    it('A-007: preserves existing behavior when no fitness is provided (undefined)', async () => {
+      const out = await handler.review('goal-1');
+      expect(advisor.advise).toHaveBeenCalledOnce();
+      expect(out).toEqual({ proceed: true });
+    });
   });
 
   // ── promptSignoff() ──────────────────────────────────────────────────────
@@ -405,6 +474,10 @@ describe('CompletionHandler', () => {
       expect(g.load).not.toHaveBeenCalled();
       expect(u.prompt).not.toHaveBeenCalled();
       expect(c.send).not.toHaveBeenCalled();
+    });
+
+    it('A-008: REVIEW_THRESHOLD is exported and equals 0.7', () => {
+      expect(REVIEW_THRESHOLD).toBe(0.7);
     });
   });
 });

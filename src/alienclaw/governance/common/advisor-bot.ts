@@ -13,6 +13,9 @@
  * the governance module and is tested in isolation.
  */
 
+/** Minimum Martian fitness score for a campaign goal to pass the completion gate without reopen. */
+export const REVIEW_THRESHOLD = 0.7;
+
 import type { AdvisorConsultMessage, AdviceMessage } from './messages.js';
 import { nowIso } from './messages.js';
 import { assertLegalSend } from './comm-graph.js';
