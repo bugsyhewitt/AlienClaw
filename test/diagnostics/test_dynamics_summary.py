@@ -55,6 +55,10 @@ class TestPlateauQuality:
         q = _plateau_quality(curve)
         assert q < 0.5
 
+    def test_short_curve_returns_one(self):
+        # curve < 20 elements: plateau detection not meaningful, returns 1.0
+        assert _plateau_quality([0.5] * 5) == 1.0
+
 
 class TestSignalToInfo:
     def test_empty_returns_zero(self):
