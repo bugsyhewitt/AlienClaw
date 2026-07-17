@@ -13,7 +13,7 @@
 import * as path from 'node:path';
 
 import { MartianRegistry }  from './registry/martian-registry.js';
-import { wireToolAdapters }  from './msb/tool-adapters.js';
+import { selectHost }        from './wiring/host-select.js';
 import { installSeeds }      from './registry/seed-installer.js';
 import { PATHS }             from './constants.js';
 
@@ -37,8 +37,8 @@ export async function bootstrapRegistry(alienclawHome?: string): Promise<Registr
   await registry.loadAll();
   console.log(`[RegistryBootstrap] Loaded ${registry.size} Martian from ${path.join(home, 'registry', 'ms')}`);
 
-  // 3. Wire OpenClaw tool adapters into the executor
-  wireToolAdapters();
+  // 3. Wire the active host's tool adapters into the executor (ALIENCLAW_HOST, default openclaw)
+  selectHost().wireToolAdapters();
 
   return { registry };
 }

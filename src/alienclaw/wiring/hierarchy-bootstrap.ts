@@ -3,7 +3,7 @@ import { advisorBot }   from '../agents/advisorbot.js';
 import { creatorBot }   from '../agents/creatorbot.js';
 import { agentRegistry } from '../agents/agent-registry.js';
 import { alienClawConfig } from '../config/alienclaw-config.js';
-import { wireToolAdapters } from '../msb/tool-adapters.js';
+import { selectHost } from './host-select.js';
 import { getRegistry }      from '../registry/registry.js';
 import { validateGenome }   from '../registry/genome-codec.js';
 import { installSeeds }     from '../registry/seed-installer.js';
@@ -68,7 +68,7 @@ export function bootstrap(): BootstrapResult {
   installSeeds();               // copy seed .ms / .msb to ~/.alienclaw/registry/
   const registry = getRegistry();
   registry.load();              // read-only load of all .ms files
-  wireToolAdapters();           // wire OpenClaw tools → Martian adapter layer
+  selectHost().wireToolAdapters();   // wire the active host's tools → Martian adapter layer (ALIENCLAW_HOST, default openclaw)
 
   // ── Comms & config ────────────────────────────────────────────────────────
   const prefs       = alienClawConfig.preferences;

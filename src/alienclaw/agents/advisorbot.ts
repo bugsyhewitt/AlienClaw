@@ -97,6 +97,9 @@ export class AdvisorBot {
    *                (req.requesterId, taskId) is included in the LLM context.
    */
   async advise(req: AdviceRequest, taskId?: string): Promise<AdviceResponse> {
+    // Phase 2 (Hermes): route this through host.llm().complete('AdvisorBot', …)
+    // so the provider is host-selected. Kept inline for now; mirrored by
+    // governance/openclaw/openclaw-host.ts PiAiLlmGateway — keep in sync.
     const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.AdvisorBot);
     const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
 
