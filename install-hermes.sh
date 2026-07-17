@@ -21,7 +21,7 @@
 #   bash install-hermes.sh                 # provision workspaces (config wiring = TODO)
 #   bash install-hermes.sh --dry-run       # print actions, make no changes
 #   bash install-hermes.sh --uninstall     # archive AlienClaw agents (leave Hermes)
-#   bash install-hermes.sh --from-openclaw # (TODO) import via `hermes claw migrate`
+#   bash install-hermes.sh --from-openclaw # import an existing ~/.openclaw via `hermes claw migrate`
 # =============================================================================
 set -uo pipefail
 
@@ -119,6 +119,30 @@ if [ -f "$CONFIG_FILE" ]; then
   info "Backed up: $CONFIG_FILE -> $CONFIG_FILE.backup-$TIMESTAMP"
 fi
 
+# --- Optional: import an existing OpenClaw setup (before provisioning) --------
+# `hermes claw migrate` flattens OpenClaw state into ONE profile; the 3-profile
+# split is re-applied by provisioning below. Secrets are NOT migrated (no
+# --migrate-secrets) — re-add API keys yourself. `hermes claw migrate` takes its
+# own pre-migration ~/.hermes snapshot unless --no-backup.
+if $FROM_OPENCLAW; then
+  if $HAVE_HERMES; then
+    OPENCLAW_SRC="${OPENCLAW_HOME:-$HOME/.openclaw}"
+    if [ -d "$OPENCLAW_SRC" ]; then
+      info "Importing OpenClaw setup from $OPENCLAW_SRC via 'hermes claw migrate' ..."
+      if $DRY_RUN; then
+        run hermes claw migrate --source "$OPENCLAW_SRC" --preset full --dry-run --yes
+      else
+        run hermes claw migrate --source "$OPENCLAW_SRC" --preset full --yes
+      fi
+      info "Imported (secrets excluded); the 3-profile split is re-applied below."
+    else
+      info "--from-openclaw: no OpenClaw dir at $OPENCLAW_SRC — skipping import."
+    fi
+  else
+    info "--from-openclaw needs the hermes CLI; install Hermes first."
+  fi
+fi
+
 # --- Provision the 3 agents as Hermes profiles -------------------------------
 # Real profiles when hermes is present (`hermes profile create --no-alias` — no
 # ~/.local/bin wrapper, all state under HERMES_HOME); otherwise a plain workspace
@@ -153,11 +177,5 @@ if $HAVE_HERMES; then
 fi
 info "BossBot's high-frequency AdvisorBot consult is behavioral PROSE in SOUL.md rule 2"
 info "(no Hermes config key enforces consult frequency; routing is by profile description)."
-
-if $FROM_OPENCLAW; then
-  info "TODO(hermes, item 9 — needs live Hermes): --from-openclaw import path:"
-  info "    hermes claw migrate --preset full   # NOTE: flattens the 3-agent topology into one"
-  info "                                        # profile; re-apply the 3-profile split afterward."
-fi
 
 info "Provisioning complete."

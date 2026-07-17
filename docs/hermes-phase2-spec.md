@@ -30,8 +30,17 @@ host functional (tools/CLI/LLM). This spec covers what remains.
 > `~/.local/bin` wrapper — `--no-alias`/`-y` flags verified against `hermes profile
 > --help`), overlays AlienClaw's SOUL.md, runs `hermes profile use bossbot`, is
 > idempotent (skips existing), and uninstalls via `hermes profile delete -y`. Ran
-> against a throwaway `HERMES_HOME` — zero real state touched. **Only item 9
-> (`--from-openclaw` via `hermes claw migrate`) remains** — still a TODO.
+> against a throwaway `HERMES_HOME` — zero real state touched.
+>
+> **Item 9 (`--from-openclaw`) is DONE and validated.** `install-hermes.sh --from-openclaw`
+> runs `hermes claw migrate --source <~/.openclaw> --preset full --yes` (flags
+> verified vs `hermes claw migrate --help`; secrets excluded — no `--migrate-secrets`)
+> BEFORE provisioning, so the 3-profile split is re-applied on top of the flattened
+> import. Validated via the migrate `--dry-run` against a throwaway `~/.openclaw` →
+> throwaway `HERMES_HOME` (it correctly parses source/target/preset and applies its
+> "OpenClaw is running" safety guard); a full real migrate is intentionally blocked
+> while OpenClaw runs. **Phase 2 is COMPLETE** — every spec item is built and
+> validated against the live hermes-agent v0.15.2.
 
 > **Correction landed with this doc:** the Phase-1 scaffold shipped a few
 > **hallucinated Hermes APIs** — `delegation.peers.<name>.frequency`,
