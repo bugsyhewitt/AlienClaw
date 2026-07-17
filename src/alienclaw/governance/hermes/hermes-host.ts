@@ -43,7 +43,9 @@ export class HermesHostAdapter implements HostAdapter {
   }
 
   installProfile(): HostInstallProfile {
-    const configDir = join(homedir(), '.hermes');
+    // Honor HERMES_HOME (as install-hermes.sh does) so runtime paths and the
+    // installer share one source of truth.
+    const configDir = process.env['HERMES_HOME'] || join(homedir(), '.hermes');
     return {
       configDir,
       agentsDir:  join(configDir, 'agents'),

@@ -97,6 +97,11 @@ describe('Host selection (ALIENCLAW_HOST)', () => {
     expect(selectHost()).toBeInstanceOf(OpenClawHostAdapter);
   });
 
+  it('treats an empty ALIENCLAW_HOST as the default (not an error)', () => {
+    process.env['ALIENCLAW_HOST'] = '';
+    expect(selectHostId()).toBe('openclaw');
+  });
+
   it('selects hermes when ALIENCLAW_HOST=hermes (case-insensitive)', () => {
     process.env['ALIENCLAW_HOST'] = 'Hermes';
     expect(selectHostId()).toBe('hermes');

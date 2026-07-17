@@ -151,6 +151,9 @@ export class BossBot {
    * user message, plain text back. Shared shell for all BossBot LLM calls.
    */
   private async ask(section: string, userContent: string): Promise<string> {
+    // Phase 2 (Hermes): route this through host.llm().complete('BossBot', …)
+    // so the provider is host-selected. Kept inline for now; mirrored by
+    // governance/openclaw/openclaw-host.ts PiAiLlmGateway — keep in sync.
     const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
     const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
     const context: Context = {

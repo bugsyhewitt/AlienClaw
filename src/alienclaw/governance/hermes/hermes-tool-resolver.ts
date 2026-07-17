@@ -1,10 +1,19 @@
 /**
  * HermesToolResolver — Hermes host tool resolution (SCAFFOLD).
  *
- * Mirrors msb/openclaw-tool-resolver.ts. Of the frozen 8-name logical tool
- * contract, only host-native tools (today: web_search) must be wired to the
- * host's tool layer; the rest are host-agnostic and resolve through the shared
- * executor adapter registry (populated by the shared wireToolAdapters()).
+ * Structural counterpart of msb/openclaw-tool-resolver.ts. LOGICAL_TOOLS is the
+ * full logical tool set (src/alienclaw/tools/*.py); a host resolver need only
+ * satisfy the names its Martians reference. Of these, only host-native tools
+ * (today: web_search) must be wired to the host's tool layer; the rest are
+ * host-agnostic.
+ *
+ * SCAFFOLD CAVEAT: the host-agnostic branch delegates to the shared executor
+ * registry (getToolAdapter), which is populated by the shared wireToolAdapters().
+ * In a Hermes-only process that shared wiring has NOT run yet — HermesHostAdapter
+ * boots fail-fast (its wireToolAdapters() throws) — so this resolver is a
+ * structural stub today, exercised only by unit tests. Phase 2 makes
+ * HermesHostAdapter.wireToolAdapters() register the shared adapters (so the
+ * registry is populated) then the Hermes-native ones.
  *
  * TODO(hermes): wire host-bound tools to Hermes' tool registry
  * (tools/registry.py -> toolsets.py -> model_tools.py). Until then web_search

@@ -11,7 +11,8 @@ import { OpenClawHostAdapter } from '../governance/openclaw/openclaw-host.js';
 import { HermesHostAdapter } from '../governance/hermes/hermes-host.js';
 
 export function selectHostId(): HostId {
-  const raw = (process.env['ALIENCLAW_HOST'] ?? 'openclaw').toLowerCase();
+  // `||` (not `??`) so an empty string also falls back to the default.
+  const raw = (process.env['ALIENCLAW_HOST'] || 'openclaw').toLowerCase();
   if (raw === 'openclaw') return 'openclaw';
   if (raw === 'hermes')   return 'hermes';
   throw new Error(`ALIENCLAW_HOST must be 'openclaw' or 'hermes' (got '${raw}')`);

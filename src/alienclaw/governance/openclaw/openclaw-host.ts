@@ -4,8 +4,14 @@
  * This is a thin composition layer: it DELEGATES to the existing OpenClaw
  * integration code rather than moving it. Tool wiring goes through the live
  * `wireToolAdapters()` registry; `toolResolver()` exposes OpenClawToolResolver
- * for parity/testing; the LLM gateway wraps the same pi-ai call the agents/
- * trio makes today.
+ * for parity/testing (note: the executor resolves via the global adapter
+ * registry, so toolResolver() is a seam for tests + future hosts, not the
+ * runtime resolution path).
+ *
+ * `PiAiLlmGateway` reproduces the pi-ai call pattern used inline in
+ * agents/bossbot.ts and agents/advisorbot.ts. It is NOT yet the caller — the
+ * agents still call pi-ai directly; Phase 2 routes them through llm() so this
+ * becomes the single source of truth. Until then keep the three copies in sync.
  */
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -62,7 +68,9 @@ export class OpenClawHostAdapter implements HostAdapter {
   }
 
   installProfile(): HostInstallProfile {
-    const configDir = join(homedir(), '.openclaw');
+    // Honor OPENCLAW_HOME (as install.sh does) so runtime paths and the
+    // installer share one source of truth.
+    const configDir = process.env['OPENCLAW_HOME'] || join(homedir(), '.openclaw');
     return {
       configDir,
       agentsDir:  join(configDir, 'agents'),

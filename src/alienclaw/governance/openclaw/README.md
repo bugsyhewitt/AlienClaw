@@ -7,7 +7,7 @@ OpenClaw-host implementation of the `HostAdapter` seam
 - `openclaw-host.ts` — `OpenClawHostAdapter implements HostAdapter`, plus `PiAiLlmGateway`. A thin composition layer that **delegates** to the existing OpenClaw integration rather than moving it:
   - `wireToolAdapters()` → the live `msb/tool-adapters.ts::wireToolAdapters()` registry.
   - `toolResolver()` → `msb/openclaw-tool-resolver.ts::OpenClawToolResolver` (parity/testing view).
-  - `llm()` → `PiAiLlmGateway`, wrapping today's `getModel(ALIENCLAW_PROVIDER, AGENT_MODELS[agent]) + completeSimple`.
+  - `llm()` → `PiAiLlmGateway`, reproducing the `getModel(ALIENCLAW_PROVIDER, AGENT_MODELS[agent]) + completeSimple` pattern. **Not yet the caller:** `agents/bossbot.ts` and `agents/advisorbot.ts` still call pi-ai inline; Phase 2 routes them through `llm()` so this becomes the single source of truth (until then the three copies must be kept in sync).
   - `registerCli()` → `cli/register.run.ts::registerRunCommand`.
   - `installProfile()` → `~/.openclaw` paths.
 
