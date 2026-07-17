@@ -1,16 +1,22 @@
 /**
- * HermesHostAdapter — HostAdapter for the Hermes host framework (SCAFFOLD).
+ * HermesHostAdapter — HostAdapter for the Hermes host framework.
  *
- * Selecting Hermes (ALIENCLAW_HOST=hermes) makes governance boot fail fast with
- * an explicit "not yet wired" message: the tool/CLI/LLM seams are stubs pending
- * the live Hermes integration (deferred phase). installProfile() returns the
- * real ~/.hermes runtime paths so the installer skeleton and tests can rely on
- * them today.
+ * Functional today under ALIENCLAW_HOST=hermes: wireToolAdapters() registers the
+ * shared host-agnostic tools, llm() resolves a pi-ai provider (env-overridable),
+ * registerCli() mounts AlienClaw's own `run` verb, and installProfile() returns
+ * the real ~/.hermes/profiles paths.
+ *
+ * Deferred (needs a live Hermes — see docs/hermes-phase2-spec.md): the host-bound
+ * web_search tool's Hermes-registry dispatch (HermesToolResolver returns a stub),
+ * and reading the active profile's config.yaml for provider selection (llm()
+ * currently uses env overrides + shared defaults).
  */
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 import type { ToolResolver } from '../../msb/martian-executor.js';
+import { wireToolAdapters } from '../../msb/tool-adapters.js';
+import { registerRunCommand } from '../../cli/register.run.js';
 import type { HostAdapter, HostInstallProfile, LlmGateway } from '../common/host-adapter.js';
 import { HermesToolResolver } from './hermes-tool-resolver.js';
 import { HermesLlmGateway } from './hermes-llm-gateway.js';
@@ -26,20 +32,23 @@ export class HermesHostAdapter implements HostAdapter {
   }
 
   wireToolAdapters(): void {
-    // TODO(hermes): register Hermes-native tools via the Hermes tool registry,
-    // then wire the shared host-agnostic adapters. Fail fast until then so
-    // selecting Hermes never silently runs against OpenClaw's tool layer.
-    throw new Error('Hermes host not yet wired — tool wiring');
+    // Register the shared host-agnostic tool adapters (url_fetch/file_read/
+    // file_write + the web_search stub). web_search is the only host-bound tool;
+    // its Hermes-native dispatch (tools/registry.py) is deferred — HermesToolResolver
+    // returns a "pending Hermes tool-layer wiring" stub for it. See phase-2 spec.
+    wireToolAdapters();
   }
 
   llm(): LlmGateway {
     return this.gateway;
   }
 
-  registerCli(_program: Command): void {
-    // TODO(hermes): Hermes owns its own Python CLI (hermes_cli/); AlienClaw's
-    // verbs are registered on the Hermes side, not here.
-    throw new Error('Hermes host not yet wired — CLI registration');
+  registerCli(program: Command): void {
+    // `program` is AlienClaw's OWN commander instance (register.run.ts mounts the
+    // `run <goal>` verb); it is host-independent, so mount it exactly as OpenClaw
+    // does. Whether AlienClaw verbs can also be added to the `hermes` binary is a
+    // separate, deferred question (see docs/hermes-phase2-spec.md).
+    registerRunCommand(program);
   }
 
   installProfile(): HostInstallProfile {
