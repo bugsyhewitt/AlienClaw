@@ -8,10 +8,9 @@
  * registry, so toolResolver() is a seam for tests + future hosts, not the
  * runtime resolution path).
  *
- * `PiAiLlmGateway` reproduces the pi-ai call pattern used inline in
- * agents/bossbot.ts and agents/advisorbot.ts. It is NOT yet the caller — the
- * agents still call pi-ai directly; Phase 2 routes them through llm() so this
- * becomes the single source of truth. Until then keep the three copies in sync.
+ * `PiAiLlmGateway` is the single source of truth for AlienClaw's LLM calls:
+ * agents/bossbot.ts and agents/advisorbot.ts both route through
+ * selectHost().llm().complete(...), so the provider is host-selected.
  */
 import { homedir } from 'node:os';
 import { join } from 'node:path';

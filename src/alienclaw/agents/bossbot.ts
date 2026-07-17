@@ -1,15 +1,9 @@
 import { readFileSync }                             from 'fs';
 import { join, dirname }                            from 'path';
 import { fileURLToPath }                            from 'url';
-import {
-  completeSimple,
-  getEnvApiKey,
-  getModel,
-  type AssistantMessage,
-  type Context,
-} from '@mariozechner/pi-ai';
-import { AGENT_MODELS, ALIENCLAW_PROVIDER }         from '../constants.js';
-import { extractText, normalizeInput, parseModelJson } from '../utils.js';
+import { AGENT_MODELS }                             from '../constants.js';
+import { normalizeInput, parseModelJson }           from '../utils.js';
+import { selectHost }                               from '../wiring/host-select.js';
 import type {
   TaskEnvelope, AdviceRequest, SubGoal,
   Scheme, Campaign, SubagentRole,
@@ -151,21 +145,8 @@ export class BossBot {
    * user message, plain text back. Shared shell for all BossBot LLM calls.
    */
   private async ask(section: string, userContent: string): Promise<string> {
-    // Phase 2 (Hermes): route this through host.llm().complete('BossBot', …)
-    // so the provider is host-selected. Kept inline for now; mirrored by
-    // governance/openclaw/openclaw-host.ts PiAiLlmGateway — keep in sync.
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.BossBot);
-    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
-    const context: Context = {
-      systemPrompt: `${this.soul}\n\n${section}`,
-      messages: [{
-        role:      'user',
-        content:   userContent,
-        timestamp: Date.now(),
-      }],
-    };
-    const response = await completeSimple(model, context, { apiKey });
-    return extractText(response);
+    // Provider is host-selected (ALIENCLAW_HOST): OpenClaw → pi-ai, Hermes → its provider layer.
+    return selectHost().llm().complete('BossBot', `${this.soul}\n\n${section}`, userContent);
   }
 
   /**
