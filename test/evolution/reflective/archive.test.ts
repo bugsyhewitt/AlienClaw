@@ -121,3 +121,112 @@ describe("ParetoArchive — Pareto dominance", () => {
     expect(ParetoArchive.dominates(b, a)).toBe(false);
   });
 });
+
+describe("ParetoArchive — size / has / snapshot", () => {
+  it("size() returns candidate count", () => {
+    const a = new ParetoArchive();
+    expect(a.size()).toBe(0);
+    a.add(makeScore("x", makeVec()));
+    expect(a.size()).toBe(1);
+  });
+
+  it("has() returns true for added candidates only", () => {
+    const a = new ParetoArchive();
+    a.add(makeScore("known", makeVec()));
+    expect(a.has("known")).toBe(true);
+    expect(a.has("unknown")).toBe(false);
+  });
+
+  it("snapshot() returns all candidates", () => {
+    const a = new ParetoArchive();
+    const s = makeScore("s1", makeVec());
+    a.add(s);
+    const snap = a.snapshot();
+    expect(snap).toHaveLength(1);
+    expect(snap[0]!.genomeId).toBe("s1");
+  });
+});
+
+describe("ParetoArchive.pickDisjointFrontierPair", () => {
+  it("returns null when fewer than 2 frontier candidates", () => {
+    const a = new ParetoArchive();
+    // 0 candidates
+    expect(a.pickDisjointFrontierPair(() => 0.5, WEIGHTS)).toBeNull();
+    // 1 candidate (dominated by nothing, but alone)
+    a.add(makeScore("solo", makeVec()));
+    expect(a.pickDisjointFrontierPair(() => 0.5, WEIGHTS)).toBeNull();
+  });
+
+  it("returns a pair when 2 Pareto-incomparable candidates exist", () => {
+    const a = new ParetoArchive();
+    const c1 = makeScore("c1", makeVec({ correctness: 0.9, costInv: 0.1 }));
+    const c2 = makeScore("c2", makeVec({ correctness: 0.1, costInv: 0.9 }));
+    a.add(c1);
+    a.add(c2);
+    const pair = a.pickDisjointFrontierPair(() => 0.5, WEIGHTS);
+    expect(pair).not.toBeNull();
+    expect(pair!.length).toBe(2);
+    const ids = pair!.map(p => p.genomeId);
+    expect(ids).toContain("c1");
+    expect(ids).toContain("c2");
+  });
+
+  it("selects the pair with strictly greater disjoint win-task count", () => {
+    // c1 wins t1+t2, c2 wins t3+t4, c3 wins nothing.
+    // Pairs: (c1,c2)=disjoint 4, (c1,c3)=2, (c2,c3)=2 → must pick c1+c2.
+    const highVec = makeVec({ correctness: 0.9, efficiency: 0.8, costInv: 0.8, latencyInv: 0.8, confidence: 0.9 });
+    const lowVec  = makeVec({ correctness: 0.1, efficiency: 0.1, costInv: 0.1, latencyInv: 0.1, confidence: 0.1 });
+
+    const c1 = makeScore("c1", makeVec({ correctness: 0.9, costInv: 0.1, latencyInv: 0.1 }), [
+      ["t1", highVec], ["t2", highVec], ["t3", lowVec], ["t4", lowVec],
+    ]);
+    const c2 = makeScore("c2", makeVec({ correctness: 0.1, costInv: 0.9, latencyInv: 0.1 }), [
+      ["t1", lowVec], ["t2", lowVec], ["t3", highVec], ["t4", highVec],
+    ]);
+    const c3 = makeScore("c3", makeVec({ correctness: 0.1, costInv: 0.1, latencyInv: 0.9 }), [
+      ["t1", lowVec], ["t2", lowVec], ["t3", lowVec], ["t4", lowVec],
+    ]);
+    const a = new ParetoArchive();
+    [c1, c2, c3].forEach(c => a.add(c));
+
+    const pair = a.pickDisjointFrontierPair(() => 0.5, WEIGHTS);
+    expect(pair).not.toBeNull();
+    const ids = pair!.map(p => p.genomeId);
+    expect(ids).toContain("c1");
+    expect(ids).toContain("c2");
+    expect(ids).not.toContain("c3");
+  });
+
+  it("exercises L99 continue when a frontier member has no data for a task", () => {
+    // c1 only covers t1; c2 covers t1+t2. When computing win tasks for any
+    // candidate, f=c1 on taskId=t2 → perInstance.get("t2") is undefined → continue.
+    const highVec = makeVec({ correctness: 0.9, efficiency: 0.8, costInv: 0.8, latencyInv: 0.8, confidence: 0.9 });
+    const lowVec  = makeVec({ correctness: 0.1, efficiency: 0.1, costInv: 0.1, latencyInv: 0.1, confidence: 0.1 });
+
+    const c1 = makeScore("c1", makeVec({ correctness: 0.9, costInv: 0.1 }), [
+      ["t1", highVec],
+    ]);
+    const c2 = makeScore("c2", makeVec({ correctness: 0.1, costInv: 0.9 }), [
+      ["t1", lowVec], ["t2", highVec],
+    ]);
+    const a = new ParetoArchive();
+    a.add(c1);
+    a.add(c2);
+
+    const pair = a.pickDisjointFrontierPair(() => 0.5, WEIGHTS);
+    expect(pair).not.toBeNull();
+    const ids = pair!.map(p => p.genomeId);
+    expect(ids).toContain("c1");
+    expect(ids).toContain("c2");
+  });
+
+  it("returns null when only 1 candidate survives to frontier (dominated set)", () => {
+    const a = new ParetoArchive();
+    const c1 = makeScore("c1", makeVec({ correctness: 0.9, efficiency: 0.9, costInv: 0.9, latencyInv: 0.9, confidence: 0.9 }));
+    const c2 = makeScore("c2", makeVec({ correctness: 0.1, efficiency: 0.1, costInv: 0.1, latencyInv: 0.1, confidence: 0.1 }));
+    a.add(c1);
+    a.add(c2);
+    // frontier() returns only c1; pickDisjointFrontierPair → null (< 2 on frontier)
+    expect(a.pickDisjointFrontierPair(() => 0.5, WEIGHTS)).toBeNull();
+  });
+});
