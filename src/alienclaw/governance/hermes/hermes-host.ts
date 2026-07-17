@@ -44,11 +44,13 @@ export class HermesHostAdapter implements HostAdapter {
 
   installProfile(): HostInstallProfile {
     // Honor HERMES_HOME (as install-hermes.sh does) so runtime paths and the
-    // installer share one source of truth.
+    // installer share one source of truth. Hermes' multi-agent unit is the
+    // PROFILE: named profiles live under ~/.hermes/profiles/<name>/ (confirmed
+    // via `hermes profile show`), NOT an agents/ dir. agentsDir points there.
     const configDir = process.env['HERMES_HOME'] || join(homedir(), '.hermes');
     return {
       configDir,
-      agentsDir:  join(configDir, 'agents'),
+      agentsDir:  join(configDir, 'profiles'),
       configFile: join(configDir, 'config.yaml'),
     };
   }

@@ -40,10 +40,11 @@ describe('HermesHostAdapter — fail-fast scaffold', () => {
     expect(new HermesHostAdapter().hostId).toBe('hermes');
   });
 
-  it('installProfile points at ~/.hermes', () => {
+  it('installProfile points at ~/.hermes with the real profiles/ layout', () => {
     const p = new HermesHostAdapter().installProfile();
     expect(p.configDir).toBe(join(homedir(), '.hermes'));
-    expect(p.agentsDir).toBe(join(homedir(), '.hermes', 'agents'));
+    // Hermes' multi-agent unit is the profile (~/.hermes/profiles/<name>/), not agents/.
+    expect(p.agentsDir).toBe(join(homedir(), '.hermes', 'profiles'));
     expect(p.configFile).toBe(join(homedir(), '.hermes', 'config.yaml'));
   });
 
