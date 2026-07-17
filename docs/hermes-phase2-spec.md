@@ -2,9 +2,19 @@
 
 Grounds the remaining Hermes integration in the **real** hermes-agent API
 (github.com/NousResearch/hermes-agent, verified against source + official docs at
-main, 2026-07-16). Phase 1 (PR #267) shipped the `HostAdapter` seam + fail-fast
-Hermes stubs; increment 1 (PR #268) routed the agents through `host.llm()`. This
-spec covers what remains.
+main, 2026-07-16). Phase 1 (PR #267) shipped the `HostAdapter` seam; increment 1
+(PR #268) routed the agents through `host.llm()`; increment 2 (PR #274) made the
+host functional (tools/CLI/LLM). This spec covers what remains.
+
+> **Live Hermes available (2026-07-17):** a real hermes-agent **v0.15.2** is
+> installed on the dev machine (pipx; source readable) — the "needs a live Hermes"
+> gate on items 4/6/7/8/9 is **lifted**; they are buildable + testable now.
+> **Item 4 (provider-from-config) is DONE and validated** against v0.15.2's real
+> `hermes config set model` serialization: `HermesLlmGateway` reads the agent's
+> profile `config.yaml` top-level `model: <provider>/<model>` scalar (split on the
+> first `/`, per Hermes' `model_normalize.py`), uses it when the provider is
+> pi-ai-supported, else falls back to env override / shared defaults. Items 6/7/8/9
+> remain unbuilt but are no longer blocked.
 
 > **Correction landed with this doc:** the Phase-1 scaffold shipped a few
 > **hallucinated Hermes APIs** — `delegation.peers.<name>.frequency`,

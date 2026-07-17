@@ -80,20 +80,17 @@ if $UNINSTALL; then
   exit 0
 fi
 
-# --- Preflight: Python + uv + hermes -----------------------------------------
-info "Preflight: checking Python, uv, and hermes ..."
+# --- Preflight: Python + hermes ----------------------------------------------
+info "Preflight: checking Python and hermes ..."
 if ! command -v python3 >/dev/null 2>&1; then
   info "ERROR: python3 not found. Hermes is Python-native; install Python 3.12+ first."
   exit 1
 fi
-if ! command -v uv >/dev/null 2>&1; then
-  info "NOTE: 'uv' not found. Hermes installs via 'uv pip install -e'."
-  info "      TODO(hermes): install uv, then pin a known-good hermes-agent version."
-fi
 if ! command -v hermes >/dev/null 2>&1; then
-  info "NOTE: 'hermes' CLI not found."
-  info "      TODO(hermes): install Hermes Agent (github.com/NousResearch/hermes-agent),"
-  info "      pin a version, and gate on 'hermes --version' here."
+  info "NOTE: 'hermes' CLI not found. Install Hermes Agent first, e.g.:"
+  info "      pip install hermes-agent                                   # PyPI package"
+  info "      # or the official installer: curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash"
+  info "      TODO(hermes): pin a known-good hermes-agent version, then gate on 'hermes --version' here."
 fi
 
 # --- Provision agent workspaces (host-agnostic file copy — safe now) ---------

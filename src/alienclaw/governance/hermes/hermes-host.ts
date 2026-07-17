@@ -6,10 +6,11 @@
  * registerCli() mounts AlienClaw's own `run` verb, and installProfile() returns
  * the real ~/.hermes/profiles paths.
  *
- * Deferred (needs a live Hermes — see docs/hermes-phase2-spec.md): the host-bound
- * web_search tool's Hermes-registry dispatch (HermesToolResolver returns a stub),
- * and reading the active profile's config.yaml for provider selection (llm()
- * currently uses env overrides + shared defaults).
+ * llm() resolves the provider/model from the agent's Hermes profile config.yaml
+ * (top-level `model:` scalar), env-overridable, else shared defaults.
+ *
+ * Deferred (see docs/hermes-phase2-spec.md): the host-bound web_search tool's
+ * Hermes-registry dispatch (HermesToolResolver returns a stub).
  */
 import { homedir } from 'node:os';
 import { join } from 'node:path';

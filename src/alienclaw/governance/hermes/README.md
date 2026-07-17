@@ -12,13 +12,13 @@ four host-specific capabilities live here.
 Selected via `ALIENCLAW_HOST=hermes` (`wiring/host-select.ts`); default is `openclaw`.
 
 ## Wiring checklist
-Done (this increment): shared tool wiring · LLM provider via pi-ai (env-overridable) · CLI `run` verb.
+Done: shared tool wiring · CLI `run` verb · **LLM provider resolved from the agent's Hermes profile `config.yaml` top-level `model:` scalar** (`<provider>/<model>`, pi-ai-supported providers), env-overridable, else shared defaults — validated against hermes-agent v0.15.2's real `hermes config set model` serialization.
 
-Deferred (needs a live Hermes — see `docs/hermes-phase2-spec.md`):
+Deferred (see `docs/hermes-phase2-spec.md`):
 1. **web_search** — register the host-bound tool against Hermes' tool registry (`tools/registry.py` → `toolsets.py` → `model_tools.py`).
-2. **Provider from config** — read the active profile's `~/.hermes/profiles/<name>/config.yaml` (`model.default/provider/base_url`) instead of the env override; OAuth-only providers (nous/openai-codex/xai) are out of scope.
+2. **Provider resolution boundary** — the config read does NOT replicate Hermes' `provider: auto` resolution, per-role/auxiliary models, `base_url` precedence, or OAuth-only providers (nous/openai-codex/xai; creds in `auth.json`). It reads only the explicit `model:` scalar.
 3. **Install** — real profile provisioning via `hermes profile create <name> --description` + `hermes profile use bossbot` (Hermes has no `delegation` section; routing is by profile description); optional `--from-openclaw` via `hermes claw migrate` (flattens the 3-agent topology — re-apply the split after).
-4. **Bridge** — point `ALIENCLAW_PYTHON_BIN` at the Hermes `uv` venv python (`real-summon-adapter.ts` already reads this env; no code change).
+4. **Bridge** — point `ALIENCLAW_PYTHON_BIN` at the Hermes venv python (`real-summon-adapter.ts` already reads this env; no code change).
 
 ## Interchangeability invariant
 Nothing below the Martian summon boundary belongs here. Genome codec, registry,
