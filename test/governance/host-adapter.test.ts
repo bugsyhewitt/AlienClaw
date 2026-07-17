@@ -2,12 +2,13 @@
  * HostAdapter seam behavior.
  *
  * Verifies: OpenClaw is the live default and behaves as before; the Hermes host
- * is functional (shared tools wired, LLM provider resolved, CLI mounted) with the
- * web_search dispatch + config.yaml-driven provider selection deferred; the 8-name
+ * is functional (shared tools wired, LLM provider resolved from Hermes config.yaml
+ * or env override, CLI mounted) with only web_search dispatch deferred; the 8-name
  * logical tool contract is frozen; host selection honors ALIENCLAW_HOST.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
 import { OpenClawHostAdapter } from '../../src/alienclaw/governance/openclaw/openclaw-host.js';
@@ -75,16 +76,50 @@ describe('HermesHostAdapter — functional host', () => {
     expect(program.commands.map((c) => c.name())).toContain('run');
   });
 
-  it('llm resolves the shared default provider/model when no override is set', async () => {
+  // LLM provider resolution reads HERMES_HOME/config.yaml — isolate every case to a
+  // throwaway HERMES_HOME so tests never touch the developer's real ~/.hermes.
+  let hermesHome: string;
+  const useTmpHermesHome = () => {
+    hermesHome = mkdtempSync(join(tmpdir(), 'hermes-cfg-'));
+    process.env['HERMES_HOME'] = hermesHome;
+  };
+  const writeProfileModel = (profile: string, modelLine: string) => {
+    const dir = join(hermesHome, 'profiles', profile);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.yaml'), `model: ${modelLine}\nmax_turns: 90\n`);
+  };
+  afterEach(() => {
+    delete process.env['HERMES_HOME'];
+    if (hermesHome) rmSync(hermesHome, { recursive: true, force: true });
+  });
+
+  it('llm falls back to the shared default when Hermes config has no model', async () => {
+    useTmpHermesHome(); // empty home, no config.yaml
     const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
     expect(out).toMatch(/^MOCK\[anthropic\//); // default provider = ALIENCLAW_PROVIDER
   });
 
-  it('llm honors ALIENCLAW_HERMES_PROVIDER / ALIENCLAW_HERMES_MODEL overrides', async () => {
-    process.env['ALIENCLAW_HERMES_PROVIDER'] = 'openrouter';
-    process.env['ALIENCLAW_HERMES_MODEL'] = 'x/y';
+  it('llm reads the profile config.yaml model (provider/model split on first slash)', async () => {
+    useTmpHermesHome();
+    writeProfileModel('bossbot', 'openrouter/pareto-code');
     const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
-    expect(out).toBe('MOCK[openrouter/x/y]');
+    expect(out).toBe('MOCK[openrouter/pareto-code]');
+  });
+
+  it('llm ignores a non-pi-ai provider in config and falls back', async () => {
+    useTmpHermesHome();
+    writeProfileModel('bossbot', 'nous/some-model'); // 'nous' is not a pi-ai provider
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toMatch(/^MOCK\[anthropic\//);
+  });
+
+  it('llm env override beats config.yaml', async () => {
+    useTmpHermesHome();
+    writeProfileModel('bossbot', 'openrouter/pareto-code');
+    process.env['ALIENCLAW_HERMES_PROVIDER'] = 'google';
+    process.env['ALIENCLAW_HERMES_MODEL'] = 'gemini-x';
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toBe('MOCK[google/gemini-x]');
   });
 });
 
