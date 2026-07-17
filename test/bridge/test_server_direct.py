@@ -19,6 +19,7 @@ import pytest
 
 from alienclaw.bridge.server import handle
 from alienclaw.genome.operators import random_genome
+from alienclaw.fitness.conformance import conformance_for
 
 
 @pytest.fixture(autouse=True)
@@ -72,7 +73,10 @@ class TestSummonSuccess:
             assert key in meta, f"missing run_metadata key: {key}"
         assert isinstance(meta["tool_calls"], int) and meta["tool_calls"] >= 1
         assert isinstance(meta["wall_clock_ms"], int) and meta["wall_clock_ms"] >= 0
-        assert meta["correctness"] == pytest.approx(1.0)
+        # Correctness is now graded by output-contract conformance: it equals the
+        # conformance of the actual output (a valid non-zero score for a successful run).
+        assert 0.0 < meta["correctness"] <= 1.0
+        assert meta["correctness"] == pytest.approx(conformance_for("compute", response["output"]))
         assert meta["fitness_formula_version"] == "v2.0"
 
     def test_summon_deterministic_for_fixed_genome(self):
