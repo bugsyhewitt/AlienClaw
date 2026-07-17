@@ -15,7 +15,7 @@ Selected via `ALIENCLAW_HOST=hermes` (`wiring/host-select.ts`); default is `open
 1. **Tools** — register host-bound tools against Hermes' tool registry (`tools/registry.py` → `toolsets.py` → `model_tools.py`); make `HermesHostAdapter.wireToolAdapters()` register Hermes-native + shared adapters instead of throwing.
 2. **LLM** — implement `HermesLlmGateway.complete()` against the Hermes provider layer (`hermes model` / Nous Portal / OpenRouter; `model.*` in `~/.hermes/config.yaml`).
 3. **CLI** — decide where AlienClaw verbs (`run`/`evolve`/`submit`) register on Hermes (`hermes_cli/`).
-4. **Install** — finish `install-hermes.sh` provisioning + `hermes config set` delegation wiring; optionally support `--from-openclaw` via `hermes claw migrate`.
+4. **Install** — finish `install-hermes.sh` provisioning via `hermes profile create <name> --description` + `hermes profile use bossbot` (Hermes has no `delegation` config section; routing is by profile description); optionally support `--from-openclaw` via `hermes claw migrate` (flattens the 3-agent topology — re-apply the split after).
 5. **Bridge** — point `ALIENCLAW_PYTHON_BIN` at the Hermes `uv` venv python (`real-summon-adapter.ts` already reads this env; no code change).
 
 ## Interchangeability invariant

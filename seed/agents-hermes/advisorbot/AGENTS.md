@@ -1,16 +1,16 @@
-# Other agents I can call (Hermes delegation)
+# Delegation & routing on Hermes (profiles + orchestrator)
 
-On Hermes, routing lives in the `delegation` config section (`~/.hermes/config.yaml`)
-+ MOA, not in OpenClaw-style `AGENTS.md` entries. This file documents the intent
-`install-hermes.sh` encodes via `hermes config set`.
+Hermes routing is by **profile**, not OpenClaw-style `AGENTS.md` entries and not a
+`delegation` config section (neither exists in Hermes). Each AlienClaw agent is a
+Hermes profile at `~/.hermes/profiles/<name>/`, created by `install-hermes.sh` with
+`hermes profile create <name> --description "<role>"`; the description drives the
+orchestrator's routing. This file documents intent.
 
 I (AdvisorBot) am a stateless advisory endpoint — I respond to consults, I do not
 call peers routinely.
 
 ## BossBot
-- **id:** bossbot · **workspace:** ~/.hermes/agents/bossbot/
-- **relationship:** my primary caller (high). I respond to BossBot's consults.
+- **profile:** `bossbot` — `~/.hermes/profiles/bossbot/` — my primary caller.
 
 ## CreatorBot
-- **id:** creatorbot · **workspace:** ~/.hermes/agents/creatorbot/
-- **relationship:** calls me for build-decision strategy (medium).
+- **profile:** `creatorbot` — `~/.hermes/profiles/creatorbot/` — calls me for build-decision strategy.

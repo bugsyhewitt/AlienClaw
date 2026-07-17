@@ -1,23 +1,24 @@
-# Other agents I can call (Hermes delegation)
+# Delegation & routing on Hermes (profiles + orchestrator)
 
-On Hermes, agent-to-agent routing is NOT expressed with OpenClaw-style `AGENTS.md`
-peer entries. It lives in the Hermes **`delegation`** config section
-(`~/.hermes/config.yaml`) plus MOA (`hermes_cli/moa_cmd.py`). This file records the
-intent that `install-hermes.sh` must encode into that delegation config via
-`hermes config set` — it is documentation of the required wiring, not the wiring
-mechanism itself.
+Hermes has no OpenClaw-style `AGENTS.md` peer routing and **no `delegation` config
+section**. Its multi-agent unit is the **profile**: each AlienClaw agent is a Hermes
+profile — its own `~/.hermes/profiles/<name>/` home with `config.yaml`, `.env`,
+`SOUL.md`, skills, and state. `install-hermes.sh` creates them with
+`hermes profile create <name> --description "<role>"`; the profile **description**
+(persisted in `<profile_dir>/profile.yaml`) is what Hermes' orchestrator uses to
+route work to the right agent — there is no typed consult-frequency key. This file
+documents the intended profile descriptions.
 
-The AlienClaw hard rule stands on both hosts: **BossBot consults AdvisorBot often.**
-It is wired in SOUL.md (behavioral) AND here (routing) — do not drop either.
+The AlienClaw hard rule holds on both hosts: **BossBot consults AdvisorBot often.**
+On Hermes this is behavioral **prose only** — carried in `SOUL.md` (rule 2,
+"I consult AdvisorBot before any non-trivial decision") — because no shipped Hermes
+config key enforces consult frequency. Typed named-profile delegation
+(`agent_profiles`) is unmerged upstream and is deferred.
 
 ## AdvisorBot
-- **id:** advisorbot
-- **workspace:** ~/.hermes/agents/advisorbot/
-- **delegation:** high — for any non-trivial reasoning (planning, plan revisions, triage, completion review, campaign design).
-- **hermes config (target):** `delegation.peers.advisorbot.frequency = high`
+- **profile:** `advisorbot` — `~/.hermes/profiles/advisorbot/`
+- **description (for the orchestrator):** "AlienClaw advisory endpoint — planning, plan revision, triage, completion review, campaign design. BossBot consults it before any non-trivial decision."
 
 ## CreatorBot
-- **id:** creatorbot
-- **workspace:** ~/.hermes/agents/creatorbot/
-- **delegation:** medium — when a task needs a purpose-built Subagent; BossBot delivers the campaign scheme, CreatorBot builds it.
-- **hermes config (target):** `delegation.peers.creatorbot.frequency = medium`
+- **profile:** `creatorbot` — `~/.hermes/profiles/creatorbot/`
+- **description (for the orchestrator):** "AlienClaw builder — turns BossBot's campaign schemes into purpose-built Subagents."
