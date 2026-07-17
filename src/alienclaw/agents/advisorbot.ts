@@ -1,14 +1,9 @@
 import { readFileSync }                     from 'fs';
 import { join, dirname }                    from 'path';
 import { fileURLToPath }                    from 'url';
-import {
-  completeSimple,
-  getEnvApiKey,
-  getModel,
-  type Context,
-} from '@mariozechner/pi-ai';
-import { AGENT_MODELS, ALIENCLAW_PROVIDER } from '../constants.js';
-import { extractText, parseModelJson }       from '../utils.js';
+import { AGENT_MODELS } from '../constants.js';
+import { parseModelJson } from '../utils.js';
+import { selectHost } from '../wiring/host-select.js';
 import type {
   AdviceRequest, AdviceResponse,
   AdvisorySession, AgentMessage,
@@ -97,12 +92,6 @@ export class AdvisorBot {
    *                (req.requesterId, taskId) is included in the LLM context.
    */
   async advise(req: AdviceRequest, taskId?: string): Promise<AdviceResponse> {
-    // Phase 2 (Hermes): route this through host.llm().complete('AdvisorBot', …)
-    // so the provider is host-selected. Kept inline for now; mirrored by
-    // governance/openclaw/openclaw-host.ts PiAiLlmGateway — keep in sync.
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS.AdvisorBot);
-    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
-
     // Build user content — include session history when taskId is known
     let userContent: string;
     if (taskId) {
@@ -112,17 +101,9 @@ export class AdvisorBot {
       userContent = `Context:\n${req.context}\n\nQuestion:\n${req.question}`;
     }
 
-    const context: Context = {
-      systemPrompt: this.soul,
-      messages: [{
-        role:      'user',
-        content:   userContent,
-        timestamp: Date.now(),
-      }],
-    };
-
-    const response = await completeSimple(model, context, { apiKey });
-    return AdvisorBot.parseResponse(extractText(response));
+    // Provider is host-selected (ALIENCLAW_HOST): OpenClaw → pi-ai, Hermes → its provider layer.
+    const text = await selectHost().llm().complete('AdvisorBot', this.soul, userContent);
+    return AdvisorBot.parseResponse(text);
   }
 }
 
