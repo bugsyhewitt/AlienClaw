@@ -1,17 +1,25 @@
 /**
- * HostAdapter seam — scaffold behavior.
+ * HostAdapter seam behavior.
  *
- * Verifies: OpenClaw is the live default and behaves as before; Hermes is a
- * fail-fast scaffold; the 8-name logical tool contract is frozen; host
- * selection honors ALIENCLAW_HOST.
+ * Verifies: OpenClaw is the live default and behaves as before; the Hermes host
+ * is functional (shared tools wired, LLM provider resolved, CLI mounted) with the
+ * web_search dispatch + config.yaml-driven provider selection deferred; the 8-name
+ * logical tool contract is frozen; host selection honors ALIENCLAW_HOST.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { Command } from 'commander';
 import { OpenClawHostAdapter } from '../../src/alienclaw/governance/openclaw/openclaw-host.js';
 import { HermesHostAdapter } from '../../src/alienclaw/governance/hermes/hermes-host.js';
 import { HermesToolResolver, LOGICAL_TOOLS } from '../../src/alienclaw/governance/hermes/hermes-tool-resolver.js';
 import { selectHost, selectHostId } from '../../src/alienclaw/wiring/host-select.js';
+
+// Stub the shared pi-ai completion so LLM tests assert provider/model RESOLUTION
+// without a network call. Returns a marker encoding the resolved (provider, model).
+vi.mock('../../src/alienclaw/governance/common/pi-ai-complete.js', () => ({
+  piAiComplete: vi.fn(async (provider: string, model: string) => `MOCK[${provider}/${model}]`),
+}));
 
 describe('OpenClawHostAdapter — live default', () => {
   it('reports hostId openclaw', () => {
@@ -35,7 +43,12 @@ describe('OpenClawHostAdapter — live default', () => {
   });
 });
 
-describe('HermesHostAdapter — fail-fast scaffold', () => {
+describe('HermesHostAdapter — functional host', () => {
+  afterEach(() => {
+    delete process.env['ALIENCLAW_HERMES_PROVIDER'];
+    delete process.env['ALIENCLAW_HERMES_MODEL'];
+  });
+
   it('reports hostId hermes', () => {
     expect(new HermesHostAdapter().hostId).toBe('hermes');
   });
@@ -48,19 +61,29 @@ describe('HermesHostAdapter — fail-fast scaffold', () => {
     expect(p.configFile).toBe(join(homedir(), '.hermes', 'config.yaml'));
   });
 
-  it('wireToolAdapters fails fast with an explicit not-wired message', () => {
-    expect(() => new HermesHostAdapter().wireToolAdapters()).toThrow(/Hermes host not yet wired — tool wiring/);
+  it('wireToolAdapters wires the shared host-agnostic adapters (no throw)', () => {
+    const h = new HermesHostAdapter();
+    expect(() => h.wireToolAdapters()).not.toThrow();
+    // file_read is host-agnostic — resolvable through the shared registry after wiring.
+    expect(typeof h.toolResolver().resolve('file_read')).toBe('function');
   });
 
-  it('registerCli fails fast', () => {
-    // A no-op Command stand-in; registerCli must throw before using it.
-    expect(() => new HermesHostAdapter().registerCli({} as never)).toThrow(/Hermes host not yet wired — CLI registration/);
+  it("registerCli mounts AlienClaw's run verb on the given commander program", () => {
+    const program = new Command();
+    new HermesHostAdapter().registerCli(program);
+    expect(program.commands.map((c) => c.name())).toContain('run');
   });
 
-  it('llm().complete rejects with not-wired', async () => {
-    await expect(
-      new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user'),
-    ).rejects.toThrow(/Hermes host not yet wired — LLM provider/);
+  it('llm resolves the shared default provider/model when no override is set', async () => {
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toMatch(/^MOCK\[anthropic\//); // default provider = ALIENCLAW_PROVIDER
+  });
+
+  it('llm honors ALIENCLAW_HERMES_PROVIDER / ALIENCLAW_HERMES_MODEL overrides', async () => {
+    process.env['ALIENCLAW_HERMES_PROVIDER'] = 'openrouter';
+    process.env['ALIENCLAW_HERMES_MODEL'] = 'x/y';
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toBe('MOCK[openrouter/x/y]');
   });
 });
 

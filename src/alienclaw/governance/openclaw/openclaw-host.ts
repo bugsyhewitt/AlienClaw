@@ -15,31 +15,18 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import {
-  completeSimple,
-  getEnvApiKey,
-  getModel,
-  type Context,
-} from '@mariozechner/pi-ai';
 import type { ToolResolver } from '../../msb/martian-executor.js';
 import { OpenClawToolResolver } from '../../msb/openclaw-tool-resolver.js';
 import { wireToolAdapters } from '../../msb/tool-adapters.js';
 import { registerRunCommand } from '../../cli/register.run.js';
 import { AGENT_MODELS, ALIENCLAW_PROVIDER, type TierAAgent } from '../../constants.js';
-import { extractText } from '../../utils.js';
+import { piAiComplete } from '../common/pi-ai-complete.js';
 import type { HostAdapter, HostInstallProfile, LlmGateway } from '../common/host-adapter.js';
 
-/** LLM gateway backed by pi-ai (OpenClaw's provider layer today). */
+/** LLM gateway backed by pi-ai (OpenClaw's provider layer): fixed anthropic provider + AGENT_MODELS. */
 export class PiAiLlmGateway implements LlmGateway {
-  async complete(agent: TierAAgent, systemPrompt: string, userContent: string): Promise<string> {
-    const model  = getModel(ALIENCLAW_PROVIDER, AGENT_MODELS[agent]);
-    const apiKey = getEnvApiKey(ALIENCLAW_PROVIDER);
-    const context: Context = {
-      systemPrompt,
-      messages: [{ role: 'user', content: userContent, timestamp: Date.now() }],
-    };
-    const response = await completeSimple(model, context, { apiKey });
-    return extractText(response);
+  complete(agent: TierAAgent, systemPrompt: string, userContent: string): Promise<string> {
+    return piAiComplete(ALIENCLAW_PROVIDER, AGENT_MODELS[agent], systemPrompt, userContent);
   }
 }
 
