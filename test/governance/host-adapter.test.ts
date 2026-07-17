@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { OpenClawHostAdapter } from '../../src/alienclaw/governance/openclaw/openclaw-host.js';
 import { HermesHostAdapter } from '../../src/alienclaw/governance/hermes/hermes-host.js';
 import { HermesToolResolver, LOGICAL_TOOLS } from '../../src/alienclaw/governance/hermes/hermes-tool-resolver.js';
+import { registerToolAdapter } from '../../src/alienclaw/msb/martian-executor.js';
 import { selectHost, selectHostId } from '../../src/alienclaw/wiring/host-select.js';
 
 describe('OpenClawHostAdapter — live default', () => {
@@ -82,6 +83,12 @@ describe('Frozen 8-name logical tool contract', () => {
     const fn = new HermesToolResolver().resolve('web_search');
     expect(typeof fn).toBe('function');
     await expect(fn!({})).rejects.toThrow(/pending Hermes tool-layer wiring/);
+  });
+
+  it('resolve delegates non-HOST_BOUND tools to the shared adapter registry', () => {
+    const sentinel = async (_input: Record<string, unknown>): Promise<unknown> => 'sentinel';
+    registerToolAdapter('compute', sentinel);
+    expect(new HermesToolResolver().resolve('compute')).toBe(sentinel);
   });
 });
 
