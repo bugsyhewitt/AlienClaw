@@ -11,6 +11,7 @@ export * from './messages.js';
 export * from './comm-graph.js';
 export * from './logger.js';
 export * from './summon-adapter.js';
+export * from './host-adapter.js';
 export { AdvisorBot } from './advisor-bot.js';
 export { CreatorBot } from './creator-bot.js';
 export { BossBot } from './boss-bot.js';

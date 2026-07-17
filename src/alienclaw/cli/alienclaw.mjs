@@ -58,10 +58,13 @@ alienclaw --help
   Show OpenClaw help (gateway, channels, etc.)
 `);
 } else {
-  // ── Pass through to OpenClaw ─────────────────────────────────────────────
-  const openclaw = 'openclaw';
+  // ── Pass through to the active host framework ────────────────────────────
+  // ALIENCLAW_HOST selects the host binary (default 'openclaw'); 'hermes'
+  // routes passthrough to the Hermes CLI instead.
+  const host = (process.env.ALIENCLAW_HOST ?? 'openclaw').toLowerCase();
+  const hostBin = host === 'hermes' ? 'hermes' : 'openclaw';
   const args = process.argv.slice(2);
-  const child = spawn(openclaw, args, {
+  const child = spawn(hostBin, args, {
     stdio: 'inherit',
     shell: true,
   });
