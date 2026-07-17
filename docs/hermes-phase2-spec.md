@@ -13,8 +13,16 @@ host functional (tools/CLI/LLM). This spec covers what remains.
 > `hermes config set model` serialization: `HermesLlmGateway` reads the agent's
 > profile `config.yaml` top-level `model: <provider>/<model>` scalar (split on the
 > first `/`, per Hermes' `model_normalize.py`), uses it when the provider is
-> pi-ai-supported, else falls back to env override / shared defaults. Items 6/7/8/9
-> remain unbuilt but are no longer blocked.
+> pi-ai-supported, else falls back to env override / shared defaults.
+>
+> **Item 8 (web_search dispatch) is DONE and end-to-end-validated** against live
+> v0.15.2: `HermesToolResolver` spawns the Hermes venv python
+> (`ALIENCLAW_HERMES_PYTHON`) → `model_tools.handle_function_call('web_search',
+> args)` (runs headlessly; session params default None) → parses the JSON string,
+> raising Hermes' `{"error": …}` as a tool error. Confirmed against the real error
+> path ("Web tools are not configured"). A **successful** search needs an operator
+> to configure a Hermes web backend (`web.backend` + key, or `pip install ddgs`) —
+> not AlienClaw's concern. Items 6/7/9 remain unbuilt (no longer blocked).
 
 > **Correction landed with this doc:** the Phase-1 scaffold shipped a few
 > **hallucinated Hermes APIs** — `delegation.peers.<name>.frequency`,
