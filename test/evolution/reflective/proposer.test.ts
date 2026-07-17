@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { assertValidGenome, InvalidGenomeError, contentHash } from "../../../src/alienclaw/evolution/reflective/genome-codec.js";
-import { MockProposer } from "../../../src/alienclaw/evolution/reflective/proposer.js";
+import { MockProposer, withRetryAndValidation } from "../../../src/alienclaw/evolution/reflective/proposer.js";
 import { makeTestGenome } from "./mock-adapter.js";
 import type { Genome } from "../../../src/alienclaw/evolution/reflective/types.js";
 
@@ -82,6 +82,45 @@ describe("MockProposer — mutation validity", () => {
     );
 
     expect(() => assertValidGenome(merged)).not.toThrow();
+  });
+});
+
+describe("withRetryAndValidation", () => {
+  it("returns genome on first successful call", async () => {
+    const g = makeTestGenome([0.5, 0.5]);
+    const result = await withRetryAndValidation(async () => g, 0);
+    expect(result).toBe(g);
+  });
+
+  it("retries on InvalidGenomeError and returns on subsequent success", async () => {
+    const g = makeTestGenome([0.3, 0.7]);
+    let calls = 0;
+    const result = await withRetryAndValidation(async () => {
+      if (++calls < 2) throw new InvalidGenomeError("bad attempt");
+      return g;
+    }, 2);
+    expect(result).toBe(g);
+    expect(calls).toBe(2);
+  });
+
+  it("throws last InvalidGenomeError when max retries exhausted", async () => {
+    const sentinel = new InvalidGenomeError("always bad");
+    await expect(
+      withRetryAndValidation(async () => { throw sentinel; }, 1),
+    ).rejects.toBe(sentinel);
+  });
+
+  it("re-throws non-InvalidGenomeError immediately without retry", async () => {
+    const boom = new Error("network failure");
+    await expect(
+      withRetryAndValidation(async () => { throw boom; }, 3),
+    ).rejects.toBe(boom);
+  });
+
+  it("throws fallback InvalidGenomeError when loop never runs (maxRetries < 0)", async () => {
+    await expect(
+      withRetryAndValidation(async () => makeTestGenome([0.5, 0.5]), -1),
+    ).rejects.toThrow("Max retries exceeded");
   });
 });
 
