@@ -296,3 +296,178 @@ describe("partitionTrainVal", () => {
     }
   });
 });
+
+// ── PKT-271: cold-path coverage for child-accept, merge, validate-gate, parse_failure ──
+
+describe("Engine cold paths — PKT-271", () => {
+  /**
+   * Test A — child-acceptance path (Group 1, lines 173-177).
+   *
+   * Tasks biased toward the upper-right corner so theta=[0.5,0.5] (child)
+   * clearly outscores theta=[0,0] (parent) after min-max normalisation:
+   *   parent norm-mean ≈ 0.447, child norm-mean ≈ 0.515 → dominates → accepted.
+   *
+   * MockReflector is keyed to the seed genome's id and returns proposedValue
+   * "0.500,0.500", which MockGenomeAdapter decodes as theta=[0.5,0.5].
+   * mergeProbability=0 isolates the acceptance path from the merge branch.
+   */
+  it("PKT-271-A: accepts an improved child into the frontier", async () => {
+    const train = [
+      { id: "t-a0", input: {}, target: [0.5, 0.5] },
+      { id: "t-a1", input: {}, target: [0.7, 0.7] },
+      { id: "t-a2", input: {}, target: [0.8, 0.8] },
+    ] as unknown as TaskInstance[];
+    const val = [{ id: "t-av", input: {}, target: [0.5, 0.5] }] as unknown as TaskInstance[];
+
+    const seed = makeTestGenome([0.0, 0.0]);
+    const genomeStore = new Map([[seed.id, seed]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(seed.id, seed);
+
+    const reflector = new MockReflector(new Map([
+      [`${seed.id}:tool_slots`, { diagnosis: "ok", proposedValue: "0.500,0.500", lesson: "nudge to center" }],
+    ]));
+
+    const result = await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector,
+      proposer: new MockProposer(genomeStore),
+      seedCandidates: [seed],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 9,   // 3 seed + 3 parent-eval + 3 child-eval
+      minibatchSize: 3,
+      rng: makeRng(42),
+      persist: store,
+      config: { ...DEFAULT_CONFIG, mergeProbability: 0 },
+    });
+
+    // Group 1 (lines 173-177): mutate lineage recorded and second frontier snapshot exists
+    expect(store.lineage.some(e => e.op === "mutate")).toBe(true);
+    expect(store.snapshots.length).toBeGreaterThan(1);
+    expect(result.frontier.length).toBeGreaterThanOrEqual(1);
+  }, 30_000);
+
+  /**
+   * Test B — merge path (Group 2, lines 187-223) and pickBestValidated dominates arm
+   * (Group 5, line 277).
+   *
+   * Two seeds at opposite corners; all training tasks sit at [0.5,0.5] (equidistant
+   * from both seeds), so every evaluation batch yields constant correctness → normalises
+   * to 0.5 for every genome → neither seed dominates the other → both remain on the
+   * Pareto frontier throughout the run.
+   *
+   * With mergeProbability=1.0 the merge branch fires on every iteration.
+   * pickDisjointFrontierPair finds a valid pair (G1 wins all tasks by tie-break;
+   * G2 wins none → disjoint score > 0).  proposer.merge succeeds → lines 187-223 hit.
+   *
+   * The final validateOnHeldOut produces a 2-entry pool → reduce callback at line 277
+   * is exercised (Group 5 side-effect).
+   */
+  it("PKT-271-B: triggers merge when two non-dominated seeds are on the frontier", async () => {
+    // All tasks equidistant from g1=[0,0] and g2=[1,1] → both get correctness=0.5
+    const train = [
+      { id: "t-b0", input: {}, target: [0.5, 0.5] },
+      { id: "t-b1", input: {}, target: [0.5, 0.5] },
+      { id: "t-b2", input: {}, target: [0.5, 0.5] },
+    ] as unknown as TaskInstance[];
+    const val = [{ id: "t-bv", input: {}, target: [0.5, 0.5] }] as unknown as TaskInstance[];
+
+    const g1 = makeTestGenome([0.0, 0.0]);
+    const g2 = makeTestGenome([1.0, 1.0]);
+    const genomeStore = new Map([[g1.id, g1], [g2.id, g2]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(g1.id, g1);
+    store.genomes.set(g2.id, g2);
+
+    await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector: new MockReflector(),
+      proposer: new MockProposer(genomeStore),
+      seedCandidates: [g1, g2],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 15,  // 3+3 seed + 3 parent-eval + 3 child-eval + 3 merge-eval
+      minibatchSize: 3,
+      rng: makeRng(7),
+      persist: store,
+      config: { ...DEFAULT_CONFIG, mergeProbability: 1.0 },
+    });
+
+    // Group 2 (lines 187-223): a merge lineage edge was recorded
+    expect(store.lineage.some(e => e.op === "merge")).toBe(true);
+  }, 30_000);
+
+  /**
+   * Test C — P14-02 validate gate on child (Group 3 child arm, lines 142-151).
+   *
+   * cfg.validate always rejects, so every proposed child is rejected before its
+   * metric-call is charged.  The lineage entry carries lesson="INVALID: …".
+   */
+  it("PKT-271-C: validate gate rejects child before metric call and records INVALID lesson", async () => {
+    const tasks = makeSyntheticTasks(10) as TaskInstance[];
+    const { train, val } = partitionTrainVal(tasks, 0.3);
+    const seed = makeTestGenome([0.5, 0.5]);
+    const genomeStore = new Map([[seed.id, seed]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(seed.id, seed);
+
+    await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector: new MockReflector(),
+      proposer: new MockProposer(genomeStore),
+      seedCandidates: [seed],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 6,
+      minibatchSize: 2,
+      rng: makeRng(3),
+      persist: store,
+      config: DEFAULT_CONFIG,
+      validate: (_g) => ({ ok: false, violation: "test-rejection" }),
+    });
+
+    // Group 3 child arm (lines 142-151): lineage has an INVALID lesson
+    expect(
+      store.lineage.some(e => e.op === "mutate" && e.reflection?.lesson?.startsWith("INVALID")),
+    ).toBe(true);
+  }, 30_000);
+
+  /**
+   * Test D — parse_failure handler (Group 4, lines 119-127).
+   *
+   * MockReflector is configured to return diagnosis="parse_failure" for the seed
+   * genome's tool_slots component.  The engine increments reflectParseFailures,
+   * logs the yellow-threshold warning (rate 1.0 > 0.10 threshold), and continues
+   * without calling the proposer — so no "mutate" lineage edge is ever recorded.
+   */
+  it("PKT-271-D: parse_failure diagnosis suppresses mutation and records no mutate lineage", async () => {
+    const tasks = makeSyntheticTasks(10) as TaskInstance[];
+    const { train, val } = partitionTrainVal(tasks, 0.3);
+    const seed = makeTestGenome([0.5, 0.5]);
+    const genomeStore = new Map([[seed.id, seed]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(seed.id, seed);
+
+    const reflector = new MockReflector(new Map([
+      [`${seed.id}:tool_slots`, { diagnosis: "parse_failure", proposedValue: "", lesson: "" }],
+    ]));
+
+    await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector,
+      proposer: new MockProposer(genomeStore),
+      seedCandidates: [seed],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 6,
+      minibatchSize: 2,
+      rng: makeRng(5),
+      persist: store,
+      config: DEFAULT_CONFIG,
+    });
+
+    // Group 4 (lines 119-127): parse_failure → continue skips proposer → no mutate lineage
+    expect(store.lineage.filter(e => e.op === "mutate").length).toBe(0);
+  }, 30_000);
+});
