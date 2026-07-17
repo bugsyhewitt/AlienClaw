@@ -68,7 +68,7 @@ describe("operators — graph-safe within-subagent", () => {
   // Gap A: applyOperator review_revise sync fallback (lines 26-28 — were cold)
   it("applyOperator review_revise: returns last result synchronously", () => {
     const results = [makeResult(false), makeResult(true)];
-    const r = applyOperator(results, { kind: "review_revise" });
+    const r = applyOperator(results, { kind: "review_revise", rounds: 1 });
     expect(r).toBe(results[results.length - 1]);
   });
 
