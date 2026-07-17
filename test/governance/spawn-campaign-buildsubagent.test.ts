@@ -346,4 +346,56 @@ describe('Packet 125 — GovernanceLoop spawn sites route through buildSubagent'
       m.includes('Legacy Campaign B') && m.includes("defaulting to 'compute'")
     )).toBe(true);
   });
+
+  // ── B23-arm0 (Packet 266) ─────────────────────────────────────────────────
+  it('B23-arm0: runJob catch with thrownPrefix prefixes the error (line 482 arm 0)', async () => {
+    const throwingSubagent = {
+      birth:       vi.fn(),
+      runCampaign: vi.fn().mockRejectedValue(new Error('boom')),
+      erase:       vi.fn(),
+    };
+    vi.spyOn(commonBot, 'buildSubagent').mockReturnValue(throwingSubagent as any);
+
+    const deps = makeDeps({ commonBot, adapter, resolver });
+    const loop = new GovernanceLoop(deps);
+    const campaign = makeCampaign({ id: 'camp-throw-1', name: 'Throwing Campaign' });
+
+    await (loop as any).spawnCampaign('goal-1', campaign);
+
+    const queue: unknown[] = (loop as any).eventQueue;
+    const evt = queue.find((e: any) => e.type === 'JOB_FAILED') as
+      { type: string; subGoalId: string; error: string } | undefined;
+    expect(evt).toBeDefined();
+    expect(evt!.subGoalId).toBe('camp-throw-1');
+    expect(evt!.error).toBe('Campaign "Throwing Campaign" threw: boom');
+  });
+
+  // ── B23-arm1 (Packet 266) ─────────────────────────────────────────────────
+  it('B23-arm1: runJob catch without thrownPrefix uses bare error message (line 482 arm 1)', async () => {
+    const throwingSubagent = {
+      birth:       vi.fn(),
+      runCampaign: vi.fn().mockRejectedValue(new Error('boom')),
+      erase:       vi.fn(),
+    };
+    vi.spyOn(commonBot, 'buildSubagent').mockReturnValue(throwingSubagent as any);
+
+    const deps = makeDeps({ commonBot, adapter, resolver });
+    const loop = new GovernanceLoop(deps);
+    const subGoal: SubGoal = {
+      id:          'sg-throw-1',
+      description: 'do some work',
+      domain:      'compute',
+      status:      'pending',
+      dependsOn:   [],
+    };
+
+    await (loop as any).spawnLegacyJob('goal-1', subGoal);
+
+    const queue: unknown[] = (loop as any).eventQueue;
+    const evt = queue.find((e: any) => e.type === 'JOB_FAILED') as
+      { type: string; subGoalId: string; error: string } | undefined;
+    expect(evt).toBeDefined();
+    expect(evt!.subGoalId).toBe('sg-throw-1');
+    expect(evt!.error).toBe('boom');
+  });
 });
