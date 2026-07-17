@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 # =============================================================================
-# AlienClaw Installer — Hermes host (SCAFFOLD, v0.1)
+# AlienClaw Installer — Hermes host (v0.1)
 # Parallel of install.sh for the NousResearch Hermes Agent host.
 # Provisions the 3 AlienClaw agents (BossBot, AdvisorBot, CreatorBot) as Hermes
 # PROFILES under ~/.hermes/profiles/ from seed/agents-hermes/.
 #
 # Hermes' multi-agent unit is the PROFILE (each is its own ~/.hermes/profiles/<name>/
-# home). Real provisioning uses `hermes profile create <name> --description "<role>"`
-# and `hermes profile use bossbot` — Hermes has NO `delegation` config section and
-# NO typed consult-frequency key; routing is by the profile description that its
-# orchestrator reads. See docs/hermes-phase2-spec.md.
+# home). Provisioning uses `hermes profile create <name> --no-alias --description
+# "<role>"` (no ~/.local/bin wrapper; state stays under HERMES_HOME) + overlays
+# AlienClaw's SOUL.md/AGENTS.md, then `hermes profile use bossbot`. Hermes has NO
+# `delegation` config section and NO typed consult-frequency key; routing is by the
+# profile description its orchestrator reads. Validated vs hermes-agent v0.15.2.
+# See docs/hermes-phase2-spec.md.
 #
-# SCAFFOLD SCOPE: file provisioning + config backup are live; real profile creation
-# via the `hermes` CLI (item 6) needs a live Hermes and is printed as TODO. Never
-# writes `agentId`. Backs up config before any write. bash 3.2 compatible.
+# When `hermes` is absent, provisioning falls back to plain workspace dirs. Never
+# writes `agentId`. Backs up config before any hermes write. Idempotent (skips
+# existing profiles). bash 3.2 compatible.
 #
 # Usage:
 #   bash install-hermes.sh                 # provision workspaces (config wiring = TODO)
@@ -66,12 +68,30 @@ run() {
 
 info() { echo "  $*"; }
 
+# One- or two-sentence profile description (fed to Hermes' orchestrator routing).
+agent_desc() {
+  case "$1" in
+    bossbot)    printf '%s' "AlienClaw executive; consults AdvisorBot before non-trivial decisions" ;;
+    advisorbot) printf '%s' "AlienClaw advisory endpoint; planning, triage, completion review" ;;
+    creatorbot) printf '%s' "AlienClaw builder; turns campaign schemes into Subagents" ;;
+    *)          printf '%s' "AlienClaw agent" ;;
+  esac
+}
+
+HAVE_HERMES=false
+command -v hermes >/dev/null 2>&1 && HAVE_HERMES=true
+
 # --- Uninstall ---------------------------------------------------------------
 if $UNINSTALL; then
-  info "Uninstalling AlienClaw agents from $PROFILES_ROOT (leaving Hermes intact)"
+  info "Uninstalling AlienClaw agent profiles (leaving Hermes intact)"
   for id in $AGENT_IDS; do
     target="$PROFILES_ROOT/$id"
-    if [ -d "$target" ]; then
+    [ -d "$target" ] || continue
+    if $HAVE_HERMES; then
+      # `delete -y` removes the profile (and its alias wrapper, if any) non-interactively.
+      run hermes profile delete "$id" -y
+      info "Deleted profile: $id"
+    else
       run mv "$target" "$target.removed-$TIMESTAMP"
       info "Archived: $target -> $target.removed-$TIMESTAMP"
     fi
@@ -93,38 +113,46 @@ if ! command -v hermes >/dev/null 2>&1; then
   info "      TODO(hermes): pin a known-good hermes-agent version, then gate on 'hermes --version' here."
 fi
 
-# --- Provision agent workspaces (host-agnostic file copy — safe now) ---------
-info "Provisioning agent workspaces into $PROFILES_ROOT ..."
+# --- Config: back up before any hermes write (profile use may touch root config) ---
+if [ -f "$CONFIG_FILE" ]; then
+  run cp "$CONFIG_FILE" "$CONFIG_FILE.backup-$TIMESTAMP"
+  info "Backed up: $CONFIG_FILE -> $CONFIG_FILE.backup-$TIMESTAMP"
+fi
+
+# --- Provision the 3 agents as Hermes profiles -------------------------------
+# Real profiles when hermes is present (`hermes profile create --no-alias` — no
+# ~/.local/bin wrapper, all state under HERMES_HOME); otherwise a plain workspace
+# dir. AlienClaw's persona/routing files are overlaid onto the profile either way.
+info "Provisioning agent profiles under $PROFILES_ROOT ..."
 run mkdir -p "$PROFILES_ROOT"
 for id in $AGENT_IDS; do
   src="$SEED_DIR/$id"
   target="$PROFILES_ROOT/$id"
-  run mkdir -p "$target"
-  for f in SOUL.md AGENTS.md TOOLS.md HEARTBEAT.md MEMORY.md; do
-    if [ -f "$src/$f" ]; then
-      run cp "$src/$f" "$target/$f"
+  if $HAVE_HERMES; then
+    if [ -d "$target" ]; then
+      info "Profile '$id' already exists — skipping create (idempotent)."
+    else
+      run hermes profile create "$id" --no-alias --description "$(agent_desc "$id")"
+      info "Created Hermes profile: $id"
     fi
+  else
+    run mkdir -p "$target"
+    info "No hermes CLI — created workspace dir only: $target"
+  fi
+  # Overlay AlienClaw's persona (SOUL.md) + routing/tooling docs onto the profile.
+  for f in SOUL.md AGENTS.md TOOLS.md HEARTBEAT.md MEMORY.md; do
+    [ -f "$src/$f" ] && run cp "$src/$f" "$target/$f"
   done
-  info "Provisioned: $id -> $target"
+  info "Applied AlienClaw workspace files to $id"
 done
 
-# --- Config: back up before any write, then create profiles (TODO) -----------
-if [ -f "$CONFIG_FILE" ]; then
-  run cp "$CONFIG_FILE" "$CONFIG_FILE.backup-$TIMESTAMP"
-  info "Backed up: $CONFIG_FILE -> $CONFIG_FILE.backup-$TIMESTAMP"
-else
-  info "No existing $CONFIG_FILE (fresh Hermes); nothing to back up."
+# Set BossBot as the active profile (Hermes has no `agent.default`; `profile use` is the mechanism).
+if $HAVE_HERMES; then
+  run hermes profile use bossbot
+  info "Active profile set to bossbot."
 fi
-
-info "TODO(hermes, item 6 — needs live Hermes): create each agent as a profile and"
-info "route via profile descriptions (Hermes has NO 'delegation' section / agentId):"
-info "    hermes profile create bossbot    --description 'AlienClaw executive; consults AdvisorBot before non-trivial decisions'"
-info "    hermes profile create advisorbot --description 'AlienClaw advisory endpoint; planning, triage, completion review'"
-info "    hermes profile create creatorbot --description 'AlienClaw builder; turns campaign schemes into Subagents'"
-info "    hermes profile use bossbot                              # set active profile"
-info "    <profile> config set model.default <model>              # per-profile, or defer to 'hermes setup'"
 info "BossBot's high-frequency AdvisorBot consult is behavioral PROSE in SOUL.md rule 2"
-info "(no Hermes config key enforces consult frequency)."
+info "(no Hermes config key enforces consult frequency; routing is by profile description)."
 
 if $FROM_OPENCLAW; then
   info "TODO(hermes, item 9 — needs live Hermes): --from-openclaw import path:"
@@ -132,4 +160,4 @@ if $FROM_OPENCLAW; then
   info "                                        # profile; re-apply the 3-profile split afterward."
 fi
 
-info "Scaffold provisioning complete. Live Hermes config wiring is deferred (see TODOs above)."
+info "Provisioning complete."
