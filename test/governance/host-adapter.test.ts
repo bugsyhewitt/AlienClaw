@@ -3,7 +3,7 @@
  *
  * Verifies: OpenClaw is the live default and behaves as before; the Hermes host
  * is functional (shared tools wired, LLM provider resolved from Hermes config.yaml
- * or env override, CLI mounted) with only web_search dispatch deferred; the 8-name
+ * or env override, CLI mounted; web_search dispatches to Hermes); the 8-name
  * logical tool contract is frozen; host selection honors ALIENCLAW_HOST.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -137,16 +137,52 @@ describe('Frozen 8-name logical tool contract', () => {
     expect([...LOGICAL_TOOLS].sort()).toEqual([...CANONICAL].sort());
   });
 
-  it('web_search resolves to a fn that throws pending-Hermes (host-bound stub)', async () => {
-    const fn = new HermesToolResolver().resolve('web_search');
-    expect(typeof fn).toBe('function');
-    await expect(fn!({})).rejects.toThrow(/pending Hermes tool-layer wiring/);
-  });
-
   it('resolve delegates non-HOST_BOUND tools to the shared adapter registry', () => {
     const sentinel = async (_input: Record<string, unknown>): Promise<unknown> => 'sentinel';
     registerToolAdapter('compute', sentinel);
     expect(new HermesToolResolver().resolve('compute')).toBe(sentinel);
+  });
+});
+
+describe('HermesToolResolver.web_search — Hermes dispatch', () => {
+  // A stand-in for the Hermes venv python: an executable that ignores its args and
+  // writes a fixed payload to stdout — mirrors handle_function_call's JSON-string return.
+  let shimDir: string;
+  const makeShim = (stdoutPayload: string): string => {
+    shimDir = mkdtempSync(join(tmpdir(), 'hermes-py-'));
+    const shim = join(shimDir, 'pyshim.sh');
+    writeFileSync(shim, `#!/bin/sh\ncat <<'EOF'\n${stdoutPayload}\nEOF\n`, { mode: 0o755 });
+    return shim;
+  };
+  afterEach(() => {
+    delete process.env['ALIENCLAW_HERMES_PYTHON'];
+    if (shimDir) rmSync(shimDir, { recursive: true, force: true });
+  });
+
+  const websearch = () => new HermesToolResolver().resolve('web_search')!;
+
+  it('throws a clear error when ALIENCLAW_HERMES_PYTHON is unset', async () => {
+    await expect(websearch()({ query: 'x' })).rejects.toThrow(/set ALIENCLAW_HERMES_PYTHON/);
+  });
+
+  it('rejects a missing/empty query', async () => {
+    process.env['ALIENCLAW_HERMES_PYTHON'] = makeShim('{"results":[]}');
+    await expect(websearch()({})).rejects.toThrow(/non-empty "query"/);
+  });
+
+  it('returns the parsed JSON result from Hermes', async () => {
+    process.env['ALIENCLAW_HERMES_PYTHON'] = makeShim('{"results":["a","b"]}');
+    await expect(websearch()({ query: 'openclaw' })).resolves.toEqual({ results: ['a', 'b'] });
+  });
+
+  it("surfaces Hermes' error JSON as a thrown tool error", async () => {
+    process.env['ALIENCLAW_HERMES_PYTHON'] = makeShim('{"error":"Web tools are not configured"}');
+    await expect(websearch()({ query: 'x' })).rejects.toThrow(/Web tools are not configured/);
+  });
+
+  it('throws on non-JSON output from Hermes', async () => {
+    process.env['ALIENCLAW_HERMES_PYTHON'] = makeShim('not json at all');
+    await expect(websearch()({ query: 'x' })).rejects.toThrow(/non-JSON/);
   });
 });
 

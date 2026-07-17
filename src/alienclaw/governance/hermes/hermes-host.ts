@@ -9,8 +9,8 @@
  * llm() resolves the provider/model from the agent's Hermes profile config.yaml
  * (top-level `model:` scalar), env-overridable, else shared defaults.
  *
- * Deferred (see docs/hermes-phase2-spec.md): the host-bound web_search tool's
- * Hermes-registry dispatch (HermesToolResolver returns a stub).
+ * web_search dispatches to Hermes via the venv python (HermesToolResolver); a
+ * successful search needs an operator-configured Hermes web backend.
  */
 import { homedir } from 'node:os';
 import { join } from 'node:path';
