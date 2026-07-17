@@ -19,8 +19,14 @@ Done:
 
 Deferred (see `docs/hermes-phase2-spec.md`):
 1. **Provider resolution boundary** — the config read does NOT replicate Hermes' `provider: auto` resolution, per-role/auxiliary models, `base_url` precedence, or OAuth-only providers (nous/openai-codex/xai; creds in `auth.json`). It reads only the explicit `model:` scalar.
-2. **Install** — real profile provisioning via `hermes profile create <name> --description` + `hermes profile use bossbot` (Hermes has no `delegation` section; routing is by profile description); optional `--from-openclaw` via `hermes claw migrate` (flattens the 3-agent topology — re-apply the split after).
+2. **`--from-openclaw` import** — optional path via `hermes claw migrate` (flattens the 3-agent topology into one profile — re-apply the split after). Still a TODO in `install-hermes.sh`.
 3. **Bridge** — point `ALIENCLAW_PYTHON_BIN` at the Hermes venv python (`real-summon-adapter.ts` already reads this env; no code change).
+
+`install-hermes.sh` now provisions the 3 agents as real Hermes profiles
+(`hermes profile create --no-alias --description` + SOUL.md overlay +
+`hermes profile use bossbot`), idempotently, with `--uninstall` via
+`hermes profile delete -y`. Validated end-to-end against live v0.15.2 in a
+throwaway `HERMES_HOME` (no `~/.local/bin` pollution, thanks to `--no-alias`).
 
 ## Interchangeability invariant
 Nothing below the Martian summon boundary belongs here. Genome codec, registry,

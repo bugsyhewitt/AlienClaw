@@ -22,7 +22,16 @@ host functional (tools/CLI/LLM). This spec covers what remains.
 > raising Hermes' `{"error": …}` as a tool error. Confirmed against the real error
 > path ("Web tools are not configured"). A **successful** search needs an operator
 > to configure a Hermes web backend (`web.backend` + key, or `pip install ddgs`) —
-> not AlienClaw's concern. Items 6/7/9 remain unbuilt (no longer blocked).
+> not AlienClaw's concern.
+>
+> **Items 6/7 (installer profile provisioning) are DONE and validated** end-to-end
+> against live v0.15.2: `install-hermes.sh` creates the 3 agents as real Hermes
+> profiles via `hermes profile create --no-alias --description "<role>"` (no
+> `~/.local/bin` wrapper — `--no-alias`/`-y` flags verified against `hermes profile
+> --help`), overlays AlienClaw's SOUL.md, runs `hermes profile use bossbot`, is
+> idempotent (skips existing), and uninstalls via `hermes profile delete -y`. Ran
+> against a throwaway `HERMES_HOME` — zero real state touched. **Only item 9
+> (`--from-openclaw` via `hermes claw migrate`) remains** — still a TODO.
 
 > **Correction landed with this doc:** the Phase-1 scaffold shipped a few
 > **hallucinated Hermes APIs** — `delegation.peers.<name>.frequency`,
