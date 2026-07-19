@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { homedir, tmpdir } from 'node:os';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
 import { OpenClawHostAdapter } from '../../src/alienclaw/governance/openclaw/openclaw-host.js';
@@ -135,6 +135,28 @@ describe('HermesHostAdapter — functional host', () => {
     process.env['ALIENCLAW_HERMES_MODEL'] = 'gemini-x';
     const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
     expect(out).toBe('MOCK[google/gemini-x]');
+  });
+
+  it('llm resolves a quoted model value in profile config.yaml (strips surrounding quotes)', async () => {
+    useTmpHermesHome();
+    writeProfileModel('bossbot', '"openrouter/pareto-code"');  // double-quoted
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toBe('MOCK[openrouter/pareto-code]');
+  });
+
+  it('llm falls back to default when profile config.yaml exists but is unreadable', async () => {
+    useTmpHermesHome();
+    const profileDir = join(hermesHome, 'profiles', 'bossbot');
+    mkdirSync(profileDir, { recursive: true });
+    const cfgPath = join(profileDir, 'config.yaml');
+    writeFileSync(cfgPath, 'model: openrouter/pareto-code\n');
+    chmodSync(cfgPath, 0o000);  // existsSync→true, readFileSync→EACCES
+    try {
+      const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+      expect(out).toMatch(/^MOCK\[anthropic\//);  // catch arm → undefined → default
+    } finally {
+      chmodSync(cfgPath, 0o644);  // restore for afterEach rmSync cleanup
+    }
   });
 });
 
