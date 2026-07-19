@@ -43,6 +43,17 @@ describe('OpenClawHostAdapter — live default', () => {
     const r = new OpenClawHostAdapter().toolResolver();
     expect(typeof r.resolve('file_read')).toBe('function');
   });
+
+  it('llm routes through ALIENCLAW_PROVIDER (anthropic) + AGENT_MODELS', async () => {
+    const out = await new OpenClawHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toMatch(/^MOCK\[anthropic\//);
+  });
+
+  it('registerCli mounts the run verb on the given commander program', () => {
+    const program = new Command();
+    new OpenClawHostAdapter().registerCli(program);
+    expect(program.commands.map((c) => c.name())).toContain('run');
+  });
 });
 
 describe('HermesHostAdapter — functional host', () => {
