@@ -237,3 +237,36 @@ describe('NetworkAPIClient — request construction', () => {
     expect(JSON.parse(init.body)).toEqual({ api_key: 'the-key', machine_hash: 'hash-123' });
   });
 });
+
+// ── martianTypes() ──────────────────────────────────────────────────────────
+
+describe('NetworkAPIClient.martianTypes()', () => {
+  it('returns the parsed MartianTypesResponse on 200', async () => {
+    const body = { martian_types: [{ name: 'compute' }, { name: 'search_text' }], total: 2 };
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse({ status: 200, ok: true, json: body }),
+    );
+    const client = new NetworkAPIClient('https://api.example.test', 'key');
+    const res = await client.martianTypes();
+
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.status).toBe(200);
+      expect(res.data.total).toBe(2);
+      expect(res.data.martian_types).toEqual([{ name: 'compute' }, { name: 'search_text' }]);
+    }
+  });
+
+  it('hits GET /v1/martian-types with no auth header', async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse({ status: 200, ok: true, json: { martian_types: [], total: 0 } }),
+    );
+    const client = new NetworkAPIClient('https://api.example.test', 'key');
+    await client.martianTypes();
+
+    const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    expect(url).toBe('https://api.example.test/v1/martian-types');
+    // GET — no init or no method field (fetch defaults to GET)
+    expect(init).toBeUndefined();
+  });
+});
