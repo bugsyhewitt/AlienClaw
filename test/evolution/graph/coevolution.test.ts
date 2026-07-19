@@ -97,4 +97,36 @@ describe("Alternating-phase co-evolution — e2e (mocked)", () => {
     // Even with all children rejected, the run should complete (seeds still evaluated)
     expect(store.evaluations.length).toBeGreaterThan(0);
   });
+
+  it("runs without log callback (default no-op fallback)", async () => {
+    const tasks = makeSyntheticTasks(10) as TaskInstance[];
+    const seed = makeTestGenome([0.4, 0.4], "NOLOG");
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(seed.id, seed);
+    const genomeStore = new Map([[seed.id, seed]]);
+
+    const result = await runAlternatingCoevolution({
+      subagentAdapter: new MockGenomeAdapter(),
+      topologyAdapter: new MockGenomeAdapter(),
+      subagentSeeds: [seed],
+      topologySeeds: [seed],
+      trainset: tasks,
+      reflector: new MockReflector(),
+      proposer: new MockProposer(genomeStore),
+      store,
+      baseConfig: { ...DEFAULT_CONFIG, maxMetricCalls: 20 },
+      coevolutionConfig: {
+        rounds: 1,
+        subagentMetricCallsPerRound: 8,
+        topologyMetricCallsPerRound: 5,
+        minibatchSize: 2,
+        valsetFraction: 0.25,
+        rng: makeRng(13),
+      },
+      // log intentionally omitted → exercises opts.log ?? (() => {}) fallback
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.rounds).toBe(1);
+  });
 });
