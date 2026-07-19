@@ -4,7 +4,7 @@
  * LLMClient is mocked inline; no real LLM, DB, or network access.
  */
 import { describe, it, expect } from "vitest";
-import { OpusReflector } from "../../../src/alienclaw/evolution/reflective/reflector.js";
+import { OpusReflector, MockReflector } from "../../../src/alienclaw/evolution/reflective/reflector.js";
 import type { LLMClient } from "../../../src/alienclaw/evolution/reflective/reflector.js";
 import { makeTestGenome } from "./mock-adapter.js";
 import type { ReflectiveRecord } from "../../../src/alienclaw/evolution/reflective/types.js";
@@ -238,5 +238,23 @@ describe("OpusReflector — tryParseReflectionJson corner cases", () => {
       ancestorLessons: [],
     });
     expect(result.diagnosis).toBe("parse_failure");
+  });
+});
+
+describe("MockReflector — default response path", () => {
+  it("falls back to '' for proposedValue when component absent from editable (bid=15 arm=1)", async () => {
+    // No seeded response → default path taken (bid=14 arm=1).
+    // "system_prompt" not in makeTestGenome().editable → inner ?? "" fires (bid=15 arm=1).
+    const r = new MockReflector();
+    const result = await r.reflect({
+      candidate: makeTestGenome([0.5, 0.5]),
+      component: "system_prompt",
+      records: [],
+      ancestorLessons: [],
+    });
+    expect(result.proposedValue).toBe("");
+    expect(result.diagnosis).toBe("mock_diagnosis");
+    expect(result.lesson).toBe("mock_lesson");
+    expect(result.component).toBe("system_prompt");
   });
 });
