@@ -239,6 +239,20 @@ describe("OpusReflector — tryParseReflectionJson corner cases", () => {
     });
     expect(result.diagnosis).toBe("parse_failure");
   });
+
+  it("tryParseReflectionJson: JSON.parse throws when match found but content is not valid JSON (L161 catch arm)", async () => {
+    // Braced string that matches /{[\s\S]*}/ but is not valid JSON → SyntaxError → L161 catch fires
+    const bracedButInvalid = "{answer: yes, unclosed_key:}";
+    const llm = makeLlm([bracedButInvalid, bracedButInvalid]);
+    const r = new OpusReflector(llm, "test-model", 0.2, "/tmp/no-prompts-ac");
+    const result = await r.reflect({
+      candidate: genome,
+      component: "tool_slots",
+      records,
+      ancestorLessons: [],
+    });
+    expect(result.diagnosis).toBe("parse_failure");
+  });
 });
 
 describe("MockReflector — default response path", () => {
