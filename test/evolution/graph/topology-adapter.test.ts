@@ -47,6 +47,12 @@ describe("TopologyAdapter.evaluate", () => {
       expect(batch.scores.perInstance.has(t.id)).toBe(true);
     }
   });
+
+  it("missing partition field → nullish fallback → partitionLen=0, correctness=0", async () => {
+    const genome = makeGenome({ subagents: '["a","b"]' }); // no partition key
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+  });
 });
 
 describe("TopologyAdapter.makeReflectiveDataset", () => {
