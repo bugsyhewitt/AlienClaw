@@ -182,6 +182,30 @@ describe('HermesHostAdapter — functional host', () => {
     const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
     expect(out).toBe('MOCK[openrouter/pareto-code]'); // quotes stripped → provider/model resolved
   });
+
+  it('hermesHome() falls back to ~/.hermes when HERMES_HOME is unset (L35 arm=1)', async () => {
+    // Point HOME at an empty temp dir so join(homedir(), '.hermes') resolves to an empty tree.
+    // HERMES_HOME stays unset → hermesHome() takes the || right arm (L35) — the branch we cover.
+    const fakeHome = mkdtempSync(join(tmpdir(), 'fake-home-'));
+    const origHome = process.env['HOME'];
+    process.env['HOME'] = fakeHome;
+    try {
+      delete process.env['HERMES_HOME'];
+      const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+      expect(out).toMatch(/^MOCK\[anthropic\//);
+    } finally {
+      if (origHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = origHome;
+      rmSync(fakeHome, { recursive: true, force: true });
+    }
+  });
+
+  it('llm falls back when profile config model is empty after quote-stripping (L57 arm=1)', async () => {
+    useTmpHermesHome();
+    writeProfileModel('bossbot', '""');  // model: "" → m[1]='""' → strip quotes → v='' → return undefined
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toMatch(/^MOCK\[anthropic\//);  // undefined → skip → default provider
+  });
 });
 
 describe('Frozen 8-name logical tool contract', () => {
