@@ -247,4 +247,27 @@ describe("schema oracle — validateSchema edge cases", () => {
     );
     expect(verdict.score).toBe(0.0);
   });
+
+  it("required is truthy but non-array — skips required block, valid (returns 1.0)", () => {
+    // bid=27 arm=1: s["required"] is a string (truthy, not array) → Array.isArray false
+    // → required-block skipped → returns true
+    const trace = makeTrace({ finalOutput: { answer: "hi" } });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "object", required: "answer" as unknown } },
+      { trace },
+    );
+    expect(verdict.score).toBe(1.0);
+    expect(verdict.source).toBe("schema");
+  });
+
+  it("required is valid array but value is null — returns 0.0 (L124 null guard)", () => {
+    // bid=29 arm=0: required is ["answer"] (truthy array), value is null
+    // type check at L119 passes (typeof null === "object"), but L124 null-guard fires
+    const trace = makeTrace({ finalOutput: null });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { required: ["answer"] } },
+      { trace },
+    );
+    expect(verdict.score).toBe(0.0);
+  });
 });
