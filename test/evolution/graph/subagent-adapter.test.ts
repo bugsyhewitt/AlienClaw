@@ -97,6 +97,12 @@ describe("SubagentAdapter.evaluate", () => {
     expect(batch.scores.legacyScalar).toBeGreaterThanOrEqual(0);
     expect(batch.scores.legacyScalar).toBeLessThanOrEqual(1);
   });
+
+  it("missing role+decomposition → nullish fallback → correctness=0", async () => {
+    const genome = makeGenome({}); // no role, no decomposition
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+  });
 });
 
 describe("SubagentAdapter.makeReflectiveDataset", () => {
