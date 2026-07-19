@@ -60,7 +60,7 @@ function getSeedDir(sub: 'msb'): string | undefined {
 //   [1-63]  escalation label + output contract label + zero padding
 // ---------------------------------------------------------------------------
 
-function pad64(s: string): string {
+export function pad64(s: string): string {
   if (s.length > 64) throw new Error(`Seed section "${s.slice(0,20)}…" is ${s.length} chars (max 64)`);
   return s + '0'.repeat(64 - s.length);
 }
