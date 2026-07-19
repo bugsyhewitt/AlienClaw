@@ -252,4 +252,26 @@ describe('BossBot.schemeWithAdvisor() — full rounds when confidence is not hig
     // draftScheme (1) + refineSchemeDraft (1) = 2 LLM calls
     expect(mockComplete).toHaveBeenCalledTimes(2);
   });
+
+  it('runs two rounds: round 0 sets endorsement to "" (non-last), round 1 sets advice verdict (last)', async () => {
+    // 3 LLM calls total: draftScheme (1) + refineSchemeDraft×2 (2)
+    mockComplete.mockResolvedValue(VALID_SCHEME_JSON);
+    // Round 0 → medium confidence, recommendation triggers refinement (no early-return)
+    // Round 1 → medium confidence, final round → endorsement = advice.verdict
+    mockAdvise
+      .mockResolvedValueOnce({ confidence: 'medium', recommendation: 'should add a testing campaign', verdict: 'Needs work round 0' })
+      .mockResolvedValueOnce({ confidence: 'medium', recommendation: 'should clarify scope',          verdict: 'Good enough' });
+
+    const mockAgentChannel = { send: mockSend } as unknown as AgentChannel;
+    const mockAdvisorBot   = { advise: mockAdvise } as unknown as Parameters<BossBot['schemeWithAdvisor']>[2];
+
+    const result = await bot.schemeWithAdvisor('goal-maxRounds2', 'build a thing', mockAdvisorBot, mockAgentChannel, 2);
+
+    // Last-round verdict is the final endorsement
+    expect(result.advisorEndorsement).toBe('Good enough');
+    // advise called twice (one per round)
+    expect(mockAdvise).toHaveBeenCalledTimes(2);
+    // draftScheme (1) + refineSchemeDraft×2 (2) = 3 LLM calls
+    expect(mockComplete).toHaveBeenCalledTimes(3);
+  });
 });
