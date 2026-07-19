@@ -11,6 +11,7 @@ import {
   scalarizeForWinCount,
   weightedPick,
   chooseComponentToRevise,
+  rawObjectiveVector,
 } from "../../../src/alienclaw/evolution/reflective/objectives.js";
 import type { ExecutionTrace, CandidateScore, ObjectiveVector } from "../../../src/alienclaw/evolution/reflective/types.js";
 import { DEFAULT_CONFIG } from "../../../src/alienclaw/evolution/reflective/config.js";
@@ -198,5 +199,15 @@ describe("chooseComponentToRevise", () => {
         dummyScore,
       ),
     ).toBe("soul");
+  });
+});
+
+describe("rawObjectiveVector", () => {
+  it("falls back to correctness when confidence is undefined (logprob-unaware evaluator)", () => {
+    const trace = makeTrace(0.8);
+    const raw = rawObjectiveVector(trace);
+    expect(raw.confidence).toBeCloseTo(0.8);
+    expect(raw.correctness).toBeCloseTo(0.8);
+    expect(raw.efficiency).toBeCloseTo(1.0);
   });
 });
