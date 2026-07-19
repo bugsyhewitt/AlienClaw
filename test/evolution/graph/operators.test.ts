@@ -103,4 +103,24 @@ describe("operators — graph-safe within-subagent", () => {
     expect(reviseCount).toBe(2);
     expect(result.correct).toBe(true);
   });
+
+  // Packet 298 — throw arms + ensembleOp all-incorrect fallback
+  it("applyOperator: throws when results is empty", () => {
+    expect(() => applyOperator([], { kind: "none" })).toThrow("operators: no results to apply to");
+  });
+
+  it("ensembleOp: throws when top slice is empty (k=0)", () => {
+    expect(() => ensembleOp([makeResult(true)], 0)).toThrow("ensemble: no results");
+  });
+
+  it("bestOfNOp: throws when top slice is empty (n=0)", () => {
+    expect(() => bestOfNOp([makeResult(true)], 0)).toThrow("best_of_n: no results");
+  });
+
+  it("ensembleOp: ?? fallback fires when all results are incorrect", () => {
+    const results = [makeResult(false, 0.001), makeResult(false, 0.002)];
+    const r = ensembleOp(results, 2);
+    expect(r.correct).toBe(false);
+    expect(r.output).toEqual(results[0]!.output);
+  });
 });
