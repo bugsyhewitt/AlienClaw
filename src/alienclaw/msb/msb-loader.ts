@@ -77,7 +77,7 @@ function extractExecutionOrder(raw: string): string[] {
 function extractGenomeSections(raw: string): GenomeSectionDocs {
   const headerRe = /^GENOME SECTIONS:\s*\n/m;
   const headerMatch = raw.match(headerRe);
-  const tail = headerMatch ? raw.slice((headerMatch.index ?? 0) + headerMatch[0].length) : '';
+  const tail = headerMatch ? raw.slice(headerMatch.index! + headerMatch[0].length) : '';
   const get = (key: string): string => {
     const m = tail.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
     return m ? m[1]!.trim() : '';

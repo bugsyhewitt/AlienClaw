@@ -533,6 +533,17 @@ describe('msb/msb-loader — parseMsbContent(raw, sourcePath) — supplemental',
     expect(brain.genomeSections.checksum).toBe('');
   });
 
+  it('R-408: ?? 0 dead-code pin — headerMatch.index is always numeric when match is non-null', () => {
+    // Per ECMAScript spec, String.prototype.match() with a non-global regex returns an array
+    // whose .index property is always a number (the start offset of the match). When
+    // headerMatch is non-null, headerMatch.index is never undefined, so the ?? 0 fallback on
+    // L80 of msb-loader.ts is structurally dead. This test pins the expected behavior:
+    // extraction succeeds and identity is a non-empty string.
+    const brain = parseMsbContent(VALID_MSB);
+    expect(typeof brain.genomeSections.identity).toBe('string');
+    expect(brain.genomeSections.identity.length).toBeGreaterThan(0);
+  });
+
   it('R-407: GENOME SECTIONS with inline content (no trailing newline) → all genomeSections sub-keys are empty strings', () => {
     // GENOME SECTIONS: inline_text passes validateMsb (raw.includes('GENOME SECTIONS:') is true)
     // but fails extractGenomeSections's /^GENOME SECTIONS:\s*\n/m regex because 'inline_text' is
