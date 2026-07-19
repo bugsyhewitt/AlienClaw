@@ -212,4 +212,28 @@ describe("GraphValidator — adversarial invariant suite (headline gate)", () =>
     expect(rb.ok).toBe(false);
     expect(rb.violation).toMatch(/best_of_n n/i);
   });
+
+  it("invalid_martian_ref: subagent with empty genomeId is rejected", () => {
+    const s = makeSubagentGenome({ id: "sa1", martians: [{ genomeId: "" }] });
+    const r = validateSubagent(s, CAPS);
+    expect(r.ok).toBe(false);
+    expect(r.violation).toMatch(/non-martian summon target/i);
+  });
+
+  it("empty_partition_assignments: isValidPartition rejects empty assignments", () => {
+    const r = isValidPartition({ assignments: [] }, SCOPE);
+    expect(r.ok).toBe(false);
+    expect(r.violation).toMatch(/no assignments/i);
+  });
+
+  it("subagent_fail_in_topology: validateTopology propagates subagent failure", () => {
+    const bad = makeSubagentGenome({ id: "sa1", operators: { kind: "best_of_n", n: 0 } });
+    const t = makeTopologyGenome(
+      ["sa1"],
+      [{ subagentId: "sa1", scope: "dns surface" }],
+    );
+    const r = validator.validateTopology(t, [bad], CAPS, SCOPE);
+    expect(r.ok).toBe(false);
+    expect(r.violation).toMatch(/best_of_n n/i);
+  });
 });
