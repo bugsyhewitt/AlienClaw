@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assembleCampaignGraph, isValidPartition, structureCost, makeSubagentGenomeId, makeTopologyGenomeId } from "../../../src/alienclaw/evolution/graph/assembly.js";
+import { assembleCampaignGraph, isValidPartition, resolveToStructures, structureCost, makeSubagentGenomeId, makeTopologyGenomeId } from "../../../src/alienclaw/evolution/graph/assembly.js";
 import type { SubagentGenome, TopologyGenome } from "../../../src/alienclaw/evolution/graph/types.js";
 
 function makeTopology(ids: string[]): TopologyGenome {
@@ -71,5 +71,24 @@ describe("assembly helpers", () => {
   it("makeSubagentGenomeId: deterministic for same editable", () => {
     const e = { role: "r", decomposition: "d", summoning_policy: "{}", operators: "{}", report_shape: "{}" };
     expect(makeSubagentGenomeId(e)).toBe(makeSubagentGenomeId(e));
+  });
+
+  it("resolveToStructures: returns topology + matching subagents from registry", () => {
+    const s1 = makeSubagent("sa1");
+    const t = makeTopology(["sa1"]);
+    const reg = new Map([["sa1", s1]]);
+    const { topology, subagents } = resolveToStructures(t, reg);
+    expect(topology).toBe(t);
+    expect(subagents).toEqual([s1]);
+  });
+
+  it("resolveToStructures: throws when subagent id is not in registry", () => {
+    const t = makeTopology(["missing"]);
+    expect(() => resolveToStructures(t, new Map())).toThrow("SubagentGenome not found: missing");
+  });
+
+  it("makeTopologyGenomeId: deterministic for same editable", () => {
+    const e = { subagents: '["sa1"]', partition: '{"assignments":[]}', compose: "merge" };
+    expect(makeTopologyGenomeId(e)).toBe(makeTopologyGenomeId(e));
   });
 });
