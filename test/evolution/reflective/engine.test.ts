@@ -18,7 +18,7 @@ import { MockProposer } from "../../../src/alienclaw/evolution/reflective/propos
 import { MockGenomeAdapter, makeTestGenome, makeSyntheticTasks } from "./mock-adapter.js";
 import type { Genome, TaskInstance } from "../../../src/alienclaw/evolution/reflective/types.js";
 import { improvedOnMinibatch } from "../../../src/alienclaw/evolution/reflective/objectives.js";
-import { getReflectiveMode } from "../../../src/alienclaw/evolution/reflective/feature-flag.js";
+import { getReflectiveMode, isReflectiveActive } from "../../../src/alienclaw/evolution/reflective/feature-flag.js";
 
 // Deterministic LCG RNG (seeded)
 function makeRng(seed = 42): () => number {
@@ -61,6 +61,25 @@ describe("Feature flag — REFLECTIVE_EVOLUTION", () => {
   it("falls back to 'off' for unrecognized values", () => {
     process.env["REFLECTIVE_EVOLUTION"] = "invalid";
     expect(getReflectiveMode()).toBe("off");
+    delete process.env["REFLECTIVE_EVOLUTION"];
+  });
+
+  it("isReflectiveActive returns false when off", () => {
+    const old = process.env["REFLECTIVE_EVOLUTION"];
+    delete process.env["REFLECTIVE_EVOLUTION"];
+    expect(isReflectiveActive()).toBe(false);
+    if (old !== undefined) process.env["REFLECTIVE_EVOLUTION"] = old;
+  });
+
+  it("isReflectiveActive returns true when shadow", () => {
+    process.env["REFLECTIVE_EVOLUTION"] = "shadow";
+    expect(isReflectiveActive()).toBe(true);
+    delete process.env["REFLECTIVE_EVOLUTION"];
+  });
+
+  it("isReflectiveActive returns true when on", () => {
+    process.env["REFLECTIVE_EVOLUTION"] = "on";
+    expect(isReflectiveActive()).toBe(true);
     delete process.env["REFLECTIVE_EVOLUTION"];
   });
 });
