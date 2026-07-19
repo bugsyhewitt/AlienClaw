@@ -182,4 +182,69 @@ describe("checkLlmJudgeFraction — YELLOW threshold", () => {
     checkLlmJudgeFraction(verdicts, 0.40, msg => logs.push(msg));
     expect(logs).toHaveLength(0);
   });
+
+  it("returns 0 immediately for empty verdicts array (no log call)", () => {
+    const logs: string[] = [];
+    const fraction = checkLlmJudgeFraction([], 0.5, msg => logs.push(msg));
+    expect(fraction).toBe(0);
+    expect(logs).toHaveLength(0);
+  });
+});
+
+describe("schema oracle — validateSchema edge cases", () => {
+  it("null schema: always valid (returns 1.0)", () => {
+    const trace = makeTrace({ finalOutput: 42 });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: null },
+      { trace },
+    );
+    expect(verdict.score).toBe(1.0);
+    expect(verdict.source).toBe("schema");
+  });
+
+  it("primitive schema (non-object): always valid (returns 1.0)", () => {
+    const trace = makeTrace({ finalOutput: 42 });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: "not-an-object-schema" as unknown },
+      { trace },
+    );
+    expect(verdict.score).toBe(1.0);
+    expect(verdict.source).toBe("schema");
+  });
+
+  it("type:array — returns 0.0 for non-array value", () => {
+    const trace = makeTrace({ finalOutput: "not-an-array" });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "array" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(0.0);
+  });
+
+  it("type:string — returns 0.0 for non-string value", () => {
+    const trace = makeTrace({ finalOutput: 99 });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "string" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(0.0);
+  });
+
+  it("type:number — returns 0.0 for non-number value", () => {
+    const trace = makeTrace({ finalOutput: "ninety-nine" });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "number" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(0.0);
+  });
+
+  it("required key absent in correctly-typed object — returns 0.0", () => {
+    const trace = makeTrace({ finalOutput: { wrongKey: "value" } });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "object", required: ["answer"] } },
+      { trace },
+    );
+    expect(verdict.score).toBe(0.0);
+  });
 });
