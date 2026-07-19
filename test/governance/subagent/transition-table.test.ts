@@ -107,6 +107,92 @@ describe('parseTransitionTable', () => {
     expect(r.table?.states['step1']?.martian_type).toBe('compute_alone');
     expect(r.table?.states['step1']?.transitions[0]?.goto).toBe('FINALIZE');
   });
+
+  it('skips a state-name-indent line that has a value after the colon (line 237 cold arm)', () => {
+    // "step1: extra_value" at state-name indent fails the state-name regex;
+    // the parser skips it and continues. Only step2 (a valid state) is parsed.
+    const yaml = `transition_table:
+  initial_state: step2
+  states:
+    step1: extra_value
+    step2:
+      martian_type: compute_alone
+      inputs:
+        plan: "\${campaign.plan}"
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    // step1 with "extra_value" is skipped; only step2 parsed
+    expect(Object.keys(r.table?.states ?? {})).toEqual(['step2']);
+    expect(r.table?.states['step2']?.martian_type).toBe('compute_alone');
+  });
+
+  it('breaks the inputs loop when a code fence appears after input k/v pairs (line 262 cold arm)', () => {
+    // A code fence inside the inputs block triggers isOutsideBlock → break.
+    // The parser should still produce the inputs read before the fence.
+    const yaml = 'transition_table:\n' +
+      '  initial_state: step1\n' +
+      '  states:\n' +
+      '    step1:\n' +
+      '      martian_type: compute_alone\n' +
+      '      inputs:\n' +
+      '        plan: "the plan"\n' +
+      '```\n' +
+      '      transitions:\n' +
+      '        - when: { all: [{ kind: martian_succeeded }] }\n' +
+      '          goto: FINALIZE\n';
+    const r = parseTransitionTable(yaml);
+    // The fence exits the inputs loop; transitions may not be parsed.
+    // The key assertion is: the parser does not throw.
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['step1']?.inputs['plan']).toBe('the plan');
+  });
+
+  it('stops the states loop when a deeply de-dented line appears (line 233 cold arm)', () => {
+    // A line whose indent is less than the state name indent triggers the
+    // lineIndent < stateNameIndent break, ending state enumeration early.
+    const yaml = `transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: alpha
+      inputs:
+        plan: "p"
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+ trailing_key: value
+`;
+    const r = parseTransitionTable(yaml);
+    // Parser exits states loop at the de-dented line; step1 still parsed.
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['step1']?.martian_type).toBe('alpha');
+  });
+
+  it('skips a deeper-indented orphan line following a regex-failing state entry (line 234 cold arm)', () => {
+    // After "step1: extra_value" fails the state-name regex (L237 skip, no body loop),
+    // "deeper_orphan: x" at indent 6 > stateNameIndent 4 reaches L234
+    // (L233: 6 < 4 is false; L234: 6 !== 4 is true → i++; continue).
+    const yaml = `transition_table:
+  initial_state: step2
+  states:
+    step1: extra_value
+      deeper_orphan: x
+    step2:
+      martian_type: compute_alone
+      inputs:
+        plan: "p"
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(Object.keys(r.table?.states ?? {})).toEqual(['step2']);
+  });
 });
 
 describe('validateTransitionTable', () => {
