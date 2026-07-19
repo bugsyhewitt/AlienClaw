@@ -90,6 +90,21 @@ describe("MockProposer — mutation validity", () => {
 
     expect(() => assertValidGenome(merged)).not.toThrow();
   });
+
+  it("merge throws when a genome ID is absent from the mock store", async () => {
+    const g1 = makeTestGenome([0.2, 0.2]);
+    const g2 = makeTestGenome([0.8, 0.8]);
+    // Store has only g1 — g2's genomeId is not present
+    const store = new Map([[g1.id, g1]]);
+    const proposer = new MockProposer(store);
+
+    await expect(
+      proposer.merge(
+        { genomeId: g1.id, perInstance: new Map(), aggregate: { correctness: 0.2, efficiency: 0.2, costInv: 0.2, latencyInv: 0.2, confidence: 0.2 }, legacyScalar: 0.2 },
+        { genomeId: g2.id, perInstance: new Map(), aggregate: { correctness: 0.8, efficiency: 0.8, costInv: 0.8, latencyInv: 0.8, confidence: 0.8 }, legacyScalar: 0.8 },
+      ),
+    ).rejects.toThrow("Genome not found in mock store for merge");
+  });
 });
 
 describe("withRetryAndValidation", () => {
