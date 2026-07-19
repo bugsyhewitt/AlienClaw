@@ -76,6 +76,10 @@ describe('HermesHostAdapter — functional host', () => {
     expect(program.commands.map((c) => c.name())).toContain('run');
   });
 
+  it('toolResolver() returns a HermesToolResolver instance', () => {
+    expect(new HermesHostAdapter().toolResolver()).toBeInstanceOf(HermesToolResolver);
+  });
+
   // LLM provider resolution reads HERMES_HOME/config.yaml — isolate every case to a
   // throwaway HERMES_HOME so tests never touch the developer's real ~/.hermes.
   let hermesHome: string;
