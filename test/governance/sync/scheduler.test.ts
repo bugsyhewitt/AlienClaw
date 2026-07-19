@@ -386,6 +386,31 @@ describe('SyncScheduler — error handling', () => {
     expect(errors).toHaveLength(2);
     scheduler.stop();
   });
+
+  it('swallows errors silently when onError is omitted (default no-op)', async () => {
+    // Arrange: client that always throws, no custom onError supplied.
+    const throwingClient = {
+      async install() { throw new Error('no-op-test'); },
+      async submitGenome() { return submitNew(); },
+      async topGenomes(t: string) { return topGenomes(t, []); },
+    };
+    const scheduler = new SyncScheduler({
+      client:          throwingClient as never,
+      machineHash:     'm',
+      populationsRoot: root,
+      martianTypes:    ['compute'],
+      intervalMs:      1000,
+      // onError intentionally omitted — exercises the default () => undefined body
+    });
+
+    // Act: start fires one immediate cycle; install() throws, onError() absorbs it.
+    scheduler.start();
+    await expect(settle()).resolves.toBeUndefined(); // no uncaught exception
+
+    // Assert: scheduler still alive; default handler swallowed the error silently.
+    expect(scheduler.isRunning).toBe(true);
+    scheduler.stop();
+  });
 });
 
 // ── default options ──────────────────────────────────────────────────────────
