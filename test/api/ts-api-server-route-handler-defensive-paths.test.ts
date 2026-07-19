@@ -380,4 +380,16 @@ describe('API server: route-handler defensive paths', () => {
     expect(res.status).toBe(400);
     expect((parsed as { error: { code: string } }).error.code).toBe('MALFORMED_REQUEST');
   });
+
+  // ── (L238) handleInstall validation-error catch arm ──────────────────────
+  // server.ts:238 — handleInstall throws new Error(JSON.stringify(v.error))
+  // when validateInstallRequest rejects the request. The catch parses the
+  // message and returns a structured 400. Zero tests hit this before PKT-322.
+
+  it('POST /v1/install with valid fields but invalid api_key format returns 400 INVALID_API_KEY_FORMAT', async () => {
+    const { status, body } = await post('/v1/install',
+      { api_key: 'too_short', machine_hash: 'a'.repeat(64) });
+    expect(status).toBe(400);
+    expect((body as { error: { code: string } }).error.code).toBe('INVALID_API_KEY_FORMAT');
+  });
 });
