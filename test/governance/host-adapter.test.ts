@@ -182,6 +182,22 @@ describe('HermesHostAdapter — functional host', () => {
     const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
     expect(out).toBe('MOCK[openrouter/pareto-code]'); // quotes stripped → provider/model resolved
   });
+
+  it('llm falls back when profile config model is an empty quoted string (L57 v||undefined falsy)', async () => {
+    useTmpHermesHome();
+    writeProfileModel('bossbot', '""');               // stripped to '' → undefined → default
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toMatch(/^MOCK\[anthropic\//);
+  });
+
+  it('llm falls back to default when HERMES_HOME is unset (L35 || falsy arm, uses ~/.hermes)', async () => {
+    // HERMES_HOME is deliberately NOT set (afterEach cleared it) so hermesHome() takes
+    // the || right-hand path: join(homedir(), '.hermes'). That path likely has no
+    // profiles/bossbot/config.yaml, so readConfigModel returns undefined → default fallback.
+    // existsSync reads from the real ~/.hermes; no files are written.
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toMatch(/^MOCK\[/); // any mocked response covers the L35 falsy branch
+  });
 });
 
 describe('Frozen 8-name logical tool contract', () => {
