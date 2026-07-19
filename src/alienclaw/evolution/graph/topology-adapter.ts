@@ -70,7 +70,7 @@ export class TopologyAdapter implements GenomeAdapter {
     const normalized = normalizeObjectives(raws, 1e-6);
     const perInstance = new Map<string, ObjectiveVector>();
     for (let i = 0; i < batch.length; i++) {
-      perInstance.set(batch[i]!.id, normalized[i] ?? { correctness: 0, efficiency: 0, costInv: 0, latencyInv: 0, confidence: 0 });
+      perInstance.set(batch[i]!.id, normalized[i]!);
     }
     const scores: CandidateScore = {
       genomeId: candidate.id,
