@@ -10,6 +10,7 @@ import {
   improvedOnMinibatch,
   scalarizeForWinCount,
   weightedPick,
+  chooseComponentToRevise,
 } from "../../../src/alienclaw/evolution/reflective/objectives.js";
 import type { ExecutionTrace, CandidateScore, ObjectiveVector } from "../../../src/alienclaw/evolution/reflective/types.js";
 import { DEFAULT_CONFIG } from "../../../src/alienclaw/evolution/reflective/config.js";
@@ -164,5 +165,38 @@ describe("weightedPick", () => {
     let n = 0;
     const rng = () => ++n / 10;
     expect(weightedPick(items, () => 5, rng)).toBe("only");
+  });
+});
+
+describe("meanObjective", () => {
+  it("returns the zero objective vector for empty input", () => {
+    const result = meanObjective([]);
+    expect(result).toEqual({
+      correctness: 0, efficiency: 0, costInv: 0, latencyInv: 0, confidence: 0,
+    });
+  });
+});
+
+describe("chooseComponentToRevise", () => {
+  const dummyScore = {
+    genomeId: "g",
+    perInstance: new Map(),
+    aggregate: { correctness: 0.5, efficiency: 0.5, costInv: 0.5, latencyInv: 0.5, confidence: 0.5 },
+    legacyScalar: 0.5,
+  };
+
+  it("returns first key for a single-component genome", () => {
+    expect(
+      chooseComponentToRevise({ editable: { soul: "content" } }, dummyScore),
+    ).toBe("soul");
+  });
+
+  it("returns first key for a multi-component genome (Packet-07+ fallback)", () => {
+    expect(
+      chooseComponentToRevise(
+        { editable: { soul: "a", tools: "b", heartbeat: "c" } },
+        dummyScore,
+      ),
+    ).toBe("soul");
   });
 });
