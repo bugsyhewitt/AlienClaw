@@ -471,3 +471,97 @@ describe("Engine cold paths — PKT-271", () => {
     expect(store.lineage.filter(e => e.op === "mutate").length).toBe(0);
   }, 30_000);
 });
+
+// ── PKT-294: cold-path coverage for seed-overflow · empty-archive · merge-catch ──
+
+describe("Engine cold paths — PKT-294", () => {
+  it("PKT-294-E: seed loop stops early when budget is exhausted mid-seeds", async () => {
+    const train = [
+      { id: "te0", input: {}, target: [0.5, 0.5] },
+      { id: "te1", input: {}, target: [0.5, 0.5] },
+      { id: "te2", input: {}, target: [0.5, 0.5] },
+    ] as unknown as TaskInstance[];
+    const val = [{ id: "tev", input: {}, target: [0.5, 0.5] }] as unknown as TaskInstance[];
+    const g1 = makeTestGenome([0.3, 0.3]);
+    const g2 = makeTestGenome([0.7, 0.7]);
+    const genomeStore = new Map([[g1.id, g1], [g2.id, g2]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(g1.id, g1);
+    store.genomes.set(g2.id, g2);
+
+    await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector: new MockReflector(),
+      proposer: new MockProposer(genomeStore),
+      seedCandidates: [g1, g2],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 3,   // exactly one seed batch; second seed check: 3+3>3 → break
+      minibatchSize: 3,
+      rng: makeRng(1),
+      persist: store,
+      config: { ...DEFAULT_CONFIG, mergeProbability: 0 },
+    });
+
+    // Only g1 was seeded — g2 was skipped at line-71 budget break
+    expect(store.lineage.filter(l => l.op === "seed").length).toBe(1);
+    expect(store.lineage[0]!.childId).toBe(g1.id);
+  }, 30_000);
+
+  it("PKT-294-F: main loop exits immediately with no seed candidates (empty archive)", async () => {
+    const train = makeSyntheticTasks(5) as TaskInstance[];
+    const val  = [{ id: "tfv", input: {}, target: [0.5, 0.5] }] as unknown as TaskInstance[];
+    const store = new InMemoryEvolutionStore();
+
+    const result = await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector: new MockReflector(),
+      proposer: new MockProposer(),
+      seedCandidates: [],    // empty → archive stays empty → line 89 break
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 10,
+      minibatchSize: 2,
+      rng: makeRng(9),
+      persist: store,
+      config: DEFAULT_CONFIG,
+    });
+
+    expect(store.evaluations.length).toBe(0);
+    expect(result.frontier).toHaveLength(0);
+    expect(result.best).toBeNull();
+  }, 30_000);
+
+  it("PKT-294-G: merge-failure catch fires when proposer.merge throws for unknown genome", async () => {
+    const train = [
+      { id: "tg0", input: {}, target: [0.5, 0.5] },
+      { id: "tg1", input: {}, target: [0.5, 0.5] },
+      { id: "tg2", input: {}, target: [0.5, 0.5] },
+    ] as unknown as TaskInstance[];
+    const val = [{ id: "tgv", input: {}, target: [0.5, 0.5] }] as unknown as TaskInstance[];
+    const g1 = makeTestGenome([0.0, 0.0]);
+    const g2 = makeTestGenome([1.0, 1.0]);
+    // Proposer store has only g1 — merge will throw when it tries to look up g2
+    const genomeStore = new Map([[g1.id, g1]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(g1.id, g1);
+    store.genomes.set(g2.id, g2);   // evolution store has g2 for evaluation; proposer does not
+
+    await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector: new MockReflector(),
+      proposer: new MockProposer(genomeStore),
+      seedCandidates: [g1, g2],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 18,   // 3+3 seed + 3 parent-eval + 3 child-eval + 3 merge-eval budget
+      minibatchSize: 3,
+      rng: makeRng(7),
+      persist: store,
+      config: { ...DEFAULT_CONFIG, mergeProbability: 1.0 },
+    });
+
+    // catch fired → no merge lineage edge was recorded
+    expect(store.lineage.filter(l => l.op === "merge").length).toBe(0);
+  }, 30_000);
+});
