@@ -221,6 +221,15 @@ describe('HermesToolResolver.web_search — Hermes dispatch', () => {
     process.env['ALIENCLAW_HERMES_PYTHON'] = makeShim('not json at all');
     await expect(websearch()({ query: 'x' })).rejects.toThrow(/non-JSON/);
   });
+
+  it('surfaces Hermes execFile failure as a dispatch error (non-zero exit)', async () => {
+    // Shim exits 1 → execFileAsync rejects → catch fires → 'Hermes dispatch failed'
+    shimDir = mkdtempSync(join(tmpdir(), 'hermes-py-'));
+    const shim = join(shimDir, 'fail.sh');
+    writeFileSync(shim, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    process.env['ALIENCLAW_HERMES_PYTHON'] = shim;
+    await expect(websearch()({ query: 'x' })).rejects.toThrow(/Hermes dispatch failed/);
+  });
 });
 
 describe('Host selection (ALIENCLAW_HOST)', () => {
