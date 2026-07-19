@@ -195,4 +195,21 @@ describe("GraphValidator — adversarial invariant suite (headline gate)", () =>
     expect(r.ok).toBe(false);
     expect(r.violation).toMatch(/ensemble k/i);
   });
+
+  it("best_of_n_n_zero: best_of_n with n=0 is rejected", () => {
+    const s = makeSubagentGenome({ id: "sa1", operators: { kind: "best_of_n", n: 0 } });
+    const r = validateSubagent(s, CAPS);
+    expect(r.ok).toBe(false);
+    expect(r.violation).toMatch(/best_of_n n/i);
+  });
+
+  it("GraphValidator.validateSubagent: class method delegates correctly", () => {
+    const s = makeSubagentGenome({ id: "sa1" });
+    const r = validator.validateSubagent(s, CAPS);
+    expect(r.ok).toBe(true);
+    const bad = makeSubagentGenome({ id: "sa2", operators: { kind: "best_of_n", n: 0 } });
+    const rb = validator.validateSubagent(bad, CAPS);
+    expect(rb.ok).toBe(false);
+    expect(rb.violation).toMatch(/best_of_n n/i);
+  });
 });
