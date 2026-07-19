@@ -214,6 +214,21 @@ describe('validateLeaderboardResponse', () => {
     const bad = JSON.stringify({ martian_type: 'compute', total_for_type: 0, genomes: 'not-array' });
     expect(() => validateLeaderboardResponse(bad)).toThrow('genomes must be an array');
   });
+
+  it('uses top-level martian_type when entry omits it (server omits per-entry field)', () => {
+    const entryWithoutType = {
+      leaderboard_name: 'ALIENBOT',
+      fitness:          0.85,
+      submission_id:    'sub_abc123',
+      submitted_at:     '2026-05-17T00:00:00Z',
+    };
+    const r = validateLeaderboardResponse(JSON.stringify({
+      martian_type:    'compute',
+      genomes:         [entryWithoutType],
+      total_for_type:  1,
+    }));
+    expect(r.genomes[0].martian_type).toBe('compute');
+  });
 });
 
 // ── leaderboardCheck ────────────────────────────────────────────────────────
