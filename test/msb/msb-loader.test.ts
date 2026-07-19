@@ -532,6 +532,45 @@ describe('msb/msb-loader — parseMsbContent(raw, sourcePath) — supplemental',
     expect(brain.genomeSections.behavior).toBe('');
     expect(brain.genomeSections.checksum).toBe('');
   });
+
+  it('R-407: GENOME SECTIONS with inline content (no trailing newline) → all genomeSections sub-keys are empty strings', () => {
+    // GENOME SECTIONS: inline_text passes validateMsb (raw.includes('GENOME SECTIONS:') is true)
+    // but fails extractGenomeSections's /^GENOME SECTIONS:\s*\n/m regex because 'inline_text' is
+    // not \s*. headerMatch === null → tail = '' → all four sub-keys return ''.
+    const inlineGenomeMsb = [
+      'TOOL: inline_tool',
+      'VERSION: 1.0',
+      '',
+      'CAPABILITIES:',
+      'Has capabilities.',
+      '',
+      'LIMITATIONS:',
+      'Has limitations.',
+      '',
+      'FAILURE MODES:',
+      'Has failure modes.',
+      '',
+      'BEST PRACTICES:',
+      'Has best practices.',
+      '',
+      'EXECUTION ORDER:',
+      '1. Do thing',
+      '',
+      'OUTPUT CONTRACT:',
+      '{}',
+      '',
+      'GENOME SECTIONS: identity_val execution_val behavior_val checksum_val',
+      '',
+      'VARIABLES:',
+      'task: the task',
+      '',
+    ].join('\n');
+    const brain = parseMsbContent(inlineGenomeMsb);
+    expect(brain.genomeSections.identity).toBe('');
+    expect(brain.genomeSections.execution).toBe('');
+    expect(brain.genomeSections.behavior).toBe('');
+    expect(brain.genomeSections.checksum).toBe('');
+  });
 });
 
 // ---------------------------------------------------------------------------
