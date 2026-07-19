@@ -45,6 +45,13 @@ describe("assertValidGenome", () => {
     expect(() => assertValidGenome(g, new Set(["valid_tool"]))).toThrow(InvalidGenomeError);
   });
 
+  it("passes when all tool slots are present in knownTools", () => {
+    const raw = "A".repeat(256);
+    const id  = contentHash(raw);
+    const g: Genome = { id, raw, toolSlots: ["valid_tool"], editable: {} };
+    expect(() => assertValidGenome(g, new Set(["valid_tool"]))).not.toThrow();
+  });
+
   it("passes for empty toolSlots (valid)", () => {
     const raw = "A".repeat(256);
     const id = contentHash(raw);
