@@ -205,7 +205,7 @@ describe("schema oracle — validateSchema edge cases", () => {
   it("primitive schema (non-object): always valid (returns 1.0)", () => {
     const trace = makeTrace({ finalOutput: 42 });
     const verdict = resolveCorrectness(
-      { kind: "schema", schema: "not-an-object-schema" as unknown as object },
+      { kind: "schema", schema: "not-an-object-schema" as unknown },
       { trace },
     );
     expect(verdict.score).toBe(1.0);
