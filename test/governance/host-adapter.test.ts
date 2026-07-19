@@ -158,6 +158,30 @@ describe('HermesHostAdapter — functional host', () => {
       chmodSync(cfgPath, 0o644);  // restore for afterEach rmSync cleanup
     }
   });
+
+  it('llm falls back when profile config.yaml has no model: key (bid=2 arm=0)', async () => {
+    useTmpHermesHome();
+    // Create a config that EXISTS but contains no model: key → !m → arm=0
+    const profileDir = join(hermesHome, 'profiles', 'bossbot');
+    mkdirSync(profileDir, { recursive: true });
+    writeFileSync(join(profileDir, 'config.yaml'), 'max_turns: 90\nother_setting: true\n');
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toMatch(/^MOCK\[anthropic\//); // readConfigModel → no match → undefined → default
+  });
+
+  it('llm falls back when profile config model has no provider/ prefix (bid=9 arm=0)', async () => {
+    useTmpHermesHome();
+    writeProfileModel('bossbot', 'no-provider-prefix'); // slash=-1 ≤ 0 → continue
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toMatch(/^MOCK\[anthropic\//); // slash<=0 → skip → default
+  });
+
+  it('llm resolves a single-quoted model value in profile config.yaml (bid=4 arm=3)', async () => {
+    useTmpHermesHome();
+    writeProfileModel('bossbot', "'openrouter/pareto-code'"); // single-quoted → arm=3
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toBe('MOCK[openrouter/pareto-code]'); // quotes stripped → provider/model resolved
+  });
 });
 
 describe('Frozen 8-name logical tool contract', () => {
