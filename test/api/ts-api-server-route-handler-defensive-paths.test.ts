@@ -341,6 +341,20 @@ describe('API server: route-handler defensive paths', () => {
     expect((body as {error: {code: string}}).error.code).toBe('NOT_FOUND');
   });
 
+  // ── (5) 400 INVALID_API_KEY_FORMAT via handleInstall validation throw (server.ts:238) ──
+  // The router's L232 check only tests field *presence*, not format.
+  // handleInstall calls validateInstallRequest which throws when api_key is malformed.
+  // The catch at L238 JSON.parses the error message and sends 400.
+
+  it('POST /v1/install with present but malformed api_key returns 400 INVALID_API_KEY_FORMAT', async () => {
+    const { status, body } = await post('/v1/install', {
+      api_key: 'tooshort',
+      machine_hash: 'a'.repeat(64),
+    });
+    expect(status).toBe(400);
+    expect((body as { error: { code: string } }).error.code).toBe('INVALID_API_KEY_FORMAT');
+  });
+
   // ── Bonus: 405 Method Not Allowed for non-GET/non-POST (server.ts:285) ─
   // The router falls through the if/else method blocks and writes 405.
   // The line-285 `res.writeHead(405).end();` is v8-reported as covered
