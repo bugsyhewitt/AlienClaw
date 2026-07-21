@@ -491,6 +491,124 @@ describe("Engine cold paths — PKT-271", () => {
   }, 30_000);
 });
 
+// ── PKT-335: cold-path coverage for merge-path validate gate ──
+
+describe("Engine cold paths — PKT-335", () => {
+  /**
+   * Test A — merged genome rejected (Branch 13 arm 0 + Branch 14 arm 0, lines 194-203).
+   *
+   * A unique merged genome is returned by the proposer so its ID never collides
+   * with the seed/child IDs (which MockProposer.merge would reuse from the parent).
+   * validate passes children (g1/g2) so the merge block is reachable, then
+   * rejects the merged candidate by ID. Lineage is recorded; no metric call charged.
+   */
+  it('PKT-335-A: validate gate on merged candidate — rejection records merge lineage without metric call', async () => {
+    const train = [
+      { id: 't-a0', input: {}, target: [0.5, 0.5] },
+      { id: 't-a1', input: {}, target: [0.5, 0.5] },
+      { id: 't-a2', input: {}, target: [0.5, 0.5] },
+    ] as unknown as TaskInstance[];
+    const val = [{ id: 't-av', input: {}, target: [0.5, 0.5] }] as unknown as TaskInstance[];
+
+    const g1 = makeTestGenome([0.0, 0.0]);
+    const g2 = makeTestGenome([1.0, 1.0]);
+    const genomeStore = new Map([[g1.id, g1], [g2.id, g2]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(g1.id, g1);
+    store.genomes.set(g2.id, g2);
+
+    // Unique merged genome — ID never collides with g1/g2 or their children
+    const mergedGenome = makeTestGenome([0.5, 0.5], "MERGE-A");
+    const proposer = new MockProposer(genomeStore);
+    // Override merge to return the uniquely-IDed genome so assertions are unambiguous
+    (proposer as unknown as Record<string, unknown>).merge = async () => mergedGenome;
+
+    // Track merge eval calls to verify no metric call is charged on rejected merge
+    const evalsBefore = store.evaluations.length;
+
+    await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector: new MockReflector(),
+      proposer,
+      seedCandidates: [g1, g2],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 15,
+      minibatchSize: 3,
+      rng: makeRng(7),
+      persist: store,
+      config: { ...DEFAULT_CONFIG, mergeProbability: 1.0 },
+      // P14-02 gate: pass seed/child genomes; reject only the merged candidate
+      validate: (g) => g.id === mergedGenome.id
+        ? { ok: false, violation: 'no-merge-allowed' }
+        : { ok: true },
+    });
+
+    // Merge lineage recorded (op="merge") — the rejection path logs and records
+    const mergeEdge = store.lineage.find(e => e.op === 'merge');
+    expect(mergeEdge).toBeDefined();
+    // No merge evaluation should have been charged (continue before mEval)
+    // All evaluations belong to seed/parent/child phases, not the rejected merge
+    const mergeEvalCount = store.evaluations.filter(
+      ev => ev.candidate.id === mergeEdge?.childId,
+    ).length;
+    expect(mergeEvalCount).toBe(0);
+  }, 30_000);
+
+  /**
+   * Test B — merged genome passes (Branch 13 arm 0 + Branch 14 arm 1, lines 194-222).
+   *
+   * Same unique-merged-genome technique so mergeEvalCount only counts evaluations
+   * that specifically came from the merge path (not from parent seeds sharing an ID).
+   * validate always approves; the merged candidate proceeds to evaluation.
+   */
+  it('PKT-335-B: validate gate on merged candidate — ok=true proceeds to evaluation', async () => {
+    const train = [
+      { id: 't-b0', input: {}, target: [0.5, 0.5] },
+      { id: 't-b1', input: {}, target: [0.5, 0.5] },
+      { id: 't-b2', input: {}, target: [0.5, 0.5] },
+    ] as unknown as TaskInstance[];
+    const val = [{ id: 't-bv', input: {}, target: [0.5, 0.5] }] as unknown as TaskInstance[];
+
+    const g1 = makeTestGenome([0.0, 0.0]);
+    const g2 = makeTestGenome([1.0, 1.0]);
+    const genomeStore = new Map([[g1.id, g1], [g2.id, g2]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(g1.id, g1);
+    store.genomes.set(g2.id, g2);
+
+    // Unique merged genome — mergeEvalCount only counts merge-path evaluations
+    const mergedGenome = makeTestGenome([0.5, 0.5], "MERGE-B");
+    const proposer = new MockProposer(genomeStore);
+    (proposer as unknown as Record<string, unknown>).merge = async () => mergedGenome;
+
+    await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector: new MockReflector(),
+      proposer,
+      seedCandidates: [g1, g2],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 18,   // enough budget for merge eval
+      minibatchSize: 3,
+      rng: makeRng(7),
+      persist: store,
+      config: { ...DEFAULT_CONFIG, mergeProbability: 1.0 },
+      // P14-02 gate: always approve — merged candidate proceeds to evaluation
+      validate: (_g) => ({ ok: true }),
+    });
+
+    // A merge lineage edge should exist and have been evaluated
+    const mergeEdge = store.lineage.find(e => e.op === 'merge');
+    expect(mergeEdge).toBeDefined();
+    // The merged genome was evaluated (metric-call was charged, unlike the rejection path)
+    const mergeEvalCount = store.evaluations.filter(
+      ev => ev.candidate.id === mergeEdge?.childId,
+    ).length;
+    expect(mergeEvalCount).toBeGreaterThanOrEqual(1);
+  }, 30_000);
+});
+
 // ── PKT-294: cold-path coverage for seed-overflow · empty-archive · merge-catch ──
 
 describe("Engine cold paths — PKT-294", () => {
