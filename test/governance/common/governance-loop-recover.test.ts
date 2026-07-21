@@ -4,11 +4,13 @@
  * Covers `recoverFromDisk()` (L836-846) and `stop()` (L152) in
  * `src/alienclaw/governance/common/governance-loop.ts` (packet 225).
  *
- * Four arms of recoverFromDisk():
+ * Six arms of recoverFromDisk():
  *   Arm 1 — no activeGoalId          → early return, no userChannel call
  *   Arm 2 — activeGoalId set, goal missing → early return, no userChannel call
  *   Arm 3 — goal status 'complete'   → userChannel.required with completion message
  *   Arm 4 — goal status 'active'     → resumeGoal(goal.id) dispatched
+ *   Arm 5 — goal status 'pending'    → silent no-op (not resumed, no userChannel call)
+ *   Arm 6 — goal status 'failed'     → silent no-op (not resumed, no userChannel call)
  *
  * stop():
  *   Sets this.running = false.
@@ -69,7 +71,7 @@ function makeLoop(goalManager: GoalManager, userChannel?: UserChannel): Governan
 
 // ── recoverFromDisk() ─────────────────────────────────────────────────────────
 
-describe('GovernanceLoop.recoverFromDisk — crash recovery arms (packet 225)', () => {
+describe('GovernanceLoop.recoverFromDisk — crash recovery arms (packets 225, 346)', () => {
   it('Arm 1 — returns early with no userChannel call when activeGoalId is null', async () => {
     const goalManager = {
       load: () => ({ version: '1', activeGoalId: null, goals: [] }),
@@ -154,6 +156,56 @@ describe('GovernanceLoop.recoverFromDisk — crash recovery arms (packet 225)', 
     await (loop as any).recoverFromDisk();
 
     expect(resumedId).toBe('g2');
+  });
+
+  it('Arm 5 — silent no-op when goal status is pending (not resumed, no userChannel call)', async () => {
+    const goalManager = {
+      load: () => ({
+        version:      '1',
+        activeGoalId: 'g3',
+        goals: [{
+          id:          'g3',
+          description: 'Pending goal',
+          status:      'pending' as const,
+          subGoals:    [],
+        }],
+      }),
+    } as unknown as GoalManager;
+
+    const spy = { required: [] as string[] };
+    let resumedId = '';
+    const loop = makeLoop(goalManager, makeUserChannel(spy));
+    (loop as any).resumeGoal = async (id: string) => { resumedId = id; };
+
+    await (loop as any).recoverFromDisk();
+
+    expect(spy.required).toHaveLength(0);
+    expect(resumedId).toBe('');
+  });
+
+  it('Arm 6 — silent no-op when goal status is failed (not resumed, no userChannel call)', async () => {
+    const goalManager = {
+      load: () => ({
+        version:      '1',
+        activeGoalId: 'g4',
+        goals: [{
+          id:          'g4',
+          description: 'Failed goal',
+          status:      'failed' as const,
+          subGoals:    [],
+        }],
+      }),
+    } as unknown as GoalManager;
+
+    const spy = { required: [] as string[] };
+    let resumedId = '';
+    const loop = makeLoop(goalManager, makeUserChannel(spy));
+    (loop as any).resumeGoal = async (id: string) => { resumedId = id; };
+
+    await (loop as any).recoverFromDisk();
+
+    expect(spy.required).toHaveLength(0);
+    expect(resumedId).toBe('');
   });
 });
 
