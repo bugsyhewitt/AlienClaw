@@ -606,6 +606,58 @@ describe("Engine cold paths — PKT-335", () => {
   }, 30_000);
 });
 
+// ── PKT-341: cold-path coverage for mutation validate-pass arm ──
+
+describe("Engine cold paths — PKT-341", () => {
+  /**
+   * Test — mutation validate gate accept arm (L143 arm 1, false branch).
+   *
+   * cfg.validate always returns {ok: true}, so `if (!vr.ok)` evaluates false on
+   * every proposed child: it falls through to recordLineage (L155) AND proceeds
+   * to the metric eval at L165.  Budget: 2 seed + 2 parent + 2 child = 6 calls.
+   */
+  it("PKT-341: validate gate passes child — proceeds to lineage and metric call", async () => {
+    const tasks = makeSyntheticTasks(6) as TaskInstance[];
+    const { train, val } = partitionTrainVal(tasks, 0.3);
+    const seed = makeTestGenome([0.5, 0.5]);
+    const genomeStore = new Map([[seed.id, seed]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(seed.id, seed);
+
+    // Distinct child ID (MockProposer.applyMutation id-preserves via spread);
+    // override so child.id !== seed.id — uniquely identifies the child in assertions.
+    const childGenome = makeTestGenome([0.5, 0.5], "CHILD-341");
+    const proposer = new MockProposer(genomeStore);
+    (proposer as unknown as Record<string, unknown>).applyMutation = async () => childGenome;
+
+    let validateCalls = 0;
+    await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector: new MockReflector(),
+      proposer,
+      seedCandidates: [seed],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 6,   // 2 seed + 2 parent + 2 child — child eval is reached
+      minibatchSize: 2,
+      rng: makeRng(1),
+      persist: store,
+      config: DEFAULT_CONFIG,
+      validate: (_g) => { validateCalls++; return { ok: true as const }; },
+    });
+
+    // validate was called at least once (arm 1 of if (cfg.validate) entered)
+    expect(validateCalls).toBeGreaterThan(0);
+    // A child-lineage entry without INVALID lesson exists (arm 1 of if (!vr.ok) taken)
+    const passedChild = store.lineage.find(
+      e => e.op === "mutate" && e.reflection?.lesson !== undefined && !e.reflection.lesson.startsWith("INVALID"),
+    );
+    expect(passedChild).toBeDefined();
+    // Passed child was metric-evaluated — validate-pass path reaches L165, not just recordLineage
+    expect(store.evaluations.some(ev => ev.candidate.id === childGenome.id)).toBe(true);
+  }, 30_000);
+});
+
 // ── PKT-294: cold-path coverage for seed-overflow · empty-archive · merge-catch ──
 
 describe("Engine cold paths — PKT-294", () => {
