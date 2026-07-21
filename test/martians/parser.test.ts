@@ -486,6 +486,27 @@ slots:
     const spec = parseMartian(md);
     expect(spec.slots[0]!.inputsFrom!.fields).toHaveProperty('a"b: c', 'source_field');
   });
+
+  it('_findKeyColon: backslash inside single-quoted key is literal, not escape (L210 arm=2)', () => {
+    // YAML single-quoted strings treat '\' as literal — not an escape character.
+    // Buggy code: '\' before the closing "'" causes _findKeyColon to skip that
+    // closing quote, leaving inSingle=true when ':' is reached, so it returns -1
+    // and parseMartian throws "expected 'key: value' mapping entry".
+    // Fixed code (inDouble only): '\' inside single-quoted string is not an escape;
+    // _findKeyColon correctly closes the quoted string at the "'" and returns the
+    // colon position, so parseMartian parses the key as the literal string a\.
+    const md = [
+      'martian_type: test',
+      'slots:',
+      '  - slot_index: 0',
+      '    tool_name: test_tool',
+      '    inputs_from:',
+      '      fields:',
+      "        'a\\': source_field",
+    ].join('\n');
+    const spec = parseMartian(md);
+    expect(spec.slots[0]!.inputsFrom!.fields).toHaveProperty('a\\', 'source_field');
+  });
 });
 
 // ── describe: MartianParseError ────────────────────────────────────────
