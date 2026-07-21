@@ -1,10 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { apiError } from '../../src/alienclaw/api/types.js';
 import { handleHealth } from '../../src/alienclaw/api/handlers/health.js';
 import { handleInstall } from '../../src/alienclaw/api/handlers/install.js';
 import { handleStats } from '../../src/alienclaw/api/handlers/stats.js';
 import { handleMartianTypes } from '../../src/alienclaw/api/handlers/martian-types.js';
 import type { InstallStore, SubmissionStore, GlobalStats } from '../../src/alienclaw/api/storage.js';
+
+vi.mock('../../src/alienclaw/telemetry/telemetry-reader.js', () => ({
+  aggregateOnlineFitness: vi.fn().mockResolvedValue({ count: 0, mean_fitness: 0 }),
+}));
 
 // ── apiError ────────────────────────────────────────────────────────────────
 
