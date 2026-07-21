@@ -13,7 +13,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir }              from 'node:os';
+import { tmpdir, homedir }     from 'node:os';
 import path                    from 'node:path';
 
 import { GovernanceLoop }     from '../../src/alienclaw/governance/common/governance-loop.js';
@@ -208,5 +208,13 @@ describe('OnlineFitnessLog.clear()', () => {
     const freshLog = new OnlineFitnessLog(path.join(tmpDir, 'never_written.jsonl'));
     expect(() => freshLog.clear()).not.toThrow();
     expect(freshLog.read()).toHaveLength(0);
+  });
+
+  it('no-arg constructor uses DEFAULT_PATH (homedir fallback arm)', () => {
+    const log = new OnlineFitnessLog();
+    const expected = path.join(homedir(), '.alienclaw', 'online_fitness.jsonl');
+    expect((log as any)._path).toBe(expected);
+    // read() returns [] when file absent; array assertion covers CI and dev
+    expect(log.read()).toBeInstanceOf(Array);
   });
 });
