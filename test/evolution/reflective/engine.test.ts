@@ -523,9 +523,6 @@ describe("Engine cold paths — PKT-335", () => {
     // Override merge to return the uniquely-IDed genome so assertions are unambiguous
     (proposer as unknown as Record<string, unknown>).merge = async () => mergedGenome;
 
-    // Track merge eval calls to verify no metric call is charged on rejected merge
-    const evalsBefore = store.evaluations.length;
-
     await runReflectiveEvolution({
       adapter: new MockGenomeAdapter(),
       reflector: new MockReflector(),
