@@ -274,6 +274,11 @@ describe('HermesToolResolver.web_search — Hermes dispatch', () => {
     await expect(websearch()({})).rejects.toThrow(/non-empty "query"/);
   });
 
+  it('rejects an empty-string query (covers query.length===0 arm)', async () => {
+    process.env['ALIENCLAW_HERMES_PYTHON'] = makeShim('{"results":[]}');
+    await expect(websearch()({ query: '' })).rejects.toThrow(/non-empty "query"/);
+  });
+
   it('returns the parsed JSON result from Hermes', async () => {
     process.env['ALIENCLAW_HERMES_PYTHON'] = makeShim('{"results":["a","b"]}');
     await expect(websearch()({ query: 'openclaw' })).resolves.toEqual({ results: ['a', 'b'] });
