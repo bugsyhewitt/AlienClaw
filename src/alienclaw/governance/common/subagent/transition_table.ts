@@ -180,6 +180,7 @@ function parseConditionGroup(whenText: string): ConditionGroup {
 
 function _parseTableYaml(text: string): TransitionTable | null {
   const ttStart = text.indexOf('transition_table:');
+  /* v8 ignore next — caller (parseTransitionTable L31) pre-guards for 'transition_table:'; ttStart is always ≥ 0 */
   if (ttStart === -1) return null;
 
   // Determine the indent of the transition_table: line, so children must be deeper
