@@ -78,6 +78,22 @@ describe('generateShadowReport', () => {
     expect(out).toMatch(/[▁▂▃▄▅▆▇█]/u);
   });
 
+  it('sparklineAscii: uniform frontier (all same correctness) applies || 1 fallback — no NaN', () => {
+    // min === max === 0.75, so max-min = 0; the || 1 guard fires → range = 1
+    const uniformEntry = (id: string) => ({
+      genomeId: id,
+      perInstance: new Map(),
+      aggregate: { correctness: 0.75, efficiency: 0.5, costInv: 0.5, latencyInv: 0.5, confidence: 0.8 },
+      legacyScalar: 0,
+    });
+    const frontier = [uniformEntry('g1'), uniformEntry('g2'), uniformEntry('g3')];
+    const out = generateShadowReport(makeRun({ frontier }), '2026-07-21');
+    // sparkline ran without NaN — all buckets are 0 (v === min), all chars are ▁
+    expect(out).not.toContain('no data');
+    expect(out).not.toContain('NaN');
+    expect(out).toMatch(/[▁▂▃▄▅▆▇█]/u);
+  });
+
   it('evalCountDelta ≤ 0 renders without leading plus sign', () => {
     const out = generateShadowReport(makeRun({ evalCountDelta: -5 }), '2026-07-19');
     // sign ternary on line 30 picks "" (no "+"); -5 appears literally
