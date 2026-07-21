@@ -347,6 +347,25 @@ describe('fileWriteAdapter (refuse-overwrite, atomic wx)', () => {
     };
     expect(out.sizeBytes).toBe(Buffer.byteLength(content, 'utf-8'));
   });
+
+  it('throws EISDIR when path is absent (empty-string rawPath resolves to OUTPUT_DIR)', async () => {
+    // bid=68 arm=1: input['path'] undefined → rawPath='' → boundary allows it → EISDIR on write
+    await expect(
+      fileWrite({ content: 'no-path-provided' }),
+    ).rejects.toThrow();
+  });
+
+  it('serialises null content to JSON empty-string literal before writing', async () => {
+    // bid=70 arm=1: content null in else branch → JSON.stringify(null ?? '') = '""'
+    const out = (await fileWrite({ path: 'null-content.json', content: null })) as {
+      created: boolean;
+      sizeBytes: number;
+    };
+    expect(out.created).toBe(true);
+    const onDisk = readFileSync(path.join(PATHS.output, 'null-content.json'), 'utf-8');
+    expect(onDisk).toBe('""');
+    expect(out.sizeBytes).toBe(2);
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────
