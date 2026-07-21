@@ -486,6 +486,27 @@ slots:
     const spec = parseMartian(md);
     expect(spec.slots[0]!.inputsFrom!.fields).toHaveProperty('a"b: c', 'source_field');
   });
+
+  it('_findKeyColon: backslash outside any quoted string is treated as a literal character (L209 bid=43 arm=2)', () => {
+    // A use_cases sequence item containing an unquoted Windows-style path.
+    // When _findKeyColon scans the scalar value 'C:\Users\test', it hits
+    // '\' at position 2 while inDouble=false and inSingle=false — the arm
+    // where (inDouble || inSingle) evaluates to false. The backslash is NOT
+    // skipped (no i++), it falls through as a literal character. The ':' at
+    // position 1 has '\' as its next character (not ' '), so it is not
+    // treated as a key-colon separator either. _findKeyColon returns -1 and
+    // _parseSequence pushes the whole string as a plain scalar.
+    const md = [
+      'martian_type: x',
+      'use_cases:',
+      '  - C:\\Users\\test',
+      'slots:',
+      '  - slot_index: 0',
+      '    tool_name: t',
+    ].join('\n');
+    const spec = parseMartian(md);
+    expect(spec.useCases).toEqual(['C:\\Users\\test']);
+  });
 });
 
 // ── describe: MartianParseError ────────────────────────────────────────
