@@ -314,6 +314,17 @@ describe("partitionTrainVal", () => {
       expect(trainIds.has(id)).toBe(false);
     }
   });
+
+  it("clamps valCount to 1 when round(n * valFraction) < 1", () => {
+    // n=2, frac=0.1 → round(0.2)=0 → Math.max(1,0)=1 → exactly 1 val item, 1 train item
+    const tasks: TaskInstance[] = [
+      { id: "t0", input: 0 },
+      { id: "t1", input: 1 },
+    ] as unknown as TaskInstance[];
+    const { val, train } = partitionTrainVal(tasks, 0.1);
+    expect(val).toHaveLength(1);    // clamp fires: val gets 1 item, not 0
+    expect(train).toHaveLength(1);  // remaining 1 item goes to train
+  });
 });
 
 // ── PKT-271: cold-path coverage for child-accept, merge, validate-gate, parse_failure ──
