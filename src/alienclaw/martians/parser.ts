@@ -207,7 +207,7 @@ function _findKeyColon(text: string): number {
   let inSingle = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i]!;
-    if (c === '\\' && (inDouble || inSingle)) { i++; continue; }
+    if (c === '\\' && inDouble) { i++; continue; }
     if (c === '"' && !inSingle) inDouble = !inDouble;
     else if (c === "'" && !inDouble) inSingle = !inSingle;
     else if (c === ':' && !inDouble && !inSingle) {
