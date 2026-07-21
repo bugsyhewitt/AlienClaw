@@ -321,6 +321,27 @@ describe('decide() — uncovered evalCondition branches', () => {
     expect(a.kind).toBe('Fail');
     if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
   });
+
+  it('output_field_present: absent field returns false → no matching transition', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: { s: { name: 's', martian_type: 'x', inputs: {}, transitions: [
+        {
+          when: { kind: 'all', conditions: [{ kind: 'output_field_present', field: 'missing_key' }] },
+          goto: 'FINALIZE',
+        },
+      ] } },
+    };
+    // output only contains 'result', not 'missing_key'
+    const a = decide({
+      current_state: 's',
+      last_result: makeResult({ output: { result: 42 } }),
+      table,
+      history: [],
+    });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
 });
 
 describe('decide() — purity', () => {
