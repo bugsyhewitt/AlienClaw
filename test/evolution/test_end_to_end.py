@@ -69,7 +69,10 @@ def test_evolution_with_real_bridge():
     # Snapshot has the right shape
     snap = pop.snapshot()
     assert snap["martian_type"] == "compute"
-    assert snap["top_fitness"] >= 0.9  # compute should give fitness=1.0
+    # Correctness is graded by output-contract conformance now, so top_fitness is
+    # graded-correctness × efficiency (max 1.0 only for a fully-conformant, efficient
+    # genome). A strong genome still emerges — assert a meaningfully high top fitness.
+    assert snap["top_fitness"] > 0.5
 
 
 @pytest.mark.timeout(30)
