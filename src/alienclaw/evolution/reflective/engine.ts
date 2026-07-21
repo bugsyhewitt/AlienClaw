@@ -203,6 +203,11 @@ export async function runReflectiveEvolution(cfg: EngineConfig): Promise<Evoluti
             continue; // no metric-call charged
           }
         }
+        await cfg.persist.recordLineage({
+          parentId: pair[0].genomeId,
+          childId: merged.id,
+          op: "merge",
+        });
         if (state.metricCallsUsed + batch.length <= cfg.maxMetricCalls) {
           const mEval = await cfg.adapter.evaluate(merged, batch, {
             seed: nextSeed(cfg.rng),
@@ -215,11 +220,6 @@ export async function runReflectiveEvolution(cfg: EngineConfig): Promise<Evoluti
             await cfg.persist.snapshotFrontier(archive.frontier(), state.generation++);
             log(`re.merge.accepted merged=${merged.id.slice(0, 8)}`);
           }
-          await cfg.persist.recordLineage({
-            parentId: pair[0].genomeId,
-            childId: merged.id,
-            op: "merge",
-          });
         }
       }
     }
