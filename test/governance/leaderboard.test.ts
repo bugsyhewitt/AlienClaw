@@ -384,6 +384,25 @@ describe('leaderboardCheck', () => {
       hardenedFetch('https://example.com')
     ).rejects.toThrow('No response body');
   });
+
+  it('aborts the fetch after timeoutMs and rejects with AbortError (leaderboard.ts:L82)', async () => {
+    vi.useFakeTimers();
+    const abortMockFetch = vi.fn().mockImplementation(
+      (_url: string, opts?: RequestInit) =>
+        new Promise<never>((_resolve, reject) => {
+          opts?.signal?.addEventListener('abort', () => {
+            reject(Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' }));
+          });
+        })
+    );
+    vi.stubGlobal('fetch', abortMockFetch);
+
+    const promise = hardenedFetch('https://example.com', { timeoutMs: 100 });
+    const assertion = expect(promise).rejects.toThrow(/aborted/i);
+    await vi.advanceTimersByTimeAsync(200);
+    await assertion;
+    vi.useRealTimers();
+  });
 });
 
 // ── submitFromFile ──────────────────────────────────────────────────────────
