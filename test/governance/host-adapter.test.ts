@@ -103,6 +103,9 @@ describe('HermesHostAdapter — functional host', () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'config.yaml'), `model: ${modelLine}\nmax_turns: 90\n`);
   };
+  const writeRootModel = (modelLine: string) => {
+    writeFileSync(join(hermesHome, 'config.yaml'), `model: ${modelLine}\nmax_turns: 90\n`);
+  };
   afterEach(() => {
     delete process.env['HERMES_HOME'];
     if (hermesHome) rmSync(hermesHome, { recursive: true, force: true });
@@ -205,6 +208,22 @@ describe('HermesHostAdapter — functional host', () => {
     writeProfileModel('bossbot', '""');  // model: "" → m[1]='""' → strip quotes → v='' → return undefined
     const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
     expect(out).toMatch(/^MOCK\[anthropic\//);  // undefined → skip → default provider
+  });
+
+  it('llm falls back to root config.yaml when profile config is absent', async () => {
+    useTmpHermesHome();
+    writeRootModel('openrouter/pareto-code');
+    // No profile config written — first iteration skips, root config fires
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toBe('MOCK[openrouter/pareto-code]');
+  });
+
+  it('llm cascades to root config.yaml when profile config has unsupported provider', async () => {
+    useTmpHermesHome();
+    writeProfileModel('bossbot', 'nous/some-model');    // unsupported → continue
+    writeRootModel('openrouter/pareto-code');            // supported → use
+    const out = await new HermesHostAdapter().llm().complete('BossBot', 'sys', 'user');
+    expect(out).toBe('MOCK[openrouter/pareto-code]');
   });
 });
 
