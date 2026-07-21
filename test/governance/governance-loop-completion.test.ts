@@ -385,6 +385,29 @@ describe('GovernanceLoop.runCompletionFlow — completion review gap path (packe
       expect.stringContaining('CreatorBot notable items'),
     );
   });
+
+  it('PKT-345: passes Math.min of recorded fitness scores to completionHandler.review', async () => {
+    const goalId = 'goal-fitness-test';
+    const goal   = makeGoalWithCampaigns(goalId, [makeCampaign('camp-1', 'complete')]);
+    const deps = makeCompleteDeps({
+      goal,
+      review: { proceed: true },
+      schemeComplete: true,
+    });
+
+    const loop = new GovernanceLoop(deps);
+
+    // Pre-populate fitness scores as spawnCampaign.onSuccess would do in production
+    (loop as any).goalMinFitness.set(goalId, [0.9, 0.7, 0.85]);
+
+    await runCompletion(loop, goalId);
+
+    // Truthy arm (L713): review() must receive Math.min(0.9, 0.7, 0.85) = 0.7
+    expect((deps.completionHandler as any).review).toHaveBeenCalledWith(goalId, expect.closeTo(0.7));
+
+    // Map entry must be cleaned up at L714 (goalMinFitness.delete(goalId))
+    expect((loop as any).goalMinFitness.has(goalId)).toBe(false);
+  });
 });
 
 describe('GovernanceLoop.runCompletionFlow — signoff.approved=false path (packet 211)', () => {
