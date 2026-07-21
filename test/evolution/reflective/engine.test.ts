@@ -658,6 +658,59 @@ describe("Engine cold paths — PKT-341", () => {
   }, 30_000);
 });
 
+// ── PKT-353: merge lineage recorded even when budget exhausted before merge-eval ──
+
+describe("Engine cold paths — PKT-353", () => {
+  /**
+   * Budget: 12 = 2 seeds×3 + 1 parent-eval×3 + 1 child-eval×3.
+   * After child-eval metricCallsUsed=12; merge budget check: 12+3≤12 → FALSE.
+   * Pre-fix: recordLineage is inside the block → silently skipped.
+   * Post-fix: recordLineage is before the block → always recorded.
+   */
+  it('PKT-353: merge lineage recorded even when budget exhausted before merge-eval', async () => {
+    const train = [
+      { id: 't-353-0', input: {}, target: [0.5, 0.5] },
+      { id: 't-353-1', input: {}, target: [0.5, 0.5] },
+      { id: 't-353-2', input: {}, target: [0.5, 0.5] },
+    ] as unknown as TaskInstance[];
+    const val = [{ id: 't-353-v', input: {}, target: [0.5, 0.5] }] as unknown as TaskInstance[];
+
+    const g1 = makeTestGenome([0.0, 0.0]);
+    const g2 = makeTestGenome([1.0, 1.0]);
+    const genomeStore = new Map([[g1.id, g1], [g2.id, g2]]);
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(g1.id, g1);
+    store.genomes.set(g2.id, g2);
+
+    const mergedGenome = makeTestGenome([0.5, 0.5], "MERGE-353");
+    const proposer = new MockProposer(genomeStore);
+    (proposer as unknown as Record<string, unknown>).merge = async () => mergedGenome;
+
+    await runReflectiveEvolution({
+      adapter: new MockGenomeAdapter(),
+      reflector: new MockReflector(),
+      proposer,
+      seedCandidates: [g1, g2],
+      trainset: train,
+      valset: val,
+      maxMetricCalls: 12,  // 3+3 seed + 3 parent-eval + 3 child-eval = 12; merge-eval needs +3 → exhausted
+      minibatchSize: 3,
+      rng: makeRng(7),
+      persist: store,
+      config: { ...DEFAULT_CONFIG, mergeProbability: 1.0 },
+    });
+
+    // PKT-353: merge lineage must be recorded even though budget was exhausted before merge-eval
+    const mergeEdge = store.lineage.find(e => e.op === 'merge');
+    expect(mergeEdge).toBeDefined();  // FAILS before fix, passes after
+    // The merged genome was NOT evaluated (budget was exhausted before merge-eval)
+    const mergeEvalCount = store.evaluations.filter(
+      ev => ev.candidate.id === mergedGenome.id,
+    ).length;
+    expect(mergeEvalCount).toBe(0);
+  }, 30_000);
+});
+
 // ── PKT-294: cold-path coverage for seed-overflow · empty-archive · merge-catch ──
 
 describe("Engine cold paths — PKT-294", () => {
