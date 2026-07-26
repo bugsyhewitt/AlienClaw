@@ -28,10 +28,9 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         flavor = "literal"
     case_sensitive = bool(inputs.get("case_sensitive", False))
     max_results = max(1, int(params.get("max_results", 100)))
-    # MSB PARAMETER_SCHEMA: context_lines|xcode_index=3|min=1|max=10|default=1|none
-    # MSB VARIABLES: contextLines: Number of context lines around each match.
-    # N=1 means 1 context line on each side of the match.
-    context_lines = max(1, min(10, int(params.get("context_lines", 1))))
+    # MSB PARAMETER_SCHEMA: context_lines|xcode_index=3|min=1|max=10|col5=1|none
+    # MSB VARIABLES default=2; tool defaults follow VARIABLES, not PARAMETER_SCHEMA col5 (see max_results).
+    context_lines = max(1, min(10, int(params.get("context_lines", 2))))
     flags = 0 if case_sensitive else re.IGNORECASE
     try:
         if flavor == "literal":
