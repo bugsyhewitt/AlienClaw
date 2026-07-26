@@ -258,7 +258,7 @@ def _handle_live_evo(request_id: str | None, req: dict, t0: float) -> dict:
     from alienclaw.evolution.live_evo import check_and_evolve, LIVE_EVO_THRESHOLD
 
     martian_type = req.get("martian_type")
-    if not martian_type:
+    if not martian_type or not isinstance(martian_type, str):
         return _error_response(
             request_id, "MALFORMED_REQUEST",
             "Missing field: martian_type",
