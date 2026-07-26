@@ -127,3 +127,41 @@ class TestOutputContract:
         r = run({"path": target, "content": "round-trip"})
         assert r.ok is True
         assert r.output["path"] == target
+
+
+class TestAtomicWrite:
+    """MSB LIMITATIONS: file_write is atomic — no partial writes on interruption."""
+
+    def test_target_intact_on_simulated_crash(self, tmp_path, monkeypatch):
+        """A mid-write failure must leave the target file absent or unchanged."""
+        from pathlib import Path
+        target = tmp_path / "atomic.txt"
+        original_write_text = Path.write_text
+
+        def crashy_write(self, content, **kwargs):
+            with open(self, "w") as f:
+                f.write("partial - ")
+                f.flush()
+            raise OSError("Simulated crash mid-write")
+
+        monkeypatch.setattr(Path, "write_text", crashy_write)
+        r = run({"path": str(target), "content": "full content"})
+        assert r.ok is False
+        # Target was absent before write; must remain absent after failure.
+        assert not target.exists(), f"target corrupted: {target.read_text()!r}"
+
+    def test_no_tmp_sibling_left_behind(self, tmp_path):
+        """After a successful write, no .tmp-* sibling files should remain."""
+        target = tmp_path / "no_tmp.txt"
+        r = run({"path": str(target), "content": "hello"})
+        assert r.ok is True
+        siblings = list(tmp_path.iterdir())
+        assert siblings == [target]
+
+    def test_overwrite_atomic(self, tmp_path):
+        """An overwrite must succeed and replace the old content."""
+        target = tmp_path / "overwrite.txt"
+        target.write_text("OLD CONTENT - " * 1000, encoding="utf-8")
+        r = run({"path": str(target), "content": "NEW"})
+        assert r.ok is True
+        assert target.read_text() == "NEW\n"
