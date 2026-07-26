@@ -27,7 +27,10 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         max_results = max(1, min(int(params.get("max_results", 5)), 10))
     except (ValueError, TypeError):
         return RunResult(ok=False, error="Invalid param 'max_results': must be integer", correctness=0.0)
-    num_results = max(1, min(int(inputs.get("num_results", max_results)), max_results))
+    try:
+        num_results = max(1, min(int(inputs.get("num_results", max_results)), max_results))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid input 'num_results': must be integer", correctness=0.0)
     # page_count: fetch N pages of results (pagination); tool_calls=N
     try:
         page_count = max(1, min(3, int(params.get("page_count", 1))))

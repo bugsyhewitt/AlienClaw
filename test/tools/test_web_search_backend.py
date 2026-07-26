@@ -124,3 +124,8 @@ class TestInvalidParamTypes:
         r = web_search_run({"query": "test"}, {"page_count": "abc"})
         assert r.ok is False
         assert r.correctness == 0.0
+
+    def test_non_int_num_results_input_returns_failure(self):
+        r = web_search_run({"query": "test", "num_results": "abc"}, {})
+        assert r.ok is False
+        assert r.correctness == 0.0
