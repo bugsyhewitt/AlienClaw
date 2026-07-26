@@ -187,13 +187,14 @@ class TestBodySizeLimit:
 
 
 class TestContextLines:
-    def test_omitted_context_lines_uses_msb_default_three(self):
-        """MSB PARAMETER_SCHEMA: context_lines|3|1|10|1|none. Default = 3.
-        Omitting the param must yield 3 context lines on each side."""
+    def test_omitted_context_lines_uses_msb_default_one(self):
+        """MSB PARAMETER_SCHEMA: context_lines|xcode_index=3|min=1|max=10|default=1.
+        Column 5 is the default (1), not column 2 (xcode_index=3).
+        Omitting the param must yield 1 context line on each side."""
         r = run({"text": "a\nb\nc\nfoo\nd\ne\nf", "pattern": "foo"})
         match = r.output["matches"][0]
-        assert match["contextBefore"] == ["a", "b", "c"]
-        assert match["contextAfter"] == ["d", "e", "f"]
+        assert match["contextBefore"] == ["c"]
+        assert match["contextAfter"] == ["d"]
 
     def test_context_lines_one_yields_one_surrounding_line(self):
         """context_lines=1 produces 1 context line on each side (per MSB

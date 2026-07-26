@@ -28,10 +28,10 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         flavor = "literal"
     case_sensitive = bool(inputs.get("case_sensitive", False))
     max_results = max(1, int(params.get("max_results", 100)))
-    # MSB PARAMETER_SCHEMA: context_lines|3|1|10|1|none  (default=3, min=1, max=10)
+    # MSB PARAMETER_SCHEMA: context_lines|xcode_index=3|min=1|max=10|default=1|none
     # MSB VARIABLES: contextLines: Number of context lines around each match.
-    # N=3 means 3 context lines on each side of the match.
-    context_lines = max(1, min(10, int(params.get("context_lines", 3))))
+    # N=1 means 1 context line on each side of the match.
+    context_lines = max(1, min(10, int(params.get("context_lines", 1))))
     flags = 0 if case_sensitive else re.IGNORECASE
     try:
         if flavor == "literal":
