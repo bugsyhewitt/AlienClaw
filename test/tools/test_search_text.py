@@ -187,18 +187,38 @@ class TestBodySizeLimit:
 
 
 class TestContextLines:
-    def test_context_lines_zero_omits_fields(self):
-        # context_lines=1 maps to 0 surrounding lines (per existing param semantics).
+    def test_omitted_context_lines_uses_msb_default_three(self):
+        """MSB PARAMETER_SCHEMA: context_lines|3|1|10|1|none. Default = 3.
+        Omitting the param must yield 3 context lines on each side."""
+        r = run({"text": "a\nb\nc\nfoo\nd\ne\nf", "pattern": "foo"})
+        match = r.output["matches"][0]
+        assert match["contextBefore"] == ["a", "b", "c"]
+        assert match["contextAfter"] == ["d", "e", "f"]
+
+    def test_context_lines_one_yields_one_surrounding_line(self):
+        """context_lines=1 produces 1 context line on each side (per MSB
+        semantics: N means N context lines)."""
         r = run({"text": "a\nfoo\nb", "pattern": "foo"}, {"context_lines": 1})
         match = r.output["matches"][0]
-        assert "contextBefore" not in match
-        assert "contextAfter" not in match
+        assert match["contextBefore"] == ["a"]
+        assert match["contextAfter"] == ["b"]
 
-    def test_context_lines_two_includes_surrounding(self):
+    def test_context_lines_three_yields_three_surrounding_lines(self):
+        """context_lines=3 produces 3 context lines on each side (per MSB).
+        The old test asserted 2 lines here — that test enshrined the off-by-one."""
         r = run(
-            {"text": "a\nb\nfoo\nc\nd", "pattern": "foo"},
+            {"text": "a\nb\nc\nfoo\nd\ne\nf", "pattern": "foo"},
             {"context_lines": 3},
         )
         match = r.output["matches"][0]
-        assert match["contextBefore"] == ["a", "b"]
-        assert match["contextAfter"] == ["c", "d"]
+        assert match["contextBefore"] == ["a", "b", "c"]
+        assert match["contextAfter"] == ["d", "e", "f"]
+
+    def test_context_lines_max_ten_is_respected(self):
+        """context_lines=10 (MSB max) caps at 10 lines on each side."""
+        text = "\n".join([f"line{i}" for i in range(20)]) + "\nFOO\n" + \
+               "\n".join([f"line{i}" for i in range(20, 40)])
+        r = run({"text": text, "pattern": "FOO"}, {"context_lines": 10})
+        match = r.output["matches"][0]
+        assert len(match["contextBefore"]) == 10
+        assert len(match["contextAfter"]) == 10
