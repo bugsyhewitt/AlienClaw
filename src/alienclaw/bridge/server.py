@@ -267,7 +267,7 @@ def _handle_live_evo(request_id: str | None, req: dict, t0: float) -> dict:
     _raw_threshold = req.get("threshold", LIVE_EVO_THRESHOLD)
     try:
         threshold = int(_raw_threshold)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return _error_response(
             request_id, "MALFORMED_REQUEST",
             f"threshold must be an integer (got {type(_raw_threshold).__name__}: {_raw_threshold!r})",
