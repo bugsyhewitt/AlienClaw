@@ -301,6 +301,59 @@ class TestLiveEvoHandler:
         assert err["code"] == "INTERNAL"
         assert "disk full" in err["details"]["exception"]
 
+    def test_threshold_string_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": "abc"})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+        assert err["details"]["field"] == "threshold"
+        assert err["details"]["received"] == "abc"
+
+    def test_threshold_none_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": None})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_threshold_list_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": [1, 2]})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_threshold_dict_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": {"x": 1}})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_threshold_int_forwarded_to_check_and_evolve(self, monkeypatch) -> None:
+        """The int threshold the caller provides must reach check_and_evolve verbatim."""
+        import alienclaw.evolution.live_evo as le_mod
+        captured: dict = {}
+
+        def capture(mt, th, **kw):
+            captured["threshold"] = th
+            return None
+
+        monkeypatch.setattr(le_mod, "check_and_evolve", capture)
+        self._live_evo({"martian_type": "compute", "threshold": 7})
+        assert captured["threshold"] == 7
+
+    def test_threshold_default_used_when_missing(self, monkeypatch) -> None:
+        """When threshold is absent, the LIVE_EVO_THRESHOLD default is used."""
+        from alienclaw.evolution.live_evo import LIVE_EVO_THRESHOLD
+        import alienclaw.evolution.live_evo as le_mod
+        captured: dict = {}
+
+        def capture(mt, th, **kw):
+            captured["threshold"] = th
+            return None
+
+        monkeypatch.setattr(le_mod, "check_and_evolve", capture)
+        self._live_evo({"martian_type": "compute"})
+        assert captured["threshold"] == LIVE_EVO_THRESHOLD
+
 
 class TestSummonFromPopulationShape:
     @staticmethod
