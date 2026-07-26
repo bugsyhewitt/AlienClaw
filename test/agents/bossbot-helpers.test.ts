@@ -194,6 +194,68 @@ describe('parseSchemeDraft (agents/bossbot.ts:54)', () => {
     const out = parseSchemeDraft('g', raw);
     expect(out.rationale).toBe('');
   });
+
+  it('defaults non-array martianTags (string) to []', () => {
+    const raw = JSON.stringify({
+      rationale: '',
+      campaigns: [{ name: 'c1', objective: 'o', dependsOn: [],
+        subagents: [{ role: 'r', domain: 'd', martianTags: 'web_search' }] }],
+    });
+    const out = parseSchemeDraft('g', raw);
+    expect(out.campaigns[0]!.subagents[0]!.martianTags).toEqual([]);
+  });
+
+  it('defaults non-array martianTags (number) to []', () => {
+    const raw = JSON.stringify({
+      rationale: '',
+      campaigns: [{ name: 'c1', objective: 'o', dependsOn: [],
+        subagents: [{ role: 'r', domain: 'd', martianTags: 42 }] }],
+    });
+    const out = parseSchemeDraft('g', raw);
+    expect(out.campaigns[0]!.subagents[0]!.martianTags).toEqual([]);
+  });
+
+  it('defaults non-array martianTags (object) to []', () => {
+    const raw = JSON.stringify({
+      rationale: '',
+      campaigns: [{ name: 'c1', objective: 'o', dependsOn: [],
+        subagents: [{ role: 'r', domain: 'd', martianTags: { nested: 1 } }] }],
+    });
+    const out = parseSchemeDraft('g', raw);
+    expect(out.campaigns[0]!.subagents[0]!.martianTags).toEqual([]);
+  });
+
+  it('defaults non-array martianTags (boolean) to []', () => {
+    const raw = JSON.stringify({
+      rationale: '',
+      campaigns: [{ name: 'c1', objective: 'o', dependsOn: [],
+        subagents: [{ role: 'r', domain: 'd', martianTags: true }] }],
+    });
+    const out = parseSchemeDraft('g', raw);
+    expect(out.campaigns[0]!.subagents[0]!.martianTags).toEqual([]);
+  });
+
+  it('filters non-string elements from typed array martianTags', () => {
+    const raw = JSON.stringify({
+      rationale: '',
+      campaigns: [{ name: 'c1', objective: 'o', dependsOn: [],
+        subagents: [{ role: 'r', domain: 'd', martianTags: [42, 'web_search'] }] }],
+    });
+    const out = parseSchemeDraft('g', raw);
+    expect(out.campaigns[0]!.subagents[0]!.martianTags).toEqual(['web_search']);
+  });
+
+  it('downstream indexing is safe: martianTags[0] is string or undefined, never a char', () => {
+    const raw = JSON.stringify({
+      rationale: '',
+      campaigns: [{ name: 'c1', objective: 'o', dependsOn: [],
+        subagents: [{ role: 'r', domain: 'd', martianTags: 'web_search' }] }],
+    });
+    const out = parseSchemeDraft('g', raw);
+    const first = out.campaigns[0]!.subagents[0]!.martianTags[0];
+    // After fix: martianTags is [] so first is undefined, not 'w'
+    expect(first).toBeUndefined();
+  });
 });
 
 // ── PKT-667: parseSchemeDraft cycle detection ─────────────────────────────────
