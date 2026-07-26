@@ -153,3 +153,126 @@ describe('normalizeInput', () => {
   });
 });
 
+// ──────────────────────────────────────────────────────────────────────────
+// parseModelJson — PKT-368
+// ──────────────────────────────────────────────────────────────────────────
+
+import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { parseModelJson, atomicWrite, dateStamp, LEADERBOARD_NAME_RE } from '../src/alienclaw/utils.js';
+
+describe('parseModelJson — direct coverage (utils.ts:57)', () => {
+  it('fence strip: ```json\\n{}\\n``` → JSON.parse succeeds onJson called with clean', () => {
+    const seen: string[] = [];
+    const out = parseModelJson('```json\n{"x":1}\n```', (parsed, clean) => { seen.push(clean); return parsed; }, () => 'fb');
+    expect(seen[0]).toBe('{"x":1}');
+    expect(out).toEqual({ x: 1 });
+  });
+
+  it('fence strip: bare ```\\n{}``` (no language tag) → JSON.parse succeeds', () => {
+    const out = parseModelJson('```\n{"x":2}\n```', (parsed) => parsed, () => 'fb');
+    expect(out).toEqual({ x: 2 });
+  });
+
+  it('onJson throws → onText called with clean (NOT raw) — distinct from JSON.parse failure', () => {
+    const out = parseModelJson('{"description":"x"}', (parsed) => {
+      if (!Array.isArray(parsed)) throw new TypeError('expected array');
+      return parsed;
+    }, (clean) => 'FELL_BACK:' + clean);
+    expect(out).toBe('FELL_BACK:{"description":"x"}');
+  });
+
+  it('JSON.parse throws → onText called with clean', () => {
+    const out = parseModelJson('not json at all', () => { throw new Error('should not run'); }, (clean) => 'FB:' + clean);
+    expect(out).toBe('FB:not json at all');
+  });
+
+  it('JSON.parse throws → onText receives FENCE-STRIPPED clean (not raw)', () => {
+    const out = parseModelJson('```json\nnot json\n```', () => 'never', (clean) => 'FB:' + clean);
+    expect(out).toBe('FB:not json');
+  });
+
+  it('empty string → JSON.parse fails → onText("")', () => {
+    const out = parseModelJson('', () => 'never', (clean) => 'FB:' + JSON.stringify(clean));
+    expect(out).toBe('FB:""');
+  });
+
+  it('whitespace-only string → JSON.parse fails → onText("")', () => {
+    const out = parseModelJson('   \n\t  ', () => 'never', (clean) => 'FB:' + JSON.stringify(clean));
+    expect(out).toBe('FB:""');
+  });
+
+  it('primitive JSON values (string, number, bool, null) → mapper receives parsed value', () => {
+    expect(parseModelJson('"hello"', (p) => p, () => 'fb')).toBe('hello');
+    expect(parseModelJson('42',     (p) => p, () => 'fb')).toBe(42);
+    expect(parseModelJson('true',   (p) => p, () => 'fb')).toBe(true);
+    expect(parseModelJson('null',   (p) => p, () => 'fb')).toBe(null);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// atomicWrite — PKT-368
+// ──────────────────────────────────────────────────────────────────────────
+
+describe('atomicWrite — direct coverage (utils.ts:46)', () => {
+  let dir: string;
+  afterEach(() => { try { if (dir) rmSync(dir, { recursive: true, force: true }); } catch {} });
+
+  it('writes the file with exactly the requested utf-8 content', () => {
+    dir = mkdtempSync(join(tmpdir(), 'atomicwrite-'));
+    const path = join(dir, 'a.txt');
+    atomicWrite(path, 'hello');
+    expect(readFileSync(path, 'utf8')).toBe('hello');
+  });
+
+  it('overwrites an existing file atomically (via tmp + rename)', () => {
+    dir = mkdtempSync(join(tmpdir(), 'atomicwrite-'));
+    const path = join(dir, 'b.txt');
+    atomicWrite(path, 'v1');
+    atomicWrite(path, 'v2');
+    expect(readFileSync(path, 'utf8')).toBe('v2');
+  });
+
+  it('leaves no .tmp-* siblings after a successful write', () => {
+    dir = mkdtempSync(join(tmpdir(), 'atomicwrite-'));
+    const path = join(dir, 'd.txt');
+    atomicWrite(path, 'z');
+    expect(existsSync(path)).toBe(true);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// dateStamp — PKT-368
+// ──────────────────────────────────────────────────────────────────────────
+
+describe('dateStamp — direct coverage (utils.ts:34)', () => {
+  it('returns YYYY-MM-DD slice of a UTC ISO string', () => {
+    const s = dateStamp(new Date('2026-07-24T21:56:02.000Z'));
+    expect(s).toBe('2026-07-24');
+  });
+
+  it('formats any Date as YYYY-MM-DD with leading zeros', () => {
+    expect(dateStamp(new Date('2026-01-05T00:00:00.000Z'))).toBe('2026-01-05');
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// LEADERBOARD_NAME_RE — PKT-368
+// ──────────────────────────────────────────────────────────────────────────
+
+describe('LEADERBOARD_NAME_RE — direct coverage (utils.ts:39)', () => {
+  it('matches exactly 8 uppercase ASCII letters', () => {
+    expect(LEADERBOARD_NAME_RE.test('ALIENBOT')).toBe(true);
+    expect(LEADERBOARD_NAME_RE.test('AAAAAAAA')).toBe(true);
+  });
+  it('rejects: lowercase, mixed case, digits, length != 8, empty', () => {
+    expect(LEADERBOARD_NAME_RE.test('alienbot')).toBe(false);
+    expect(LEADERBOARD_NAME_RE.test('TESTbot1')).toBe(false);
+    expect(LEADERBOARD_NAME_RE.test('ABCDEFGH')).toBe(true);
+    expect(LEADERBOARD_NAME_RE.test('ABCDEFG')).toBe(false);
+    expect(LEADERBOARD_NAME_RE.test('ABCDEFGHI')).toBe(false);
+    expect(LEADERBOARD_NAME_RE.test('')).toBe(false);
+  });
+});
+
