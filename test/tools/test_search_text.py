@@ -187,13 +187,13 @@ class TestBodySizeLimit:
 
 
 class TestContextLines:
-    def test_omitted_context_lines_uses_variables_default_two(self):
-        """Tool defaults follow MSB VARIABLES, not PARAMETER_SCHEMA col5 (same as max_results).
-        MSB VARIABLES: contextLines default=2. Omitting the param yields 2 context lines each side."""
+    def test_omitted_context_lines_falls_back_to_field_default_one(self):
+        """Direct no-params calls use literal fallback=1, mirroring PARAMETER_SCHEMA field.default=1.
+        In the genome production path, decode_params always supplies context_lines."""
         r = run({"text": "a\nb\nc\nfoo\nd\ne\nf", "pattern": "foo"})
         match = r.output["matches"][0]
-        assert match["contextBefore"] == ["b", "c"]
-        assert match["contextAfter"] == ["d", "e"]
+        assert match["contextBefore"] == ["c"]
+        assert match["contextAfter"] == ["d"]
 
     def test_context_lines_one_yields_one_surrounding_line(self):
         """context_lines=1 produces 1 context line on each side (per MSB
