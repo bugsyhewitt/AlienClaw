@@ -70,6 +70,17 @@ describe('parseCliArgs — evolve', () => {
   it('still routes --help before the evolve branch', () => {
     expect(parseCliArgs(['evolve', '--help']).type).toBe('help');
   });
+
+  it('rejects fractional numeric flags (TS gate must mirror Python argparse type=int)', () => {
+    // The TS gate at L84-87 must reject non-integer values, matching Python's
+    // argparse `type=int` for `--generations` / `--population-size` / `--seed`.
+    // Without this, `Number('1.5') = 1.5` slips past `Number.isFinite() && >= 1`.
+    expect(parseCliArgs(['evolve', '--type', 'x', '--generations', '1.5']).type).toBe('unknown');
+    expect(parseCliArgs(['evolve', '--type', 'x', '--generations', '10.0']).type).toBe('unknown');
+    expect(parseCliArgs(['evolve', '--type', 'x', '--population', '5.7']).type).toBe('unknown');
+    expect(parseCliArgs(['evolve', '--type', 'x', '--seed', '1.5']).type).toBe('unknown');
+    expect(parseCliArgs(['evolve', '--type', 'x', '--seed', '-0.5']).type).toBe('unknown');
+  });
 });
 
 // ── 2. Pure helpers ──────────────────────────────────────────────────────────

@@ -73,18 +73,18 @@ export function parseCliArgs(argv: string[]): CliCommand {
       const value = raw[i + 1];
       switch (token) {
         case '--type':        args.martianType = value ?? ''; i++; break;
-        case '--generations': args.generations = Number(value); i++; break;
-        case '--population':  args.population  = Number(value); i++; break;
-        case '--seed':        args.seed        = Number(value); i++; break;
+        case '--generations': args.generations = value?.includes('.') ? NaN : Number(value); i++; break;
+        case '--population':  args.population  = value?.includes('.') ? NaN : Number(value); i++; break;
+        case '--seed':        args.seed        = value?.includes('.') ? NaN : Number(value); i++; break;
         case '--inputs':      args.inputs      = value; i++; break;
         default:
           return { type: 'unknown', raw };
       }
     }
     const numbersOk =
-      Number.isFinite(args.generations) && args.generations >= 1 &&
-      Number.isFinite(args.population)  && args.population  >= 1 &&
-      (args.seed === undefined || Number.isFinite(args.seed));
+      Number.isInteger(args.generations) && args.generations >= 1 &&
+      Number.isInteger(args.population)  && args.population  >= 1 &&
+      (args.seed === undefined || Number.isInteger(args.seed));
     if (!args.martianType || !numbersOk) {
       return { type: 'unknown', raw };
     }
