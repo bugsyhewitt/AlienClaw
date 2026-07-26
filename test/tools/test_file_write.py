@@ -136,7 +136,6 @@ class TestAtomicWrite:
         """A mid-write failure must leave the target file absent or unchanged."""
         from pathlib import Path
         target = tmp_path / "atomic.txt"
-        original_write_text = Path.write_text
 
         def crashy_write(self, content, **kwargs):
             with open(self, "w") as f:
