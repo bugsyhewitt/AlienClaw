@@ -66,10 +66,9 @@ export async function readRecentMartianReports(sinceMs: number): Promise<Martian
         continue; // skip unreadable dirs
       }
       for (const entry of entries) {
-        if (!entry.endsWith('.json')) continue;
+        if (!entry.endsWith('.json')) continue;  // also skips the agent-channel/ dir (no .json ext)
         // Skip non-report files (advisory_*, failforward_*)
         if (entry.startsWith('advisory_') || entry.startsWith('failforward_')) continue;
-        if (entry.startsWith('agent-channel/')) continue;
         try {
           const raw = await readFile(join(dirPath, entry), 'utf-8');
           const parsed = JSON.parse(raw) as MartianReport;

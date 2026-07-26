@@ -181,6 +181,36 @@ describe('readRecentMartianReports', () => {
     expect(result.map(r => r.martianId)).toEqual(['M-keep']);
   });
 
+  it('skips agent-channel subdirectory entry (excluded by .json extension filter, non-recursive readdir)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    // readdir on the date dir returns "agent-channel" (no slash, no .json ext).
+    // The !endsWith('.json') filter at line 69 skips it before the prefix checks.
+    // The reader is non-recursive: files inside agent-channel/ are never enumerated.
+    const chanDir = join(root, date, 'agent-channel');
+    mkdirSync(chanDir, { recursive: true });
+    writeFileSync(
+      join(chanDir, 'BossBot-AdvisorBot-999.json'),
+      JSON.stringify({
+        reportCode: 'r-chan',
+        ts: Date.now(),
+        taskId: 'task-chan',
+        subagentId: 'sub-chan',
+        martianId: 'M-chan',
+        domain: 'channel',
+        outcome: 'SUCCESS',
+        summary: 'channel-report',
+      }),
+      'utf-8',
+    );
+    // Also write a regular report directly in the date dir — this MUST be kept.
+    writeReport(root, date, 'regular.json', { ts: Date.now(), martianId: 'M-keep' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.martianId).toBe('M-keep');
+  });
+
   it('skips files with malformed JSON (parse error → caught)', async () => {
     const root = await telemetryRoot();
     const date = new Date().toISOString().slice(0, 10);
