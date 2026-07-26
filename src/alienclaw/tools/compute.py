@@ -16,18 +16,30 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if not expression:
         return RunResult(ok=False, error="Missing 'input' or 'task' field", correctness=0.0)
 
-    max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
+    try:
+        max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'max_attempts': must be integer", correctness=0.0)
     # MSB PARAMETER_SCHEMA (seed/msb/compute.msb:65): precision_digits|2|1|10|6|none
     # → range 1-10, default 6. NOTE: the MSB OUTPUT CONTRACT field is `precision` (line 45),
     # NOT `precision_digits`. The PARAMETER_SCHEMA input is named `precision_digits` per MSB.
-    precision_digits = max(1, min(10, int(params.get("precision_digits", 6))))
+    try:
+        precision_digits = max(1, min(10, int(params.get("precision_digits", 6))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'precision_digits': must be integer", correctness=0.0)
     # MSB PARAMETER_SCHEMA (seed/msb/compute.msb:65): output_format|3|1|5|2|none
     # → range 1-5, default 2. The previous impl accepted 1-10 (10 distinct output structures);
     # that 1-10 range VIOLATES the MSB spec. Clamped to 1-5 to align with MSB.
-    output_format = max(1, min(5, int(params.get("output_format", 2))))
+    try:
+        output_format = max(1, min(5, int(params.get("output_format", 2))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'output_format': must be integer", correctness=0.0)
     # MSB PARAMETER_SCHEMA (seed/msb/compute.msb:66): validation_count|4|1|3|1|lower
     # → range 1-3, default 1. The previous impl accepted 1-5; clamped to 1-3 to align with MSB.
-    validation_count = max(1, min(3, int(params.get("validation_count", 1))))
+    try:
+        validation_count = max(1, min(3, int(params.get("validation_count", 1))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'validation_count': must be integer", correctness=0.0)
 
     last_error: str | None = None
     for attempt in range(max_attempts):

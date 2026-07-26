@@ -325,6 +325,32 @@ class TestBridgeFixtureParity:
         assert r.output["result"] == expected
 
 
+# ── Invalid param types regression ────────────────────────────────────────
+
+class TestInvalidParamTypes:
+    """Regression: non-numeric string params must return clean failure, not raise ValueError."""
+
+    def test_non_int_max_attempts_returns_failure(self):
+        r = run({"input": "1+1"}, {"max_attempts": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_precision_digits_returns_failure(self):
+        r = run({"input": "1+1"}, {"precision_digits": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_output_format_returns_failure(self):
+        r = run({"input": "1+1"}, {"output_format": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_validation_count_returns_failure(self):
+        r = run({"input": "1+1"}, {"validation_count": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+
 # ── Wall-clean meta-check ─────────────────────────────────────────────────
 
 class TestWallClean:

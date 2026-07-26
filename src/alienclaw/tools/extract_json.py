@@ -36,9 +36,15 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     except json.JSONDecodeError as exc:
         return RunResult(ok=False, error=f"JSON parse error: {exc}", correctness=0.0)
     # result_format: 1=value, 2=+type, 3=+found (mod3_plus1 -> 1-3)
-    result_format = max(1, min(3, int(params.get("result_format", 2))))
+    try:
+        result_format = max(1, min(3, int(params.get("result_format", 2))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'result_format': must be integer", correctness=0.0)
     # extraction_passes: re-parse and re-extract N times (verification); tool_calls = N
-    extraction_passes = max(1, min(5, int(params.get("extraction_passes", 1))))
+    try:
+        extraction_passes = max(1, min(5, int(params.get("extraction_passes", 1))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'extraction_passes': must be integer", correctness=0.0)
     # inputKeys: top-level JSON object keys (sorted); empty list for non-objects
     input_keys: list[str] = sorted(parsed.keys()) if isinstance(parsed, dict) else []
     # MSB OUTPUT CONTRACT (seed/msb/extract_json.msb):

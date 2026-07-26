@@ -105,3 +105,22 @@ class TestWithStub:
                 r3 = web_search_run({"query": "test"}, {"page_count": 3})
         assert r1.tool_calls != r3.tool_calls, "tool_calls must vary with page_count"
         assert r1.ok and r3.ok
+
+
+class TestInvalidParamTypes:
+    """Regression: non-numeric string params must return clean failure, not raise ValueError."""
+
+    def test_non_int_max_attempts_returns_failure(self):
+        r = web_search_run({"query": "test"}, {"max_attempts": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_max_results_returns_failure(self):
+        r = web_search_run({"query": "test"}, {"max_results": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_page_count_returns_failure(self):
+        r = web_search_run({"query": "test"}, {"page_count": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0

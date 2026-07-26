@@ -9,6 +9,10 @@ from .limits import MAX_TOOL_IO_BYTES as _MAX_TEXT_BYTES
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     text = inputs.get("text", inputs.get("content", ""))
     pattern = inputs.get("pattern", inputs.get("query", ""))
+    if not isinstance(text, str):
+        return RunResult(ok=False, error="Invalid 'text' field: must be string", correctness=0.0)
+    if not isinstance(pattern, str):
+        return RunResult(ok=False, error="Invalid 'pattern' field: must be string", correctness=0.0)
     if not text:
         return RunResult(ok=False, error="Missing 'text' or 'content' field", correctness=0.0)
     if not pattern:
@@ -27,9 +31,15 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if flavor not in ("literal", "glob", "regex"):
         flavor = "literal"
     case_sensitive = bool(inputs.get("case_sensitive", False))
-    max_results = max(1, int(params.get("max_results", 100)))
+    try:
+        max_results = max(1, int(params.get("max_results", 100)))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'max_results': must be integer", correctness=0.0)
     # context_lines 1-10: directly used as surrounding lines count (capped at available lines)
-    context_lines = max(0, min(10, int(params.get("context_lines", 1)) - 1))  # 1→0, 2→1, ... 10→9
+    try:
+        context_lines = max(0, min(10, int(params.get("context_lines", 1)) - 1))  # 1→0, 2→1, ... 10→9
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'context_lines': must be integer", correctness=0.0)
     flags = 0 if case_sensitive else re.IGNORECASE
     try:
         if flavor == "literal":

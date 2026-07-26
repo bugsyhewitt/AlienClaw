@@ -295,3 +295,38 @@ class TestPreservedFromPacket112:
         result = file_read_run({"path": path}, {})
         assert result.ok is True
         assert result.tool_calls == 1
+
+
+class TestInvalidParamTypes:
+    """Regression: non-numeric params and non-str path must return clean failure."""
+
+    def test_non_int_max_lines_returns_failure(self, tmp_path):
+        p = tmp_path / "x.txt"
+        p.write_text("hello")
+        r = file_read_run({"path": str(p)}, {"max_lines": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_skip_lines_returns_failure(self, tmp_path):
+        p = tmp_path / "x.txt"
+        p.write_text("hello")
+        r = file_read_run({"path": str(p)}, {"skip_lines": "xyz"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_chunk_count_returns_failure(self, tmp_path):
+        p = tmp_path / "x.txt"
+        p.write_text("hello")
+        r = file_read_run({"path": str(p)}, {"chunk_count": "foo"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_bytes_path_returns_failure(self):
+        r = file_read_run({"path": b"/tmp/x.txt"}, {})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_int_path_returns_failure(self):
+        r = file_read_run({"path": 42}, {})
+        assert r.ok is False
+        assert r.correctness == 0.0

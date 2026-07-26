@@ -255,3 +255,27 @@ class TestTruncatedFlag:
         r = http_get_run({"url": stub_server + "/"})
         assert r.ok is True
         assert r.output["truncated"] is False
+
+
+class TestInvalidParamTypes:
+    """Regression: non-numeric string params must return clean failure, not raise ValueError."""
+
+    def test_non_int_max_attempts_returns_failure(self):
+        r = http_get_run({"url": "http://127.0.0.1:1/"}, {"max_attempts": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_field_count_returns_failure(self):
+        r = http_get_run({"url": "http://127.0.0.1:1/"}, {"field_count": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_body_preview_returns_failure(self):
+        r = http_get_run({"url": "http://127.0.0.1:1/"}, {"body_preview": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_request_count_returns_failure(self):
+        r = http_get_run({"url": "http://127.0.0.1:1/"}, {"request_count": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0

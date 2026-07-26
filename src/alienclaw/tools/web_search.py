@@ -19,11 +19,20 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if not query:
         return RunResult(ok=False, error="Missing 'query' field", correctness=0.0)
     # max_attempts (slot 0): transient-retry budget per the MSB PARAMETER_SCHEMA.
-    max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
-    max_results = max(1, min(int(params.get("max_results", 5)), 10))
+    try:
+        max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'max_attempts': must be integer", correctness=0.0)
+    try:
+        max_results = max(1, min(int(params.get("max_results", 5)), 10))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'max_results': must be integer", correctness=0.0)
     num_results = max(1, min(int(inputs.get("num_results", max_results)), max_results))
     # page_count: fetch N pages of results (pagination); tool_calls=N
-    page_count = max(1, min(3, int(params.get("page_count", 1))))
+    try:
+        page_count = max(1, min(3, int(params.get("page_count", 1))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'page_count': must be integer", correctness=0.0)
     search_base = os.environ.get("ALIENCLAW_SEARCH_URL", _SEARCH_BASE).strip()
 
     if not search_base:

@@ -202,3 +202,37 @@ class TestContextLines:
         match = r.output["matches"][0]
         assert match["contextBefore"] == ["a", "b"]
         assert match["contextAfter"] == ["c", "d"]
+
+
+class TestInvalidParamAndInputTypes:
+    """Regression: non-numeric params and non-string inputs must return clean failure."""
+
+    def test_non_int_max_results_returns_failure(self):
+        r = run({"text": "hello foo", "pattern": "foo"}, {"max_results": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_context_lines_returns_failure(self):
+        r = run({"text": "hello\nfoo", "pattern": "foo"}, {"context_lines": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_bytes_text_returns_failure(self):
+        r = run({"text": b"hello world foo", "pattern": "foo"}, {})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_bytes_pattern_returns_failure(self):
+        r = run({"text": "hello foo", "pattern": b"foo"}, {})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_int_pattern_returns_failure(self):
+        r = run({"text": "hello foo", "pattern": 42}, {})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_list_text_returns_failure(self):
+        r = run({"text": ["a", "b"], "pattern": "foo"}, {})
+        assert r.ok is False
+        assert r.correctness == 0.0
