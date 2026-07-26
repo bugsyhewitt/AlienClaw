@@ -357,3 +357,49 @@ describe('SubmissionStore.topForType — LIMIT boundary assertion', () => {
     await expect(store.topForType('compute', 100)).rejects.toThrow(SENTINEL);
   });
 });
+
+// ── run_metadata defensive parse (DB-free) ──────────────────────────────────
+//
+// Both topForType() and findDuplicate() row-mapping previously called JSON.parse
+// with no try/catch, crashing on malformed run_metadata column values. The fix
+// wraps the call in parseRunMetadata() which returns {} on parse failure.
+// These tests use a sabotage pool that returns a row with a malformed
+// run_metadata string, asserting the method resolves (no throw) with
+// run_metadata: {} — and no MySQL connection is needed.
+describe('SubmissionStore — run_metadata defensive parse (DB-free)', () => {
+  const MALFORMED = 'this is NOT valid JSON';
+
+  function poolWithMalformedRow(): mysql.Pool {
+    return {
+      execute: async () => [[{
+        submission_id:    'sub_test',
+        genome:           'A'.repeat(256),
+        martian_type:     'compute',
+        fitness:          0.5,
+        leaderboard_name: 'ALIENBOT',
+        api_key_hash:     'a'.repeat(64),
+        submitted_at:     '2026-01-01T00:00:00Z',
+        run_metadata:     MALFORMED,
+      }]],
+    } as unknown as mysql.Pool;
+  }
+
+  it('topForType() returns run_metadata:{} and does not throw on malformed JSON', async () => {
+    const store = new SubmissionStore(poolWithMalformedRow());
+    const results = await store.topForType('compute', 1);
+    expect(results).toHaveLength(1);
+    expect(results[0]!.run_metadata).toEqual({});
+  });
+
+  it('findDuplicate() returns run_metadata:{} and does not throw on malformed JSON', async () => {
+    const store = new SubmissionStore(poolWithMalformedRow());
+    const result = await store.findDuplicate({
+      genome:      'A'.repeat(256),
+      martianType: 'compute',
+      fitness:     0.5,
+      apiKeyHash:  'a'.repeat(64),
+    });
+    expect(result).not.toBeNull();
+    expect(result!.run_metadata).toEqual({});
+  });
+});
