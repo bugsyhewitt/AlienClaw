@@ -119,7 +119,7 @@ function extractParameterSchema(
     if (!line || line.startsWith('#')) continue;
 
     const parts = line.split('|').map(p => p.trim());
-    if (parts.length < 7) {
+    if (parts.length !== 7) {
       throw new Error(
         `PARAMETER_SCHEMA entry in ${sourcePath} has ${parts.length} fields ` +
         `(expected 7: name|xcode_index|range_min|range_max|default|direction|description): ${JSON.stringify(line)}`
