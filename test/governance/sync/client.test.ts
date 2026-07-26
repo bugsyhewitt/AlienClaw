@@ -154,18 +154,21 @@ describe('NetworkAPIClient._parse — success and error envelopes', () => {
     }
   });
 
-  // NOTE (documents current behaviour, not desired behaviour):
-  // When a non-2xx body parses to JSON `null`, _parse does `(json as APIError).error`
-  // which dereferences null and THROWS a TypeError rather than returning a clean
-  // UNKNOWN_ERROR result. This is a latent edge-case in client.ts:134. The test
-  // below pins the *actual* behaviour so a future fix (guarding null) will flip it
-  // deliberately rather than silently.
-  it('throws on a non-2xx body that is JSON null (latent edge-case, pinned)', async () => {
+  it('returns UNKNOWN_ERROR fallback when a non-2xx body is JSON null (latent null-edge-case, fixed)', async () => {
+    // Server returned a 503 with a literal `null` body. The client must NOT throw —
+    // it must match the sibling case (line 123) where the body lacks an `error` field.
     fetchMock.mockResolvedValueOnce(
       makeFetchResponse({ status: 503, ok: false, json: null }),
     );
     const client = new NetworkAPIClient('https://api.example.test', 'key');
-    await expect(client.health()).rejects.toThrow(TypeError);
+    const res = await client.health();
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.status).toBe(503);
+      expect(res.error.code).toBe('UNKNOWN_ERROR');
+      expect(res.error.message).toBe('null');
+    }
   });
 });
 
