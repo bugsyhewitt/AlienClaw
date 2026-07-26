@@ -53,6 +53,45 @@ describe("TopologyAdapter.evaluate", () => {
     const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
     expect(batch.traces[0]!.correctness.score).toBe(0);
   });
+
+  // PKT-388: valid non-array JSON must not crash and must yield finite zero scores
+  describe("non-array JSON subagents", () => {
+    it("null JSON → no throw, score=0, cost.dollars finite", async () => {
+      const genome = makeGenome({ subagents: "null", partition: "P".repeat(300) });
+      const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+      expect(batch.traces[0]!.correctness.score).toBe(0);
+      expect(isFinite(batch.traces[0]!.cost.dollars)).toBe(true);
+    });
+
+    it("object JSON {} → no throw, score=0, cost.dollars finite", async () => {
+      const genome = makeGenome({ subagents: "{}", partition: "P".repeat(300) });
+      const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+      expect(batch.traces[0]!.correctness.score).toBe(0);
+      expect(isFinite(batch.traces[0]!.cost.dollars)).toBe(true);
+    });
+
+    it("number JSON 123 → no throw, score=0, cost.dollars finite", async () => {
+      const genome = makeGenome({ subagents: "123", partition: "P".repeat(300) });
+      const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+      expect(batch.traces[0]!.correctness.score).toBe(0);
+      expect(isFinite(batch.traces[0]!.cost.dollars)).toBe(true);
+    });
+
+    it("string JSON \"abcd\" → no throw, score=0 (chars not counted as subagents)", async () => {
+      const genome = makeGenome({ subagents: '"abcd"', partition: "P".repeat(300) });
+      const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+      expect(batch.traces[0]!.correctness.score).toBe(0);
+      expect(isFinite(batch.traces[0]!.cost.dollars)).toBe(true);
+    });
+
+    it("mixed array [\"a\", 2, null] → only string entries count (subagentCount=1)", async () => {
+      const genome = makeGenome({ subagents: '["a", 2, null]', partition: "P".repeat(300) });
+      const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+      // correctness = min(1, (300/300) * (1/2)) = 0.5
+      expect(batch.traces[0]!.correctness.score).toBeCloseTo(0.5, 5);
+      expect(isFinite(batch.traces[0]!.cost.dollars)).toBe(true);
+    });
+  });
 });
 
 describe("TopologyAdapter.makeReflectiveDataset", () => {
