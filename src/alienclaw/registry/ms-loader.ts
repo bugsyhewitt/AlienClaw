@@ -49,17 +49,36 @@ export class MsParseError extends Error {
 // Section parsers
 // ---------------------------------------------------------------------------
 
-function parseMetadata(lines: string[]): Partial<MartianSpec> {
+function parseMetadata(lines: string[], filePath?: string): Partial<MartianSpec> {
   const spec: Partial<MartianSpec> = {};
   for (const line of lines) {
     const m = line.match(/^#\s*(\w+):\s*(.+)$/);
     if (!m) continue;
     const [, key, val] = m;
     switch (key!.toLowerCase()) {
-      case 'description': spec.description = val!.trim();  break;
-      case 'generation':  spec.generation  = parseInt(val!, 10); break;
-      case 'status':      spec.status      = val!.trim() as MartianStatus; break;
-      case 'fitness':     spec.fitness     = parseFloat(val!); break;
+      case 'description': spec.description = val!.trim(); break;
+      case 'generation': {
+        const n = parseInt(val!, 10);
+        if (Number.isNaN(n)) throw new MsParseError(`Invalid # generation: not an integer ("${val!.trim()}")`, filePath);
+        if (n < 0) throw new MsParseError(`Invalid # generation: must be >= 0 (got ${n})`, filePath);
+        spec.generation = n;
+        break;
+      }
+      case 'status': {
+        const s = val!.trim();
+        if (s !== 'active' && s !== 'retired' && s !== 'graveyard') {
+          throw new MsParseError(`Invalid # status: must be active | retired | graveyard (got "${s}")`, filePath);
+        }
+        spec.status = s;
+        break;
+      }
+      case 'fitness': {
+        const f = parseFloat(val!);
+        if (!Number.isFinite(f)) throw new MsParseError(`Invalid # fitness: not a finite number ("${val!.trim()}")`, filePath);
+        if (f < 0 || f > 1) throw new MsParseError(`Invalid # fitness: must be in [0, 1] (got ${f})`, filePath);
+        spec.fitness = f;
+        break;
+      }
     }
   }
   return spec;
@@ -169,7 +188,7 @@ export function loadMsFile(filePath: string): MartianSpec {
 
   // --- Header metadata (comment lines) ---
   const commentLines = lines.filter(l => l.startsWith('#'));
-  const partialSpec  = parseMetadata(commentLines);
+  const partialSpec  = parseMetadata(commentLines, filePath);
 
   const id = parseFirstCommentId(lines);
   if (!id) throw new MsParseError('Missing Martian ID comment (# MS_XXXXXXXX)', filePath);

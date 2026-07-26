@@ -521,6 +521,102 @@ describe('loadMsFile() — error paths', () => {
       expect((err as MsParseError).message.startsWith(path)).toBe(true);
     }
   });
+
+  it('throws MsParseError for non-numeric # generation ("notanumber")', () => {
+    const path = join(tmpDir, 'MS_TEST0001.ms');
+    const content = [
+      '# MS_TEST0001',
+      '# description: bad generation',
+      '# generation: notanumber',
+      '# status: active',
+      '# fitness: 0.5',
+      '',
+      '[GENOME]',
+      VALID_GENOME_A,
+      '',
+      '[TOOLS]',
+      'web_search → web_search.msb',
+      '',
+    ].join('\n');
+    writeFileSync(path, content);
+
+    expect(() => loadMsFile(path)).toThrow(MsParseError);
+    expect(() => loadMsFile(path)).toThrow(/Invalid # generation/);
+  });
+
+  it('throws MsParseError for non-numeric # fitness ("notanumber")', () => {
+    const path = join(tmpDir, 'MS_TEST0001.ms');
+    const content = [
+      '# MS_TEST0001',
+      '# description: bad fitness',
+      '# generation: 1',
+      '# status: active',
+      '# fitness: notanumber',
+      '',
+      '[GENOME]',
+      VALID_GENOME_A,
+      '',
+      '[TOOLS]',
+      'web_search → web_search.msb',
+      '',
+    ].join('\n');
+    writeFileSync(path, content);
+
+    expect(() => loadMsFile(path)).toThrow(MsParseError);
+    expect(() => loadMsFile(path)).toThrow(/Invalid # fitness/);
+  });
+
+  it('throws MsParseError for out-of-range # fitness (5.0)', () => {
+    const path = join(tmpDir, 'MS_TEST0001.ms');
+    const content = [
+      '# MS_TEST0001',
+      '# description: out of range fitness',
+      '# generation: 1',
+      '# status: active',
+      '# fitness: 5.0',
+      '',
+      '[GENOME]',
+      VALID_GENOME_A,
+      '',
+      '[TOOLS]',
+      'web_search → web_search.msb',
+      '',
+    ].join('\n');
+    writeFileSync(path, content);
+
+    expect(() => loadMsFile(path)).toThrow(MsParseError);
+    expect(() => loadMsFile(path)).toThrow(/Invalid # fitness/);
+  });
+
+  it('throws MsParseError for invalid # status ("bananarama")', () => {
+    const path = join(tmpDir, 'MS_TEST0001.ms');
+    writeFileSync(path, buildMsContent(VALID_GENOME_A, { status: 'bananarama' }));
+
+    expect(() => loadMsFile(path)).toThrow(MsParseError);
+    expect(() => loadMsFile(path)).toThrow(/Invalid # status/);
+  });
+
+  it('throws MsParseError for negative # generation (-100)', () => {
+    const path = join(tmpDir, 'MS_TEST0001.ms');
+    const content = [
+      '# MS_TEST0001',
+      '# description: negative generation',
+      '# generation: -100',
+      '# status: active',
+      '# fitness: 0.5',
+      '',
+      '[GENOME]',
+      VALID_GENOME_A,
+      '',
+      '[TOOLS]',
+      'web_search → web_search.msb',
+      '',
+    ].join('\n');
+    writeFileSync(path, content);
+
+    expect(() => loadMsFile(path)).toThrow(MsParseError);
+    expect(() => loadMsFile(path)).toThrow(/Invalid # generation/);
+  });
 });
 
 // ─── 4. loadMsDirectory — happy path ─────────────────────────────────────────
