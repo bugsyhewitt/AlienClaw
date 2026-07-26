@@ -198,17 +198,36 @@ class TestRunParams:
     def test_skip_lines_zero_returns_all(self, tmp_path):
         content = "first\nsecond\nthird\n"
         path = _write(tmp_path / "skip0.txt", content)
-        result = file_read_run({"path": path}, {"skip_lines": 1})
+        result = file_read_run({"path": path}, {"skip_lines": 0})
         assert result.ok is True
         assert "first" in result.output["content"]
 
-    def test_skip_lines_two_skips_first(self, tmp_path):
+    def test_skip_lines_2_skips_two_lines(self, tmp_path):
         content = "first\nsecond\nthird\n"
         path = _write(tmp_path / "skip2.txt", content)
         result = file_read_run({"path": path}, {"skip_lines": 2})
         assert result.ok is True
         assert "first" not in result.output["content"]
+        assert "second" not in result.output["content"]
+        assert "third" in result.output["content"]
+
+    def test_skip_lines_1_skips_exactly_1_line(self, tmp_path):
+        content = "first\nsecond\nthird\n"
+        path = _write(tmp_path / "skip1.txt", content)
+        result = file_read_run({"path": path}, {"skip_lines": 1})
+        assert result.ok is True
+        assert "first" not in result.output["content"]
         assert "second" in result.output["content"]
+
+    def test_skip_lines_9_skips_nine_lines(self, tmp_path):
+        lines = [f"line{i}\n" for i in range(12)]
+        content = "".join(lines)
+        path = _write(tmp_path / "skip9.txt", content)
+        result = file_read_run({"path": path}, {"skip_lines": 9})
+        assert result.ok is True
+        for i in range(9):
+            assert f"line{i}\n" not in result.output["content"], f"line{i} should be skipped"
+        assert "line9\n" in result.output["content"]
 
     def test_chunk_count_clamped_to_5(self, tmp_path):
         content = "a\nb\nc\nd\ne\nf\n"

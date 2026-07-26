@@ -27,8 +27,8 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     all_lines = raw.splitlines(keepends=True)
     total_lines = len(all_lines)
     max_lines = max(1, int(params.get("max_lines", 100)))
-    # skip_lines: skip first N-1 lines (1→skip 0, 2→skip 1, ... 10→skip 9)
-    skip = max(0, int(params.get("skip_lines", 1)) - 1)
+    # skip_lines: 0-indexed per MSB spec (skip_lines=N skips exactly N lines, max 9)
+    skip = max(0, min(9, int(params.get("skip_lines", 0))))
     # chunk_count: read file in N sequential chunks (tool_calls=N)
     chunk_count = max(1, min(5, int(params.get("chunk_count", 1))))
 
