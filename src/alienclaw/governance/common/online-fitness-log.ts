@@ -35,10 +35,16 @@ export class OnlineFitnessLog {
 
   read(): FitnessEntry[] {
     if (!existsSync(this._path)) return [];
-    return readFileSync(this._path, 'utf-8')
-      .split('\n')
-      .filter(l => l.trim())
-      .map(l => JSON.parse(l) as FitnessEntry);
+    const lines = readFileSync(this._path, 'utf-8').split('\n').filter(l => l.trim());
+    const out: FitnessEntry[] = [];
+    for (const l of lines) {
+      try {
+        out.push(JSON.parse(l) as FitnessEntry);
+      } catch {
+        // skip malformed/partial lines
+      }
+    }
+    return out;
   }
 
   clear(): void {

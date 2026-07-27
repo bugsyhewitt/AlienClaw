@@ -60,3 +60,26 @@ class TestOnlineFitnessLog:
         log = OnlineFitnessLog(tmp_path / "never.jsonl")
         log.clear()  # file doesn't exist — must not raise
         assert log.read() == []
+
+    def test_read_skips_malformed_line_and_returns_valid(self, tmp_path):
+        """PKT-394: malformed line mid-file is skipped; valid lines are returned."""
+        import json as _json
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            _json.dumps({"martian_type": "compute", "fitness": 0.8, "ts": "2026-07-04T00:00:00Z"}) + "\n"
+            + "{not_valid_json: PARTIAL\n"
+            + _json.dumps({"martian_type": "compute", "fitness": 0.9, "ts": "2026-07-04T00:01:00Z"}) + "\n",
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        entries = log.read()
+        assert len(entries) == 2
+        assert entries[0]["fitness"] == 0.8
+        assert entries[1]["fitness"] == 0.9
+
+    def test_read_returns_empty_on_all_malformed(self, tmp_path):
+        """PKT-394: a file containing only malformed lines returns []."""
+        p = tmp_path / "of.jsonl"
+        p.write_text("{garbage\n", encoding="utf-8")
+        log = OnlineFitnessLog(p)
+        assert log.read() == []
