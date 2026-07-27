@@ -41,8 +41,22 @@ export class BudgetTracker {
 
   /** Check if a summon for `state` is allowed. Returns null if OK, or reason if exhausted. */
   checkPreSummon(state: string): TerminationReason | null {
+    // Reject non-finite limit fields. NaN budgets silently disable the
+    // corresponding check (per IEEE 754), which is a denial-of-budget
+    // vector when the value arrives from a corrupted config or clock fault.
+    if (
+      !Number.isFinite(this.limits.max_wall_clock_seconds) ||
+      !Number.isFinite(this.limits.max_summons_per_campaign) ||
+      !Number.isFinite(this.limits.max_summons_per_state)
+    ) {
+      return 'decision_rule_error';
+    }
+    const now = this.clock();
+    if (!Number.isFinite(now.getTime())) {
+      return 'decision_rule_error';
+    }
     // 1. Wall-clock
-    const elapsedMs = this.clock().getTime() - this.startedAt.getTime();
+    const elapsedMs = now.getTime() - this.startedAt.getTime();
     if (elapsedMs / 1000 >= this.limits.max_wall_clock_seconds) {
       return 'budget_exhausted_wallclock';
     }
