@@ -65,12 +65,9 @@ class TestOnlineFitnessLog:
         """PKT-394: malformed line mid-file is skipped; valid lines are returned."""
         import json as _json
         p = tmp_path / "of.jsonl"
-        p.write_text(
-            _json.dumps({"martian_type": "compute", "fitness": 0.8, "ts": "2026-07-04T00:00:00Z"}) + "\n"
-            + "{not_valid_json: PARTIAL\n"
-            + _json.dumps({"martian_type": "compute", "fitness": 0.9, "ts": "2026-07-04T00:01:00Z"}) + "\n",
-            encoding="utf-8",
-        )
+        e1 = _json.dumps({"martian_type": "compute", "fitness": 0.8, "ts": "2026-07-04T00:00:00Z"})
+        e2 = _json.dumps({"martian_type": "compute", "fitness": 0.9, "ts": "2026-07-04T00:01:00Z"})
+        p.write_text(e1 + "\n" + "{not_valid_json: PARTIAL\n" + e2 + "\n", encoding="utf-8")
         log = OnlineFitnessLog(p)
         entries = log.read()
         assert len(entries) == 2
