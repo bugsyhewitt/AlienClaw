@@ -187,3 +187,24 @@ class TestParseMsb:
             assert spec.tool == name, f"Tool name mismatch in {path}"
             assert spec.version
             assert spec.capabilities
+
+
+class TestExtractParameterSchema:
+    def test_exactly_seven_fields_parses_full_description(self) -> None:
+        from alienclaw.brains.parser import _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nname|0|1|5|1|lower|simple description\n"
+        fields = _extract_parameter_schema(raw)
+        assert len(fields) == 1
+        assert fields[0].description == "simple description"
+
+    def test_pipe_in_description_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nname|0|1|5|1|lower|foo|bar|baz\n"
+        with pytest.raises(BrainParseError, match="has 9 fields"):
+            _extract_parameter_schema(raw)
+
+    def test_six_fields_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nname|0|1|5|1|lower\n"
+        with pytest.raises(BrainParseError, match="has 6 fields"):
+            _extract_parameter_schema(raw)

@@ -151,7 +151,7 @@ def _extract_parameter_schema(
         if not line or line.startswith("#"):
             continue
         parts = [p.strip() for p in line.split("|")]
-        if len(parts) < 7:
+        if len(parts) != 7:
             raise BrainParseError(
                 f"PARAMETER_SCHEMA entry in {source_path} has {len(parts)} fields "
                 f"(expected 7: name|xcode_index|range_min|range_max|default|direction|description)"

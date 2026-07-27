@@ -192,6 +192,42 @@ PARAMETER_SCHEMA:
 name|0|1|5|1|sideways|description
 `;
 
+/** A .msb string where PARAMETER_SCHEMA description contains a literal pipe (9 fields). */
+const BAD_PIPE_DESC_MSB = `\
+TOOL: bad_pipe
+VERSION: 0.1
+
+CAPABILITIES:
+x
+
+LIMITATIONS:
+x
+
+FAILURE MODES:
+x
+
+BEST PRACTICES:
+x
+
+EXECUTION ORDER:
+1. x
+
+OUTPUT CONTRACT:
+x
+
+GENOME SECTIONS:
+IDENTITY: x
+EXECUTION: y
+BEHAVIOR: z
+CHECKSUM: w
+
+VARIABLES:
+task: x
+
+PARAMETER_SCHEMA:
+name|0|1|5|1|lower|foo|bar|baz
+`;
+
 let tmpDir: string;
 const writtenFiles: string[] = [];
 
@@ -626,5 +662,13 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     expect(field!.default).toBe(1);
     expect(field!.direction).toBe('lower');
     expect(field!.description).toBe('Maximum retry attempts');
+  });
+
+  it('R-505: PARAMETER_SCHEMA row with >7 fields (pipe in description) → throws "has N fields (expected 7…)"', () => {
+    let captured: Error | null = null;
+    try { parseMsbContent(BAD_PIPE_DESC_MSB); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry.*has \d+ fields \(expected 7/);
   });
 });
