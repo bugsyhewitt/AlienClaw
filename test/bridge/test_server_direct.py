@@ -301,6 +301,60 @@ class TestLiveEvoHandler:
         assert err["code"] == "INTERNAL"
         assert "disk full" in err["details"]["exception"]
 
+    # PKT-396: unguarded int(threshold) crash and range-bypass guards
+
+    def test_live_evo_threshold_string_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": "abc"})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_live_evo_threshold_list_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": [1, 2]})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_live_evo_threshold_null_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": None})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_live_evo_threshold_dict_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": {"x": 1}})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_live_evo_threshold_bool_returns_malformed(self) -> None:
+        for val in (True, False):
+            resp = self._live_evo({"martian_type": "compute", "threshold": val})
+            err = resp["response"]["error"]
+            assert err["code"] == "MALFORMED_REQUEST", f"bool {val!r} should be rejected"
+            assert "threshold" in err["message"]
+
+    def test_live_evo_threshold_zero_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": 0})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_live_evo_threshold_negative_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": -5})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_live_evo_threshold_valid_int_passes_through(self, monkeypatch) -> None:
+        import alienclaw.evolution.live_evo as le_mod
+
+        monkeypatch.setattr(le_mod, "check_and_evolve", lambda mt, th, **kw: None)
+        resp = self._live_evo({"martian_type": "compute", "threshold": 25})
+        r = resp["response"]
+        assert r["ok"] is True
+        assert r["evolved"] is False
+
 
 class TestSummonFromPopulationShape:
     @staticmethod

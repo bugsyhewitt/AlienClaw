@@ -264,7 +264,15 @@ def _handle_live_evo(request_id: str | None, req: dict, t0: float) -> dict:
             "Missing field: martian_type",
             {"missing_fields": ["martian_type"]},
         )
-    threshold = int(req.get("threshold", LIVE_EVO_THRESHOLD))
+    raw_threshold = req.get("threshold", LIVE_EVO_THRESHOLD)
+    if (not isinstance(raw_threshold, int) or isinstance(raw_threshold, bool)
+            or not (1 <= raw_threshold <= 1_000_000)):
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            f"threshold must be integer in [1, 1000000]; got {raw_threshold!r}",
+            {"missing_fields": [], "received": raw_threshold},
+        )
+    threshold = raw_threshold
     try:
         result = check_and_evolve(martian_type, threshold)
     except Exception as exc:
