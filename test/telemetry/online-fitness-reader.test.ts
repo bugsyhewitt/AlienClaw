@@ -79,4 +79,59 @@ describe('aggregateOnlineFitness', () => {
     expect(result.count).toBe(2);
     expect(result.mean_fitness).toBeCloseTo(0.5, 10);
   });
+
+  // PKT-400: NaN-fitness bypass tests — these MUST FAIL before the fix is applied
+
+  it('filters out string fitness value (R-005)', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath,
+      JSON.stringify({ martian_type: 'compute', fitness: 'abc', ts: '2026-07-04T00:00:00Z' }) + '\n',
+      'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result).toEqual({ count: 0, mean_fitness: 0 });
+  });
+
+  it('filters out null fitness value (R-006)', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath,
+      JSON.stringify({ martian_type: 'compute', fitness: null, ts: '2026-07-04T00:00:00Z' }) + '\n',
+      'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result).toEqual({ count: 0, mean_fitness: 0 });
+  });
+
+  it('filters bad entries and aggregates only valid finite entries (R-007)', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath, [
+      JSON.stringify({ martian_type: 'compute', fitness: 0.5, ts: '2026-07-04T00:00:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 'bad', ts: '2026-07-04T00:01:00Z' }),
+    ].join('\n') + '\n', 'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result.count).toBe(1);
+    expect(result.mean_fitness).toBeCloseTo(0.5, 10);
+  });
+
+  it('filters out entry with missing fitness field (R-008)', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath,
+      JSON.stringify({ martian_type: 'compute', ts: '2026-07-04T00:00:00Z' }) + '\n',
+      'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result).toEqual({ count: 0, mean_fitness: 0 });
+  });
+
+  it('preserves finite negative fitness value (R-009)', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath,
+      JSON.stringify({ martian_type: 'compute', fitness: -0.5, ts: '2026-07-04T00:00:00Z' }) + '\n',
+      'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result.count).toBe(1);
+    expect(result.mean_fitness).toBeCloseTo(-0.5, 10);
+  });
 });
