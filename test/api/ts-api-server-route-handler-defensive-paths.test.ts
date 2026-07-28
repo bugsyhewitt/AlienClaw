@@ -15,7 +15,7 @@
  *      (the `if (e instanceof Error && 'apiError' in e)` branch in the
  *      try/catch around handleSubmitGenome — only reached when the handler
  *      throws an apiError-tagged Error).
- *   4. lines 286-288: 500 INTERNAL_ERROR on the catch-all
+ *   4. lines 289-291: 500 INTERNAL_ERROR on the catch-all
  *      (the outer `catch (e: unknown)` in createApiServer — only reached
  *      when a route handler throws a generic Error).
  *
@@ -45,10 +45,11 @@ import { generateApiKey } from '../../src/alienclaw/api/auth.js';
  *
  *   'apiError'    → server resolves to send(res, 422, { error: e.apiError })
  *                   (covers server.ts:275-277)
- *   'generic'     → server falls through to the outer 500 catch
- *                   (covers server.ts:286-288)
+ *   'generic'     → server inner catch else-branch returns 500 INTERNAL_ERROR
+ *                   (covers server.ts:278-281, the non-apiError path)
+ *   'stringThrow' → same inner catch else-branch; e is not an Error instance
  */
-type ThrowMode = { kind: 'apiError'; apiError: unknown } | { kind: 'generic'; message: string };
+type ThrowMode = { kind: 'apiError'; apiError: unknown } | { kind: 'generic'; message: string } | { kind: 'stringThrow'; value: string };
 let throwMode: ThrowMode | null = null;
 
 const installState = {
@@ -138,6 +139,9 @@ beforeAll(async () => {
         if (throwMode) {
           if (throwMode.kind === 'apiError') {
             throw Object.assign(new Error('mocked validation'), { apiError: throwMode.apiError });
+          }
+          if (throwMode.kind === 'stringThrow') {
+            throw throwMode.value;
           }
           throw new Error(throwMode.message);
         }
@@ -259,15 +263,12 @@ describe('API server: route-handler defensive paths', () => {
     expect((body as {error: {code: string}}).error.code).toBe('INVALID_GENOME_LENGTH');
   });
 
-  // ── (4) 500 INTERNAL_ERROR on the outer catch (server.ts:286-288) ───────
+  // ── (4) 500 INTERNAL_ERROR on the inner catch else-branch (server.ts:278-281) ─
 
-  it('POST /v1/genomes returns 400 MALFORMED_REQUEST when handleSubmitGenome throws a generic Error (inner catch else branch)', async () => {
-    // The inner try/catch on lines 274-279 catches the Error from
-    // handleSubmitGenome. When the Error is NOT tagged with `apiError`,
-    // it falls through to the `else` branch on line 278 — 400
-    // MALFORMED_REQUEST with `String(e)` as the message. This is a NEW
-    // coverage path (the else branch on line 278 was uncovered before
-    // this packet).
+  it('POST /v1/genomes returns 500 INTERNAL_ERROR when handleSubmitGenome throws a generic Error (inner catch else branch)', async () => {
+    // PKT-407: the inner try/catch else-branch must return 500 INTERNAL_ERROR
+    // (not 400 MALFORMED_REQUEST) and must NOT leak the raw error string to the
+    // API consumer. The real error is logged server-side via process.stderr.
     installState.exists = true;
     throwMode = { kind: 'generic', message: 'mocked unhandled boom' };
     const key = generateApiKey();
@@ -275,14 +276,41 @@ describe('API server: route-handler defensive paths', () => {
       { genome: validGenome(), martian_type: 'compute', fitness: 0.5,
         leaderboard_name: 'TESTBOTA' },
       { Authorization: `Bearer ${key}` });
-    expect(status).toBe(400);
-    expect((body as {error: {code: string; message: string}}).error.code).toBe('MALFORMED_REQUEST');
-    expect((body as {error: {code: string; message: string}}).error.message).toContain('mocked unhandled boom');
+    expect(status).toBe(500);
+    expect((body as {error: {code: string; message: string}}).error.code).toBe('INTERNAL_ERROR');
+    expect((body as {error: {code: string; message: string}}).error.message).not.toContain('mocked unhandled boom');
   });
 
-  it('GET /v1/stats returns 500 INTERNAL_ERROR when handleStats throws (reaches outer catch on lines 286-288)', async () => {
-    // The outer catch on lines 286-289 is reached when a GET-route handler
-    // throws. The inner try/catch on lines 274-279 ONLY wraps the
+  it('POST /v1/genomes does not leak DB error message to the client when handler throws a DB-style Error', async () => {
+    installState.exists = true;
+    throwMode = { kind: 'generic', message: 'ER_CON_COUNT_ERROR: too many connections at 10.0.0.5:3306' };
+    const key = generateApiKey();
+    const { status, body } = await post('/v1/genomes',
+      { genome: validGenome(), martian_type: 'compute', fitness: 0.5,
+        leaderboard_name: 'TESTBOTA' },
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(500);
+    expect((body as {error: {code: string}}).error.code).toBe('INTERNAL_ERROR');
+    const bodyStr = JSON.stringify(body);
+    expect(bodyStr).not.toContain('ER_CON_COUNT_ERROR');
+    expect(bodyStr).not.toContain('10.0.0.5');
+  });
+
+  it('POST /v1/genomes returns 500 INTERNAL_ERROR when handleSubmitGenome throws a non-Error value', async () => {
+    installState.exists = true;
+    throwMode = { kind: 'stringThrow', value: 'mocked string throw' };
+    const key = generateApiKey();
+    const { status, body } = await post('/v1/genomes',
+      { genome: validGenome(), martian_type: 'compute', fitness: 0.5,
+        leaderboard_name: 'TESTBOTA' },
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(500);
+    expect((body as {error: {code: string}}).error.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('GET /v1/stats returns 500 INTERNAL_ERROR when handleStats throws (reaches outer catch on lines 289-291)', async () => {
+    // The outer catch on lines 289-291 is reached when a GET-route handler
+    // throws. The inner try/catch on lines 274-282 ONLY wraps the
     // /v1/genomes POST handler — GET routes fall straight through to the
     // outer catch. Re-mock handlers/stats.js to throw a generic Error
     // and re-create the server.
