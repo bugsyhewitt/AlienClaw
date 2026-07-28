@@ -266,7 +266,8 @@ describe('NetworkAPIClient.martianTypes()', () => {
 
     const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
     expect(url).toBe('https://api.example.test/v1/martian-types');
-    // GET — no init or no method field (fetch defaults to GET)
-    expect(init).toBeUndefined();
+    // GET — no method override and no auth header (signal is always present now)
+    expect(init?.method).toBeUndefined();
+    expect(init?.headers?.Authorization).toBeUndefined();
   });
 });

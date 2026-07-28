@@ -5,6 +5,8 @@
  * client only throws on network failure or non-JSON responses.
  */
 
+const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
+
 export interface InstallResponse {
   status: 'registered' | 'known';
   install_id: string;
@@ -60,14 +62,20 @@ export type APIResult<T> =
   | { ok: false; status: number; error: APIError['error'] };
 
 
+export interface NetworkAPIClientOptions {
+  fetchTimeoutMs?: number;
+}
+
 export class NetworkAPIClient {
   private readonly base: string;
   private readonly apiKey: string;
+  private readonly fetchTimeoutMs: number;
 
-  constructor(baseUrl: string, apiKey: string) {
+  constructor(baseUrl: string, apiKey: string, opts: NetworkAPIClientOptions = {}) {
     // Strip trailing slash for clean URL construction
     this.base = baseUrl.replace(/\/$/, '');
     this.apiKey = apiKey;
+    this.fetchTimeoutMs = opts.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
   }
 
   async health(): Promise<APIResult<HealthResponse>> {
@@ -127,7 +135,14 @@ export class NetworkAPIClient {
   }
 
   private async _get<T>(path: string): Promise<APIResult<T>> {
-    const res = await fetch(this.base + path);
+    let res: Response;
+    try {
+      res = await fetch(this.base + path, {
+        signal: AbortSignal.timeout(this.fetchTimeoutMs),
+      });
+    } catch (e) {
+      return this._timeoutResult(e);
+    }
     return this._parse<T>(res);
   }
 
@@ -136,12 +151,33 @@ export class NetworkAPIClient {
     body: unknown,
     extraHeaders: Record<string, string> = {},
   ): Promise<APIResult<T>> {
-    const res = await fetch(this.base + path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...extraHeaders },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch(this.base + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.fetchTimeoutMs),
+      });
+    } catch (e) {
+      return this._timeoutResult(e);
+    }
     return this._parse<T>(res);
+  }
+
+  private _timeoutResult<T>(e: unknown): APIResult<T> {
+    if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      return {
+        ok: false,
+        status: 0,
+        error: {
+          code: 'TIMEOUT',
+          message: `Request timed out after ${this.fetchTimeoutMs}ms`,
+          details: { timeout_ms: this.fetchTimeoutMs },
+        },
+      };
+    }
+    throw e;
   }
 
   private async _parse<T>(res: Response): Promise<APIResult<T>> {
