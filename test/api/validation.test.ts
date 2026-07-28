@@ -126,6 +126,31 @@ describe('validateSubmission', () => {
     expect(r.error?.code).toBe('METADATA_TOO_LARGE');
     expect((r.error?.details.received_bytes as number)).toBeGreaterThan(4096);
   });
+
+  it('rejects run_metadata whose UTF-8 byte size exceeds 4096 (Latin-1 multibyte chars)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { a: 'é'.repeat(2100) }; // 4208 UTF-8 bytes, 2108 code units
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('METADATA_TOO_LARGE');
+    expect((r.error?.details.received_bytes as number)).toBeGreaterThan(4096);
+  });
+
+  it('rejects run_metadata whose UTF-8 byte size exceeds 4096 (CJK 3-byte chars)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { a: '中'.repeat(1500) }; // 4508 UTF-8 bytes, 1508 code units
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('METADATA_TOO_LARGE');
+    expect((r.error?.details.received_bytes as number)).toBeGreaterThan(4096);
+  });
+
+  it('accepts run_metadata that is exactly under 4096 UTF-8 bytes with non-ASCII chars', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { a: 'é'.repeat(2040) }; // 4088 UTF-8 bytes — safely under 4096
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(true);
+  });
 });
 
 // ── validateInstallRequest ────────────────────────────────────────────────
