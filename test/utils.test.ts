@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { mkdtempSync, readdirSync, mkdirSync, writeFileSync as fsWriteFileSync, unlinkSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, mkdirSync, writeFileSync as fsWriteFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as pathJoin } from 'node:path';
 import type { AssistantMessage } from '@mariozechner/pi-ai';
