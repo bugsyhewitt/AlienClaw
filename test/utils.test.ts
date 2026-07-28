@@ -21,13 +21,17 @@
  * Run: ./node_modules/.bin/vitest run test/utils.test.ts
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { mkdtempSync, readdirSync, mkdirSync, writeFileSync as fsWriteFileSync, unlinkSync, existsSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join as pathJoin } from 'node:path';
 import type { AssistantMessage } from '@mariozechner/pi-ai';
 import {
   sleep,
   extractText,
   errorMessage,
   normalizeInput,
+  atomicWrite,
 } from '../src/alienclaw/utils.js';
 
 // Build a minimally-typed AssistantMessage that satisfies the type-system (role,
@@ -150,6 +154,90 @@ describe('normalizeInput', () => {
 
   it('returns "" for whitespace-only input', () => {
     expect(normalizeInput('     ')).toBe('');
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// atomicWrite — temp-file cleanup on rename failure
+// ──────────────────────────────────────────────────────────────────────────
+
+describe('atomicWrite — temp-file cleanup on rename failure', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(pathJoin(tmpdir(), 'pkt411-'));
+  });
+
+  afterEach(() => {
+    try {
+      rmSync(tmpDir, { recursive: true });
+    } catch { /* best effort */ }
+  });
+
+  it('happy path: writes file and leaves no .tmp-* files', () => {
+    const target = pathJoin(tmpDir, 'output.txt');
+    atomicWrite(target, 'hello');
+    expect(existsSync(target)).toBe(true);
+    const leaked = readdirSync(tmpDir).filter(f => f.startsWith('.tmp-'));
+    expect(leaked).toHaveLength(0);
+  });
+
+  it('EISDIR single: throws and leaves no .tmp-* file after cleanup', () => {
+    // Make target path a non-empty directory (causes EISDIR on rename)
+    const target = pathJoin(tmpDir, 'target-dir');
+    mkdirSync(target);
+    fsWriteFileSync(pathJoin(target, 'sentinel'), 'x');
+
+    expect(() => atomicWrite(target, 'attempt')).toThrow();
+    const leaked = readdirSync(tmpDir).filter(f => f.startsWith('.tmp-'));
+    expect(leaked).toHaveLength(0);
+  });
+
+  it('EISDIR single: error code is EISDIR', () => {
+    const target = pathJoin(tmpDir, 'target-dir2');
+    mkdirSync(target);
+    fsWriteFileSync(pathJoin(target, 'sentinel'), 'x');
+
+    let caughtCode: string | undefined;
+    try {
+      atomicWrite(target, 'attempt');
+    } catch (err: unknown) {
+      caughtCode = (err as NodeJS.ErrnoException).code;
+    }
+    expect(caughtCode).toBe('EISDIR');
+  });
+
+  it('EISDIR 10x: zero .tmp-* files after 10 failed renames (headline test)', () => {
+    const target = pathJoin(tmpDir, 'target-dir3');
+    mkdirSync(target);
+    fsWriteFileSync(pathJoin(target, 'sentinel'), 'x');
+
+    for (let i = 0; i < 10; i++) {
+      try { atomicWrite(target, `attempt ${i}`); } catch { /* expected */ }
+    }
+    const leaked = readdirSync(tmpDir).filter(f => f.startsWith('.tmp-'));
+    expect(leaked).toHaveLength(0);
+  });
+
+  it('write-fails (ENOENT parent): no .tmp-* file exists when writeFileSync throws', () => {
+    // Parent dir does not exist → writeFileSync throws ENOENT before any tmp file
+    const target = pathJoin(tmpDir, 'nonexistent-parent', 'output.txt');
+    expect(() => atomicWrite(target, 'x')).toThrow();
+    // No tmp file should be anywhere (write never succeeded)
+    const leaked = readdirSync(tmpDir).filter(f => f.startsWith('.tmp-'));
+    expect(leaked).toHaveLength(0);
+  });
+
+  it('concurrent calls: all succeed and produce exactly one final file', async () => {
+    const target = pathJoin(tmpDir, 'concurrent.txt');
+    await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        Promise.resolve().then(() => atomicWrite(target, `content-${i}`))
+      )
+    );
+    expect(existsSync(target)).toBe(true);
+    const leaked = readdirSync(tmpDir).filter(f => f.startsWith('.tmp-'));
+    expect(leaked).toHaveLength(0);
   });
 });
 
