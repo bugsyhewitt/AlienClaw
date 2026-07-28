@@ -440,6 +440,34 @@ describe('msb/msb-loader — validateMsb(raw) — supplemental', () => {
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
+
+  it('R-304: prefixed CAPABILITIES (MY_CAPABILITIES:) → valid=false, error names the missing section', () => {
+    const raw = VALID_MSB.replace('CAPABILITIES:', 'MY_CAPABILITIES:');
+    const result = validateMsb(raw);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Missing required section: CAPABILITIES');
+  });
+
+  it('R-305: prefixed FAILURE MODES (OUR_FAILURE MODES:) → valid=false, error names the missing section', () => {
+    const raw = VALID_MSB.replace('FAILURE MODES:', 'OUR_FAILURE MODES:');
+    const result = validateMsb(raw);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Missing required section: FAILURE MODES');
+  });
+
+  it('R-306: prefixed GENOME SECTIONS (FOO GENOME SECTIONS:) → valid=false, error names the missing section', () => {
+    const raw = VALID_MSB.replace('GENOME SECTIONS:', 'FOO GENOME SECTIONS:');
+    const result = validateMsb(raw);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Missing required section: GENOME SECTIONS');
+  });
+
+  it('R-307: prefixed VARIABLES (MY_VARIABLES:) → valid=false, error names the missing section', () => {
+    const raw = VALID_MSB.replace('VARIABLES:', 'MY_VARIABLES:');
+    const result = validateMsb(raw);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Missing required section: VARIABLES');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -161,7 +161,9 @@ function extractParameterSchema(
 export function validateMsb(raw: string): MsbValidationResult {
   const errors: string[] = [];
   for (const section of REQUIRED_SECTIONS) {
-    const found = raw.includes(`${section}:`);
+    // Anchored to start-of-line (m flag) so prefixed names (e.g. MY_CAPABILITIES:)
+    // don't falsely satisfy the check. Mirrors extractSection() regex at L46.
+    const found = new RegExp(`^${section}:`, 'm').test(raw);
     if (!found) errors.push(`Missing required section: ${section}`);
   }
   if (!extractField(raw, 'TOOL'))    errors.push('TOOL field is empty');
