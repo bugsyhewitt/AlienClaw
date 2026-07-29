@@ -203,6 +203,27 @@ describe("GraphValidator — adversarial invariant suite (headline gate)", () =>
     expect(r.violation).toMatch(/best_of_n n/i);
   });
 
+  it("review_revise_rounds_zero: review_revise with rounds=0 is rejected", () => {
+    const s = makeSubagentGenome({ id: "sa1", operators: { kind: "review_revise", rounds: 0 } });
+    const r = validateSubagent(s, CAPS);
+    expect(r.ok).toBe(false);
+    expect(r.violation).toMatch(/review_revise rounds/i);
+  });
+
+  it("review_revise_rounds_negative: review_revise with rounds=-5 is rejected", () => {
+    const s = makeSubagentGenome({ id: "sa1", operators: { kind: "review_revise", rounds: -5 } });
+    const r = validateSubagent(s, CAPS);
+    expect(r.ok).toBe(false);
+    expect(r.violation).toMatch(/review_revise rounds/i);
+  });
+
+  it("review_revise_rounds_infinite: review_revise with rounds=Infinity is rejected", () => {
+    const s = makeSubagentGenome({ id: "sa1", operators: { kind: "review_revise", rounds: Infinity } });
+    const r = validateSubagent(s, CAPS);
+    expect(r.ok).toBe(false);
+    expect(r.violation).toMatch(/review_revise rounds/i);
+  });
+
   it("GraphValidator.validateSubagent: class method delegates correctly", () => {
     const s = makeSubagentGenome({ id: "sa1" });
     const r = validator.validateSubagent(s, CAPS);
