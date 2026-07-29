@@ -420,3 +420,84 @@ describe('AgentChannel — pure in-memory state isolation', () => {
 const _pathsGuard = PATHS;
 void _pathsGuard;
 void statSync; // also keep statSync referenced (used in audit checks at runtime)
+
+describe('AgentChannel — non-finite ts edge cases', () => {
+  let tmpDir: string;
+  let ch: AgentChannel;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    ch = new AgentChannel(tmpDir);
+  });
+
+  afterEach(() => {
+    rmTmp(tmpDir);
+  });
+
+  it('ts=Infinity → audit filename uses Date.now() backfill (not Infinity.json)', async () => {
+    ch.send(makeMsg({ ts: Infinity }));
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const auditDir = join(tmpDir, today, 'agent-channel');
+    expect(existsSync(auditDir)).toBe(true);
+    const files = readdirSync(auditDir);
+    expect(files).toHaveLength(1);
+    expect(files[0]).not.toContain('Infinity');
+    expect(files[0]).toMatch(/^BossBot-AdvisorBot-\d+\.json$/);
+  });
+
+  it('ts=NaN → audit filename uses Date.now() backfill (not NaN.json)', async () => {
+    ch.send(makeMsg({ ts: NaN }));
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const auditDir = join(tmpDir, today, 'agent-channel');
+    expect(existsSync(auditDir)).toBe(true);
+    const files = readdirSync(auditDir);
+    expect(files).toHaveLength(1);
+    expect(files[0]).not.toContain('NaN');
+    expect(files[0]).toMatch(/^BossBot-AdvisorBot-\d+\.json$/);
+  });
+
+  it('ts=NaN → in-memory log record has backfilled finite ts, not NaN', () => {
+    ch.send(makeMsg({ ts: NaN }));
+    const record = ch.history('BossBot', 'AdvisorBot')[0]!;
+    expect(Number.isFinite(record.ts)).toBe(true);
+  });
+
+  it('two messages with ts=Infinity → two distinct audit files (no collision)', async () => {
+    // Date.now() has 1ms resolution on this platform, so two consecutive send()
+    // calls would normally get the same backfill value and still collide.
+    // Spy with an incrementing counter to guarantee unique ts values and make
+    // the test deterministic without relying on wall-clock timing.
+    let n = 1_700_000_000_000;
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => n++);
+    try {
+      ch.send(makeMsg({ ts: Infinity, content: 'first' }));
+      ch.send(makeMsg({ ts: Infinity, content: 'second' }));
+    } finally {
+      spy.mockRestore();
+    }
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const auditDir = join(tmpDir, today, 'agent-channel');
+    expect(existsSync(auditDir)).toBe(true);
+    const files = readdirSync(auditDir);
+    expect(files).toHaveLength(2);
+    for (const file of files) {
+      expect(file).not.toContain('Infinity');
+      expect(file).toMatch(/^BossBot-AdvisorBot-\d+\.json$/);
+    }
+  });
+
+  it('ts=undefined baseline still works (Date.now() backfill, no regression)', () => {
+    ch.send({
+      from: 'BossBot',
+      to: 'AdvisorBot',
+      kind: 'request',
+      content: 'No ts provided',
+      taskId: 'no-ts-nonfinite',
+    } as AgentMessage);
+    const record = ch.history('BossBot', 'AdvisorBot', 'no-ts-nonfinite')[0]!;
+    expect(Number.isFinite(record.ts)).toBe(true);
+  });
+});

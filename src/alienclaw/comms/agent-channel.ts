@@ -54,8 +54,13 @@ export class AgentChannel {
    * Appends to in-memory log AND writes an audit file.
    */
   send(msg: AgentMessage): void {
-    // Ensure immutable record with a stable ts
-    const record: AgentMessage = { ...msg, ts: msg.ts ?? Date.now() };
+    // Reject non-finite caller-supplied ts so the audit filename can never collide
+    // on Infinity/NaN and silently overwrite a previous audit record.
+    const ts = msg.ts ?? Date.now();
+    const record: AgentMessage = {
+      ...msg,
+      ts: Number.isFinite(ts) ? ts : Date.now(),
+    };
     this._log.push(record);
     void this._writeAuditFile(record);
     for (const fn of this._subscribers) {
