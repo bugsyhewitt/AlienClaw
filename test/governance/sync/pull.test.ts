@@ -304,3 +304,63 @@ describe('pullTopGenomes — write-error resilience (packet 104)', () => {
     expect(byType['compute'].errors[0]).toMatch(/EISDIR/);
   });
 });
+
+// ── PKT-432: submission_id path traversal rejection ──────────────────────────
+//
+// _writeEntry must validate submission_id as a safe filename segment before
+// constructing the filename. These tests confirm that traversal IDs are
+// rejected, no file escapes entries/, written stays 0, and an error is recorded.
+
+describe('pullTopGenomes — submission_id path traversal rejection (PKT-432)', () => {
+  it('rejects x/../../escaped: no file outside entries/, error recorded, written=0', async () => {
+    const client = new StubClient({
+      top: {
+        compute: topGenomes('compute', [
+          makeGenomeEntry({ submission_id: 'x/../../escaped' }),
+        ]),
+      },
+    });
+
+    const [result] = await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+
+    expect(result.written).toBe(0);
+    expect(result.errors).toHaveLength(1);
+    // Error is recorded; no file must exist outside the entries dir.
+    expect(existsSync(join(root, 'escaped.json'))).toBe(false);
+    expect(existsSync(join(root, 'compute', 'escaped.json'))).toBe(false);
+  });
+
+  it('rejects absolute-path injection /tmp-injected: no escape, error recorded, written=0', async () => {
+    const client = new StubClient({
+      top: {
+        compute: topGenomes('compute', [
+          makeGenomeEntry({ submission_id: '/tmp-injected' }),
+        ]),
+      },
+    });
+
+    const [result] = await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+
+    expect(result.written).toBe(0);
+    expect(result.errors).toHaveLength(1);
+    expect(existsSync('/tmp/network-tmp-injected.json')).toBe(false);
+  });
+
+  it('existing safe submission IDs (alphanumeric/underscore/hyphen) continue to write normally', async () => {
+    const client = new StubClient({
+      top: {
+        compute: topGenomes('compute', [
+          makeGenomeEntry({ submission_id: 'sub_abc123' }),
+          makeGenomeEntry({ submission_id: 'safe-id-01' }),
+        ]),
+      },
+    });
+
+    const [result] = await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+
+    expect(result.written).toBe(2);
+    expect(result.errors).toEqual([]);
+    expect(existsSync(join(root, 'compute', 'entries', 'network-sub_abc123.json'))).toBe(true);
+    expect(existsSync(join(root, 'compute', 'entries', 'network-safe-id-01.json'))).toBe(true);
+  });
+});
