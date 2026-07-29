@@ -56,4 +56,61 @@ describe('aggregate()', () => {
     const r = aggregate([mk(0.5)], 'state_machine_finalized');
     expect(r.formula_version).toBe('v1.0');
   });
+
+  // PKT-430: NaN/Inf/out-of-band adversarial coverage
+  it('NaN fitness + finalized → 0.2 (non-finite coerced to 0)', () => {
+    const r = aggregate([mk(NaN)], 'state_machine_finalized');
+    expect(r.fitness).not.toBeNaN();
+    expect(Number.isFinite(r.fitness)).toBe(true);
+    expect(r.fitness).toBeCloseTo(0.2, 6);
+    expect(Number.isFinite(r.components.final_summon_fitness)).toBe(true);
+  });
+
+  it('NaN fitness + failed → 0.0 (non-finite coerced to 0, no bonus)', () => {
+    const r = aggregate([mk(NaN)], 'state_machine_failed');
+    expect(r.fitness).not.toBeNaN();
+    expect(Number.isFinite(r.fitness)).toBe(true);
+    expect(r.fitness).toBeCloseTo(0.0, 6);
+    expect(Number.isFinite(r.components.final_summon_fitness)).toBe(true);
+  });
+
+  it('Infinity fitness + finalized → 0.2 (non-finite coerced to 0, completion bonus applied)', () => {
+    const r = aggregate([mk(Infinity)], 'state_machine_finalized');
+    expect(r.fitness).not.toBeNaN();
+    expect(Number.isFinite(r.fitness)).toBe(true);
+    expect(r.fitness).toBeCloseTo(0.2, 6);
+    expect(Number.isFinite(r.components.final_summon_fitness)).toBe(true);
+  });
+
+  it('-Infinity fitness + failed → 0.0 (clamped)', () => {
+    const r = aggregate([mk(-Infinity)], 'budget_exhausted_summons');
+    expect(r.fitness).not.toBeNaN();
+    expect(Number.isFinite(r.fitness)).toBe(true);
+    expect(r.fitness).toBeCloseTo(0.0, 6);
+    expect(Number.isFinite(r.components.final_summon_fitness)).toBe(true);
+  });
+
+  it('negative fitness -0.5 + finalized → 0.0 (clamped)', () => {
+    const r = aggregate([mk(-0.5)], 'state_machine_finalized');
+    expect(r.fitness).not.toBeNaN();
+    expect(Number.isFinite(r.fitness)).toBe(true);
+    expect(r.fitness).toBeCloseTo(0.0, 6);
+    expect(Number.isFinite(r.components.final_summon_fitness)).toBe(true);
+  });
+
+  it('out-of-band fitness 1.5 + finalized → 1.0 (clamped)', () => {
+    const r = aggregate([mk(1.5)], 'state_machine_finalized');
+    expect(r.fitness).not.toBeNaN();
+    expect(Number.isFinite(r.fitness)).toBe(true);
+    expect(r.fitness).toBeCloseTo(1.0, 6);
+    expect(Number.isFinite(r.components.final_summon_fitness)).toBe(true);
+  });
+
+  it('multi-summon last is NaN + finalized → 0.2 (last NaN coerced to 0)', () => {
+    const r = aggregate([mk(0.6), mk(0.4), mk(NaN)], 'state_machine_finalized');
+    expect(r.fitness).not.toBeNaN();
+    expect(Number.isFinite(r.fitness)).toBe(true);
+    expect(r.fitness).toBeCloseTo(0.2, 6);
+    expect(Number.isFinite(r.components.final_summon_fitness)).toBe(true);
+  });
 });
