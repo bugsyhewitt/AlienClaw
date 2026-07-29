@@ -241,7 +241,43 @@ describe('genome section layout (via installed .ms files)', () => {
   });
 });
 
-// ─── 5. Wall-clean check on the SOURCE file (not this test) ─────────────────
+// ─── 5. installSeeds({overwrite:false}) — real-fs, no mocking (PKT-426) ────
+// These tests use a real temp fs (no vi.mock). They fail pre-fix because
+// copyFileSync/writeFileSync silently overwrite without COPYFILE_EXCL / wx flag.
+
+describe('installSeeds({overwrite:false}) — preserves pre-existing files (real fs, PKT-426)', () => {
+  it('preserves a customized .ms file (defect AD2 — non-mocked)', async () => {
+    const { installSeeds } = await loadSeedInstaller();
+    installSeeds();
+    const target = join(homeDir, 'registry', 'ms', 'MS_WEB00001.ms');
+    writeFileSync(target, 'CUSTOMIZED_USER_DATA_MS');
+    installSeeds({ overwrite: false });
+    expect(readFileSync(target, 'utf8')).toBe('CUSTOMIZED_USER_DATA_MS');
+  });
+
+  it('preserves a customized .msb file (defect AD1 — non-mocked)', async () => {
+    const { installSeeds } = await loadSeedInstaller();
+    installSeeds();
+    const target = join(homeDir, 'registry', 'msb', 'web_search.msb');
+    writeFileSync(target, 'CUSTOMIZED_USER_DATA_MSB');
+    installSeeds({ overwrite: false });
+    expect(readFileSync(target, 'utf8')).toBe('CUSTOMIZED_USER_DATA_MSB');
+  });
+
+  it('emits no "Overwrote" log when overwrite=false (real fs — production path)', async () => {
+    const { installSeeds } = await loadSeedInstaller();
+    installSeeds();
+    const target = join(homeDir, 'registry', 'msb', 'web_search.msb');
+    writeFileSync(target, 'CUSTOMIZED');
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    installSeeds({ overwrite: false });
+    const logs = spy.mock.calls.map(a => String(a[0]));
+    expect(logs.some(m => m.includes('Overwrote'))).toBe(false);
+    spy.mockRestore();
+  });
+});
+
+// ─── 6. Wall-clean check on the SOURCE file (not this test) ─────────────────
 
 describe('wall-clean (banned-term grep on the SOURCE file under test)', () => {
   it('src/alienclaw/registry/seed-installer.ts contains zero references to banned wall terms', async () => {
