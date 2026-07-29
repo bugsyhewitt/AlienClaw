@@ -25,13 +25,10 @@
  * var BEFORE the dynamic import (via `vi.resetModules()`) so the module's
  * top-level `const PATHS = ...` resolves to the temp dir.
  *
- * SCOPE NOTE (verified §G-9): the `overwrite: false` option in `installSeeds()`
- * is currently a NO-OP because `fs.writeFileSync` and `fs.copyFileSync` do
- * NOT throw EEXIST — they overwrite silently. The try/catch EEXIST branch in
- * `installMsSeeds` / `installMsbSeeds` (lines 156-163 and 134-141) is dead code
- * today. Packet 070 documents the actual behavior (always overwrites) and does
- * NOT test the would-be "preserve" semantics. That latent bug is filed as a
- * separate issue (`issues.md` 2026-06-20T00:45Z) — not in scope for this packet.
+ * SCOPE NOTE: `overwrite: false` semantics were fixed in PKT-426 (2026-07-29).
+ * `fs.copyFileSync` now uses `fs.constants.COPYFILE_EXCL` and `fs.writeFileSync`
+ * uses `{ flag: 'wx' }` so pre-existing files are preserved when overwrite=false.
+ * Real-fs regression tests for this are in section 5 of this file.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -242,8 +239,8 @@ describe('genome section layout (via installed .ms files)', () => {
 });
 
 // ─── 5. installSeeds({overwrite:false}) — real-fs, no mocking (PKT-426) ────
-// These tests use a real temp fs (no vi.mock). They fail pre-fix because
-// copyFileSync/writeFileSync silently overwrite without COPYFILE_EXCL / wx flag.
+// Real temp fs (no vi.mock). Tests 1-2 fail pre-fix (file content destroyed);
+// test 3 guards the "Overwrote" log contract (passes pre- and post-fix).
 
 describe('installSeeds({overwrite:false}) — preserves pre-existing files (real fs, PKT-426)', () => {
   it('preserves a customized .ms file (defect AD2 — non-mocked)', async () => {
