@@ -195,3 +195,83 @@ describe('parseSchemeDraft (agents/bossbot.ts:54)', () => {
     expect(out.rationale).toBe('');
   });
 });
+
+// ── Packet 422: strict validation additions ───────────────────────────────────
+
+describe('parseSubGoals — strict validation (packet 422)', () => {
+  it('returns [] for empty string', () => {
+    expect(parseSubGoals('')).toEqual([]);
+  });
+
+  it('returns [] for whitespace-only string', () => {
+    expect(parseSubGoals('   ')).toEqual([]);
+  });
+
+  it('returns [] when JSON parses to null', () => {
+    expect(parseSubGoals('null')).toEqual([]);
+  });
+
+  it('returns [] when JSON parses to a number', () => {
+    expect(parseSubGoals('42')).toEqual([]);
+  });
+
+  it('returns [] when JSON parses to a string', () => {
+    expect(parseSubGoals('"just a string"')).toEqual([]);
+  });
+
+  it('returns [] when JSON parses to an object (not array)', () => {
+    expect(parseSubGoals('{"description":"x"}')).toEqual([]);
+  });
+
+  it('returns [] when array item has non-string description', () => {
+    expect(parseSubGoals('[{"description":42}]')).toEqual([]);
+  });
+
+  it('skips bad items and keeps valid ones in mixed array', () => {
+    const raw = '[{"description":"a"},{"description":42},{"description":"b"}]';
+    const out = parseSubGoals(raw);
+    expect(out).toHaveLength(2);
+    expect(out[0]!.description).toBe('a');
+    expect(out[1]!.description).toBe('b');
+  });
+
+  it('returns [] when array item has non-array dependsOn', () => {
+    expect(parseSubGoals('[{"description":"x","dependsOn":"not-arr"}]')).toEqual([]);
+  });
+});
+
+describe('parseSchemeDraft — strict validation (packet 422)', () => {
+  it('throws on empty string input', () => {
+    expect(() => parseSchemeDraft('g', '')).toThrow('parseSchemeDraft: empty LLM output cannot produce a scheme');
+  });
+
+  it('throws on whitespace-only input', () => {
+    expect(() => parseSchemeDraft('g', '   ')).toThrow('parseSchemeDraft: empty LLM output cannot produce a scheme');
+  });
+
+  it('throws when JSON parses to null', () => {
+    expect(() => parseSchemeDraft('g', 'null')).toThrow();
+  });
+
+  it('throws when JSON parses to an array (not object)', () => {
+    expect(() => parseSchemeDraft('g', '[1,2,3]')).toThrow();
+  });
+
+  it('throws when campaigns field is null', () => {
+    expect(() => parseSchemeDraft('g', '{"rationale":"r","campaigns":null}')).toThrow();
+  });
+
+  it('throws when all campaigns are filtered out (no valid campaigns)', () => {
+    expect(() => parseSchemeDraft('g', '{"rationale":"r","campaigns":[{}]}')).toThrow('parseSchemeDraft: no valid campaigns after parsing');
+  });
+
+  it('parses valid scheme with one campaign (baseline preserved)', () => {
+    const raw = '{"rationale":"r","campaigns":[{"name":"C1","objective":"O1","subagents":[{"role":"r","domain":"d"}]}]}';
+    const out = parseSchemeDraft('g', raw);
+    expect(out.campaigns).toHaveLength(1);
+    expect(out.campaigns[0]!.name).toBe('C1');
+    expect(out.campaigns[0]!.objective).toBe('O1');
+    expect(out.campaigns[0]!.subagents).toHaveLength(1);
+    expect(out.campaigns[0]!.subagents[0]!.role).toBe('r');
+  });
+});
