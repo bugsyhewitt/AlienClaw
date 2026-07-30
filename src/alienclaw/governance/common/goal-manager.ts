@@ -113,7 +113,9 @@ export class GoalManager {
       goal.subGoals.filter(s => s.status === 'complete').map(s => s.id)
     );
     return goal.subGoals.filter(
-      s => s.status === 'pending' && s.dependsOn.every(dep => doneIds.has(dep))
+      s => s.status === 'pending' &&
+           Array.isArray(s.dependsOn) &&
+           s.dependsOn.every(dep => doneIds.has(dep))
     );
   }
 
@@ -178,7 +180,9 @@ export class GoalManager {
       goal.scheme.campaigns.filter(c => c.status === 'complete').map(c => c.id)
     );
     return goal.scheme.campaigns.filter(
-      c => c.status === 'pending' && c.dependsOn.every(dep => doneIds.has(dep))
+      c => c.status === 'pending' &&
+           Array.isArray(c.dependsOn) &&
+           c.dependsOn.every(dep => doneIds.has(dep))
     );
   }
 
