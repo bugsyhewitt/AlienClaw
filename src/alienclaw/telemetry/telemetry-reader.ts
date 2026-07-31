@@ -105,7 +105,13 @@ export async function aggregateOnlineFitness(
       .flatMap(line => {
         try { return [JSON.parse(line) as OnlineFitnessEntry]; } catch { return []; }
       })
-      .filter(e => e.martian_type === martianType);
+      .filter(e => e.martian_type === martianType)
+      // PKT-466: skip entries whose fitness field is not a finite number.
+      // The on-disk log can contain null (from writer-side NaN/Inf coercion
+      // — see PKT-416), string, or missing fitness; all silently poison the
+      // aggregate today. Skip with no log line: this is a runtime reader on
+      // a shared file and must not crash the API endpoint.
+      .filter(e => typeof e.fitness === 'number' && Number.isFinite(e.fitness));
 
     if (entries.length === 0) return { count: 0, mean_fitness: 0 };
     const sum = entries.reduce((acc, e) => acc + e.fitness, 0);
