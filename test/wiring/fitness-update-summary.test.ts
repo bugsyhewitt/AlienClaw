@@ -125,6 +125,13 @@ function captureFitnessUpdateFn(): () => Promise<void> {
   return hit[0]!.fn;
 }
 
+function captureRegistryHealthCheckFn(): () => Promise<void> {
+  const calls = vi.mocked(creatorBot.registerScheduledJob).mock.calls;
+  const hit   = calls.find(([a]) => a.label === 'registry-health-check');
+  if (!hit) throw new Error('registry-health-check job not registered');
+  return hit[0]!.fn;
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('fitness-update — live-fitness-summary.json (E2 item 5)', () => {
@@ -179,6 +186,58 @@ describe('fitness-update — live-fitness-summary.json (E2 item 5)', () => {
     expect(Number.isNaN(new Date(data.generated_at).getTime())).toBe(false);
     expect(data.generated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     expect(data.martians).toHaveLength(0);
+
+    shutdown();
+  });
+
+  // ── NaN / non-finite fitness guards (PKT-458) ─────────────────────────────
+
+  it('FUS-201: registry-health-check URGENT fires for NaN, Infinity, and -Infinity fitness', async () => {
+    const nanMs    = { id: 'nan_martian',    fitness: NaN }       as { id: string; fitness: number };
+    const infMs    = { id: 'inf_martian',    fitness: Infinity }  as { id: string; fitness: number };
+    const negInfMs = { id: 'neginf_martian', fitness: -Infinity } as { id: string; fitness: number };
+    const goodMs   = { id: 'good_martian',   fitness: 0.5 }       as { id: string; fitness: number };
+
+    mockFakeRegistry.list.mockReturnValue([nanMs, infMs, negInfMs, goodMs]);
+
+    const { shutdown } = bootstrap();
+    await captureRegistryHealthCheckFn()();
+
+    expect(creatorBot.enqueue).toHaveBeenCalledWith('URGENT', expect.stringContaining('nan_martian'),    'registry-health-check');
+    expect(creatorBot.enqueue).toHaveBeenCalledWith('URGENT', expect.stringContaining('inf_martian'),    'registry-health-check');
+    expect(creatorBot.enqueue).toHaveBeenCalledWith('URGENT', expect.stringContaining('neginf_martian'), 'registry-health-check');
+
+    const urgentCalls = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri, , src]) => pri === 'URGENT' && src === 'registry-health-check',
+    );
+    expect(urgentCalls.some(([, msg]) => (msg as string).includes('good_martian'))).toBe(false);
+
+    shutdown();
+  });
+
+  it('FUS-202: fitness-update skips EMA and emits URGENT when ms.fitness is NaN', async () => {
+    const nanMartian: { id: string; fitness: number } = { id: 'corrupt_martian', fitness: NaN };
+    mockFakeRegistry.list.mockReturnValue([nanMartian]);
+    mockFakeRegistry.get.mockImplementation(function(id: string) {
+      return id === 'corrupt_martian' ? nanMartian : undefined;
+    });
+
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      { reportCode: 'r1', ts: 1000, taskId: 't1', subagentId: 's1', martianId: 'corrupt_martian', domain: 'compute', outcome: 'SUCCESS' as const, summary: 'ok' },
+    ]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    // EMA must NOT have been applied — fitness stays NaN
+    expect(Number.isNaN(nanMartian.fitness)).toBe(true);
+
+    // URGENT must be enqueued for the corrupt martian
+    expect(creatorBot.enqueue).toHaveBeenCalledWith(
+      'URGENT',
+      expect.stringContaining('corrupt_martian'),
+      'fitness-update',
+    );
 
     shutdown();
   });
