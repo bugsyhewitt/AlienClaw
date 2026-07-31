@@ -82,6 +82,8 @@ def run_scale_experiment(
             mutation_rate=config_base.mutation_rate,
             crossover_rate=config_base.crossover_rate,
             elitism_count=config_base.elitism_count,
+            selection_strategy=config_base.selection_strategy,
+            truncation_top_fraction=config_base.truncation_top_fraction,
             seed=seed,
         )
 
