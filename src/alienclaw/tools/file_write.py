@@ -8,10 +8,15 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     content = inputs.get("content")
     if not path_str:
         return RunResult(ok=False, error="Missing 'path' field", correctness=0.0)
+    if not isinstance(path_str, str):
+        return RunResult(ok=False, error="Invalid 'path' field: must be string", correctness=0.0)
     if content is None:
         return RunResult(ok=False, error="Missing 'content' field", correctness=0.0)
     # repeat_count: write content N times (mod5_plus1 → 1-5). Drives tool_calls count.
-    repeat_count = max(1, min(5, int(params.get("repeat_count", 1))))
+    try:
+        repeat_count = max(1, min(5, int(params.get("repeat_count", 1))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'repeat_count': must be integer", correctness=0.0)
     path = Path(path_str)
     repeated = (str(content) + "\n") * repeat_count
     try:

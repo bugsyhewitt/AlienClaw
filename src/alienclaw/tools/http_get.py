@@ -12,12 +12,24 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if not url:
         return RunResult(ok=False, error="Missing 'url' field", correctness=0.0)
     # max_attempts (slot 0): transient-retry budget per the MSB PARAMETER_SCHEMA.
-    max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
-    field_count = max(1, min(5, int(params.get("field_count", 3))))
-    body_preview = max(1, min(10, int(params.get("body_preview", 5))))
+    try:
+        max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'max_attempts': must be integer", correctness=0.0)
+    try:
+        field_count = max(1, min(5, int(params.get("field_count", 3))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'field_count': must be integer", correctness=0.0)
+    try:
+        body_preview = max(1, min(10, int(params.get("body_preview", 5))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'body_preview': must be integer", correctness=0.0)
     # request_count: make N sequential GET requests per attempt; every urlopen
     # counts toward tool_calls, so retries cost fitness.
-    request_count = max(1, min(5, int(params.get("request_count", 1))))
+    try:
+        request_count = max(1, min(5, int(params.get("request_count", 1))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'request_count': must be integer", correctness=0.0)
     headers = inputs.get("headers", {}) or {}
 
     # Transient retry loop: HTTPError (4xx/5xx) is deterministic per URL and

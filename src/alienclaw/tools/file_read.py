@@ -11,6 +11,8 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     path_str = inputs.get("path", "")
     if not path_str:
         return RunResult(ok=False, error="Missing 'path' field", correctness=0.0)
+    if not isinstance(path_str, str):
+        return RunResult(ok=False, error="Invalid 'path' field: must be string", correctness=0.0)
     path = Path(path_str)
     if not path.exists():
         return RunResult(ok=False, error=f"File not found: {path_str}", correctness=0.0)
@@ -26,11 +28,20 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
 
     all_lines = raw.splitlines(keepends=True)
     total_lines = len(all_lines)
-    max_lines = max(1, int(params.get("max_lines", 100)))
+    try:
+        max_lines = max(1, int(params.get("max_lines", 100)))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'max_lines': must be integer", correctness=0.0)
     # skip_lines: skip first N-1 lines (1→skip 0, 2→skip 1, ... 10→skip 9)
-    skip = max(0, int(params.get("skip_lines", 1)) - 1)
+    try:
+        skip = max(0, int(params.get("skip_lines", 1)) - 1)
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'skip_lines': must be integer", correctness=0.0)
     # chunk_count: read file in N sequential chunks (tool_calls=N)
-    chunk_count = max(1, min(5, int(params.get("chunk_count", 1))))
+    try:
+        chunk_count = max(1, min(5, int(params.get("chunk_count", 1))))
+    except (ValueError, TypeError):
+        return RunResult(ok=False, error="Invalid param 'chunk_count': must be integer", correctness=0.0)
 
     available = all_lines[skip:]
     lines_per_chunk = max(1, math.ceil(len(available) / chunk_count))

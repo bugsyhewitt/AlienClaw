@@ -127,3 +127,18 @@ class TestOutputContract:
         r = run({"path": target, "content": "round-trip"})
         assert r.ok is True
         assert r.output["path"] == target
+
+
+class TestInvalidParamTypes:
+    """Regression: non-numeric repeat_count and non-str path must return clean failure."""
+
+    def test_non_int_repeat_count_returns_failure(self, tmp_path):
+        p = tmp_path / "x.txt"
+        r = run({"path": str(p), "content": "hello"}, {"repeat_count": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_bytes_path_returns_failure(self):
+        r = run({"path": b"/tmp/x.txt", "content": "hello"}, {})
+        assert r.ok is False
+        assert r.correctness == 0.0

@@ -173,6 +173,22 @@ class TestErrorPaths:
         assert r.output["extracted"]["a"]["value"] == 1
 
 
+# ── Invalid param types regression ────────────────────────────────────────
+
+class TestInvalidParamTypes:
+    """Regression: non-numeric string params must return clean failure, not raise ValueError."""
+
+    def test_non_int_result_format_returns_failure(self):
+        r = run({"json": '{"a": 1}', "path": "a"}, {"result_format": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_extraction_passes_returns_failure(self):
+        r = run({"json": '{"a": 1}', "path": "a"}, {"extraction_passes": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+
 # ── Wall-clean meta-check ─────────────────────────────────────────────────
 
 class TestWallClean:

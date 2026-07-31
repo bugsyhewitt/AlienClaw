@@ -159,3 +159,27 @@ class TestUnicodeDecodeErrorFallback:
         assert r.ok is True
         # 'café résumé' decoded from latin-1
         assert "café" in r.output.get("preview", "") or "résumé" in r.output.get("preview", "")
+
+
+class TestInvalidParamTypes:
+    """Regression: non-numeric string params must return clean failure, not raise ValueError."""
+
+    def test_non_int_max_attempts_returns_failure(self):
+        r = run({"url": "http://127.0.0.1:1/"}, {"max_attempts": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_field_count_returns_failure(self):
+        r = run({"url": "http://127.0.0.1:1/"}, {"field_count": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_content_preview_returns_failure(self):
+        r = run({"url": "http://127.0.0.1:1/"}, {"content_preview": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_non_int_request_count_returns_failure(self):
+        r = run({"url": "http://127.0.0.1:1/"}, {"request_count": "abc"})
+        assert r.ok is False
+        assert r.correctness == 0.0
