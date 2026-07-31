@@ -255,3 +255,50 @@ class TestTruncatedFlag:
         r = http_get_run({"url": stub_server + "/"})
         assert r.ok is True
         assert r.output["truncated"] is False
+
+
+# ── UTF-8 multi-byte: bytesReturned must be raw byte count ──────────────────
+
+class _Utf8Handler(_StubHandler):
+    """Serves 'café' encoded as UTF-8 = 5 bytes, 4 unicode chars."""
+    response_status = 200
+    response_body = "café".encode("utf-8")   # 5 bytes
+    response_content_type = "text/plain; charset=utf-8"
+
+
+class _Utf8_3byteHandler(_StubHandler):
+    """Serves '字' encoded as UTF-8 = 3 bytes, 1 unicode char."""
+    response_status = 200
+    response_body = "字".encode("utf-8")   # 3 bytes
+    response_content_type = "text/plain; charset=utf-8"
+
+
+@pytest.fixture
+def utf8_server():
+    server, url = _start_server(_Utf8Handler)
+    yield url
+    server.shutdown()
+
+
+@pytest.fixture
+def utf8_3byte_server():
+    server, url = _start_server(_Utf8_3byteHandler)
+    yield url
+    server.shutdown()
+
+
+class TestBytesReturnedMultiByte:
+    """L73: bytesReturned must be the raw BYTE count, not the decoded char count."""
+
+    def test_bytesReturned_matches_content_length_header_for_utf8(self, utf8_server):
+        """UTF-8 body 'café' = 5 bytes, 4 chars. Must report 5, not 4."""
+        r = http_get_run({"url": utf8_server}, {"field_count": 4, "max_attempts": 1, "request_count": 1})
+        assert r.ok is True
+        assert r.output["bytesReturned"] == 5, (
+            f"bytesReturned must be byte count; got {r.output['bytesReturned']} for 5-byte UTF-8 body"
+        )
+
+    def test_bytesReturned_equals_bytes_for_3byte_utf8(self, utf8_3byte_server):
+        """CJK '字' = 3 bytes UTF-8. 1 char body = 3 bytes returned."""
+        r = http_get_run({"url": utf8_3byte_server}, {"field_count": 4, "max_attempts": 1, "request_count": 1})
+        assert r.output["bytesReturned"] == 3

@@ -159,3 +159,69 @@ class TestUnicodeDecodeErrorFallback:
         assert r.ok is True
         # 'café résumé' decoded from latin-1
         assert "café" in r.output.get("preview", "") or "résumé" in r.output.get("preview", "")
+
+
+# ── UTF-8 multi-byte: contentLength must be raw byte count ──────────────────
+
+class _Utf8FetchHandler(BaseHTTPRequestHandler):
+    """Serves 'café' encoded as UTF-8 = 5 bytes, 4 unicode chars."""
+    def log_message(self, *a): pass
+    def do_GET(self):
+        body = "café".encode("utf-8")   # 5 bytes
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class _Utf8_3byteFetchHandler(BaseHTTPRequestHandler):
+    """Serves '字' encoded as UTF-8 = 3 bytes, 1 unicode char."""
+    def log_message(self, *a): pass
+    def do_GET(self):
+        body = "字".encode("utf-8")   # 3 bytes
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture
+def utf8_fetch_server():
+    server = HTTPServer(("127.0.0.1", 0), _Utf8FetchHandler)
+    port = server.server_address[1]
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    yield f"http://127.0.0.1:{port}"
+    server.shutdown()
+
+
+@pytest.fixture
+def utf8_3byte_fetch_server():
+    server = HTTPServer(("127.0.0.1", 0), _Utf8_3byteFetchHandler)
+    port = server.server_address[1]
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    yield f"http://127.0.0.1:{port}"
+    server.shutdown()
+
+
+class TestContentLengthMultiByte:
+    """L69: contentLength must be the raw BYTE count, not the decoded char count."""
+
+    def test_contentLength_matches_byte_count_for_utf8(self, utf8_fetch_server):
+        """UTF-8 body 'café' = 5 bytes, 4 chars. Must report 5, not 4."""
+        r = run({"url": utf8_fetch_server}, {"field_count": 4, "max_attempts": 1, "request_count": 1})
+        assert r.ok is True
+        assert r.output["contentLength"] == 5, (
+            f"contentLength must be byte count; got {r.output['contentLength']} for 5-byte UTF-8 body"
+        )
+
+    def test_contentLength_equals_bytes_for_3byte_utf8(self, utf8_3byte_fetch_server):
+        """CJK '字' = 3 bytes UTF-8. 1 char body = 3 bytes returned."""
+        r = run({"url": utf8_3byte_fetch_server}, {"field_count": 4, "max_attempts": 1, "request_count": 1})
+        assert r.ok is True
+        assert r.output["contentLength"] == 3, (
+            f"contentLength must be byte count; got {r.output['contentLength']} for 3-byte UTF-8 body"
+        )

@@ -39,6 +39,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
                 with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
                     status = resp.status
                     raw = resp.read(_MAX_RESPONSE_BYTES)
+                    content_bytes = len(raw)
                     content_type = resp.headers.get("Content-Type", "")
                     try:
                         content = raw.decode("utf-8")
@@ -66,7 +67,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             if field_count >= 1: output["url"] = url
             if field_count >= 2: output["statusCode"] = status
             if field_count >= 3: output["content"] = content
-            if field_count >= 4: output["contentLength"] = len(content)
+            if field_count >= 4: output["contentLength"] = content_bytes
             if field_count >= 5: output["contentType"] = content_type
             output["preview"] = "\n".join(preview_lines)  # always included; varies by content_preview param
             return RunResult(ok=True, output=output, tool_calls=total_tool_calls, correctness=1.0)
