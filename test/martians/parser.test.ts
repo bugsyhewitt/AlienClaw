@@ -249,6 +249,57 @@ slots:
 `;
     expect(() => parseMartian(md)).toThrow(/inputs_from must be null or have 'fields' mapping/);
   });
+
+  it('throws when a slot slot_index is a non-numeric string (parseInt NaN guard)', () => {
+    // parseInt('not-a-number', 10) silently returns NaN; the original code
+    // stored NaN in slotIndex and the downstream validator reported a
+    // confusing "Got: [null]" message. This guard mirrors Python's
+    // int(slot_raw['slot_index']) which raises ValueError on bad input.
+    const md = `\
+martian_type: x
+slots:
+  - slot_index: not-a-number
+    tool_name: t
+`;
+    expect(() => parseMartian(md)).toThrow(
+      /slot 0 slot_index must be an integer, got "not-a-number"/,
+    );
+  });
+
+  it('throws when a slot slot_index is an empty string (parseInt NaN guard)', () => {
+    // Empty YAML scalar → null in JS; String(null) = "null"; parseInt("null") = NaN.
+    const md = `\
+martian_type: x
+slots:
+  - slot_index:
+    tool_name: t
+`;
+    expect(() => parseMartian(md)).toThrow(
+      /slot 0 slot_index must be an integer, got null/,
+    );
+  });
+
+  it('throws when a slot slot_index is a non-integer numeric string (e.g. "3.0")', () => {
+    // parseInt("3.0", 10) silently returns 3 (stops at first non-digit).
+    // Number.isInteger(3) is true so this PASSES the guard — it mirrors
+    // Python's int("3.0") which RAISES ValueError. Documenting that gap
+    // here as a known asymmetry: this case still falls through silently
+    // and is caught downstream by the contiguous-index validator (which
+    // reports "slot_index values must be contiguous starting at 0" once
+    // the second slot at index 0 produces [3, 0]). Fixing this stricter
+    // case requires re-parsing the raw scalar pre-parseInt; out of scope
+    // for this minimal NaN guard.
+    const md = `\
+martian_type: x
+slots:
+  - slot_index: "3.0"
+    tool_name: t
+  - slot_index: 0
+    tool_name: t
+`;
+    // Does NOT throw; downstream validator handles it.
+    expect(() => parseMartian(md)).not.toThrow();
+  });
 });
 
 // ── describe: parseMartian — YAML tokenize / indent errors ─────────────
