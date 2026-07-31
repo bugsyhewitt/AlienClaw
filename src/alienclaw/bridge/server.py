@@ -227,6 +227,12 @@ def handle(raw: bytes) -> dict:
         return _error_response(request_id, "INVALID_GENOME", f"Genome validation failed: {validation.errors[0]}", {"errors": validation.errors})
 
     martian_type = req["martian_type"]
+    if not isinstance(martian_type, str) or not martian_type:
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "martian_type must be a non-empty string",
+            {"missing_fields": ["martian_type"]},
+        )
     registry = _get_martian_registry()
     if not registry.has(martian_type):
         return _error_response(
@@ -237,7 +243,8 @@ def handle(raw: bytes) -> dict:
         )
 
     timeout_ms = req["timeout_ms"]
-    if not isinstance(timeout_ms, int) or not (1 <= timeout_ms <= 600_000):
+    if (not isinstance(timeout_ms, int) or isinstance(timeout_ms, bool)
+            or not (1 <= timeout_ms <= 600_000)):
         return _error_response(request_id, "MALFORMED_REQUEST", "timeout_ms must be integer in [1, 600000]", {"missing_fields": []})
 
     if not isinstance(req["inputs"], dict):

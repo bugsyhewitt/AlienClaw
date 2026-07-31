@@ -202,12 +202,28 @@ class TestSummonValidation:
         assert available == sorted(available)
         assert "compute_alone" in available
 
-    @pytest.mark.parametrize("bad_timeout", [0, 600_001, "5000", None])
+    @pytest.mark.parametrize("bad_timeout", [0, 600_001, "5000", None, True, False])
     def test_timeout_ms_must_be_int_in_range(self, bad_timeout):
         resp = handle(_envelope(timeout_ms=bad_timeout))
         err = resp["response"]["error"]
         assert err["code"] == "MALFORMED_REQUEST"
         assert "timeout_ms" in err["message"]
+
+    @pytest.mark.parametrize("bad_martian_type", [{}, [], 42, True, False, 3.14])
+    def test_martian_type_must_be_nonempty_string(self, bad_martian_type):
+        """L229: martian_type must be a non-empty string; reject dict/list/int/bool/float.
+
+        Bug-class: unhashable inputs (dict, list) raised TypeError inside
+        registry.has() and crashed the bridge subprocess. Hashable non-strings
+        (int, bool, float) silently fell through to UNKNOWN_MARTIAN_TYPE — a
+        quieter symptom but still a contract violation. Mirror of PKT-386's
+        s-f-p guard, applied to the v1.0 summon path.
+        """
+        resp = handle(_envelope(martian_type=bad_martian_type))
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["message"]
+        assert err["details"]["missing_fields"] == ["martian_type"]
 
     def test_tool_failure_is_structured_with_slot_index(self):
         resp = handle(_envelope(inputs={"input": "this is not math"}))
