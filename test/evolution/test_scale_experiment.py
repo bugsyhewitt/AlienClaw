@@ -118,7 +118,7 @@ def test_per_generation_count_matches_generations(tmp_output):
 
 
 def test_selection_strategy_is_forwarded_to_per_seed_config(tmp_output):
-    """config_base.selection_strategy must reach the per-seed run, not silently default to 'tournament'."""
+    """config_base.selection_strategy must reach the per-seed run, not default to 'tournament'."""
     import alienclaw.evolution.population as pop_mod
     captured: list[EvolutionConfig] = []
     orig = pop_mod.Population.load_or_create
