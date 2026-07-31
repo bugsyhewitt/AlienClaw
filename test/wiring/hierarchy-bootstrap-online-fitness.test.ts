@@ -31,6 +31,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { EventEmitter } from 'node:events';
 
 // ── Stubs for heavy deps — applied before any import runs ────────────────────
 // Rule: every dep that hierarchy-bootstrap.ts constructs or calls at runtime
@@ -125,19 +126,47 @@ vi.mock('../../src/alienclaw/telemetry/telemetry-reader.js', () => ({
   summarizeFitness:         vi.fn(function() { return {}; }),
 }));
 
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return { ...actual, spawn: vi.fn() };
+});
+
 // ── Imports (after vi.mock stubs are declared) ────────────────────────────────
 import { bootstrap }        from '../../src/alienclaw/wiring/hierarchy-bootstrap.js';
 import { GovernanceLoop }   from '../../src/alienclaw/governance/common/governance-loop.js';
 import { OnlineFitnessLog } from '../../src/alienclaw/governance/common/online-fitness-log.js';
+import { creatorBot }       from '../../src/alienclaw/agents/creatorbot.js';
+import { getRegistry }      from '../../src/alienclaw/registry/registry.js';
+import { validateGenome }   from '../../src/alienclaw/registry/genome-codec.js';
+import { spawn }            from 'node:child_process';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('hierarchy-bootstrap — OnlineFitnessLog wiring (E2 item 1)', () => {
 
   beforeEach(() => {
-    // Reset call history before each test so assertions are clean
     vi.mocked(GovernanceLoop).mockClear();
+    vi.mocked(creatorBot.enqueue).mockClear();
+    vi.mocked(creatorBot.registerScheduledJob).mockClear();
+    // Restore getRegistry factory so each test gets a clean mock registry
+    vi.mocked(getRegistry).mockReset();
+    vi.mocked(getRegistry).mockImplementation(function() {
+      return { load: vi.fn(), list: vi.fn(function() { return []; }), get: vi.fn() };
+    });
+    // Restore validateGenome default
+    vi.mocked(validateGenome).mockReset();
+    vi.mocked(validateGenome).mockImplementation(() => ({ valid: true, errors: [] }));
+    // Reset spawn so Cluster B tests start with no recorded calls
+    vi.mocked(spawn).mockReset();
   });
+
+  /** Extract the fn registered with label from the most recent bootstrap() call. */
+  function getRegisteredFn(label: string): () => Promise<void> {
+    const calls = vi.mocked(creatorBot.registerScheduledJob).mock.calls;
+    const call = calls.find(c => c[0].label === label);
+    if (!call) throw new Error(`no job registered with label="${label}"`);
+    return call[0].fn as () => Promise<void>;
+  }
 
   it('HB-101: bootstrap() passes an OnlineFitnessLog instance to GovernanceLoop', () => {
     const result = bootstrap();
@@ -161,6 +190,132 @@ describe('hierarchy-bootstrap — OnlineFitnessLog wiring (E2 item 1)', () => {
     result.shutdown();
 
     expect(loopInstance.stop).toHaveBeenCalledOnce();
+  });
+
+  // ── Cluster A: registerAuditJob fn + predicate closures ─────────────────────
+
+  it('HB-103: registry-health-check fn enqueues URGENT when fitness is out of range', async () => {
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'bad-martian', fitness: -0.5 }] as any[]),
+      get:  vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('registry-health-check');
+    await fn();
+
+    expect(vi.mocked(creatorBot.enqueue)).toHaveBeenCalledWith(
+      'URGENT',
+      expect.stringContaining('bad-martian'),
+      'registry-health-check',
+    );
+    result.shutdown();
+  });
+
+  it('HB-104: registry-health-check fn skips enqueue for valid fitness', async () => {
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'ok-martian', fitness: 0.8 }] as any[]),
+      get:  vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('registry-health-check');
+    await fn();
+
+    expect(vi.mocked(creatorBot.enqueue)).not.toHaveBeenCalled();
+    result.shutdown();
+  });
+
+  it('HB-105: genome-checksum-audit fn enqueues URGENT for invalid genome', async () => {
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'corrupt-martian', fitness: 0.5, genome: {} }] as any[]),
+      get:  vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+    vi.mocked(validateGenome).mockReturnValueOnce({ valid: false, errors: ['missing root'] });
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('genome-checksum-audit');
+    await fn();
+
+    expect(vi.mocked(creatorBot.enqueue)).toHaveBeenCalledWith(
+      'URGENT',
+      expect.stringContaining('corrupt-martian'),
+      'genome-checksum-audit',
+    );
+    result.shutdown();
+  });
+
+  it('HB-106: genome-checksum-audit fn skips enqueue for valid genome', async () => {
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'ok-martian', fitness: 0.5, genome: {} }] as any[]),
+      get:  vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+    // validateGenome default returns { valid: true, errors: [] } — no override needed
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('genome-checksum-audit');
+    await fn();
+
+    expect(vi.mocked(creatorBot.enqueue)).not.toHaveBeenCalled();
+    result.shutdown();
+  });
+
+  // ── Cluster B: callLiveEvoBridge + live-evo-check fn ────────────────────────
+
+  it('HB-107: live-evo-check fn invokes callLiveEvoBridge which resolves on close', async () => {
+    const fakeChild = new EventEmitter() as any;
+    fakeChild.stdin = { write: vi.fn(), end: vi.fn() };
+    vi.mocked(spawn).mockReturnValue(fakeChild);
+
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'mt-a', fitness: 0.5 }] as any[]),
+      get:  vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('live-evo-check');
+
+    const fnPromise = fn();
+    fakeChild.emit('close');
+    await fnPromise;
+
+    expect(vi.mocked(spawn)).toHaveBeenCalledWith(
+      'python3', ['-m', 'alienclaw.bridge'], { shell: false },
+    );
+    expect(fakeChild.stdin.write).toHaveBeenCalled();
+    result.shutdown();
+  });
+
+  it('HB-108: callLiveEvoBridge resolves (does not reject) on child error', async () => {
+    const fakeChild = new EventEmitter() as any;
+    fakeChild.stdin = { write: vi.fn(), end: vi.fn() };
+    vi.mocked(spawn).mockReturnValue(fakeChild);
+
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'mt-b', fitness: 0.5 }] as any[]),
+      get:  vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('live-evo-check');
+
+    const fnPromise = fn();
+    fakeChild.emit('error', new Error('spawn failed'));
+    // Must NOT reject — callLiveEvoBridge calls resolve() on error
+    await expect(fnPromise).resolves.toBeUndefined();
+    result.shutdown();
   });
 
 });
