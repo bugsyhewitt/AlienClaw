@@ -115,3 +115,66 @@ def test_per_generation_count_matches_generations(tmp_output):
     )
     data = json.loads((tmp_output / "seed_42.json").read_text())
     assert len(data["per_generation"]) == 7
+
+
+def test_selection_strategy_is_forwarded_to_per_seed_config(tmp_output):
+    """config_base.selection_strategy must reach the per-seed run, not default to 'tournament'."""
+    import alienclaw.evolution.population as pop_mod
+    captured: list[EvolutionConfig] = []
+    orig = pop_mod.Population.load_or_create
+    def spy(c):
+        captured.append(c)
+        return orig(c)
+    pop_mod.Population.load_or_create = spy
+    try:
+        config = EvolutionConfig(
+            martian_type="compute_alone",
+            population_size=4,
+            selection_strategy="truncation",
+            truncation_top_fraction=0.25,
+        )
+        run_scale_experiment(
+            martian_type="compute_alone",
+            config_base=config,
+            run_martian_fn=mock_runner,
+            generations=2,
+            seeds=[42],
+            output_dir=tmp_output,
+        )
+    finally:
+        pop_mod.Population.load_or_create = orig
+
+    assert len(captured) == 1
+    assert captured[0].selection_strategy == "truncation"
+    assert captured[0].truncation_top_fraction == 0.25
+
+
+def test_truncation_strategy_actually_selects_top_fraction(tmp_output):
+    """End-to-end: truncation selection with top_fraction=0.5 must reach the selector."""
+    import alienclaw.evolution.generation as gen_mod
+    captured: list[str] = []
+    orig = gen_mod._make_selector
+    def spy(config):
+        result = orig(config)
+        captured.append(config.selection_strategy)
+        return result
+    gen_mod._make_selector = spy
+    try:
+        config = EvolutionConfig(
+            martian_type="compute_alone",
+            population_size=4,
+            selection_strategy="truncation",
+            truncation_top_fraction=0.5,
+        )
+        run_scale_experiment(
+            martian_type="compute_alone",
+            config_base=config,
+            run_martian_fn=mock_runner,
+            generations=2,
+            seeds=[42],
+            output_dir=tmp_output,
+        )
+    finally:
+        gen_mod._make_selector = orig
+
+    assert captured == ["truncation"] * 2, f"Expected truncation dispatched; got {captured}"
