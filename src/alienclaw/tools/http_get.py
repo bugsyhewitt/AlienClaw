@@ -44,7 +44,9 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
                         declared_length = 0
                     if declared_length > _MAX_RESPONSE_BYTES:
                         truncated = True
-                    body = resp.read(_MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
+                    raw = resp.read(_MAX_RESPONSE_BYTES)
+                    body_bytes = len(raw)
+                    body = raw.decode("utf-8", errors="replace")
                     content_type = resp.headers.get("Content-Type", "")
             except urllib.error.HTTPError as exc:
                 total_tool_calls += 1
@@ -70,7 +72,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             if field_count >= 1: output["url"] = url
             if field_count >= 2: output["statusCode"] = status
             if field_count >= 3: output["content"] = body
-            if field_count >= 4: output["bytesReturned"] = len(body)
+            if field_count >= 4: output["bytesReturned"] = body_bytes
             if field_count >= 5: output["contentType"] = content_type
             output["truncated"] = truncated
             # body_preview: include first N lines of body as a "preview" field (distinct for each 1-10)
