@@ -49,7 +49,8 @@ export class MartianRegistry {
       const dirents = await fs.readdir(this.registryDir, { withFileTypes: true });
       entries = dirents
         .filter(d => d.isFile() && d.name.endsWith('.ms'))
-        .map(d => d.name);
+        .map(d => d.name)
+        .sort();
     } catch (err) {
       throw new RegistryError(
         `Cannot read registry dir ${this.registryDir}: ${errorMessage(err)}`
