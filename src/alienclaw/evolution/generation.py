@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import random
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -66,15 +66,14 @@ def evaluate_and_evolve(
     generation = pop.current_generation()
     current_pool = list(pop.all())
 
-    # Step 1: Evaluate every entry in current pool
+    # Step 1: Evaluate every entry in current pool.
+    # Preserve entry_id so children minted in step 3 can reference these stable IDs.
     evaluated: list[PopulationEntry] = []
     for entry in current_pool:
         report = run_martian(config.martian_type, entry.genome)
-        new_entry = _make_entry(
-            genome=entry.genome,
-            fitness=report.fitness,
-            generation=generation,
-            parent_ids=(entry.entry_id,),
+        new_entry = replace(
+            entry,
+            fitness=clamp01(report.fitness),
             run_metadata={**report.run_metadata, "re_evaluated": True},
         )
         pop._storage.write_entry(new_entry)
@@ -94,20 +93,23 @@ def evaluate_and_evolve(
     children: list[PopulationEntry] = []
     for _ in range(children_needed):
         if rng.random() < config.crossover_rate:
-            pa = select(pop, rng).genome
-            pb = select(pop, rng).genome
-            child_genome = crossover(pa, pb, rng)
+            pa = select(pop, rng)
+            pb = select(pop, rng)
+            child_genome = crossover(pa.genome, pb.genome, rng)
+            parent_ids = (pa.entry_id, pb.entry_id)
         else:
-            parent_genome = select(pop, rng).genome
+            parent = select(pop, rng)
+            parent_genome = parent.genome
             if config.brain is not None:
                 child_genome = mutate_directed(parent_genome, [None, config.brain, None, None], rng)
             else:
                 child_genome = mutate(parent_genome, rng, config.mutation_rate)
+            parent_ids = (parent.entry_id,)
         child_entry = _make_entry(
             genome=child_genome,
             fitness=0.0,
             generation=generation + 1,
-            parent_ids=(),
+            parent_ids=parent_ids,
             run_metadata={"newly_minted": True},
         )
         pop._storage.write_entry(child_entry)
