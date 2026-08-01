@@ -233,6 +233,18 @@ class TestSummonValidation:
         assert "tool internal crash" in err["message"]
         assert err["details"]["slot_index"] == 0
 
+    @pytest.mark.parametrize("bad_mt", [
+        ["compute"],
+        {"name": "compute"},
+        pytest.param((1, 2), id="tuple"),
+    ])
+    def test_summon_martian_type_must_be_non_empty_string(self, bad_mt):
+        """PKT-470: kind='summon' must reject non-string martian_type before registry.has()."""
+        resp = handle(_envelope(martian_type=bad_mt))
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["details"]["missing_fields"]
+
 
 class TestLiveEvoHandler:
     """Tests for kind='live-evo' bridge handler (E2 item 3)."""
@@ -300,6 +312,21 @@ class TestLiveEvoHandler:
         err = resp["response"]["error"]
         assert err["code"] == "INTERNAL"
         assert "disk full" in err["details"]["exception"]
+
+    @pytest.mark.parametrize("bad_mt", [
+        ["compute"],
+        {"name": "compute"},
+        pytest.param((1, 2), id="tuple"),
+        42,
+        3.14,
+        True,
+    ])
+    def test_live_evo_martian_type_must_be_non_empty_string(self, bad_mt) -> None:
+        """PKT-470: non-string martian_type must return MALFORMED_REQUEST, not INTERNAL or crash."""
+        resp = self._live_evo({"martian_type": bad_mt})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["details"]["missing_fields"]
 
 
 class TestSummonFromPopulationShape:
