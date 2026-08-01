@@ -66,6 +66,14 @@ export class MartianRegistry {
           // Graveyard entries stay on disk but are not loaded into active registry
           continue;
         }
+        if (this.store.has(spec.id)) {
+          console.error(
+            `[MartianRegistry] Duplicate Martian id "${spec.id}" in ${name} — ` +
+            `already loaded from another .ms file. Skipping duplicate (first wins). ` +
+            `Resolve the conflict to ensure deterministic registry state.`
+          );
+          continue;
+        }
         this.store.set(spec.id, spec);
       } catch (err) {
         if (err instanceof MsParseError) {

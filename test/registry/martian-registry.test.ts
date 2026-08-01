@@ -313,4 +313,48 @@ describe('MartianRegistry (registry/martian-registry.ts)', () => {
       expect(e.message).toBe('[MartianRegistry] boom');
     });
   });
+
+  // ── loadAll: duplicate id handling (PKT-477) ──────────────────────────────
+
+  describe('loadAll — duplicate id handling', () => {
+    it('logs and skips the duplicate, first-wins', async () => {
+      const id = 'MS_WEB00001';
+      writeFileSync(join(tmpDir, 'a.ms'), makeValidMs(id, { fitness: 0.10 }));
+      writeFileSync(join(tmpDir, 'b.ms'), makeValidMs(id, { fitness: 0.99 }));
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const r = new MartianRegistry(tmpDir);
+      await r.loadAll();
+
+      expect(r.size).toBe(1);
+      expect(r.get(id)?.fitness).toBe(0.10);  // first wins
+      expect(errSpy).toHaveBeenCalledTimes(1);
+      expect(errSpy.mock.calls[0]![0]).toContain('Duplicate Martian id');
+      expect(errSpy.mock.calls[0]![0]).toContain(id);
+      errSpy.mockRestore();
+    });
+
+    it('preserves the first-loaded toolTags when a duplicate id has different tools', async () => {
+      writeFileSync(join(tmpDir, 'a.ms'), makeValidMs('MS_WEB00001', { fitness: 0.10, tools: ['web_search'] }));
+      writeFileSync(join(tmpDir, 'b.ms'), makeValidMs('MS_WEB00001', { fitness: 0.99, tools: ['file_write'] }));
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const r = new MartianRegistry(tmpDir);
+      await r.loadAll();
+
+      expect(r.get('MS_WEB00001')?.toolTags).toEqual(['web_search']);
+      errSpy.mockRestore();
+    });
+
+    it('does not abort loadAll on duplicate id — other Martians still load', async () => {
+      writeFileSync(join(tmpDir, 'MS_WEB00001.ms'), makeValidMs('MS_WEB00001'));
+      writeFileSync(join(tmpDir, 'MS_WEB00001_dup.ms'), makeValidMs('MS_WEB00001'));
+      writeFileSync(join(tmpDir, 'MS_FREAD0001.ms'), makeValidMs('MS_FREAD0001', { tools: ['file_read'] }));
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const r = new MartianRegistry(tmpDir);
+      await r.loadAll();
+
+      expect(r.size).toBe(2);  // both unique ids loaded
+      expect(r.get('MS_FREAD0001')).toBeDefined();
+      errSpy.mockRestore();
+    });
+  });
 });
