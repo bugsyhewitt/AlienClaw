@@ -7,7 +7,15 @@
  */
 import type { MartianResult, OperatorSpec } from "./types.js";
 
+// ── logOnce ──────────────────────────────────────────────────────────────────
+// Memoise console.warn by message key so repeated identical warnings do not
+// spam the channel. Dedupes per-process (the _logged set is module-local).
+// Use this for operator warnings that may fire on every fallback path —
+// once is enough to alert, repeating adds noise without adding signal.
+const _logged = new Set<string>();
 function logOnce(msg: string): void {
+  if (_logged.has(msg)) return;
+  _logged.add(msg);
   console.warn(`[operators] ${msg}`);
 }
 
