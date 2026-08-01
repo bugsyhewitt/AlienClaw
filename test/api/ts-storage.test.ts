@@ -369,21 +369,6 @@ describe('SubmissionStore.topForType — LIMIT boundary assertion', () => {
 describe('SubmissionStore.save — submission_id entropy', () => {
   const SENTINEL = 'SABOTAGE_POOL_EXECUTE_REACHED';
 
-  // Stand-in for mysql.Pool that fails loudly on any query attempt. If the
-  // guard accepts the value, control reaches the pool and the sentinel surfaces;
-  // if the guard rejects, the sentinel never appears.
-  function sabotagePool(): mysql.Pool {
-    return {
-      execute: async () => { throw new Error(SENTINEL); },
-    } as unknown as mysql.Pool;
-  }
-
-  // Build a SubmissionStore whose underlying save() would INSERT into the
-  // sabotage pool — so reaching execute() is provably bad.
-  function storeWithSabotagePool(): SubmissionStore {
-    return new SubmissionStore(sabotagePool());
-  }
-
   const validOpts = {
     genome:          'A'.repeat(256),
     martianType:     'compute',
