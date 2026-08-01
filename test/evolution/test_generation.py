@@ -202,7 +202,7 @@ class TestBrainDirectedMutation:
 
 class TestChildLineage:
     def test_mutation_child_has_one_parent_id(self):
-        """Each gen-1 child produced by mutation has exactly one parent ID from the gen-0 pool."""
+        """Each gen-1 mutation child has exactly one parent ID from the evaluated gen-0 pool."""
         config = EvolutionConfig(
             martian_type="compute",
             population_size=4,
@@ -211,16 +211,20 @@ class TestChildLineage:
             seed=10,
         )
         pop = Population.create(config)
-        gen0_ids = {e.entry_id for e in pop.all()}
         evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(10))
+        evaluated_ids = {
+            e.entry_id
+            for e in pop._storage.read_all_entries()
+            if e.generation == 0 and e.run_metadata.get("re_evaluated")
+        }
         gen1_children = [e for e in pop.all() if e.generation == 1]
         assert len(gen1_children) == 4
         for child in gen1_children:
             assert len(child.parent_ids) == 1, f"expected 1 parent, got {child.parent_ids!r}"
-            assert child.parent_ids[0] in gen0_ids, "parent ID not from gen-0 pool"
+            assert child.parent_ids[0] in evaluated_ids, "parent ID not from evaluated gen-0 pool"
 
     def test_crossover_child_has_two_parent_ids(self):
-        """Each gen-1 child produced by crossover has exactly two parent IDs from the gen-0 pool."""
+        """Each gen-1 crossover child has exactly two parent IDs from the evaluated gen-0 pool."""
         config = EvolutionConfig(
             martian_type="compute",
             population_size=4,
@@ -229,11 +233,15 @@ class TestChildLineage:
             seed=11,
         )
         pop = Population.create(config)
-        gen0_ids = {e.entry_id for e in pop.all()}
         evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(11))
+        evaluated_ids = {
+            e.entry_id
+            for e in pop._storage.read_all_entries()
+            if e.generation == 0 and e.run_metadata.get("re_evaluated")
+        }
         gen1_children = [e for e in pop.all() if e.generation == 1]
         assert len(gen1_children) == 4
         for child in gen1_children:
             assert len(child.parent_ids) == 2, f"expected 2 parents, got {child.parent_ids!r}"
             for pid in child.parent_ids:
-                assert pid in gen0_ids, "parent ID not from gen-0 pool"
+                assert pid in evaluated_ids, "parent ID not from evaluated gen-0 pool"

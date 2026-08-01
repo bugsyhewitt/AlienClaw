@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import random
 import uuid
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -66,14 +66,15 @@ def evaluate_and_evolve(
     generation = pop.current_generation()
     current_pool = list(pop.all())
 
-    # Step 1: Evaluate every entry in current pool.
-    # Preserve entry_id so children minted in step 3 can reference these stable IDs.
+    # Step 1: Evaluate every entry in current pool
     evaluated: list[PopulationEntry] = []
     for entry in current_pool:
         report = run_martian(config.martian_type, entry.genome)
-        new_entry = replace(
-            entry,
-            fitness=clamp01(report.fitness),
+        new_entry = _make_entry(
+            genome=entry.genome,
+            fitness=report.fitness,
+            generation=generation,
+            parent_ids=(entry.entry_id,),
             run_metadata={**report.run_metadata, "re_evaluated": True},
         )
         pop._storage.write_entry(new_entry)
