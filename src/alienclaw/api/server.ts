@@ -235,7 +235,18 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
             const [s, b] = await handleInstall(body as unknown as InstallRequest, _INSTALLS);
             return send(res, s, b);
           } catch (e: unknown) {
-            return send(res, 400, { error: JSON.parse((e as Error).message) });
+            let parsed: unknown;
+            try {
+              parsed = JSON.parse((e as Error).message);
+            } catch {
+              process.stderr.write(`[api] /v1/install non-structured throw: ${e}\n`);
+              parsed = {
+                code: 'INSTALL_HANDLER_ERROR',
+                message: 'Install handler failed; see server logs for details.',
+                details: {},
+              };
+            }
+            return send(res, 400, { error: parsed });
           }
         }
 

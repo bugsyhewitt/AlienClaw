@@ -107,6 +107,18 @@ export function validateSubmission(
 export function validateInstallRequest(
   req: Pick<InstallRequest, 'api_key' | 'machine_hash'>
 ): ValidationResult {
+  const apiKey: unknown = req.api_key;
+  if (typeof apiKey !== 'string') {
+    return fail('INVALID_API_KEY_FORMAT',
+      'api_key must be a string.',
+      { received_type: apiKey === null ? 'null' : typeof apiKey });
+  }
+  const machineHash: unknown = req.machine_hash;
+  if (typeof machineHash !== 'string') {
+    return fail('INVALID_MACHINE_HASH',
+      'machine_hash must be a string.',
+      { received_type: machineHash === null ? 'null' : typeof machineHash });
+  }
   if (!isValidApiKeyFormat(req.api_key)) {
     return fail('INVALID_API_KEY_FORMAT',
       'api_key must be exactly 43 Base62 characters.',
