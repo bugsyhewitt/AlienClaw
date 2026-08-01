@@ -79,4 +79,72 @@ describe('aggregateOnlineFitness', () => {
     expect(result.count).toBe(2);
     expect(result.mean_fitness).toBeCloseTo(0.5, 10);
   });
+
+  // PKT-494: non-finite fitness guard tests
+  it('PKT-494: skips entries with string fitness — does not return NaN, count excludes them', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath, [
+      JSON.stringify({ martian_type: 'compute', fitness: 0.5, ts: '2026-07-04T00:00:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 'not-a-number', ts: '2026-07-04T00:01:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 0.5, ts: '2026-07-04T00:02:00Z' }),
+    ].join('\n') + '\n', 'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(Number.isNaN(result.mean_fitness)).toBe(false);
+    expect(result.count).toBe(2);
+    expect(result.mean_fitness).toBeCloseTo(0.5, 10);
+  });
+
+  it('PKT-494: skips entries with fitness: null — does not return NaN, count excludes them', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath, [
+      JSON.stringify({ martian_type: 'compute', fitness: 0.5, ts: '2026-07-04T00:00:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: null, ts: '2026-07-04T00:01:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 0.5, ts: '2026-07-04T00:02:00Z' }),
+    ].join('\n') + '\n', 'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(Number.isNaN(result.mean_fitness)).toBe(false);
+    expect(result.count).toBe(2);
+    expect(result.mean_fitness).toBeCloseTo(0.5, 10);
+  });
+
+  it('PKT-494: skips entries with missing fitness key — does not return NaN, count excludes them', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath, [
+      JSON.stringify({ martian_type: 'compute', fitness: 0.5, ts: '2026-07-04T00:00:00Z' }),
+      JSON.stringify({ martian_type: 'compute', ts: '2026-07-04T00:01:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 0.5, ts: '2026-07-04T00:02:00Z' }),
+    ].join('\n') + '\n', 'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(Number.isNaN(result.mean_fitness)).toBe(false);
+    expect(result.count).toBe(2);
+    expect(result.mean_fitness).toBeCloseTo(0.5, 10);
+  });
+
+  it('PKT-494: returns {count:0, mean_fitness:0} when all matching entries have non-finite fitness', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath, [
+      JSON.stringify({ martian_type: 'compute', fitness: null, ts: '2026-07-04T00:00:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 'bad', ts: '2026-07-04T00:01:00Z' }),
+    ].join('\n') + '\n', 'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result).toEqual({ count: 0, mean_fitness: 0 });
+  });
+
+  it('PKT-494: count reflects only valid-fitness entries in a mixed dataset', async () => {
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath, [
+      JSON.stringify({ martian_type: 'compute', fitness: 'bad', ts: '2026-07-04T00:00:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: null, ts: '2026-07-04T00:01:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 0.8, ts: '2026-07-04T00:02:00Z' }),
+      JSON.stringify({ martian_type: 'compute', ts: '2026-07-04T00:03:00Z' }),
+    ].join('\n') + '\n', 'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result.count).toBe(1);
+    expect(result.mean_fitness).toBeCloseTo(0.8, 10);
+  });
 });
