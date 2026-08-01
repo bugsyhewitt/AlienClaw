@@ -338,6 +338,28 @@ class TestSummonFromPopulationShape:
         resp = self._sfp({"martian_type": "no_such_martian", "inputs": {}, "timeout_ms": 1000})
         assert resp["response"]["error"]["code"] == "UNKNOWN_MARTIAN_TYPE"
 
+    @pytest.mark.parametrize("bad_martian_type", [{}, [], 42, True, False, 3.14])
+    def test_sfp_martian_type_must_be_nonempty_string(self, bad_martian_type):
+        """SFP path: non-string martian_type must return MALFORMED_REQUEST, never crash.
+
+        Bug: _handle_summon_from_population passed martian_type directly to
+        registry.has() without a prior isinstance(str) guard. Unhashable types
+        (dict, list) raised TypeError and crashed the bridge subprocess. Hashable
+        non-strings (int, bool, float) silently fell through to UNKNOWN_MARTIAN_TYPE
+        — the wrong error code.
+
+        This is the summon-from-population analogue of the v1 summon gap fixed
+        in the same commit (PKT-461 / test_martian_type_must_be_nonempty_string).
+        """
+        resp = self._sfp({
+            "martian_type": bad_martian_type,
+            "inputs": {"input": "2+2"},
+            "timeout_ms": 1000,
+        })
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["message"]
+
     def test_sfp_non_dict_inputs_rejected(self):
         """L262: inputs must be an object in summon-from-population."""
         resp = self._sfp({
