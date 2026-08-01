@@ -89,6 +89,19 @@ class TestSelectionCoefficient:
         assert s == 0.0
 
 
+class TestDriftThreshold:
+    def test_positive_N(self):
+        assert drift_threshold(100) == pytest.approx(0.005)
+
+    def test_N_zero_raises_value_error(self):
+        with pytest.raises(ValueError, match="N must be > 0"):
+            drift_threshold(0)
+
+    def test_N_negative_raises_value_error(self):
+        with pytest.raises(ValueError, match="N must be > 0"):
+            drift_threshold(-1)
+
+
 class TestAnalyzeSelectionRegime:
     def test_strong_selection_regime(self):
         result = analyze_selection_regime(0.9, 0.5, 100)
@@ -106,3 +119,11 @@ class TestAnalyzeSelectionRegime:
         assert result["s"] < 0
         assert result["regime"] == "drift"
         assert result["selection_acts"] is False
+
+    def test_N_zero_raises_value_error(self):
+        with pytest.raises(ValueError, match="N must be > 0"):
+            analyze_selection_regime(0.9, 0.5, 0)
+
+    def test_N_negative_raises_value_error(self):
+        with pytest.raises(ValueError, match="N must be > 0"):
+            analyze_selection_regime(0.9, 0.5, -1)
