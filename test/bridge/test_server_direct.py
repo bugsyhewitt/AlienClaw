@@ -345,6 +345,18 @@ class TestSummonFromPopulationShape:
         assert err["code"] == "MALFORMED_REQUEST"
         assert err["details"]["missing_fields"] == ["timeout_ms"]
 
+    @pytest.mark.parametrize("bad_mt", [
+        ["compute"],
+        {"name": "compute"},
+        pytest.param((1, 2), id="tuple"),
+    ])
+    def test_sfp_martian_type_must_be_non_empty_string(self, bad_mt):
+        """PKT-470: kind='summon-from-population' must reject non-string martian_type before registry.has()."""
+        resp = self._sfp({"martian_type": bad_mt, "inputs": {}, "timeout_ms": 1000})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["details"]["missing_fields"]
+
     def test_unknown_martian_type(self):
         resp = self._sfp({"martian_type": "no_such_martian", "inputs": {}, "timeout_ms": 1000})
         assert resp["response"]["error"]["code"] == "UNKNOWN_MARTIAN_TYPE"

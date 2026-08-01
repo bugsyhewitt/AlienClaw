@@ -312,6 +312,12 @@ def _handle_summon_from_population(request_id: str | None, req: dict, t0: float)
             return _error_response(request_id, "MALFORMED_REQUEST", f"Missing field: {field}", {"missing_fields": [field]})
 
     martian_type = req["martian_type"]
+    if not isinstance(martian_type, str) or not martian_type:
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "martian_type must be a non-empty string",
+            {"missing_fields": ["martian_type"]},
+        )
     inputs = req.get("inputs", {})
     if not isinstance(inputs, dict):
         return _error_response(request_id, "MALFORMED_REQUEST", "inputs must be an object", {"missing_fields": ["inputs"]})
