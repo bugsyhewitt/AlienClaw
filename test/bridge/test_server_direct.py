@@ -317,6 +317,54 @@ class TestLiveEvoHandler:
         assert err["code"] == "INTERNAL"
         assert "disk full" in err["details"]["exception"]
 
+    @pytest.mark.parametrize("bad_martian_type", [{}, [], 42, True, 3.14])
+    def test_live_evo_martian_type_must_be_nonempty_string(self, bad_martian_type) -> None:
+        """live-evo path: non-string martian_type must return MALFORMED_REQUEST, never crash.
+
+        Bug: _handle_live_evo used `if not martian_type:` which only catches falsy values.
+        Unhashable types (dict, list) pass the `not` check; numeric/bool/float wrap truthy
+        (42, True, 3.14) all slip through to check_and_evolve silently — either
+        crashing the bridge subprocess (unhashable keys) or silently returning
+        `evolved=False` for an unknown martian_type, which is the wrong contract response.
+
+        This is the live-evo analogue of the v1 summon + summon-from-population gap
+        fixed in the same PR (test_martian_type_must_be_nonempty_string,
+        test_sfp_martian_type_must_be_nonempty_string).
+        """
+        resp = self._live_evo({"martian_type": bad_martian_type})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type must be a non-empty string" in err["message"]
+        assert err["details"]["missing_fields"] == ["martian_type"]
+
+    @pytest.mark.parametrize("bad_threshold", [None, "foo", {}, []])
+    def test_live_evo_threshold_uncoercible_returns_malformed(self, bad_threshold) -> None:
+        """live-evo path: threshold must coerce cleanly to int or return MALFORMED_REQUEST.
+
+        Bug: `_handle_live_evo` does `threshold = int(req.get("threshold", LIVE_EVO_THRESHOLD))`
+        with no try/except. None / "foo" / {} / [] all raise TypeError or ValueError
+        out of int(), crashing the bridge subprocess (the bridge contract requires
+        structured responses, never raised exceptions — see module docstring L1-11).
+        """
+        resp = self._live_evo({"martian_type": "compute", "threshold": bad_threshold})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold must be integer" in err["message"]
+
+    @pytest.mark.parametrize("bad_threshold", [True, False, -5, 0, 10**18])
+    def test_live_evo_threshold_out_of_range_or_bool_returns_malformed(self, bad_threshold) -> None:
+        """live-evo path: threshold must be int in a sane range; reject bools explicitly.
+
+        Bug: `int(True) == 1` and `int(False) == 0` both pass cleanly through the
+        existing coercion. `threshold=False`/`-5`/`0` cause `check_and_evolve` to
+        unconditionally evolve (mint children) because the threshold check
+        becomes `0 >= 0`. This is a silent side-effect from a malformed request.
+        """
+        resp = self._live_evo({"martian_type": "compute", "threshold": bad_threshold})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold must be integer" in err["message"]
+
 
 class TestSummonFromPopulationShape:
     @staticmethod
