@@ -159,6 +159,218 @@ describe('parseCliArgs — run subcommand', () => {
   });
 });
 
+// ── 4. evolve subcommand — happy path + numeric validation (PKT-492) ─────────
+
+describe('parseCliArgs — evolve subcommand happy path', () => {
+  it('E-001: returns evolve with defaults for minimal valid invocation', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute'))).toEqual({
+      type: 'evolve',
+      args: { martianType: 'compute', generations: 10, population: 32 },
+    });
+  });
+
+  it('E-002: parses plain decimal --generations', () => {
+    const result = parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '100'));
+    expect(result).toEqual({
+      type: 'evolve',
+      args: { martianType: 'compute', generations: 100, population: 32 },
+    });
+  });
+
+  it('E-003: parses plain decimal --population', () => {
+    const result = parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '10', '--population', '64'));
+    expect(result).toEqual({
+      type: 'evolve',
+      args: { martianType: 'compute', generations: 10, population: 64 },
+    });
+  });
+
+  it('E-004: parses plain decimal --seed', () => {
+    const result = parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '10', '--population', '32', '--seed', '42'));
+    expect(result).toEqual({
+      type: 'evolve',
+      args: { martianType: 'compute', generations: 10, population: 32, seed: 42 },
+    });
+  });
+
+  it('E-005: parses --inputs JSON string when non-empty', () => {
+    const result = parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '10', '--population', '32', '--inputs', '{"x":1}'));
+    expect(result).toEqual({
+      type: 'evolve',
+      args: { martianType: 'compute', generations: 10, population: 32, inputs: '{"x":1}' },
+    });
+  });
+});
+
+// ── 5. evolve — D1 scientific-notation bypass (PKT-492) ──────────────────────
+
+describe('parseCliArgs — evolve D1: scientific notation rejected', () => {
+  it('E-101: rejects 1e3 for --generations (sci-notation bypass)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '1e3'))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', '1e3'],
+    });
+  });
+
+  it('E-102: rejects 1e10 for --population (OOM-vector)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '10', '--population', '1e10'))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', '10', '--population', '1e10'],
+    });
+  });
+
+  it('E-103: rejects 2e5 for --seed', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '10', '--population', '32', '--seed', '2e5'))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', '10', '--population', '32', '--seed', '2e5'],
+    });
+  });
+
+  it('E-104: rejects hex notation 0x10 for --generations', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '0x10'))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', '0x10'],
+    });
+  });
+
+  it('E-105: rejects binary notation 0b10 for --generations', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '0b10'))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', '0b10'],
+    });
+  });
+
+  it('E-106: rejects positive-sign prefix +5 for --generations', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '+5'))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', '+5'],
+    });
+  });
+
+  it('E-107: rejects whitespace-padded " 5 " for --generations', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', ' 5 '))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', ' 5 '],
+    });
+  });
+
+  it('E-108: rejects fractional 1.5 for --generations (regression against PKT-380)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '1.5'))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', '1.5'],
+    });
+  });
+
+  it('E-109: rejects negative -1 for --generations', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '-1'))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', '-1'],
+    });
+  });
+
+  it('E-110: rejects zero 0 for --generations (below >= 1 threshold)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '0'))).toEqual({
+      type: 'unknown',
+      raw: ['evolve', '--type', 'compute', '--generations', '0'],
+    });
+  });
+});
+
+// ── 6. evolve — D2 empty --inputs bypass (PKT-492) ───────────────────────────
+
+describe('parseCliArgs — evolve D2: empty inputs rejected', () => {
+  it('E-201: empty string --inputs results in inputs=undefined', () => {
+    const result = parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '10', '--population', '32', '--inputs', ''));
+    expect(result).toEqual({
+      type: 'evolve',
+      args: { martianType: 'compute', generations: 10, population: 32 },
+    });
+  });
+
+  it('E-202: whitespace-only --inputs results in inputs=undefined', () => {
+    const result = parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '10', '--population', '32', '--inputs', '   '));
+    expect(result).toEqual({
+      type: 'evolve',
+      args: { martianType: 'compute', generations: 10, population: 32 },
+    });
+  });
+
+  it('E-203: non-empty --inputs string is preserved verbatim', () => {
+    const result = parseCliArgs(cli('evolve', '--type', 'compute', '--generations', '10', '--population', '32', '--inputs', '{"key":"val"}'));
+    expect(result).toEqual({
+      type: 'evolve',
+      args: { martianType: 'compute', generations: 10, population: 32, inputs: '{"key":"val"}' },
+    });
+  });
+});
+
+// ── 7. submit subcommand — happy path + D3 name validation (PKT-492) ─────────
+
+describe('parseCliArgs — submit subcommand', () => {
+  it('S-001: returns submit for minimal valid invocation', () => {
+    expect(parseCliArgs(cli('submit', '--type', 'compute'))).toEqual({
+      type: 'submit',
+      args: { martianType: 'compute', yes: false, force: false },
+    });
+  });
+
+  it('S-002: parses valid 8-uppercase-letter --name', () => {
+    expect(parseCliArgs(cli('submit', '--type', 'compute', '--name', 'ABCDEFGH'))).toEqual({
+      type: 'submit',
+      args: { martianType: 'compute', name: 'ABCDEFGH', yes: false, force: false },
+    });
+  });
+
+  it('S-003: parses --yes flag', () => {
+    expect(parseCliArgs(cli('submit', '--type', 'compute', '--yes'))).toEqual({
+      type: 'submit',
+      args: { martianType: 'compute', yes: true, force: false },
+    });
+  });
+
+  it('S-004: parses --force flag', () => {
+    expect(parseCliArgs(cli('submit', '--type', 'compute', '--force'))).toEqual({
+      type: 'submit',
+      args: { martianType: 'compute', yes: false, force: true },
+    });
+  });
+
+  it('S-101: rejects --name with lowercase (D3 — early validation)', () => {
+    expect(parseCliArgs(cli('submit', '--type', 'compute', '--name', 'abcdefgh'))).toEqual({
+      type: 'unknown',
+      raw: ['submit', '--type', 'compute', '--name', 'abcdefgh'],
+    });
+  });
+
+  it('S-102: rejects --name with whitespace (D3)', () => {
+    expect(parseCliArgs(cli('submit', '--type', 'compute', '--name', 'ABCD EFGH'))).toEqual({
+      type: 'unknown',
+      raw: ['submit', '--type', 'compute', '--name', 'ABCD EFGH'],
+    });
+  });
+
+  it('S-103: rejects --name with digits (D3)', () => {
+    expect(parseCliArgs(cli('submit', '--type', 'compute', '--name', 'ABCD1234'))).toEqual({
+      type: 'unknown',
+      raw: ['submit', '--type', 'compute', '--name', 'ABCD1234'],
+    });
+  });
+
+  it('S-104: rejects --name shorter than 8 chars (D3)', () => {
+    expect(parseCliArgs(cli('submit', '--type', 'compute', '--name', 'ABCDE'))).toEqual({
+      type: 'unknown',
+      raw: ['submit', '--type', 'compute', '--name', 'ABCDE'],
+    });
+  });
+
+  it('S-105: rejects --name longer than 8 chars (D3)', () => {
+    expect(parseCliArgs(cli('submit', '--type', 'compute', '--name', 'ABCDEFGHI'))).toEqual({
+      type: 'unknown',
+      raw: ['submit', '--type', 'compute', '--name', 'ABCDEFGHI'],
+    });
+  });
+});
+
 // ── 4. interpreter-prefix handling ────────────────────────────────────────────
 
 describe('parseCliArgs — interpreter-prefix handling', () => {
