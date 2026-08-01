@@ -71,6 +71,11 @@ def analyze_formula(
         raise ValueError("slot_correctnesses and slot_tool_calls must have same length")
 
     k = len(slot_correctnesses)
+    if k < 1:
+        raise ValueError(
+            "slot_correctnesses and slot_tool_calls must be non-empty "
+            "(at least one slot required)"
+        )
     correctness_agg = min(slot_correctnesses) if slot_correctnesses else 0.0
     correctness_agg = clamp01(correctness_agg)
     tool_calls_agg = sum(slot_tool_calls)
