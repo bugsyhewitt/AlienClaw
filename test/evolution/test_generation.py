@@ -198,3 +198,42 @@ class TestBrainDirectedMutation:
         genomes_a = sorted(e.genome for e in pop_a.all())
         genomes_b = sorted(e.genome for e in pop_b.all())
         assert genomes_a == genomes_b  # mutation_rate ignored; outcomes identical
+
+
+class TestChildLineage:
+    def test_mutation_child_has_one_parent_id(self):
+        """Each gen-1 child produced by mutation has exactly one parent ID from the gen-0 pool."""
+        config = EvolutionConfig(
+            martian_type="compute",
+            population_size=4,
+            elitism_count=0,
+            crossover_rate=0.0,
+            seed=10,
+        )
+        pop = Population.create(config)
+        gen0_ids = {e.entry_id for e in pop.all()}
+        evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(10))
+        gen1_children = [e for e in pop.all() if e.generation == 1]
+        assert len(gen1_children) == 4
+        for child in gen1_children:
+            assert len(child.parent_ids) == 1, f"expected 1 parent, got {child.parent_ids!r}"
+            assert child.parent_ids[0] in gen0_ids, "parent ID not from gen-0 pool"
+
+    def test_crossover_child_has_two_parent_ids(self):
+        """Each gen-1 child produced by crossover has exactly two parent IDs from the gen-0 pool."""
+        config = EvolutionConfig(
+            martian_type="compute",
+            population_size=4,
+            elitism_count=0,
+            crossover_rate=1.0,
+            seed=11,
+        )
+        pop = Population.create(config)
+        gen0_ids = {e.entry_id for e in pop.all()}
+        evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(11))
+        gen1_children = [e for e in pop.all() if e.generation == 1]
+        assert len(gen1_children) == 4
+        for child in gen1_children:
+            assert len(child.parent_ids) == 2, f"expected 2 parents, got {child.parent_ids!r}"
+            for pid in child.parent_ids:
+                assert pid in gen0_ids, "parent ID not from gen-0 pool"
