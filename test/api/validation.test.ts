@@ -128,6 +128,56 @@ describe('validateSubmission', () => {
   });
 });
 
+// ── validateSubmission: type-coercion bypass guard (Layer 2 defense-in-depth, PKT-476) ──
+//
+// These cases arrive at validateSubmission after server.ts L261-267 has coerced
+// the raw JSON. They confirm that Layer 2 (validation.ts itself) also catches
+// non-string martian_type / leaderboard_name before the registered-type and
+// regex checks that previously let coerced values slip through.
+
+describe('validateSubmission – type-coercion guard (Layer 2 defense-in-depth)', () => {
+  it.each([
+    ['boolean true',  true],
+    ['boolean false', false],
+    ['null',          null],
+    ['array []',      []],
+    ['array [0.5]',   [0.5]],
+    ['string ""',     ''],
+  ])('rejects fitness %s → INVALID_FITNESS_RANGE', (_label, raw) => {
+    const req = makeValidSubmission();
+    req.fitness = raw as unknown as number;
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('INVALID_FITNESS_RANGE');
+  });
+
+  it.each([
+    ['array ["compute"]',            ['compute']],
+    ['number 42',                    42],
+    ['boolean true',                 true],
+    ['object {toString→"compute"}',  { toString: () => 'compute' }],
+  ])('rejects martian_type %s → INVALID_MARTIAN_TYPE_TYPE', (_label, raw) => {
+    const req = makeValidSubmission();
+    req.martian_type = raw as unknown as string;
+    const r = validateSubmission(req, new Set(['search_text', 'compute']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('INVALID_MARTIAN_TYPE_TYPE');
+  });
+
+  it.each([
+    ['array ["ABCDEFGH"]',             ['ABCDEFGH']],
+    ['number 12345678',                12345678],
+    ['boolean true',                   true],
+    ['object {toString→"ABCDEFGH"}',   { toString: () => 'ABCDEFGH' }],
+  ])('rejects leaderboard_name %s → INVALID_LEADERBOARD_NAME_TYPE', (_label, raw) => {
+    const req = makeValidSubmission();
+    req.leaderboard_name = raw as unknown as string;
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('INVALID_LEADERBOARD_NAME_TYPE');
+  });
+});
+
 // ── validateInstallRequest ────────────────────────────────────────────────
 
 describe('validateInstallRequest', () => {
