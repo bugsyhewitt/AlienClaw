@@ -84,3 +84,33 @@ class TestParseMartian:
         )
         with pytest.raises(MartianParseError, match="inputs_from must be null or have"):
             parse_martian(yaml)
+
+    # PKT-500 type-guard cases
+    def test_martian_type_int_raises(self):
+        with pytest.raises(MartianParseError, match="martian_type must be a string"):
+            parse_martian("martian_type: 42\nslots:\n  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n")
+
+    def test_martian_type_bool_raises(self):
+        with pytest.raises(MartianParseError, match="martian_type must be a string"):
+            parse_martian("martian_type: true\nslots:\n  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n")
+
+    def test_use_cases_nested_mapping_raises(self):
+        with pytest.raises(MartianParseError, match="use_cases"):
+            parse_martian(
+                "martian_type: foo\nuse_cases:\n  - foo\n  - bar: baz\nslots:\n"
+                "  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n"
+            )
+
+    def test_use_cases_scalar_raises(self):
+        with pytest.raises(MartianParseError, match="use_cases must be a list of strings"):
+            parse_martian(
+                "martian_type: foo\nuse_cases: hello\nslots:\n"
+                "  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n"
+            )
+
+    def test_use_cases_empty_string_scalar_raises(self):
+        with pytest.raises(MartianParseError, match="use_cases must be a list of strings"):
+            parse_martian(
+                "martian_type: foo\nuse_cases: \"\"\nslots:\n"
+                "  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n"
+            )
