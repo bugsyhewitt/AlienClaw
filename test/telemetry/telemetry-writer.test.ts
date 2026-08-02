@@ -208,6 +208,30 @@ describe('TelemetryWriter.writeMartianReport', () => {
     );
     expect(allFilesUnder(telemetryRoot)).toEqual([]);
   });
+
+  // W1: caller-supplied data.ts must NOT overwrite the writer's canonical ts
+  it('W1: writer ts wins over caller-supplied data.ts', async () => {
+    const w = new TelemetryWriter();
+    const before = Date.now();
+    await w.writeMartianReport('AB12cd34', { ts: 12345, outcome: 'SUCCESS' });
+    const after = Date.now();
+
+    const file = join(datedDir(), 'AB12cd34.json');
+    const parsed = JSON.parse(readFileSync(file, 'utf-8'));
+    expect(typeof parsed.ts).toBe('number');
+    expect(parsed.ts).toBeGreaterThanOrEqual(before);
+    expect(parsed.ts).toBeLessThanOrEqual(after);
+  });
+
+  // W2: caller-supplied data.reportCode must NOT overwrite the writer's canonical reportCode
+  it('W2: writer reportCode wins over caller-supplied data.reportCode', async () => {
+    const w = new TelemetryWriter();
+    await w.writeMartianReport('AB12cd34', { reportCode: 'ATTACKER', outcome: 'SUCCESS' });
+
+    const file = join(datedDir(), 'AB12cd34.json');
+    const parsed = JSON.parse(readFileSync(file, 'utf-8'));
+    expect(parsed.reportCode).toBe('AB12cd34');
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -245,6 +269,22 @@ describe('TelemetryWriter.writeAdvisory', () => {
     );
     expect(allFilesUnder(telemetryRoot)).toEqual([]);
   });
+
+  // W3+W4: caller-supplied data.taskId and data.ts must NOT overwrite writer's canonical values
+  it('W3+W4: writer taskId and ts win over caller-supplied data.taskId and data.ts', async () => {
+    const w = new TelemetryWriter();
+    const taskId = 'task-0042';
+    const before = Date.now();
+    await w.writeAdvisory(taskId, { taskId: 'OVERWRITE', ts: 12345, advice: 'x' });
+    const after = Date.now();
+
+    const file = join(datedDir(), `advisory_${taskId}.json`);
+    const parsed = JSON.parse(readFileSync(file, 'utf-8'));
+    expect(parsed.taskId).toBe(taskId);
+    expect(typeof parsed.ts).toBe('number');
+    expect(parsed.ts).toBeGreaterThanOrEqual(before);
+    expect(parsed.ts).toBeLessThanOrEqual(after);
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -265,5 +305,20 @@ describe('TelemetryWriter.writeFailforward', () => {
     const parsed = JSON.parse(readFileSync(file, 'utf-8'));
     expect(parsed.reason).toBe('strike-3');
     expect(typeof parsed.ts).toBe('number');
+  });
+
+  // W5: caller-supplied data.ts must NOT overwrite writer's canonical ts in writeFailforward
+  it('W5: writer ts wins over caller-supplied data.ts in writeFailforward', async () => {
+    const w = new TelemetryWriter();
+    const before = Date.now();
+    await w.writeFailforward({ ts: 999, reason: 'strike-3' });
+    const after = Date.now();
+
+    const files = allFilesUnder(telemetryRoot);
+    expect(files).toHaveLength(1);
+    const parsed = JSON.parse(readFileSync(files[0]!, 'utf-8'));
+    expect(typeof parsed.ts).toBe('number');
+    expect(parsed.ts).toBeGreaterThanOrEqual(before);
+    expect(parsed.ts).toBeLessThanOrEqual(after);
   });
 });
