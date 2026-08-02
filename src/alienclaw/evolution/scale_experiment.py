@@ -84,6 +84,7 @@ def run_scale_experiment(
             elitism_count=config_base.elitism_count,
             selection_strategy=config_base.selection_strategy,
             truncation_top_fraction=config_base.truncation_top_fraction,
+            brain=config_base.brain,
             seed=seed,
         )
 
