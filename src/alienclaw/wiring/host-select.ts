@@ -11,9 +11,10 @@ import { OpenClawHostAdapter } from '../governance/openclaw/openclaw-host.js';
 import { HermesHostAdapter } from '../governance/hermes/hermes-host.js';
 
 export function selectHostId(): HostId {
-  // `||` (not `??`) and `.trim()` so empty/whitespace/padded values fall back
-  // to the default. The trim+lowercase combination matches the existing
-  // case-insensitivity contract for `Hermes` / `HERMES` / `' hermes '` alike.
+  // `|| ''` + `.trim()` normalizes the raw string; the trailing `|| 'openclaw'`
+  // makes empty and whitespace-only inputs fall back to the default.  Padded
+  // valid names (' openclaw ', '\tHermes\n') trim-and-match the case-insensitive
+  // arms below rather than falling back.
   const raw = (process.env['ALIENCLAW_HOST'] || '').trim().toLowerCase() || 'openclaw';
   if (raw === 'openclaw') return 'openclaw';
   if (raw === 'hermes')   return 'hermes';
