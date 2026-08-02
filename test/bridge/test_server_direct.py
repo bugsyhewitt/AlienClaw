@@ -301,6 +301,53 @@ class TestLiveEvoHandler:
         assert err["code"] == "INTERNAL"
         assert "disk full" in err["details"]["exception"]
 
+    # PKT-502: threshold type validation -----------------------------------------
+
+    @pytest.mark.parametrize("bad_threshold,type_name", [
+        ("abc", "str"),
+        (None, "NoneType"),
+        (0.5, "float"),
+        (2.7, "float"),
+        ([10], "list"),
+        ({"v": 10}, "dict"),
+        (True, "bool"),
+        (False, "bool"),
+    ])
+    def test_live_evo_threshold_must_be_int(self, bad_threshold, type_name) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": bad_threshold})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST", resp
+        assert "threshold" in err["message"]
+        assert "integer" in err["message"]
+        assert err["details"]["received_type"] == type_name
+
+    @pytest.mark.parametrize("bad_threshold", [0, -1, -100, 2**31, 2**32])
+    def test_live_evo_threshold_out_of_range_rejected(self, bad_threshold) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": bad_threshold})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST", resp
+        assert "threshold" in err["message"]
+        assert "1" in err["message"]
+
+    def test_live_evo_threshold_at_lower_bound_accepted(self, monkeypatch) -> None:
+        """threshold=1 is the smallest legal value; should be accepted."""
+        import alienclaw.evolution.live_evo as le_mod
+        monkeypatch.setattr(
+            le_mod, "check_and_evolve",
+            lambda mt, th, **kw: {"generation": 0, "next_generation": 1, "children_minted": 30, "new_observations": 5},
+        )
+        resp = self._live_evo({"martian_type": "compute", "threshold": 1})
+        assert resp["response"]["ok"] is True
+        assert resp["response"]["evolved"] is True
+
+    def test_live_evo_threshold_at_upper_bound_accepted(self, monkeypatch) -> None:
+        """threshold=2**31-1 is the largest legal value; should be accepted."""
+        import alienclaw.evolution.live_evo as le_mod
+        monkeypatch.setattr(le_mod, "check_and_evolve", lambda mt, th, **kw: None)
+        resp = self._live_evo({"martian_type": "compute", "threshold": 2**31 - 1})
+        assert resp["response"]["ok"] is True
+        assert resp["response"]["evolved"] is False
+
 
 class TestSummonFromPopulationShape:
     @staticmethod
