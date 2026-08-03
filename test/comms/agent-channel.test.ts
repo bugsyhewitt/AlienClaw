@@ -479,7 +479,10 @@ describe('AgentChannel.send — path traversal prevention (PKT-523)', () => {
     } catch {
       // expected
     }
+    // Check all valid Tier-A pairs — the rejected message must not appear in any of them
     expect(ch.history('BossBot', 'AdvisorBot')).toHaveLength(0);
+    expect(ch.history('BossBot', 'CreatorBot')).toHaveLength(0);
+    expect(ch.history('AdvisorBot', 'CreatorBot')).toHaveLength(0);
   });
 
   it('accepts a valid send after a rejected one (rejection is not stateful)', () => {
