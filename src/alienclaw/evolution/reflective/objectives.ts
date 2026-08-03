@@ -133,7 +133,17 @@ export function weightedPick<T>(
   weight: (t: T) => number,
   rng: () => number,
 ): T {
-  const total = items.reduce((s, it) => s + weight(it), 0);
+  if (items.length === 0) {
+    throw new Error("weightedPick: empty items array");
+  }
+  let total = 0;
+  for (const it of items) {
+    const w = weight(it);
+    if (!Number.isFinite(w)) throw new Error(`weightedPick: non-finite weight for ${JSON.stringify(it)}`);
+    if (w < 0) throw new Error(`weightedPick: negative weight for ${JSON.stringify(it)}`);
+    total += w;
+  }
+  if (total <= 0) throw new Error("weightedPick: non-positive total weight (all weights zero or below)");
   let r = rng() * total;
   for (const it of items) {
     r -= weight(it);

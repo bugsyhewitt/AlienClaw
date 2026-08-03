@@ -168,22 +168,16 @@ describe("weightedPick", () => {
     expect(weightedPick(items, () => 5, rng)).toBe("only");
   });
 
-  it("returns undefined when items is empty (documents current contract gap)", () => {
-    // Documents current buggy behavior — changes to toThrow after Part B lands
-    const r = weightedPick([], () => 1, () => 0.5);
-    expect(r).toBeUndefined();
-  });
-
-  it.skip("throws when items is empty (post-fix expectation, gated on PART B)", () => {
+  it("throws when items is empty (post-fix expectation, gated on PART B)", () => {
     expect(() => weightedPick([], () => 1, () => 0.5)).toThrow(/empty items/);
   });
 
-  it.skip("throws when all weights are zero (post-fix expectation, gated on PART B)", () => {
+  it("throws when all weights are zero (post-fix expectation, gated on PART B)", () => {
     expect(() => weightedPick(["a", "b", "c"], () => 0, () => 0.5))
       .toThrow(/non-positive total weight/);
   });
 
-  it.skip("throws when any weight is negative (post-fix expectation, gated on PART B)", () => {
+  it("throws when any weight is negative (post-fix expectation, gated on PART B)", () => {
     expect(() => weightedPick(["a", "b", "c"], () => -1, () => 0.5))
       .toThrow(/negative weight/);
   });
