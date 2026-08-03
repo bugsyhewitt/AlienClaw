@@ -72,7 +72,7 @@ class TestExpectedFixationTime:
 
     def test_invalid_N_raises(self):
         """N <= 0 must raise ValueError in expected_fixation_time()."""
-        with pytest.raises(ValueError, match="N must be > 0"):
+        with pytest.raises(ValueError, match="positive int"):
             expected_fixation_time(0.1, 0)
 
 
@@ -106,3 +106,43 @@ class TestAnalyzeSelectionRegime:
         assert result["s"] < 0
         assert result["regime"] == "drift"
         assert result["selection_acts"] is False
+
+
+class TestNonFiniteInputs:
+    """NaN / ±Inf inputs must raise ValueError, not silently propagate."""
+
+    @pytest.mark.parametrize("fn,second_arg", [
+        (kimura_fixation_prob, 100),
+        (expected_fixation_time, 100),
+        (selection_coefficient_from_fitness, 0.5),
+    ])
+    def test_nan_in_first_arg_raises(self, fn, second_arg):
+        with pytest.raises(ValueError, match="finite"):
+            fn(float("nan"), second_arg)
+
+    def test_nan_in_second_arg_select_coef_raises(self):
+        with pytest.raises(ValueError, match="finite"):
+            selection_coefficient_from_fitness(0.5, float("nan"))
+
+    def test_analyze_selection_regime_nan_fit_high_raises(self):
+        with pytest.raises(ValueError, match="finite"):
+            analyze_selection_regime(float("nan"), 0.5, 100)
+
+    @pytest.mark.parametrize("x", [float("nan"), float("inf"), float("-inf")])
+    def test_drift_threshold_non_int_raises(self, x):
+        with pytest.raises(ValueError, match="positive int"):
+            drift_threshold(x)
+
+    def test_drift_threshold_bool_raises(self):
+        """True/False must be rejected (Python bool is int subclass)."""
+        with pytest.raises(ValueError, match="positive int"):
+            drift_threshold(True)
+
+    def test_drift_threshold_float_raises(self):
+        with pytest.raises(ValueError, match="positive int"):
+            drift_threshold(5.5)
+
+    def test_analyze_selection_regime_n_zero_raises_value_error(self):
+        """Was: ZeroDivisionError from drift_threshold(0). After fix: ValueError."""
+        with pytest.raises(ValueError, match="positive int"):
+            analyze_selection_regime(0.9, 0.5, 0)
