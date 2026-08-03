@@ -163,6 +163,14 @@ class TestEnvelopeErrors:
             _envelope(martian_type="no_such_martian"),
             _envelope(timeout_ms=-1),
             _envelope(inputs="not a dict"),
+            # NEW: unhashable martian_type values — bridge must NOT raise, must return structured error
+            _envelope(martian_type=[]),
+            _envelope(martian_type={}),
+            _envelope(martian_type=["compute"]),
+            _envelope(martian_type={"name": "compute"}),
+            # NEW: non-string scalar martian_type — same contract (wrong code before fix)
+            _envelope(martian_type=123),
+            _envelope(martian_type=None),
         ]
         for raw in payloads:
             resp = handle(raw)  # must not raise
@@ -232,6 +240,22 @@ class TestSummonValidation:
         assert "runner raised exception" in err["message"]
         assert "tool internal crash" in err["message"]
         assert err["details"]["slot_index"] == 0
+
+    @pytest.mark.parametrize("bad_timeout", [True, False, 1.0, 2**63])
+    def test_summon_timeout_ms_bool_and_float_rejected(self, bad_timeout):
+        """L240: timeout_ms must be a strict int (not bool, not float, not oversized)."""
+        resp = handle(_envelope(timeout_ms=bad_timeout))
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST", resp
+        assert "timeout_ms" in err["message"]
+
+    @pytest.mark.parametrize("martian_type", [[], {}, ["compute"], {"name": "compute"}, 123, None])
+    def test_summon_martian_type_must_be_string(self, martian_type):
+        """L231: martian_type must be a non-empty string (not list/dict/int/None)."""
+        resp = handle(_envelope(martian_type=martian_type))
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST", resp
+        assert "martian_type" in err["message"]
 
 
 class TestLiveEvoHandler:
@@ -483,3 +507,15 @@ class TestSummonFromPopulationShape:
         )
         # Bridge still produced a valid response after the cap
         assert "ok" in resp["response"]
+
+    @pytest.mark.parametrize("martian_type", [[], {}, ["compute"], {"name": "compute"}, 123, None])
+    def test_sfp_martian_type_must_be_string(self, martian_type):
+        """L315: martian_type must be a non-empty string (not list/dict/int/None) on SFP path."""
+        resp = self._sfp({
+            "martian_type": martian_type,
+            "inputs": {"input": "2 + 2"},
+            "timeout_ms": 1000,
+        })
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST", resp
+        assert "martian_type" in err["message"]
