@@ -167,6 +167,32 @@ describe("weightedPick", () => {
     const rng = () => ++n / 10;
     expect(weightedPick(items, () => 5, rng)).toBe("only");
   });
+
+  it("returns undefined when items is empty (documents current contract gap)", () => {
+    // Documents current buggy behavior — changes to toThrow after Part B lands
+    const r = weightedPick([], () => 1, () => 0.5);
+    expect(r).toBeUndefined();
+  });
+
+  it.skip("throws when items is empty (post-fix expectation, gated on PART B)", () => {
+    expect(() => weightedPick([], () => 1, () => 0.5)).toThrow(/empty items/);
+  });
+
+  it.skip("throws when all weights are zero (post-fix expectation, gated on PART B)", () => {
+    expect(() => weightedPick(["a", "b", "c"], () => 0, () => 0.5))
+      .toThrow(/non-positive total weight/);
+  });
+
+  it.skip("throws when any weight is negative (post-fix expectation, gated on PART B)", () => {
+    expect(() => weightedPick(["a", "b", "c"], () => -1, () => 0.5))
+      .toThrow(/negative weight/);
+  });
+
+  it("rng=1.0 still terminates (last-item fallback works)", () => {
+    const r = weightedPick(["a", "b"], () => 1, () => 1.0);
+    expect(r).toBeDefined();
+    expect(["a", "b"]).toContain(r);
+  });
 });
 
 describe("meanObjective", () => {
