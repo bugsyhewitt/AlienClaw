@@ -8,7 +8,29 @@ changes by less than `threshold` (relative change from window start).
 """
 from __future__ import annotations
 
+import math
 from typing import Sequence
+
+
+def _assert_finite_sequence(name: str, curve: Sequence[float]) -> None:
+    """Raise ValueError if any element of curve is NaN or ±Inf."""
+    for i, x in enumerate(curve):
+        if not math.isfinite(x):
+            raise ValueError(f"{name}[{i}] must be a finite number, got {x!r}")
+
+
+def _assert_positive_int(name: str, n: object) -> None:
+    """Raise ValueError if n is not a positive int (rejects bool and float)."""
+    if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
+        raise ValueError(f"{name} must be a positive int, got {n!r}")
+
+
+def _assert_unit_interval(name: str, x: float) -> None:
+    """Raise ValueError if x is NaN, ±Inf, or outside [0, 1]."""
+    if not math.isfinite(x):
+        raise ValueError(f"{name} must be a finite number, got {x!r}")
+    if not (0.0 <= x <= 1.0):
+        raise ValueError(f"{name} must be in [0, 1], got {x!r}")
 
 
 def detect_plateaus(
@@ -31,6 +53,9 @@ def detect_plateaus(
             duration:   end_gen - start_gen + 1
             escaped:    True if fitness improved after this plateau
     """
+    _assert_positive_int("window_size", window_size)
+    _assert_unit_interval("threshold", threshold)
+    _assert_finite_sequence("fitness_per_generation", fitness_per_generation)
     curve = list(fitness_per_generation)
     n = len(curve)
     if n < window_size:
@@ -82,6 +107,9 @@ def time_to_convergence(
         First generation index where the window of convergence_window gens all
         have fitness ≥ convergence_fitness, or None if never reached.
     """
+    _assert_unit_interval("convergence_fitness", convergence_fitness)
+    _assert_positive_int("convergence_window", convergence_window)
+    _assert_finite_sequence("fitness_per_generation", fitness_per_generation)
     curve = list(fitness_per_generation)
     n = len(curve)
 
@@ -116,6 +144,8 @@ def summarize_convergence(
             "max_convergence_gen": int | None,
         }
     """
+    _assert_unit_interval("convergence_fitness", convergence_fitness)
+    _assert_positive_int("convergence_window", convergence_window)
     gens = []
     for curve in all_curves:
         g = time_to_convergence(curve, convergence_fitness, convergence_window)
