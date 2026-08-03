@@ -415,6 +415,164 @@ describe('AgentChannel — pure in-memory state isolation', () => {
   });
 });
 
+// ── Packet 523: path traversal prevention ────────────────────────────────────
+
+describe('AgentChannel.send — path traversal prevention (PKT-523)', () => {
+  let tmpDir: string;
+  let ch: AgentChannel;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    ch = new AgentChannel(tmpDir);
+  });
+
+  afterEach(() => {
+    rmTmp(tmpDir);
+  });
+
+  it('throws TypeError when `from` is a path-traversal segment ".."', () => {
+    expect(() =>
+      ch.send(makeMsg({ from: '..' as unknown as TierAAgent, to: 'AdvisorBot' })),
+    ).toThrow(TypeError);
+  });
+
+  it('throws TypeError when `to` contains path separators "../../../../tmp/PWNED"', () => {
+    expect(() =>
+      ch.send(makeMsg({ from: 'BossBot', to: '../../../../tmp/PWNED' as unknown as TierAAgent })),
+    ).toThrow(TypeError);
+  });
+
+  it('throws TypeError when `from` is not a known TierAAgent value', () => {
+    expect(() =>
+      ch.send(makeMsg({ from: 'EvilBot' as unknown as TierAAgent, to: 'AdvisorBot' })),
+    ).toThrow(TypeError);
+  });
+
+  it('throws TypeError when `to` is not a known TierAAgent value', () => {
+    expect(() =>
+      ch.send(makeMsg({ from: 'BossBot', to: 'Unknown' as unknown as TierAAgent })),
+    ).toThrow(TypeError);
+  });
+
+  it('throws TypeError when `from` contains a forward slash', () => {
+    expect(() =>
+      ch.send(makeMsg({ from: 'Boss/Bot' as unknown as TierAAgent, to: 'AdvisorBot' })),
+    ).toThrow(TypeError);
+  });
+
+  it('does NOT write any audit file outside baseDir when an invalid `from`/`to` is rejected', async () => {
+    expect(() =>
+      ch.send(makeMsg({ from: '..' as unknown as TierAAgent, to: '../../../../tmp/PWNED' as unknown as TierAAgent })),
+    ).toThrow(TypeError);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    // The rejected call must not have written anything inside or outside baseDir
+    const today = new Date().toISOString().slice(0, 10);
+    const auditDir = join(tmpDir, today, 'agent-channel');
+    expect(existsSync(auditDir)).toBe(false);
+  });
+
+  it('does NOT add a rejected message to the in-memory log', () => {
+    try {
+      ch.send(makeMsg({ from: '..' as unknown as TierAAgent, to: 'AdvisorBot' }));
+    } catch {
+      // expected
+    }
+    expect(ch.history('BossBot', 'AdvisorBot')).toHaveLength(0);
+  });
+
+  it('accepts a valid send after a rejected one (rejection is not stateful)', () => {
+    try {
+      ch.send(makeMsg({ from: '..' as unknown as TierAAgent, to: 'AdvisorBot', ts: 1 }));
+    } catch {
+      // expected
+    }
+    expect(() => ch.send(makeMsg({ from: 'BossBot', to: 'AdvisorBot', ts: 2 }))).not.toThrow();
+    expect(ch.history('BossBot', 'AdvisorBot')).toHaveLength(1);
+  });
+
+  it('TypeError message includes the invalid value for debuggability', () => {
+    expect(() =>
+      ch.send(makeMsg({ from: 'EvilBot' as unknown as TierAAgent, to: 'AdvisorBot' })),
+    ).toThrow(/EvilBot/);
+  });
+});
+
+describe('AgentChannel — audit file confinement (PKT-523)', () => {
+  let tmpDir: string;
+  let ch: AgentChannel;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    ch = new AgentChannel(tmpDir);
+  });
+
+  afterEach(() => {
+    rmTmp(tmpDir);
+  });
+
+  it('valid send writes the audit file exactly inside <baseDir>/<date>/agent-channel/, not outside', async () => {
+    const ts = 1700000000000;
+    ch.send(makeMsg({ from: 'BossBot', to: 'AdvisorBot', ts }));
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    const today = new Date().toISOString().slice(0, 10);
+    const auditDir = join(tmpDir, today, 'agent-channel');
+    expect(existsSync(auditDir)).toBe(true);
+
+    // Exactly one file, name matches expected pattern
+    const files = readdirSync(auditDir);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toBe(`BossBot-AdvisorBot-${ts}.json`);
+
+    // The baseDir's parent must NOT contain any PWNED or unexpected files
+    const parentFiles = readdirSync(join(tmpDir, '..'));
+    const leaked = parentFiles.filter((f) => f.startsWith('PWNED'));
+    expect(leaked).toHaveLength(0);
+  });
+
+  it('audit filename contains only safe characters [A-Za-z0-9_.-]', async () => {
+    const ts = 1700000000001;
+    ch.send(makeMsg({ from: 'BossBot', to: 'CreatorBot', ts }));
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    const today = new Date().toISOString().slice(0, 10);
+    const auditDir = join(tmpDir, today, 'agent-channel');
+    const files = readdirSync(auditDir);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatch(/^[A-Za-z0-9_.-]+$/);
+  });
+});
+
+describe('AgentChannel — audit failure observability (PKT-523)', () => {
+  it('warns via console.warn when the audit write fails (non-fatal, observable)', async () => {
+    const tmpDir = makeTmpDir();
+    const ch = new AgentChannel(tmpDir);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    try {
+      // Force a write failure by making the tmp dir a file (so mkdir fails)
+      const { rmSync, writeFileSync } = await import('node:fs');
+      rmSync(tmpDir, { recursive: true });
+      writeFileSync(tmpDir, 'BLOCK'); // now tmpDir is a file → mkdir will fail
+
+      ch.send(makeMsg({ ts: Date.now() }));
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+      try {
+        const { rmSync, unlinkSync } = await import('node:fs');
+        try { unlinkSync(tmpDir); } catch { rmSync(tmpDir, { recursive: true, force: true }); }
+      } catch { /* ignore cleanup */ }
+    }
+  });
+});
+
 // Keep PATHS referenced to ensure the import isn't tree-shaken (compile-time guard
 // for the singleton constructor branch).
 const _pathsGuard = PATHS;
