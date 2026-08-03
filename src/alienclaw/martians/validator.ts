@@ -31,6 +31,13 @@ export function validateMartian(
     return { valid: false, errors: ['MartianSpec must have at least one slot.'] };
   }
 
+  for (const s of spec.slots) {
+    if (!Number.isInteger(s.slotIndex) || !Number.isFinite(s.slotIndex)) {
+      errors.push(`slot_index must be a finite integer, got ${s.slotIndex}`);
+    }
+  }
+  if (errors.length > 0) return { valid: false, errors };
+
   const indices = spec.slots.map(s => s.slotIndex);
   const sortedIndices = [...indices].sort((a, b) => a - b);
   if (new Set(indices).size !== indices.length) {

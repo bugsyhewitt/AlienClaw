@@ -322,6 +322,22 @@ describe('validateMartian — malformed substitution tokens', () => {
   });
 });
 
+// ─── slot_index finite-integer guard (packet 534 defense-in-depth) ─────────
+
+describe('validateMartian — slot_index finite-integer guard', () => {
+  it('rejects NaN slot_index with a clear error (not a misleading contiguous-index message)', () => {
+    const spec: MartianSpec = {
+      martianType: 'nan-slot',
+      slots: [{ slotIndex: NaN, toolName: KNOWN_TOOL, inputsFrom: null }],
+      description: 'test',
+      useCases: [],
+    };
+    const result = validateMartian(spec, new Set([KNOWN_TOOL]));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => /finite integer/.test(e))).toBe(true);
+  });
+});
+
 // ─── Error-message shape ───────────────────────────────────────────────────
 
 describe('validateMartian — result shape', () => {

@@ -731,3 +731,61 @@ describe('parseMartian — _parseSequence L162: non-dash line at sequence indent
     expect(() => parseMartian(md)).toThrow(/unexpected indent/);
   });
 });
+
+// ── describe: parseMartian — slot_index strict integer parsing (packet 534) ─
+describe('parseMartian — slot_index strict integer parsing', () => {
+  it('rejects numeric-prefix string "1abc" — previously accepted as 1 via parseInt', () => {
+    const md = `\
+martian_type: x
+slots:
+  - slot_index: 1abc
+    tool_name: t
+`;
+    expect(() => parseMartian(md)).toThrow(MartianParseError);
+    expect(() => parseMartian(md)).toThrow(/slot_index/);
+  });
+
+  it('rejects negative numeric-prefix string "-1abc" — previously accepted as -1 via parseInt', () => {
+    const md = `\
+martian_type: x
+slots:
+  - slot_index: -1abc
+    tool_name: t
+`;
+    expect(() => parseMartian(md)).toThrow(MartianParseError);
+    expect(() => parseMartian(md)).toThrow(/slot_index/);
+  });
+
+  it('rejects empty/null slot_index — previously accepted as NaN via parseInt(String(null))', () => {
+    const md = `\
+martian_type: x
+slots:
+  - slot_index:
+    tool_name: t
+`;
+    expect(() => parseMartian(md)).toThrow(MartianParseError);
+    expect(() => parseMartian(md)).toThrow(/slot_index/);
+  });
+
+  it('rejects literal "NaN" scalar — previously accepted as NaN via parseInt("NaN")', () => {
+    const md = `\
+martian_type: x
+slots:
+  - slot_index: NaN
+    tool_name: t
+`;
+    expect(() => parseMartian(md)).toThrow(MartianParseError);
+    expect(() => parseMartian(md)).toThrow(/slot_index/);
+  });
+
+  it('still accepts quoted integer "7" (cross-language parity for quoted numeric strings)', () => {
+    const md = `\
+martian_type: x
+slots:
+  - slot_index: "7"
+    tool_name: t
+`;
+    const spec = parseMartian(md);
+    expect(spec.slots[0]!.slotIndex).toBe(7);
+  });
+});
