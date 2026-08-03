@@ -270,4 +270,111 @@ describe("schema oracle — validateSchema edge cases", () => {
     );
     expect(verdict.score).toBe(0.0);
   });
+
+  // PKT-524: type-coverage gap tests — these FAIL before the fix
+
+  it("type:object — rejects null finalOutput (typeof null === 'object' footgun)", () => {
+    const trace = makeTrace({ finalOutput: null });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "object" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(0.0);
+  });
+
+  it("type:object — rejects array finalOutput (arrays are not JSON-Schema objects)", () => {
+    const trace = makeTrace({ finalOutput: [1, 2, 3] });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "object" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(0.0);
+  });
+
+  it("type:object — accepts plain object (positive case)", () => {
+    const trace = makeTrace({ finalOutput: { answer: "hi" } });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "object" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(1.0);
+  });
+
+  it.each([
+    [null, 0.0],
+    [42, 0.0],
+    ["hi", 0.0],
+    [[1, 2], 0.0],
+    [{ a: 1 }, 0.0],
+    [true, 1.0],
+    [false, 1.0],
+  ])("type:boolean — value %j → score %f", (finalOutput, expected) => {
+    const trace = makeTrace({ finalOutput });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "boolean" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(expected);
+  });
+
+  it.each([
+    [42, 1.0],
+    [0, 1.0],
+    [3.14, 0.0],
+    ["42", 0.0],
+    [true, 0.0],
+    [null, 0.0],
+    [[1], 0.0],
+    [{ a: 1 }, 0.0],
+  ])("type:integer — value %j → score %f", (finalOutput, expected) => {
+    const trace = makeTrace({ finalOutput });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "integer" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(expected);
+  });
+
+  it.each([
+    [null, 1.0],
+    [42, 0.0],
+    ["hi", 0.0],
+    [true, 0.0],
+    [[1], 0.0],
+    [{ a: 1 }, 0.0],
+  ])("type:null — value %j → score %f", (finalOutput, expected) => {
+    const trace = makeTrace({ finalOutput });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "null" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(expected);
+  });
+
+  it("type:number — rejects NaN (NaN is typeof 'number' but not a valid JSON number)", () => {
+    const trace = makeTrace({ finalOutput: NaN });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "number" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(0.0);
+  });
+
+  it("type:number — rejects Infinity", () => {
+    const trace = makeTrace({ finalOutput: Infinity });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "number" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(0.0);
+  });
+
+  it("unknown type string — permissive (no opinion, returns 1.0)", () => {
+    const trace = makeTrace({ finalOutput: 42 });
+    const verdict = resolveCorrectness(
+      { kind: "schema", schema: { type: "undefined" } },
+      { trace },
+    );
+    expect(verdict.score).toBe(1.0);
+  });
 });
