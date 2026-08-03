@@ -290,6 +290,8 @@ def mutate_directed(
         if brain is None or not brain.parameter_schema:
             continue
         for field in brain.parameter_schema:
+            if field.xcode_index < 0 or field.xcode_index > 30:
+                continue  # mirrors decodeXcode [0,30] contract (genome-operators.ts:81)
             _mutate_xcode_inplace(
                 chars, slot_idx, field.xcode_index,
                 field.direction, field.range_min, field.range_max,
