@@ -301,6 +301,59 @@ class TestLiveEvoHandler:
         assert err["code"] == "INTERNAL"
         assert "disk full" in err["details"]["exception"]
 
+    # ── T-30–T-39: threshold field input validation ────────────────────────
+
+    def test_live_evo_threshold_string_garbage_returns_malformed(self) -> None:
+        """T-30: str 'abc' must not crash handle(); must return MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": "abc"})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
+    def test_live_evo_threshold_empty_string_returns_malformed(self) -> None:
+        """T-31: empty string must not crash handle(); must return MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": ""})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
+    def test_live_evo_threshold_float_string_returns_malformed(self) -> None:
+        """T-32: '3.5' (float-string) causes int() to raise; must return MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": "3.5"})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
+    def test_live_evo_threshold_null_returns_malformed(self) -> None:
+        """T-33: null/None must not crash handle(); must return MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": None})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
+    def test_live_evo_threshold_list_returns_malformed(self) -> None:
+        """T-34: list [1] must not crash handle(); must return MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": [1]})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
+    def test_live_evo_threshold_dict_returns_malformed(self) -> None:
+        """T-35: dict {'x':1} must not crash handle(); must return MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": {"x": 1}})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
+    def test_live_evo_threshold_bool_returns_malformed(self) -> None:
+        """T-36: bool True is-int in Python and must be explicitly rejected as MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": True})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
+    @pytest.mark.parametrize("bad_threshold", [-1, 0, 1_000_001])
+    def test_live_evo_threshold_out_of_range_returns_malformed(self, bad_threshold: int) -> None:
+        """T-37: valid ints outside [1, 1000000] are silently accepted today; must be MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": bad_threshold})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
+    def test_live_evo_threshold_float_truncation_rejected(self) -> None:
+        """T-38: float 3.5 silently truncated by int(3.5)==3; caller intent rewritten; must be MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": 3.5})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
+    def test_live_evo_threshold_huge_value_returns_malformed(self) -> None:
+        """T-39: 1e20 float passes int() but means evolution never triggers; must be MALFORMED_REQUEST."""
+        resp = self._live_evo({"martian_type": "compute", "threshold": 1e20})
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
 
 class TestSummonFromPopulationShape:
     @staticmethod
