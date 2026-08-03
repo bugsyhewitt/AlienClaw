@@ -93,8 +93,9 @@ export function validateSubmission(
       { received: req.leaderboard_name, pattern: LEADERBOARD_NAME_RE.source });
   }
 
-  // 7. run_metadata size
-  const metaBytes = JSON.stringify(req.run_metadata).length;
+  // 7. run_metadata size — measure UTF-8 bytes, not UTF-16 code units (PKT-532)
+  const metaJson  = JSON.stringify(req.run_metadata);
+  const metaBytes = Buffer.byteLength(metaJson, 'utf8');
   if (metaBytes > 4096) {
     return fail('METADATA_TOO_LARGE',
       `run_metadata exceeds 4096 bytes (${metaBytes} bytes serialized).`,
