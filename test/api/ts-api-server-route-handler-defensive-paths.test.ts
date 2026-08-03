@@ -280,6 +280,16 @@ describe('API server: route-handler defensive paths', () => {
     expect((body as {error: {code: string; message: string}}).error.message).toContain('mocked unhandled boom');
   });
 
+  it('POST /v1/install with non-structured handler throw returns 400 INSTALL_HANDLER_ERROR (not 500) (PKT-530 / PKT-472 regression)', async () => {
+    installState.installThrow = true; // mocked handleInstall throws plain-text Error
+    const { status, body } = await post('/v1/install', {
+      api_key: 'x'.repeat(43),
+      machine_hash: 'a'.repeat(64),
+    });
+    expect(status).toBe(400);
+    expect((body as { error: { code: string } }).error.code).toBe('INSTALL_HANDLER_ERROR');
+  });
+
   it('GET /v1/stats returns 500 INTERNAL_ERROR when handleStats throws (reaches outer catch on lines 286-288)', async () => {
     // The outer catch on lines 286-289 is reached when a GET-route handler
     // throws. The inner try/catch on lines 274-279 ONLY wraps the
