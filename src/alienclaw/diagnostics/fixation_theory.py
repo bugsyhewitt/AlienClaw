@@ -128,6 +128,8 @@ def drift_threshold(N: int) -> float:
     Returns:
         1 / (2N)
     """
+    if N <= 0:
+        raise ValueError(f"N must be > 0, got {N}")
     return 1.0 / (2.0 * N)
 
 
@@ -153,6 +155,8 @@ def analyze_selection_regime(
             "regime": str,          "selection" | "drift" | "neutral"
         }
     """
+    if N <= 0:
+        raise ValueError(f"N must be > 0, got {N}")
     s = selection_coefficient_from_fitness(fit_high, fit_mean)
     threshold = drift_threshold(N)
     selection_acts = s > threshold
