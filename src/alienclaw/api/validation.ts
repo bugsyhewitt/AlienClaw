@@ -94,7 +94,8 @@ export function validateSubmission(
   }
 
   // 7. run_metadata size
-  const metaBytes = JSON.stringify(req.run_metadata).length;
+  const metaJson  = JSON.stringify(req.run_metadata);
+  const metaBytes = Buffer.byteLength(metaJson, 'utf8');
   if (metaBytes > 4096) {
     return fail('METADATA_TOO_LARGE',
       `run_metadata exceeds 4096 bytes (${metaBytes} bytes serialized).`,

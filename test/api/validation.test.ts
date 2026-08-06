@@ -128,6 +128,41 @@ describe('validateSubmission', () => {
   });
 });
 
+// ── PKT-503: run_metadata byte-vs-char limit ─────────────────────────────
+
+describe('validateSubmission — run_metadata byte-vs-char limit (PKT-503)', () => {
+  it('rejects a 1024-emoji payload (2059 chars but 4107 bytes UTF-8)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { blob: '🦀'.repeat(1024) };
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('METADATA_TOO_LARGE');
+    expect(r.error?.details.received_bytes).toBeGreaterThan(4096);
+  });
+
+  it('rejects a nested 2040-emoji payload (4094 chars but 8174 bytes UTF-8)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { a: { b: '🦀'.repeat(2040) } };
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('METADATA_TOO_LARGE');
+  });
+
+  it('accepts a 100-emoji payload (211 chars and 411 bytes UTF-8, under both limits)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { blob: '🦀'.repeat(100) };
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(true);
+  });
+
+  it('regression: accepts a 4080-ASCII-char payload (4091 chars and 4091 bytes UTF-8)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { blob: 'x'.repeat(4080) };
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(true);
+  });
+});
+
 // ── validateInstallRequest ────────────────────────────────────────────────
 
 describe('validateInstallRequest', () => {
