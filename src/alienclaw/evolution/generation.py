@@ -94,20 +94,23 @@ def evaluate_and_evolve(
     children: list[PopulationEntry] = []
     for _ in range(children_needed):
         if rng.random() < config.crossover_rate:
-            pa = select(pop, rng).genome
-            pb = select(pop, rng).genome
-            child_genome = crossover(pa, pb, rng)
+            pa = select(pop, rng)
+            pb = select(pop, rng)
+            child_genome = crossover(pa.genome, pb.genome, rng)
+            parent_ids = (pa.entry_id, pb.entry_id)
         else:
-            parent_genome = select(pop, rng).genome
+            parent = select(pop, rng)
+            parent_genome = parent.genome
             if config.brain is not None:
                 child_genome = mutate_directed(parent_genome, [None, config.brain, None, None], rng)
             else:
                 child_genome = mutate(parent_genome, rng, config.mutation_rate)
+            parent_ids = (parent.entry_id,)
         child_entry = _make_entry(
             genome=child_genome,
             fitness=0.0,
             generation=generation + 1,
-            parent_ids=(),
+            parent_ids=parent_ids,
             run_metadata={"newly_minted": True},
         )
         pop._storage.write_entry(child_entry)
