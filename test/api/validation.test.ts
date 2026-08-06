@@ -128,6 +128,49 @@ describe('validateSubmission', () => {
   });
 });
 
+// ── PKT-532: run_metadata byte-vs-char limit ──────────────────────────────
+
+describe('validateSubmission — run_metadata byte-vs-char limit (PKT-532)', () => {
+  it('rejects a 1024-emoji payload (2059 code units but 4107 UTF-8 bytes)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { blob: '🦀'.repeat(1024) };
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('METADATA_TOO_LARGE');
+    expect(r.error?.details.received_bytes).toBeGreaterThan(4096);
+  });
+
+  it('rejects a CJK payload whose UTF-8 bytes exceed 4096 (1500 × 中 = 4508 bytes)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { a: '中'.repeat(1500) };
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('METADATA_TOO_LARGE');
+  });
+
+  it('rejects a Latin-1 payload whose UTF-8 bytes exceed 4096 (2100 × é = 4208 bytes)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { a: 'é'.repeat(2100) };
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('METADATA_TOO_LARGE');
+  });
+
+  it('accepts a 100-emoji payload (211 code units and 411 bytes UTF-8, under both limits)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { blob: '🦀'.repeat(100) };
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(true);
+  });
+
+  it('regression: accepts a 4080-ASCII-char payload (4091 code units and 4091 bytes UTF-8)', () => {
+    const req = makeValidSubmission();
+    req.run_metadata = { blob: 'x'.repeat(4080) };
+    const r = validateSubmission(req, new Set(['search_text']));
+    expect(r.valid).toBe(true);
+  });
+});
+
 // ── validateInstallRequest ────────────────────────────────────────────────
 
 describe('validateInstallRequest', () => {
