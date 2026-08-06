@@ -198,3 +198,113 @@ class TestBrainDirectedMutation:
         genomes_a = sorted(e.genome for e in pop_a.all())
         genomes_b = sorted(e.genome for e in pop_b.all())
         assert genomes_a == genomes_b  # mutation_rate ignored; outcomes identical
+
+
+class TestParentIdsLineage:
+    """PKT-555: evaluate_and_evolve must propagate parent entry_ids to newly-minted children."""
+
+    def test_mutation_child_has_one_parent_id(self):
+        """Mutation-only path (crossover_rate=0): each child has exactly one parent_id."""
+        config = EvolutionConfig(
+            martian_type="lin_mut",
+            population_size=4,
+            elitism_count=1,
+            crossover_rate=0.0,
+            seed=10,
+        )
+        pop = Population.create(config)
+        evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(10))
+        children = [e for e in pop.all() if e.run_metadata.get("newly_minted")]
+        assert children, "Expected newly-minted children in pool"
+        for child in children:
+            assert len(child.parent_ids) == 1, (
+                f"Mutation child should have exactly 1 parent_id, got {child.parent_ids!r}"
+            )
+
+    def test_crossover_child_has_two_parent_ids(self):
+        """Crossover path (crossover_rate=1): each child has exactly two parent_ids."""
+        config = EvolutionConfig(
+            martian_type="lin_cross",
+            population_size=4,
+            elitism_count=1,
+            crossover_rate=1.0,
+            seed=11,
+        )
+        pop = Population.create(config)
+        evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(11))
+        children = [e for e in pop.all() if e.run_metadata.get("newly_minted")]
+        assert children, "Expected newly-minted children in pool"
+        for child in children:
+            assert len(child.parent_ids) == 2, (
+                f"Crossover child should have exactly 2 parent_ids, got {child.parent_ids!r}"
+            )
+
+    def test_parent_ids_reference_entries_in_evaluated_pool(self):
+        """Each parent_id must be an entry_id from the re-evaluated pool (not the seeded pool)."""
+        config = EvolutionConfig(
+            martian_type="lin_ref",
+            population_size=4,
+            elitism_count=1,
+            crossover_rate=0.5,
+            seed=12,
+        )
+        pop = Population.create(config)
+        seeded_ids = {e.entry_id for e in pop.all()}
+        evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(12))
+        # All entries written to disk (seeded + evaluated + children)
+        all_on_disk = pop._storage.read_all_entries()
+        evaluated_ids = {e.entry_id for e in all_on_disk if e.run_metadata.get("re_evaluated")}
+        children = [e for e in pop.all() if e.run_metadata.get("newly_minted")]
+        assert children, "Expected newly-minted children in pool"
+        for child in children:
+            assert child.parent_ids, f"Child {child.entry_id!r} has empty parent_ids"
+            for pid in child.parent_ids:
+                assert pid in evaluated_ids, (
+                    f"Parent ID {pid!r} not found in evaluated pool {evaluated_ids!r}"
+                )
+                assert pid not in seeded_ids, (
+                    f"Parent ID {pid!r} should reference re-evaluated entry, not seeded entry"
+                )
+
+    def test_elite_entries_unchanged(self):
+        """Elite entries carried over via elitism keep their parent_ids (regression guard)."""
+        config = EvolutionConfig(
+            martian_type="lin_elite",
+            population_size=4,
+            elitism_count=2,
+            crossover_rate=0.0,
+            seed=13,
+        )
+        pop = Population.create(config)
+        seeded_ids = {e.entry_id for e in pop.all()}
+        evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(13))
+        elites = [e for e in pop.all() if e.run_metadata.get("re_evaluated")]
+        assert len(elites) == 2, f"Expected 2 elite entries, got {len(elites)}"
+        for elite in elites:
+            assert len(elite.parent_ids) == 1, (
+                f"Elite entry should have exactly 1 parent_id, got {elite.parent_ids!r}"
+            )
+            (pid,) = elite.parent_ids
+            assert pid in seeded_ids, (
+                f"Elite's parent_id {pid!r} should reference a seeded entry"
+            )
+
+    def test_parent_ids_persisted_to_disk(self):
+        """After evaluate_and_evolve, Population.load returns children with non-empty parent_ids."""
+        config = EvolutionConfig(
+            martian_type="lin_disk",
+            population_size=4,
+            elitism_count=1,
+            crossover_rate=0.0,
+            seed=14,
+        )
+        pop = Population.create(config)
+        evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(14))
+        # Load fresh — current_gen=1 after evolve; pool = children at gen 1
+        loaded = Population.load(config.martian_type)
+        loaded_children = [e for e in loaded.all() if e.run_metadata.get("newly_minted")]
+        assert loaded_children, "Expected newly-minted children after disk round-trip"
+        for child in loaded_children:
+            assert child.parent_ids, (
+                f"Child {child.entry_id!r} has empty parent_ids after disk round-trip"
+            )
