@@ -290,7 +290,7 @@ class TestParentIdsLineage:
             )
 
     def test_parent_ids_persisted_to_disk(self):
-        """After evaluate_and_evolve, a fresh Population.load returns children with non-empty parent_ids."""
+        """After evaluate_and_evolve, Population.load returns children with non-empty parent_ids."""
         config = EvolutionConfig(
             martian_type="lin_disk",
             population_size=4,

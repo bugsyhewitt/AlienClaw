@@ -101,7 +101,9 @@ def evaluate_and_evolve(
         else:
             parent_entry = select(pop, rng)
             if config.brain is not None:
-                child_genome = mutate_directed(parent_entry.genome, [None, config.brain, None, None], rng)
+                child_genome = mutate_directed(
+                    parent_entry.genome, [None, config.brain, None, None], rng
+                )
             else:
                 child_genome = mutate(parent_entry.genome, rng, config.mutation_rate)
             child_parent_ids = (parent_entry.entry_id,)
