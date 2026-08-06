@@ -97,6 +97,7 @@ export class MockGenomeAdapter implements GenomeAdapter {
           outputTokens: 50,
           dollars,
           toolCalls: toolCount,
+          slotCount: toolCount,
           wallMs,
         },
         startedAt: new Date().toISOString(),

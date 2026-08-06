@@ -19,7 +19,7 @@ export function computeLegacyScalar(traces: ExecutionTrace[]): number {
   let total = 0;
   for (const t of traces) {
     const correctness = Math.max(0, Math.min(1, t.correctness.score));
-    const slotCount = t.toolCalls.length > 0 ? 1 : 1; // slot_count default=1
+    const slotCount = t.cost.slotCount ?? 1;
     const excess = Math.max(0, t.cost.toolCalls - slotCount);
     const efficiency = 1.0 / (1.0 + ALPHA * excess);
     total += correctness * efficiency;
@@ -39,7 +39,7 @@ export function rawObjectiveVector(trace: ExecutionTrace): {
   confidence: number;
 } {
   const correctness = Math.max(0, Math.min(1, trace.correctness.score));
-  const slotCount = 1; // default slot_count
+  const slotCount = trace.cost.slotCount ?? 1;
   const excess = Math.max(0, trace.cost.toolCalls - slotCount);
   const efficiency = 1.0 / (1.0 + ALPHA * excess);
   const costInvRaw = 1.0 / (trace.cost.dollars + 1e-9);
