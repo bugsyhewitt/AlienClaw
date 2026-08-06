@@ -12,7 +12,7 @@
  *   A-003 (R-003): no log wired → spawnCampaign succeeds, no error thrown
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir, homedir }     from 'node:os';
 import path                    from 'node:path';
 
@@ -216,5 +216,40 @@ describe('OnlineFitnessLog.clear()', () => {
     expect((log as any)._path).toBe(expected);
     // read() returns [] when file absent; array assertion covers CI and dev
     expect(log.read()).toBeInstanceOf(Array);
+  });
+});
+
+// ── Packet 394 — OnlineFitnessLog.read() tolerates malformed lines ────────────
+
+describe('PKT-394 — OnlineFitnessLog.read() skips malformed lines', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(path.join(tmpdir(), 'alienclaw-p394-'));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('skips a malformed line and returns the valid ones around it', () => {
+    const p = path.join(tmpDir, 'online_fitness.jsonl');
+    writeFileSync(p,
+      JSON.stringify({ martian_type: 'compute', fitness: 0.8, ts: '2026-07-04T00:00:00Z' }) + '\n' +
+      '{not_valid_json: PARTIAL\n' +
+      JSON.stringify({ martian_type: 'compute', fitness: 0.9, ts: '2026-07-04T00:01:00Z' }) + '\n',
+      'utf-8');
+    const log = new OnlineFitnessLog(p);
+    const entries = log.read();
+    expect(entries).toHaveLength(2);
+    expect(entries[0]!.fitness).toBe(0.8);
+    expect(entries[1]!.fitness).toBe(0.9);
+  });
+
+  it('returns [] on a file containing ONLY a malformed line', () => {
+    const p = path.join(tmpDir, 'online_fitness.jsonl');
+    writeFileSync(p, '{garbage', 'utf-8');
+    const log = new OnlineFitnessLog(p);
+    expect(log.read()).toEqual([]);
   });
 });

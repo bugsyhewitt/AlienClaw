@@ -30,11 +30,19 @@ class OnlineFitnessLog:
             fh.write(json.dumps(entry) + "\n")
 
     def read(self) -> list[dict]:
-        """Return all recorded entries, oldest first."""
+        """Return all recorded entries, oldest first. Tolerates malformed lines."""
         if not self._path.exists():
             return []
+        results: list[dict] = []
         with self._path.open(encoding="utf-8") as fh:
-            return [json.loads(line) for line in fh if line.strip()]
+            for line in fh:
+                if not line.strip():
+                    continue
+                try:
+                    results.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+        return results
 
     def clear(self) -> None:
         """Delete the log file (for tests / maintenance)."""
