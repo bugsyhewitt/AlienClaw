@@ -60,3 +60,39 @@ class TestOnlineFitnessLog:
         log = OnlineFitnessLog(tmp_path / "never.jsonl")
         log.clear()  # file doesn't exist — must not raise
         assert log.read() == []
+
+    # ── Packet 485 — input validation ────────────────────────────────────────
+
+    def test_record_rejects_infinity(self, tmp_path):
+        """B-001: record() rejects math.inf with ValueError mentioning 'fitness'."""
+        log = OnlineFitnessLog(tmp_path / "of.jsonl")
+        with pytest.raises(ValueError, match="fitness"):
+            log.record("compute", float("inf"))
+
+    def test_record_rejects_nan(self, tmp_path):
+        """B-002: record() rejects float('nan') with ValueError mentioning 'fitness'."""
+        log = OnlineFitnessLog(tmp_path / "of.jsonl")
+        with pytest.raises(ValueError, match="fitness"):
+            log.record("compute", float("nan"))
+
+    def test_record_rejects_above_one(self, tmp_path):
+        """B-003: record() rejects 1.5 (above range) with ValueError mentioning 'fitness'."""
+        log = OnlineFitnessLog(tmp_path / "of.jsonl")
+        with pytest.raises(ValueError, match="fitness"):
+            log.record("compute", 1.5)
+
+    def test_record_rejects_below_zero(self, tmp_path):
+        """B-004: record() rejects -0.5 (below range) with ValueError mentioning 'fitness'."""
+        log = OnlineFitnessLog(tmp_path / "of.jsonl")
+        with pytest.raises(ValueError, match="fitness"):
+            log.record("compute", -0.5)
+
+    def test_record_accepts_boundaries(self, tmp_path):
+        """B-005: record() accepts 0.0 and 1.0 (closed interval boundaries)."""
+        log = OnlineFitnessLog(tmp_path / "of.jsonl")
+        log.record("compute", 0.0)
+        log.record("compute", 1.0)
+        entries = log.read()
+        assert len(entries) == 2
+        assert entries[0]["fitness"] == 0.0
+        assert entries[1]["fitness"] == 1.0

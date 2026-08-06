@@ -6,6 +6,7 @@ Isolated from Population storage — never imported by population.py.
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,9 +22,17 @@ class OnlineFitnessLog:
 
     def record(self, martian_type: str, fitness: float) -> None:
         """Append one fitness observation."""
+        if (
+            not isinstance(fitness, (int, float))
+            or not math.isfinite(fitness)
+            or not (0.0 <= float(fitness) <= 1.0)
+        ):
+            raise ValueError(
+                f"fitness must be a finite number in [0.0, 1.0]; got {fitness!r}"
+            )
         entry = {
             "martian_type": martian_type,
-            "fitness": fitness,
+            "fitness": float(fitness),
             "ts": datetime.now(timezone.utc).isoformat(),
         }
         with self._path.open("a", encoding="utf-8") as fh:

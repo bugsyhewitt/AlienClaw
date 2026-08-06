@@ -25,6 +25,11 @@ export class OnlineFitnessLog {
   }
 
   record(martianType: string, fitness: number): void {
+    if (!Number.isFinite(fitness) || !(0.0 <= fitness && fitness <= 1.0)) {
+      throw new RangeError(
+        `fitness must be a finite number in [0.0, 1.0]; got ${fitness}`,
+      );
+    }
     const entry: FitnessEntry = {
       martian_type: martianType,
       fitness,
