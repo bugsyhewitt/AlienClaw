@@ -6,6 +6,8 @@ Isolated from Population storage — never imported by population.py.
 from __future__ import annotations
 
 import json
+import math
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,6 +23,13 @@ class OnlineFitnessLog:
 
     def record(self, martian_type: str, fitness: float) -> None:
         """Append one fitness observation."""
+        if not math.isfinite(fitness):
+            print(
+                f"[online-fitness] WARNING: dropped non-finite fitness "
+                f"(martian_type={martian_type!r}, fitness={fitness!r})",
+                file=sys.stderr,
+            )
+            return
         entry = {
             "martian_type": martian_type,
             "fitness": fitness,
@@ -33,8 +42,16 @@ class OnlineFitnessLog:
         """Return all recorded entries, oldest first."""
         if not self._path.exists():
             return []
+        result: list[dict] = []
         with self._path.open(encoding="utf-8") as fh:
-            return [json.loads(line) for line in fh if line.strip()]
+            for line in fh:
+                if not line.strip():
+                    continue
+                try:
+                    result.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+        return result
 
     def clear(self) -> None:
         """Delete the log file (for tests / maintenance)."""
