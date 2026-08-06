@@ -53,6 +53,33 @@ describe("TopologyAdapter.evaluate", () => {
     const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
     expect(batch.traces[0]!.correctness.score).toBe(0);
   });
+
+  // PKT-556 regression: non-array JSON parse results
+  it("PKT-556: subagents='null' → no crash, subagentCount=0, correctnessScore=0", async () => {
+    const genome = makeGenome({ subagents: "null", partition: "P".repeat(100) });
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+  });
+
+  it("PKT-556: subagents='3' (JSON number) → subagentCount=0, score is finite", async () => {
+    const genome = makeGenome({ subagents: "3", partition: "P".repeat(100) });
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+    expect(isFinite(batch.traces[0]!.correctness.score)).toBe(true);
+  });
+
+  it("PKT-556: subagents='{}' (JSON object) → subagentCount=0, score is finite", async () => {
+    const genome = makeGenome({ subagents: "{}", partition: "P".repeat(100) });
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+    expect(isFinite(batch.traces[0]!.correctness.score)).toBe(true);
+  });
+
+  it("PKT-556: subagents='\"abc\"' (JSON string) → subagentCount=0, not 3", async () => {
+    const genome = makeGenome({ subagents: '"abc"', partition: "P".repeat(100) });
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+  });
 });
 
 describe("TopologyAdapter.makeReflectiveDataset", () => {

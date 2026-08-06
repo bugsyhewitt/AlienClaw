@@ -36,7 +36,10 @@ export class TopologyAdapter implements GenomeAdapter {
     const raws: ReturnType<typeof rawObjectiveVector>[] = [];
 
     let subagentIds: string[] = [];
-    try { subagentIds = JSON.parse(candidate.editable["subagents"] ?? "[]"); } catch { /* skip */ }
+    try {
+      const parsed = JSON.parse(candidate.editable["subagents"] ?? "[]");
+      if (Array.isArray(parsed)) subagentIds = parsed.filter((v): v is string => typeof v === "string");
+    } catch { /* skip */ }
     const subagentCount = subagentIds.length;
 
     for (const task of batch) {
