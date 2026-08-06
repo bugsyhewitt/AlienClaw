@@ -216,7 +216,9 @@ def validate(raw: str) -> ValidationResult:
     """
     errors: list[str] = []
     for section in REQUIRED_SECTIONS:
-        if f"{section}:" not in raw:
+        # Anchored to start-of-line so prefixed names (e.g. MY_CAPABILITIES:)
+        # don't falsely satisfy the check. Mirrors _extract_section() regex at L67.
+        if not re.search(rf"^{re.escape(section)}:", raw, re.MULTILINE):
             errors.append(f"Missing required section: {section}")
 
     if not _extract_field(raw, "TOOL"):

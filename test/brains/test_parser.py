@@ -92,6 +92,30 @@ class TestValidate:
         result = validate(bad)
         assert not result  # exercises __bool__ at types.py:104
 
+    def test_prefixed_capabilities_is_rejected(self) -> None:
+        raw = MINIMAL_MSB.replace("CAPABILITIES:", "MY_CAPABILITIES:")
+        result = validate(raw)
+        assert not result.valid
+        assert "Missing required section: CAPABILITIES" in result.errors
+
+    def test_prefixed_failure_modes_is_rejected(self) -> None:
+        raw = MINIMAL_MSB.replace("FAILURE MODES:", "OUR_FAILURE MODES:")
+        result = validate(raw)
+        assert not result.valid
+        assert "Missing required section: FAILURE MODES" in result.errors
+
+    def test_prefixed_genome_sections_is_rejected(self) -> None:
+        raw = MINIMAL_MSB.replace("GENOME SECTIONS:", "FOO GENOME SECTIONS:")
+        result = validate(raw)
+        assert not result.valid
+        assert "Missing required section: GENOME SECTIONS" in result.errors
+
+    def test_prefixed_variables_is_rejected(self) -> None:
+        raw = MINIMAL_MSB.replace("VARIABLES:", "MY_VARIABLES:")
+        result = validate(raw)
+        assert not result.valid
+        assert "Missing required section: VARIABLES" in result.errors
+
 
 class TestParseMsb:
     def test_parses_tool_name(self) -> None:
