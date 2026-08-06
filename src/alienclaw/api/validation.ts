@@ -75,14 +75,24 @@ export function validateSubmission(
       { received: req.fitness });
   }
 
-  // 5. Martian type registered
+  // 5. Martian type — must be a string before the registered-type lookup
+  if (typeof req.martian_type !== 'string') {
+    return fail('INVALID_MARTIAN_TYPE_TYPE',
+      'martian_type must be a string.',
+      { received_type: typeof req.martian_type });
+  }
   if (!registeredTypes.has(req.martian_type)) {
     return fail('UNKNOWN_MARTIAN_TYPE',
       `martian_type '${req.martian_type}' is not registered.`,
       { available: [...registeredTypes].sort() });
   }
 
-  // 6. Leaderboard name: exactly 8 uppercase letters
+  // 6. Leaderboard name — must be a string before regex / falsy checks
+  if (typeof req.leaderboard_name !== 'string') {
+    return fail('INVALID_LEADERBOARD_NAME_TYPE',
+      'leaderboard_name must be a string.',
+      { received_type: typeof req.leaderboard_name });
+  }
   if (!req.leaderboard_name) {
     return fail('MISSING_LEADERBOARD_NAME',
       'leaderboard_name is required. Choose 8 uppercase letters (e.g. ALIENBOT).');

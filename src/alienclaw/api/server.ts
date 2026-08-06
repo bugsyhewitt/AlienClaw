@@ -258,11 +258,26 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
           const missing = (['genome', 'martian_type', 'fitness', 'leaderboard_name'] as const).filter(f => !(f in body));
           if (missing.length) return err(res, 400, 'MISSING_FIELDS', `Missing required fields: ${JSON.stringify(missing)}`, { missing });
           try {
+            const rawFitness = body['fitness'];
+            if (typeof rawFitness !== 'number' || !Number.isFinite(rawFitness)) {
+              return err(res, 400, 'INVALID_FITNESS_TYPE',
+                'fitness must be a finite number.', { received_type: typeof rawFitness });
+            }
+            const rawMartian = body['martian_type'];
+            if (typeof rawMartian !== 'string') {
+              return err(res, 400, 'INVALID_MARTIAN_TYPE_TYPE',
+                'martian_type must be a string.', { received_type: typeof rawMartian });
+            }
+            const rawLeaderboard = body['leaderboard_name'];
+            if (typeof rawLeaderboard !== 'string') {
+              return err(res, 400, 'INVALID_LEADERBOARD_NAME_TYPE',
+                'leaderboard_name must be a string.', { received_type: typeof rawLeaderboard });
+            }
             const req2: SubmissionRequest = {
               genome:           String(body['genome'] ?? ''),
-              martian_type:     String(body['martian_type'] ?? ''),
-              fitness:          Number(body['fitness']),
-              leaderboard_name: String(body['leaderboard_name'] ?? ''),
+              martian_type:     rawMartian,
+              fitness:          rawFitness,
+              leaderboard_name: rawLeaderboard,
               run_metadata:     (body['run_metadata'] as Record<string, unknown>) ?? {},
             };
             const clientIp = req.socket.remoteAddress ?? 'unknown';

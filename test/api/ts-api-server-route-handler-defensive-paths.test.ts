@@ -330,6 +330,62 @@ describe('API server: route-handler defensive paths', () => {
     expect((parsed as {error: {code: string}}).error.code).toBe('INTERNAL_ERROR');
   });
 
+  // ── Type-coercion bypass guard (Layer 1, server.ts L261-267, PKT-476) ──────
+  //
+  // Before the fix, server.ts used Number()/String() which accepts booleans,
+  // null, and arrays. After the fix, each field is type-checked against the
+  // raw JSON value BEFORE any coercion, returning 400 with a specific code.
+
+  it.each([
+    ['boolean true',  true],
+    ['boolean false', false],
+    ['null',          null],
+    ['array []',      []],
+    ['array [0.5]',   [0.5]],
+    ['string ""',     ''],
+  ])('POST /v1/genomes with fitness=%s returns 400 INVALID_FITNESS_TYPE', async (_label, fitness) => {
+    const key = generateApiKey();
+    const { status, body } = await post(
+      '/v1/genomes',
+      { genome: validGenome(), martian_type: 'compute', fitness, leaderboard_name: 'TESTBOTA' },
+      { Authorization: `Bearer ${key}` },
+    );
+    expect(status).toBe(400);
+    expect((body as {error: {code: string}}).error.code).toBe('INVALID_FITNESS_TYPE');
+  });
+
+  it.each([
+    ['array ["compute"]',  ['compute']],
+    ['number 42',          42],
+    ['boolean true',       true],
+    ['plain object',       {}],
+  ])('POST /v1/genomes with martian_type=%s returns 400 INVALID_MARTIAN_TYPE_TYPE', async (_label, martian_type) => {
+    const key = generateApiKey();
+    const { status, body } = await post(
+      '/v1/genomes',
+      { genome: validGenome(), martian_type, fitness: 0.5, leaderboard_name: 'TESTBOTA' },
+      { Authorization: `Bearer ${key}` },
+    );
+    expect(status).toBe(400);
+    expect((body as {error: {code: string}}).error.code).toBe('INVALID_MARTIAN_TYPE_TYPE');
+  });
+
+  it.each([
+    ['array ["ABCDEFGH"]',  ['ABCDEFGH']],
+    ['number 12345678',     12345678],
+    ['boolean true',        true],
+    ['plain object',        { toString: () => 'ABCDEFGH' }],
+  ])('POST /v1/genomes with leaderboard_name=%s returns 400 INVALID_LEADERBOARD_NAME_TYPE', async (_label, leaderboard_name) => {
+    const key = generateApiKey();
+    const { status, body } = await post(
+      '/v1/genomes',
+      { genome: validGenome(), martian_type: 'compute', fitness: 0.5, leaderboard_name },
+      { Authorization: `Bearer ${key}` },
+    );
+    expect(status).toBe(400);
+    expect((body as {error: {code: string}}).error.code).toBe('INVALID_LEADERBOARD_NAME_TYPE');
+  });
+
   // ── Bonus: 404 NOT_FOUND for a non-existent POST path (server.ts:282) ──
   // This is a "well-covered" branch but included as a smoke test to confirm
   // the rest of the mock setup works end-to-end. (NOT a coverage win; just
