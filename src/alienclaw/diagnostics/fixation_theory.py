@@ -24,6 +24,16 @@ import math
 from alienclaw.fitness.function import clamp01
 
 
+def _assert_finite(name: str, x: float) -> None:
+    if not math.isfinite(x):
+        raise ValueError(f"{name} must be a finite number, got {x!r}")
+
+
+def _assert_positive_int(name: str, n: int) -> None:
+    if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
+        raise ValueError(f"{name} must be a positive int, got {n!r}")
+
+
 def kimura_fixation_prob(s: float, N: int) -> float:
     """Probability that a beneficial mutation fixes in a haploid population.
 
@@ -40,8 +50,8 @@ def kimura_fixation_prob(s: float, N: int) -> float:
     Returns:
         P_fix ∈ [0, 1]
     """
-    if N <= 0:
-        raise ValueError(f"N must be > 0, got {N}")
+    _assert_finite("s", s)
+    _assert_positive_int("N", N)
 
     if abs(s) < 1e-10:
         # Neutral drift: P_fix = 1/N
@@ -86,8 +96,8 @@ def expected_fixation_time(s: float, N: int) -> float:
     Returns:
         Expected fixation time in generations (approximate)
     """
-    if N <= 0:
-        raise ValueError(f"N must be > 0, got {N}")
+    _assert_finite("s", s)
+    _assert_positive_int("N", N)
     if s <= 0:
         return float("inf")
     return (2.0 / s) * math.log(N)
@@ -111,6 +121,8 @@ def selection_coefficient_from_fitness(
     Returns:
         selection coefficient s (can be negative for deleterious mutations)
     """
+    _assert_finite("fit_high", fit_high)
+    _assert_finite("fit_mean", fit_mean)
     if fit_mean <= 0:
         return 0.0
     return (fit_high - fit_mean) / fit_mean
@@ -128,6 +140,7 @@ def drift_threshold(N: int) -> float:
     Returns:
         1 / (2N)
     """
+    _assert_positive_int("N", N)
     return 1.0 / (2.0 * N)
 
 
@@ -153,6 +166,9 @@ def analyze_selection_regime(
             "regime": str,          "selection" | "drift" | "neutral"
         }
     """
+    _assert_finite("fit_high", fit_high)
+    _assert_finite("fit_mean", fit_mean)
+    _assert_positive_int("N", N)
     s = selection_coefficient_from_fitness(fit_high, fit_mean)
     threshold = drift_threshold(N)
     selection_acts = s > threshold
