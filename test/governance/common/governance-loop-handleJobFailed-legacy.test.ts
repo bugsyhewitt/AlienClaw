@@ -188,7 +188,7 @@ describe('handleJobFailed — legacy sub-goal path (PKT-330)', () => {
     await (loop as any).handleJobFailed(JOB_FAILED_EVENT);
 
     const awaitingAdviceCalls = transitionSpy.mock.calls.filter(
-      ([state]: [string]) => state === 'AWAITING_ADVICE'
+      (call): boolean => { const [state] = call as [string]; return state === 'AWAITING_ADVICE'; }
     );
     expect(awaitingAdviceCalls.length).toBeGreaterThanOrEqual(1);
   });
@@ -235,7 +235,7 @@ describe('handleJobFailed — legacy sub-goal path (PKT-330)', () => {
     await (loop as any).handleJobFailed(JOB_FAILED_EVENT);
 
     const awaitingAdviceCalls = transitionSpy.mock.calls.filter(
-      ([state]: [string]) => state === 'AWAITING_ADVICE'
+      (call): boolean => { const [state] = call as [string]; return state === 'AWAITING_ADVICE'; }
     );
     expect(awaitingAdviceCalls.length).toBe(0);
   });
