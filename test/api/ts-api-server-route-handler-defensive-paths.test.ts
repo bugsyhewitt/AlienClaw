@@ -351,6 +351,49 @@ describe('API server: route-handler defensive paths', () => {
     expect(res.status).toBe(405);
   });
 
+  // ── (L203) /v1/genomes/top routing condition: exact-equality only ──────────
+  // server.ts:203 originally used `path.startsWith('/v1/genomes/top') || path === '/v1/genomes/top'`.
+  // The `startsWith` form is a prefix-shadow bug — any path beginning with the
+  // literal `/v1/genomes/top` (e.g. `/v1/genomes/topic`, `/v1/genomes/topfoo`)
+  // matched the route and was served the top-N handler. The fix collapses both
+  // halves to `path === '/v1/genomes/top'`. These tests pin the exact-match
+  // behavior and assert that prefix-shadow paths return 404 NOT_FOUND.
+
+  it('GET /v1/genomes/topic returns 404 NOT_FOUND (no prefix shadow)', async () => {
+    const res = await fetch(`${sizeBase}/v1/genomes/topic?martian_type=compute`);
+    expect(res.status).toBe(404);
+    const body = await res.json() as { error: { code: string } };
+    expect(body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('GET /v1/genomes/topfoo returns 404 NOT_FOUND (no prefix shadow)', async () => {
+    const res = await fetch(`${sizeBase}/v1/genomes/topfoo`);
+    expect(res.status).toBe(404);
+    const body = await res.json() as { error: { code: string } };
+    expect(body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('GET /v1/genomes/top-secret returns 404 NOT_FOUND (no prefix shadow)', async () => {
+    const res = await fetch(`${sizeBase}/v1/genomes/top-secret`);
+    expect(res.status).toBe(404);
+    const body = await res.json() as { error: { code: string } };
+    expect(body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('GET /v1/genomes/top/x returns 404 NOT_FOUND (no prefix shadow)', async () => {
+    const res = await fetch(`${sizeBase}/v1/genomes/top/x`);
+    expect(res.status).toBe(404);
+    const body = await res.json() as { error: { code: string } };
+    expect(body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('GET /v1/genomes/top?martian_type=compute returns 200 (legitimate route unaffected)', async () => {
+    const res = await fetch(`${sizeBase}/v1/genomes/top?martian_type=compute`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { martian_type: string; entries: unknown[] };
+    expect(body.martian_type).toBe('compute');
+  });
+
   // ── (L135) readJson non-object body guard: null → 400 MALFORMED_REQUEST ──
   // server.ts:135 checks `parsed === null || typeof parsed !== 'object' ||
   // Array.isArray(parsed)` and returns { ok:false, reason:'malformed' }.
