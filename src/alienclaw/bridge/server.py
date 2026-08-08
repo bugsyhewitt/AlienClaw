@@ -227,6 +227,12 @@ def handle(raw: bytes) -> dict:
         return _error_response(request_id, "INVALID_GENOME", f"Genome validation failed: {validation.errors[0]}", {"errors": validation.errors})
 
     martian_type = req["martian_type"]
+    if not isinstance(martian_type, str) or not martian_type:
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "martian_type must be a non-empty string",
+            {"missing_fields": ["martian_type"]},
+        )
     registry = _get_martian_registry()
     if not registry.has(martian_type):
         return _error_response(
@@ -258,10 +264,10 @@ def _handle_live_evo(request_id: str | None, req: dict, t0: float) -> dict:
     from alienclaw.evolution.live_evo import check_and_evolve, LIVE_EVO_THRESHOLD
 
     martian_type = req.get("martian_type")
-    if not martian_type:
+    if not isinstance(martian_type, str) or not martian_type:
         return _error_response(
             request_id, "MALFORMED_REQUEST",
-            "Missing field: martian_type",
+            "martian_type must be a non-empty string",
             {"missing_fields": ["martian_type"]},
         )
     threshold = int(req.get("threshold", LIVE_EVO_THRESHOLD))
@@ -306,6 +312,12 @@ def _handle_summon_from_population(request_id: str | None, req: dict, t0: float)
             return _error_response(request_id, "MALFORMED_REQUEST", f"Missing field: {field}", {"missing_fields": [field]})
 
     martian_type = req["martian_type"]
+    if not isinstance(martian_type, str) or not martian_type:
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "martian_type must be a non-empty string",
+            {"missing_fields": ["martian_type"]},
+        )
     inputs = req.get("inputs", {})
     if not isinstance(inputs, dict):
         return _error_response(request_id, "MALFORMED_REQUEST", "inputs must be an object", {"missing_fields": ["inputs"]})
