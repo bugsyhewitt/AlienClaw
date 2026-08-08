@@ -357,3 +357,42 @@ describe('SubmissionStore.topForType — LIMIT boundary assertion', () => {
     await expect(store.topForType('compute', 100)).rejects.toThrow(SENTINEL);
   });
 });
+
+// ── DB-free cold arms: pool() null-guard + initPool() success path ────────────
+//
+// These tests run without MySQL. They cover the two arms that the initPool-guard
+// tests above cannot reach: (1) the pool() sentinel when _pool is unset, and
+// (2) the initPool() happy path that actually creates the pool.
+//
+// ORDER MATTERS: the null-guard test must run before the success-path test,
+// because a successful initPool() call sets the module-level _pool singleton.
+describe('pool() null-guard and initPool() success path — DB-free', () => {
+  let successPool: mysql.Pool | null = null;
+
+  afterAll(async () => {
+    // End the pool created by the success-path test to avoid leaking pool handles.
+    // No connections were opened (mysql.createPool is lazy), so end() is a no-op
+    // in practice, but is good hygiene.
+    if (successPool) await successPool.end().catch(() => {/* ignore */});
+  });
+
+  it('pool() throws "Database pool not initialized" when initPool() was never called', async () => {
+    // _pool is null here: the initPool-guard tests above only exercise the guard
+    // (throw-before-assignment) paths, and LIMIT-boundary tests inject their own
+    // pool via the constructor. So _pool remains null.
+    //
+    // new SubmissionStore() with no arg → _given is undefined →
+    //   this._pool getter → this._given ?? pool() → pool() → !_pool → throws.
+    const store = new SubmissionStore();
+    await expect(store.topForType('compute')).rejects.toThrow(
+      /Database pool not initialized/
+    );
+  });
+
+  it('initPool() success path — returns a non-null pool when a URL is provided', () => {
+    // mysql.createPool() is lazy: it constructs a pool configuration without
+    // opening any connections. This call succeeds even without a running MySQL server.
+    successPool = initPool('mysql://user:pass@localhost/alienclaw_test');
+    expect(successPool).not.toBeNull();
+  });
+});
