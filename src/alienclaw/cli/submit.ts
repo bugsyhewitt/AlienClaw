@@ -24,6 +24,7 @@ import { ensureApiKey, machineHash } from '../governance/common/sync/credentials
 import { NetworkAPIClient } from '../governance/common/sync/client.js';
 import type { SubmitCommandArgs } from './args.js';
 import { errorMessage } from '../utils.js';
+import { sanitizeFilenameSegment } from '../telemetry/telemetry-writer.js';
 
 const DEFAULT_API_URL = 'https://api.alienclaw.net';
 
@@ -88,6 +89,7 @@ export async function runSubmit(args: SubmitCommandArgs): Promise<number> {
 
   const submissionsDir = join(home(), 'workspace', 'submissions');
   mkdirSync(submissionsDir, { recursive: true });
+  sanitizeFilenameSegment(args.martianType, 'martianType');
   const artifactPath = join(submissionsDir, `${args.martianType}.json`);
   rmSync(artifactPath, { force: true }); // never submit a stale artifact
 

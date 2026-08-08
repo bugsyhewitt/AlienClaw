@@ -5,6 +5,7 @@
  */
 
 import type { VerbosityMode } from '../types.js';
+import { sanitizeFilenameSegment } from '../telemetry/telemetry-writer.js';
 
 // ── Result types ─────────────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ export function parseCliArgs(argv: string[]): CliCommand {
     if (!args.martianType || !numbersOk) {
       return { type: 'unknown', raw };
     }
+    try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }
     return { type: 'evolve', args };
   }
 
@@ -109,6 +111,7 @@ export function parseCliArgs(argv: string[]): CliCommand {
     if (!args.martianType) {
       return { type: 'unknown', raw };
     }
+    try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }
     return { type: 'submit', args };
   }
 

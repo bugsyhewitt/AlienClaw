@@ -176,3 +176,21 @@ describe('registerEvolveCommand — action callback', () => {
     expect(runEvolve).toHaveBeenCalledWith(expect.objectContaining({ seed: undefined }));
   });
 });
+
+// ── PKT-561 — evolve --type malformed input rejected ────────────────────────
+
+describe('parseCliArgs — evolve --type malformed input rejected (PKT-561)', () => {
+  const TRAVERSAL_TYPES: { label: string; type: string }[] = [
+    { label: 'dot-dot traversal',  type: '../../etc/passwd' },
+    { label: 'empty string',       type: '' },
+    { label: 'forward slash',      type: 'a/b' },
+    { label: 'NUL byte',           type: 'a\x00b' },
+    { label: 'over 128 chars',     type: 'x'.repeat(129) },
+  ];
+
+  for (const { label, type } of TRAVERSAL_TYPES) {
+    it(`rejects --type: ${label}`, () => {
+      expect(parseCliArgs(['evolve', '--type', type]).type).toBe('unknown');
+    });
+  }
+});
