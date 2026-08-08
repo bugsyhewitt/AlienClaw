@@ -50,9 +50,36 @@ export function atomicWrite(filePath: string, content: string): void {
 }
 
 /**
+ * Scan `s` for the first JSON object or array and return that substring, or
+ * null if none is found. Handles nested structures and string values containing
+ * brackets or escaped quotes without false-closing.
+ */
+export function extractJsonSubstring(s: string): string | null {
+  const start = s.search(/[\[{]/);
+  if (start === -1) return null;
+  let depth = 0, inString = false, escape = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (escape)         { escape = false; continue; }
+    if (c === '\\')     { escape = true;  continue; }
+    if (c === '"')      { inString = !inString; continue; }
+    if (inString)       continue;
+    if (c === '{' || c === '[') depth++;
+    else if (c === '}' || c === ']') {
+      depth--;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
  * Parse LLM output that should be JSON: strip markdown code fences, then
- * JSON.parse. `onJson` maps the parsed value (it runs inside the try, so a
- * throwing mapper also falls back); `onText` handles non-JSON output.
+ * JSON.parse. If the whole string fails to parse, attempt JSON-substring
+ * extraction to handle prose-wrapped JSON. `onJson` maps the parsed value
+ * (it runs inside the try, so a throwing mapper also falls back); `onText`
+ * handles non-JSON output. `onJson` must be pure/idempotent — it may be
+ * called twice when the fast path finds valid JSON but the mapper throws.
  */
 export function parseModelJson<T>(
   raw: string,
@@ -63,6 +90,12 @@ export function parseModelJson<T>(
   try {
     return onJson(JSON.parse(clean), clean);
   } catch {
+    const sub = extractJsonSubstring(clean);
+    if (sub !== null) {
+      try {
+        return onJson(JSON.parse(sub), sub);
+      } catch { /* fall through */ }
+    }
     return onText(clean);
   }
 }
