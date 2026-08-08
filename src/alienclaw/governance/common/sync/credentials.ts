@@ -57,7 +57,8 @@ export function machineHash(home: string = defaultHome()): string {
     if (!source) {
       source = randomUUID();
       mkdirSync(home, { recursive: true });
-      writeFileSync(idPath, source + '\n', 'utf-8');
+      writeFileSync(idPath, source + '\n', { encoding: 'utf-8', mode: 0o600 });
+      chmodSync(idPath, 0o600); // mode option is ignored for pre-existing files
     }
   }
   return createHash('sha256').update(source).digest('hex');

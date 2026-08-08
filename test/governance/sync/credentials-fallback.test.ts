@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -77,6 +77,14 @@ describe('machineHash — fallback paths (vi.mock isolates /etc/machine-id)', ()
     const hashB = machineHash(home);
     expect(hashB).toBe(hashA);
   });
+
+  it('writes home/machine-id with mode 0o600 (no world-readable leak)', () => {
+    const idPath = join(home, 'machine-id');
+    machineHash(home); // triggers generation + write
+    const mode = statSync(idPath).mode & 0o777;
+    expect(mode & 0o004).toBe(0); // not world-readable
+    expect(mode & 0o002).toBe(0); // not world-writable
+  });
 });
 
 describe('ensureApiKey — governance-local coverage', () => {
@@ -100,6 +108,14 @@ describe('ensureApiKey — governance-local coverage', () => {
     writeFileSync(join(eHome, 'api-key.txt'), '\n', { encoding: 'utf-8', mode: 0o600 });
     const key = ensureApiKey(eHome);
     expect(key).toMatch(/^[0-9A-Za-z]{43}$/);
+  });
+
+  it('writes api-key.txt with mode 0o600 (no world-readable leak)', () => {
+    const keyPath = join(eHome, 'api-key.txt');
+    ensureApiKey(eHome);
+    const mode = statSync(keyPath).mode & 0o777;
+    expect(mode & 0o004).toBe(0); // not world-readable
+    expect(mode & 0o002).toBe(0); // not world-writable
   });
 });
 
