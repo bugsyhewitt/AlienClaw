@@ -80,6 +80,46 @@ class TestSampleLandscape:
         for key in ("mean_formula_fitness", "max_formula_fitness", "n_unique_fitnesses", "fitness_range"):
             assert key in result["summary"]
 
+    def test_formula_name_matches_input_formula(self):
+        """sample_landscape returns formula_name matching the requested formula_fn."""
+        from alienclaw.diagnostics.fitness_formula_candidates import (
+            option_b, option_current, option_c_prime,
+        )
+        result = sample_landscape(
+            martian_type="compute_alone",
+            inputs={"input": "2 + 2"},
+            formula_fn=option_b,
+            slot_count=1,
+            n_genomes=3,
+            seeds=[42],
+        )
+        assert result["formula_name"] == "option_b", (
+            f"formula_name should match the requested formula_fn; got {result['formula_name']!r}"
+        )
+
+    def test_formula_name_differs_per_formula(self):
+        """Passing two different formulas returns two different formula_name values."""
+        from alienclaw.diagnostics.fitness_formula_candidates import option_b, option_current
+        r_b = sample_landscape(
+            martian_type="compute_alone",
+            inputs={"input": "2 + 2"},
+            formula_fn=option_b,
+            slot_count=1,
+            n_genomes=2,
+            seeds=[42],
+        )
+        r_c = sample_landscape(
+            martian_type="compute_alone",
+            inputs={"input": "2 + 2"},
+            formula_fn=option_current,
+            slot_count=1,
+            n_genomes=2,
+            seeds=[42],
+        )
+        assert r_b["formula_name"] == "option_b"
+        assert r_c["formula_name"] == "option_current"
+        assert r_b["formula_name"] != r_c["formula_name"]
+
 
 class TestComputeDynamicsSummary:
     def test_empty_results_returns_zero_summary(self):
