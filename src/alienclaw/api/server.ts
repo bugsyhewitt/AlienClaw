@@ -285,7 +285,7 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
       res.writeHead(405).end();
     } catch (e: unknown) {
       process.stderr.write(`[api] unhandled error: ${e}\n`);
-      res.writeHead(500).end('{"error":{"code":"INTERNAL_ERROR","message":"Internal server error"}}');
+      send(res, 500, { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } }, true);
     }
   });
 
