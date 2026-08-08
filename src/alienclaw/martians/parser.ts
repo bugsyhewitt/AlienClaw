@@ -285,9 +285,21 @@ export function parseMartian(content: string, sourcePath = '<string>'): MartianS
         throw new MartianParseError(`${sourcePath}: slot ${i} missing '${req}'`);
       }
     }
-    const slotIndex = typeof slotRaw['slot_index'] === 'number'
-      ? slotRaw['slot_index']
-      : parseInt(String(slotRaw['slot_index']), 10);
+    // slot_index must parse to a finite integer. parseInt() silently
+    // returns NaN for non-numeric strings (e.g. "not-a-number", "3.0");
+    // we mirror Python's int(...) by raising a clear MartianParseError
+    // so the operator sees the offending value rather than a confusing
+    // "slot_index values must be contiguous starting at 0. Got: [null]"
+    // validator error downstream.
+    const rawSlotIndex = slotRaw['slot_index'];
+    const slotIndex = typeof rawSlotIndex === 'number'
+      ? rawSlotIndex
+      : parseInt(String(rawSlotIndex), 10);
+    if (!Number.isInteger(slotIndex)) {
+      throw new MartianParseError(
+        `${sourcePath}: slot ${i} slot_index must be an integer, got ${JSON.stringify(rawSlotIndex)}`
+      );
+    }
     const toolName  = String(slotRaw['tool_name']);
 
     const rawInputs = slotRaw['inputs_from'] ?? null;
