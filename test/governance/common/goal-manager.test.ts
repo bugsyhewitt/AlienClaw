@@ -381,6 +381,59 @@ describe('GoalManager.getReadySubGoals()', () => {
     const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
     expect(gm.getReadySubGoals(file, 'g1')).toEqual([]);
   });
+
+  it('shape-guard: dependsOn missing → returns [] without crashing', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const sg = { id: 'sg-bad', description: 'missing-dep', domain: 'test', status: 'pending' } as any;
+    const goal = makeGoal('g1', [sg]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadySubGoals(file, 'g1')).not.toThrow();
+    expect(gm.getReadySubGoals(file, 'g1')).toEqual([]);
+  });
+
+  it('shape-guard: dependsOn=null → returns [] without crashing', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const sg = { id: 'sg-null', description: 'null-dep', domain: 'test', status: 'pending', dependsOn: null } as any;
+    const goal = makeGoal('g1', [sg]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadySubGoals(file, 'g1')).not.toThrow();
+    expect(gm.getReadySubGoals(file, 'g1')).toEqual([]);
+  });
+
+  it('shape-guard: dependsOn="string" (not array) → returns [] without crashing', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const sg = { id: 'sg-str', description: 'str-dep', domain: 'test', status: 'pending', dependsOn: 'not-an-array' } as any;
+    const goal = makeGoal('g1', [sg]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadySubGoals(file, 'g1')).not.toThrow();
+    expect(gm.getReadySubGoals(file, 'g1')).toEqual([]);
+  });
+
+  it('shape-guard: disk round-trip with missing dependsOn → load() + getReadySubGoals no crash', async () => {
+    const { GoalManager, PATHS } = await loadGoalManager();
+    const gm = new GoalManager();
+    const workspaceDir = require('node:path').dirname(PATHS.goals);
+    require('node:fs').mkdirSync(workspaceDir, { recursive: true });
+    const raw = {
+      version: '1',
+      activeGoalId: 'g-disk',
+      goals: [{
+        id: 'g-disk',
+        description: 'disk test',
+        status: 'pending',
+        createdAt: 1000000,
+        subGoals: [
+          { id: 'sg-a', description: 'missing dep', domain: 'test', status: 'pending' },
+        ],
+      }],
+    };
+    require('node:fs').writeFileSync(PATHS.goals, JSON.stringify(raw), 'utf-8');
+    const file = gm.load();
+    expect(() => gm.getReadySubGoals(file, 'g-disk')).not.toThrow();
+  });
 });
 
 // ─── 7. isGoalComplete() ────────────────────────────────────────────────────
@@ -568,6 +621,30 @@ describe('GoalManager.getReadyCampaigns()', () => {
     // c-d: no deps → ready
     // c-e: status=active → NOT ready
     expect(ready).toEqual(['c-a', 'c-d']);
+  });
+
+  it('shape-guard: campaign dependsOn missing → returns [] without crashing', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const camp = { id: 'c-bad', name: 'bad', objective: 'obj', subagents: [], status: 'pending' } as any;
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([camp]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    expect(gm.getReadyCampaigns(file, 'g1')).toEqual([]);
+  });
+
+  it('shape-guard: campaign dependsOn=null → returns [] without crashing', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const camp = { id: 'c-null', name: 'null', objective: 'obj', subagents: [], status: 'pending', dependsOn: null } as any;
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([camp]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    expect(gm.getReadyCampaigns(file, 'g1')).toEqual([]);
   });
 });
 
