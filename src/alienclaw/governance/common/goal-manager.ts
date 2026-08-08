@@ -60,12 +60,12 @@ export class GoalManager {
     }
   }
 
-  /** Atomic write: tmp → lock → rename → release */
+  /** Atomic write under lock: acquire → write tmp → rename → release */
   async save(file: GoalsFile): Promise<void> {
     ensureGoalsDir();
-    writeFileSync(TMP_PATH, JSON.stringify(file, null, 2), 'utf-8');
     await acquireLock();
     try {
+      writeFileSync(TMP_PATH, JSON.stringify(file, null, 2), 'utf-8');
       renameSync(TMP_PATH, GOALS_PATH);
       this._dirty = false;
     } finally {
