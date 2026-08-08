@@ -302,6 +302,16 @@ describe('HermesToolResolver.web_search — Hermes dispatch', () => {
     process.env['ALIENCLAW_HERMES_PYTHON'] = shim;
     await expect(websearch()({ query: 'x' })).rejects.toThrow(/Hermes dispatch failed/);
   });
+
+  it('rejects a whitespace-only query (defect B)', async () => {
+    process.env['ALIENCLAW_HERMES_PYTHON'] = makeShim('{"results":[]}');
+    await expect(websearch()({ query: '   ' })).rejects.toThrow(/non-empty "query"/);
+  });
+
+  it('rejects a tab-only query (defect B)', async () => {
+    process.env['ALIENCLAW_HERMES_PYTHON'] = makeShim('{"results":[]}');
+    await expect(websearch()({ query: '\t' })).rejects.toThrow(/non-empty "query"/);
+  });
 });
 
 describe('Host selection (ALIENCLAW_HOST)', () => {

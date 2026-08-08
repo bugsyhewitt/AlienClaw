@@ -53,8 +53,8 @@ const hermesWebSearch: ToolFn = async (input: Record<string, unknown>): Promise<
     );
   }
   const query = input['query'];
-  if (typeof query !== 'string' || query.length === 0) {
-    throw new Error('web_search: requires a non-empty "query" string');
+  if (typeof query !== 'string' || query.trim().length === 0) {
+    throw new Error('web_search: requires a non-empty "query" string (whitespace-only is rejected)');
   }
 
   let stdout: string;
