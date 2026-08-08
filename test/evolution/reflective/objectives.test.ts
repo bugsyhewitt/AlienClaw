@@ -211,3 +211,54 @@ describe("rawObjectiveVector", () => {
     expect(raw.efficiency).toBeCloseTo(1.0);
   });
 });
+
+function makeTraceWithSlots(correctness: number, toolCalls: number, slotCount: number): ExecutionTrace {
+  return {
+    runId: "r-0",
+    genomeId: "g-0",
+    taskId: "t-0",
+    seed: 1,
+    toolCalls: Array.from({ length: toolCalls }, (_, i) => ({
+      index: i, tool: "t", args: {}, result: {}, ok: true, ms: 50,
+    })),
+    finalOutput: {},
+    errors: [],
+    correctness: { score: correctness, source: "exact", evidence: "test" },
+    cost: { inputTokens: 100, outputTokens: 50, dollars: 0.001, toolCalls, slotCount, wallMs: 200 },
+    startedAt: new Date().toISOString(),
+    endedAt: new Date().toISOString(),
+  };
+}
+
+describe("computeLegacyScalar — slot_count plumbing", () => {
+  it("slot_count=4, 4 tool calls: no excess → returns correctness", () => {
+    const result = computeLegacyScalar([makeTraceWithSlots(1.0, 4, 4)]);
+    expect(result).toBeCloseTo(1.0);
+  });
+
+  it("slot_count=4, 6 tool calls: 2 excess → correctness × 1/(1+0.2)", () => {
+    const result = computeLegacyScalar([makeTraceWithSlots(0.8, 6, 4)]);
+    expect(result).toBeCloseTo(0.8 / 1.2, 6);
+  });
+
+  it("cost.slotCount omitted: falls back to slot_count=1", () => {
+    // makeTrace has no slotCount; 2 tool calls with slot_count=1 → excess=1
+    const result = computeLegacyScalar([makeTrace(0.8, 2)]);
+    expect(result).toBeCloseTo(0.8 / 1.1, 6);
+  });
+});
+
+describe("rawObjectiveVector — slot_count plumbing", () => {
+  it("rawObjectiveVector: slot_count=4, 4 tool calls → efficiency 1.0", () => {
+    const trace = makeTraceWithSlots(0.9, 4, 4);
+    const raw = rawObjectiveVector(trace);
+    expect(raw.efficiency).toBeCloseTo(1.0);
+  });
+
+  it("rawObjectiveVector: cost.slotCount omitted → slot_count=1 fallback", () => {
+    // makeTrace with 1 tool call and no slotCount → excess=0 → efficiency=1
+    const trace = makeTrace(0.8, 1);
+    const raw = rawObjectiveVector(trace);
+    expect(raw.efficiency).toBeCloseTo(1.0);
+  });
+});
