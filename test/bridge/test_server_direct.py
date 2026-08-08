@@ -301,6 +301,18 @@ class TestLiveEvoHandler:
         assert err["code"] == "INTERNAL"
         assert "disk full" in err["details"]["exception"]
 
+    def test_list_martian_type_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": ["compute"]})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["details"]["missing_fields"]
+
+    def test_dict_martian_type_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": {"name": "compute"}})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["details"]["missing_fields"]
+
 
 class TestSummonFromPopulationShape:
     @staticmethod
