@@ -72,7 +72,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             "pattern": pattern,
             "flavor": flavor,
             "caseSensitive": case_sensitive,
-            "totalMatches": len(matches),
+            "totalMatches": len(all_matches),
             "truncated": truncated,
             "matches": matches,
         },
