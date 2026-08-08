@@ -285,9 +285,17 @@ export function parseMartian(content: string, sourcePath = '<string>'): MartianS
         throw new MartianParseError(`${sourcePath}: slot ${i} missing '${req}'`);
       }
     }
-    const slotIndex = typeof slotRaw['slot_index'] === 'number'
-      ? slotRaw['slot_index']
-      : parseInt(String(slotRaw['slot_index']), 10);
+    const rawSlotIndex = slotRaw['slot_index'];
+    let slotIndex: number;
+    if (typeof rawSlotIndex === 'number' && Number.isInteger(rawSlotIndex) && rawSlotIndex >= 0) {
+      slotIndex = rawSlotIndex;
+    } else if (typeof rawSlotIndex === 'string' && /^\d+$/.test(rawSlotIndex)) {
+      slotIndex = parseInt(rawSlotIndex, 10);
+    } else {
+      throw new MartianParseError(
+        `${sourcePath}: slot ${i} slot_index must be a non-negative integer; got ${JSON.stringify(rawSlotIndex)}`
+      );
+    }
     const toolName  = String(slotRaw['tool_name']);
 
     const rawInputs = slotRaw['inputs_from'] ?? null;
