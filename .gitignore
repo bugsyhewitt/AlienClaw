@@ -23,6 +23,9 @@ packages/dashboard-next/out/
 # Mise configuration files
 mise.toml
 
+# Executor scaffolding (autonomous session working memory)
+.superpowers/
+
 # Android build artifacts
 apps/android/.gradle/
 apps/android/app/build/
