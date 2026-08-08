@@ -5,6 +5,15 @@
  */
 
 import type { VerbosityMode } from '../types.js';
+import { validateLeaderboardName } from '../utils.js';
+
+// Accepts only bare decimal-digit strings (no sign, dot, exponent, prefix, whitespace).
+// Mirrors Python argparse type=int contract: '1000' → 1000, '1e3' → NaN, '+5' → NaN.
+function parseDecimalInt(s: string | undefined): number {
+  if (s === undefined || !/^\d+$/.test(s)) return NaN;
+  const n = Number(s);
+  return Number.isInteger(n) ? n : NaN;
+}
 
 // ── Result types ─────────────────────────────────────────────────────────────
 
@@ -73,10 +82,10 @@ export function parseCliArgs(argv: string[]): CliCommand {
       const value = raw[i + 1];
       switch (token) {
         case '--type':        args.martianType = value ?? ''; i++; break;
-        case '--generations': args.generations = Number(value); i++; break;
-        case '--population':  args.population  = Number(value); i++; break;
-        case '--seed':        args.seed        = Number(value); i++; break;
-        case '--inputs':      args.inputs      = value; i++; break;
+        case '--generations': args.generations = parseDecimalInt(value); i++; break;
+        case '--population':  args.population  = parseDecimalInt(value); i++; break;
+        case '--seed':        args.seed        = parseDecimalInt(value); i++; break;
+        case '--inputs':      args.inputs      = value?.trim() ? value : undefined; i++; break;
         default:
           return { type: 'unknown', raw };
       }
@@ -99,7 +108,11 @@ export function parseCliArgs(argv: string[]): CliCommand {
       const value = raw[i + 1];
       switch (token) {
         case '--type':  args.martianType = value ?? ''; i++; break;
-        case '--name':  args.name = value; i++; break;
+        case '--name':
+          if (value !== undefined && !validateLeaderboardName(value)) {
+            return { type: 'unknown', raw };
+          }
+          args.name = value; i++; break;
         case '--yes':   args.yes = true; break;
         case '--force': args.force = true; break;
         default:
