@@ -149,6 +149,44 @@ def test_selection_strategy_is_forwarded_to_per_seed_config(tmp_output):
     assert captured[0].truncation_top_fraction == 0.25
 
 
+def test_brain_is_forwarded_to_per_seed_config(tmp_output):
+    """config_base.brain must reach the per-seed run, not default to None."""
+    import alienclaw.evolution.population as pop_mod
+
+    class MockBrain:
+        tool = "web_search"
+        parameter_schema = ()
+
+    captured: list = []
+    orig = pop_mod.Population.load_or_create
+    def spy(c):
+        captured.append(c)
+        return orig(c)
+    pop_mod.Population.load_or_create = spy
+    try:
+        brain = MockBrain()
+        config = EvolutionConfig(
+            martian_type="compute_alone",
+            population_size=4,
+            brain=brain,
+        )
+        run_scale_experiment(
+            martian_type="compute_alone",
+            config_base=config,
+            run_martian_fn=mock_runner,
+            generations=2,
+            seeds=[42],
+            output_dir=tmp_output,
+        )
+    finally:
+        pop_mod.Population.load_or_create = orig
+
+    assert len(captured) == 1
+    assert captured[0].brain is brain, (
+        f"brain silently dropped: expected MockBrain, got {captured[0].brain}"
+    )
+
+
 def test_truncation_strategy_actually_selects_top_fraction(tmp_output):
     """End-to-end: truncation selection with top_fraction=0.5 must reach the selector."""
     import alienclaw.evolution.generation as gen_mod
