@@ -235,7 +235,10 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
             const [s, b] = await handleInstall(body as unknown as InstallRequest, _INSTALLS);
             return send(res, s, b);
           } catch (e: unknown) {
-            return send(res, 400, { error: JSON.parse((e as Error).message) });
+            if (e instanceof Error && 'apiError' in e) {
+              return send(res, 400, { error: (e as { apiError: unknown }).apiError });
+            }
+            throw e;
           }
         }
 

@@ -8,7 +8,7 @@ export async function handleInstall(
   store: InstallStore,
 ): Promise<[number, InstallResponse | { error: unknown }]> {
   const v = validateInstallRequest(req);
-  if (!v.valid) throw new Error(JSON.stringify(v.error));
+  if (!v.valid) throw Object.assign(new Error('validation'), { apiError: v.error });
 
   const apiKeyHash = hashApiKey(req.api_key);
   const [installId, isNew] = await store.register(apiKeyHash, req.machine_hash);
