@@ -28,6 +28,7 @@ import {
   extractText,
   errorMessage,
   normalizeInput,
+  parseModelJson,
 } from '../src/alienclaw/utils.js';
 
 // Build a minimally-typed AssistantMessage that satisfies the type-system (role,
@@ -150,6 +151,86 @@ describe('normalizeInput', () => {
 
   it('returns "" for whitespace-only input', () => {
     expect(normalizeInput('     ')).toBe('');
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// parseModelJson — fence stripping, including non-json language tags (PKT-567)
+// ──────────────────────────────────────────────────────────────────────────
+
+describe('parseModelJson', () => {
+  const onJson = (parsed: unknown) => ({ path: 'json' as const, value: parsed });
+  const onText = (text: string)    => ({ path: 'text' as const, value: text });
+
+  // ── existing (control) cases ──────────────────────────────────────────
+
+  it('control: bare fence is stripped and onJson is called', () => {
+    const result = parseModelJson('```\n{"a":1}\n```', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  it('control: json-tagged fence is stripped and onJson is called', () => {
+    const result = parseModelJson('```json\n{"a":1}\n```', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  it('control: unfenced JSON calls onJson directly', () => {
+    const result = parseModelJson('{"a":1}', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  // ── PKT-567 defect cases: non-json language tags must be stripped ─────
+
+  it('PKT-567: javascript-tagged fence — language tag is stripped, onJson is called', () => {
+    const result = parseModelJson('```javascript\n{"a":1}\n```', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  it('PKT-567: js-tagged fence — language tag is stripped, onJson is called', () => {
+    const result = parseModelJson('```js\n{"a":1}\n```', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  it('PKT-567: typescript-tagged fence — language tag is stripped, onJson is called', () => {
+    const result = parseModelJson('```typescript\n{"a":1}\n```', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  it('PKT-567: python-tagged fence — language tag is stripped, onJson is called', () => {
+    const result = parseModelJson('```python\n{"a":1}\n```', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  it('PKT-567: JSON (uppercase) — language tag is stripped, onJson is called', () => {
+    const result = parseModelJson('```JSON\n{"a":1}\n```', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  it('PKT-567: Json (mixed-case) — language tag is stripped, onJson is called', () => {
+    const result = parseModelJson('```Json\n{"a":1}\n```', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  it('PKT-567: json5-tagged fence — language tag is stripped, onJson is called', () => {
+    const result = parseModelJson('```json5\n{"a":1}\n```', onJson, onText);
+    expect(result.path).toBe('json');
+    expect((result.value as { a: number }).a).toBe(1);
+  });
+
+  // ── fallback ──────────────────────────────────────────────────────────
+
+  it('non-JSON content with bare fence calls onText', () => {
+    const result = parseModelJson('```\nhello world\n```', onJson, onText);
+    expect(result.path).toBe('text');
   });
 });
 
