@@ -2,8 +2,8 @@
  * Shared utilities for the AlienClaw runtime.
  */
 
-import { renameSync, writeFileSync } from 'node:fs';
-import { dirname, join }            from 'node:path';
+import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join }                                    from 'node:path';
 import { randomUUID }               from 'node:crypto';
 import type { AssistantMessage, TextContent } from '@mariozechner/pi-ai';
 
@@ -42,11 +42,17 @@ export function validateLeaderboardName(name: string): boolean {
   return LEADERBOARD_NAME_RE.test(name);
 }
 
-/** Write file atomically: unique tmp sibling → rename. */
+/** Write file atomically: mkdir parent, unique tmp sibling → rename, cleanup on failure. */
 export function atomicWrite(filePath: string, content: string): void {
+  mkdirSync(dirname(filePath), { recursive: true });
   const tmpPath = join(dirname(filePath), `.tmp-${randomUUID()}`);
   writeFileSync(tmpPath, content, { encoding: 'utf-8' });
-  renameSync(tmpPath, filePath);
+  try {
+    renameSync(tmpPath, filePath);
+  } catch (err) {
+    try { unlinkSync(tmpPath); } catch { /* best-effort */ }
+    throw err;
+  }
 }
 
 /**
