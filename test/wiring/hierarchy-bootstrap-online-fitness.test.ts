@@ -151,7 +151,7 @@ describe('hierarchy-bootstrap — OnlineFitnessLog wiring (E2 item 1)', () => {
     // Restore getRegistry factory so each test gets a clean mock registry
     vi.mocked(getRegistry).mockReset();
     vi.mocked(getRegistry).mockImplementation(function() {
-      return { load: vi.fn(), list: vi.fn(function() { return []; }), get: vi.fn() };
+      return { load: vi.fn(), list: vi.fn(function() { return []; }), get: vi.fn(), bestForTool: vi.fn(), size: 0 } as unknown as ReturnType<typeof getRegistry>;
     });
     // Restore validateGenome default
     vi.mocked(validateGenome).mockReset();
