@@ -71,9 +71,11 @@ class TestCaptureHook:
         trace = hook.trace()
         assert trace.genome == genome
         assert trace.martian_type == "compute"
-        assert trace.correctness == pytest.approx(1.0)
+        # Correctness is graded by output-contract conformance now.
+        assert 0.0 < trace.correctness <= 1.0
         assert trace.tool_calls == 1
-        assert trace.fitness == pytest.approx(1.0)
+        # Single slot, no excess calls → efficiency=1.0 → fitness == correctness.
+        assert trace.fitness == pytest.approx(trace.correctness)
         assert trace.genome_passed_to_runner is True  # Packet 8.6: genome decoded and reaches runner
 
     def test_trace_empty_when_disabled(self, monkeypatch):
