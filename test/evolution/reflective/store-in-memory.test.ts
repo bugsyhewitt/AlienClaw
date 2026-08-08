@@ -42,6 +42,32 @@ describe("InMemoryEvolutionStore — cold branch coverage", () => {
     expect(lessons).toEqual(["duplicate", "root"]);
   });
 
+  it("IME-105-cycle-self: lineageLessons terminates on self-cycle (parentId === childId) (PKT-559)", async () => {
+    const store = new InMemoryEvolutionStore();
+    const reflection = (lesson: string) => ({
+      component: "c", diagnosis: "d", proposedValue: "v", lesson, promptHash: "h",
+    });
+    // self-cycle: childId === parentId — infinite loop without visited guard
+    await store.recordLineage({
+      childId: "genome-self", parentId: "genome-self", op: "mutate",
+      reflection: reflection("self-lesson"),
+    });
+    const result = await store.lineageLessons("genome-self");
+    expect(result).toEqual(["self-lesson"]);
+  });
+
+  it("IME-106-cycle-two-node: lineageLessons terminates on A→B→A 2-node cycle (PKT-559)", async () => {
+    const store = new InMemoryEvolutionStore();
+    const reflection = (lesson: string) => ({
+      component: "c", diagnosis: "d", proposedValue: "v", lesson, promptHash: "h",
+    });
+    // 2-node cycle: child-A → child-B → child-A — infinite loop without visited guard
+    await store.recordLineage({ childId: "child-A", parentId: "child-B", op: "mutate", reflection: reflection("lesson-A") });
+    await store.recordLineage({ childId: "child-B", parentId: "child-A", op: "mutate", reflection: reflection("lesson-B") });
+    const result = await store.lineageLessons("child-A");
+    expect(result).toEqual(["lesson-A", "lesson-B"]);
+  });
+
   it("IME-105: loadRun returns best:null and empty frontier when no snapshot exists", async () => {
     const store = new InMemoryEvolutionStore();
     const result = await store.loadRun("any-handle");
