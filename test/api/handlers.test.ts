@@ -262,14 +262,14 @@ describe('handleInstall (api/handlers/install.ts:6)', () => {
     await expect(handleInstall(
       { ...validInstall(), api_key: 'short' },
       mockInstallStore(),
-    )).rejects.toThrow(/INVALID_API_KEY_FORMAT/);
+    )).rejects.toMatchObject({ apiError: { code: 'INVALID_API_KEY_FORMAT' } });
   });
 
   it('throws on INVALID_MACHINE_HASH', async () => {
     await expect(handleInstall(
       { ...validInstall(), machine_hash: 'not-hex-and-wrong-length' },
       mockInstallStore(),
-    )).rejects.toThrow(/INVALID_MACHINE_HASH/);
+    )).rejects.toMatchObject({ apiError: { code: 'INVALID_MACHINE_HASH' } });
   });
 });
 
