@@ -266,7 +266,92 @@ describe('NetworkAPIClient.martianTypes()', () => {
 
     const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
     expect(url).toBe('https://api.example.test/v1/martian-types');
-    // GET — no init or no method field (fetch defaults to GET)
-    expect(init).toBeUndefined();
+    // GET — no method field (fetch defaults to GET); signal is set by the timeout guard
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
+// ── fetch timeout (PKT-498) ──────────────────────────────────────────────────
+
+describe('NetworkAPIClient — fetch timeout (PKT-498)', () => {
+  it('_get passes an AbortSignal to fetch()', async () => {
+    fetchMock.mockResolvedValueOnce(makeFetchResponse({ status: 200, json: {} }));
+    const client = new NetworkAPIClient('https://api.example.test', 'key');
+    await client.health();
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init).toBeDefined();
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('_post passes an AbortSignal to fetch()', async () => {
+    fetchMock.mockResolvedValueOnce(makeFetchResponse({
+      status: 200, json: { status: 'registered', install_id: 'i', rate_limit: { submissions_per_hour: 10 } },
+    }));
+    const client = new NetworkAPIClient('https://api.example.test', 'key');
+    await client.install('hash');
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init).toBeDefined();
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('_get rejects with AbortError when fetch() stalls (signal-aware mock)', async () => {
+    fetchMock.mockImplementationOnce((_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        if (init?.signal) {
+          init.signal.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted', 'AbortError'));
+          });
+        }
+      }),
+    );
+    const client = new NetworkAPIClient('https://api.example.test', 'key');
+    const slowTimeout = 12_000;
+    const res = await Promise.race([
+      client.health(),
+      new Promise<never>((_, r) =>
+        setTimeout(() => r(new Error('test-guard: 12s elapsed, AbortSignal never fired')), slowTimeout),
+      ),
+    ]).catch((e) => e);
+    expect(String((res as Error).name ?? '')).toMatch(/AbortError/);
+  }, 15_000);
+
+  it('_post rejects with AbortError when fetch() stalls (signal-aware mock)', async () => {
+    fetchMock.mockImplementationOnce((_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        if (init?.signal) {
+          init.signal.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted', 'AbortError'));
+          });
+        }
+      }),
+    );
+    const client = new NetworkAPIClient('https://api.example.test', 'key');
+    const slowTimeout = 12_000;
+    const res = await Promise.race([
+      client.install('hash'),
+      new Promise<never>((_, r) =>
+        setTimeout(() => r(new Error('test-guard: 12s elapsed, AbortSignal never fired')), slowTimeout),
+      ),
+    ]).catch((e) => e);
+    expect(String((res as Error).name ?? '')).toMatch(/AbortError/);
+  }, 15_000);
+
+  it('happy-path GET is unchanged after the timeout fix (regression guard)', async () => {
+    fetchMock.mockResolvedValueOnce(makeFetchResponse({
+      status: 200, ok: true, json: { status: 'ok', version: '1.0', uptime_seconds: 1 },
+    }));
+    const client = new NetworkAPIClient('https://api.example.test', 'key');
+    const r = await client.health();
+    expect(r.ok).toBe(true);
+  });
+
+  it('happy-path POST is unchanged after the timeout fix (regression guard)', async () => {
+    fetchMock.mockResolvedValueOnce(makeFetchResponse({
+      status: 200, ok: true,
+      json: { status: 'registered', install_id: 'iid', rate_limit: { submissions_per_hour: 100 } },
+    }));
+    const client = new NetworkAPIClient('https://api.example.test', 'key');
+    const r = await client.install('hash');
+    expect(r.ok).toBe(true);
   });
 });
