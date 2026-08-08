@@ -64,6 +64,44 @@ class TestWatermarkHelpers:
         assert _read_watermark("compute", wpath) == 10
 
 
+# ── watermark corruption guards (PKT-395) ──────────────────────────────────
+
+
+class TestWatermarkCorruptionGuards:
+    def test_read_watermark_malformed_json_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"foo": 1, "bar": 2', encoding="utf-8")
+        assert _read_watermark("foo", wpath) == 0
+
+    def test_read_watermark_empty_file_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text("", encoding="utf-8")
+        assert _read_watermark("foo", wpath) == 0
+
+    def test_read_watermark_non_int_value_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"foo": "abc"}', encoding="utf-8")
+        assert _read_watermark("foo", wpath) == 0
+
+    def test_read_watermark_bool_value_returns_zero(self, tmp_path: Path) -> None:
+        # bool is a subclass of int; True/False must not round-trip as 1/0
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"foo": true}', encoding="utf-8")
+        assert _read_watermark("foo", wpath) == 0
+
+    def test_read_watermark_float_value_returns_zero(self, tmp_path: Path) -> None:
+        # float is not int; previously silently truncated 1.5 → 1
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"foo": 1.5}', encoding="utf-8")
+        assert _read_watermark("foo", wpath) == 0
+
+    def test_write_watermark_overwrites_corrupted_existing(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text("NOT VALID JSON{{{{", encoding="utf-8")
+        _write_watermark("foo", 5, wpath)
+        assert _read_watermark("foo", wpath) == 5
+
+
 # ── check_and_evolve ────────────────────────────────────────────────────────
 
 
