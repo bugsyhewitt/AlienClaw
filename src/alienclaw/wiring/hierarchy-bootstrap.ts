@@ -134,7 +134,8 @@ export function bootstrap(): BootstrapResult {
   }
 
   registerAuditJob('registry-health-check', REGISTRY_HEALTH_INTERVAL_MS, ms => {
-    if (ms.fitness < 0 || ms.fitness > 1) {
+    // PKT-458: !Number.isFinite() catches NaN, Infinity, -Infinity (all fail the range check silently).
+    if (!Number.isFinite(ms.fitness) || ms.fitness < 0 || ms.fitness > 1) {
       return `Martian ${ms.id} has invalid fitness score: ${ms.fitness}`;
     }
     return undefined;
@@ -171,10 +172,34 @@ export function bootstrap(): BootstrapResult {
           const ms = registry.get(martianId);
           if (!ms) continue;
 
+          // PKT-458: a non-finite ms.fitness (NaN/Infinity/-Infinity) means the prior tick's
+          // writer was buggy or the .ms file was hand-edited. Blending NaN into the EMA
+          // propagates NaN to newFitness, which then writes "# fitness: NaN" back to disk
+          // and silently skips the URGENT enqueue (NaN < threshold is always false).
+          if (!Number.isFinite(ms.fitness)) {
+            creatorBot.enqueue(
+              'URGENT',
+              `fitness-update: martian ${martianId} has non-finite fitness (${ms.fitness}); skipping EMA, manual repair required`,
+              'fitness-update',
+            );
+            continue;
+          }
+
           const total = martianReports.length;
           const successes = martianReports.filter(r => r.outcome === 'SUCCESS').length;
           const successRate = total > 0 ? successes / total : 0;
           const newFitness = FITNESS_EMA_ALPHA * successRate + (1 - FITNESS_EMA_ALPHA) * ms.fitness;
+
+          // PKT-458: defensive guard on the EMA result (both terms bounded in [0,1] so
+          // this should be unreachable in practice, but guards against future regressions).
+          if (!Number.isFinite(newFitness)) {
+            creatorBot.enqueue(
+              'URGENT',
+              `fitness-update: martian ${martianId} produced non-finite newFitness (${newFitness}); skipping file rewrite`,
+              'fitness-update',
+            );
+            continue;
+          }
 
           // Update in-memory registry
           ms.fitness = newFitness;
