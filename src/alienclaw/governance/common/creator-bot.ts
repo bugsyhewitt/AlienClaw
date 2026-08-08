@@ -140,7 +140,8 @@ export class CreatorBot {
       knowledgeBase:     spec.knowledgeBase ?? '',
     });
 
-    subagent.birth(brief);
+    const yaml = buildTransitionTableYaml(brief);
+    subagent.birth(brief, yaml || undefined);
 
     this.logger.info(
       'subagent-built',
