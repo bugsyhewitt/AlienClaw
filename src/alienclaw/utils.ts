@@ -2,7 +2,7 @@
  * Shared utilities for the AlienClaw runtime.
  */
 
-import { renameSync, writeFileSync } from 'node:fs';
+import { renameSync, writeFileSync, unlinkSync } from 'node:fs';
 import { dirname, join }            from 'node:path';
 import { randomUUID }               from 'node:crypto';
 import type { AssistantMessage, TextContent } from '@mariozechner/pi-ai';
@@ -46,7 +46,15 @@ export function validateLeaderboardName(name: string): boolean {
 export function atomicWrite(filePath: string, content: string): void {
   const tmpPath = join(dirname(filePath), `.tmp-${randomUUID()}`);
   writeFileSync(tmpPath, content, { encoding: 'utf-8' });
-  renameSync(tmpPath, filePath);
+  try {
+    renameSync(tmpPath, filePath);
+  } catch (err) {
+    // Cleanup the orphaned tmp file so it doesn't leak on every failed rename.
+    // Swallow the unlink error (the file may already be gone, or we may lack
+    // permissions on the parent dir — rethrowing would mask the original).
+    try { unlinkSync(tmpPath); } catch { /* best-effort cleanup */ }
+    throw err;
+  }
 }
 
 /**
