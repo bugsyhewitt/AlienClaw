@@ -163,6 +163,10 @@ class TestEnvelopeErrors:
             _envelope(martian_type="no_such_martian"),
             _envelope(timeout_ms=-1),
             _envelope(inputs="not a dict"),
+            # live-evo with overflowing threshold (1e999 → float('inf') → OverflowError in int())
+            json.dumps({"bridge_version": "1.0", "request_id": "x",
+                        "request": {"kind": "live-evo", "martian_type": "compute",
+                                    "threshold": 1e999}}).encode(),
         ]
         for raw in payloads:
             resp = handle(raw)  # must not raise
@@ -300,6 +304,66 @@ class TestLiveEvoHandler:
         err = resp["response"]["error"]
         assert err["code"] == "INTERNAL"
         assert "disk full" in err["details"]["exception"]
+
+    def test_threshold_string_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": "abc"})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+        assert err["details"]["field"] == "threshold"
+        assert err["details"]["received"] == "abc"
+
+    def test_threshold_none_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": None})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_threshold_list_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": [1, 2]})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_threshold_dict_returns_malformed(self) -> None:
+        resp = self._live_evo({"martian_type": "compute", "threshold": {"x": 1}})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_threshold_overflow_float_returns_malformed(self) -> None:
+        # 1e999 is valid JSON and parses to float('inf'); int(inf) raises OverflowError
+        resp = self._live_evo({"martian_type": "compute", "threshold": 1e999})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold" in err["message"]
+
+    def test_threshold_int_forwarded_to_check_and_evolve(self, monkeypatch) -> None:
+        """The int threshold the caller provides must reach check_and_evolve verbatim."""
+        import alienclaw.evolution.live_evo as le_mod
+        captured: dict = {}
+
+        def capture(mt, th, **kw):
+            captured["threshold"] = th
+            return None
+
+        monkeypatch.setattr(le_mod, "check_and_evolve", capture)
+        self._live_evo({"martian_type": "compute", "threshold": 7})
+        assert captured["threshold"] == 7
+
+    def test_threshold_default_used_when_missing(self, monkeypatch) -> None:
+        """When threshold is absent, the LIVE_EVO_THRESHOLD default is used."""
+        from alienclaw.evolution.live_evo import LIVE_EVO_THRESHOLD
+        import alienclaw.evolution.live_evo as le_mod
+        captured: dict = {}
+
+        def capture(mt, th, **kw):
+            captured["threshold"] = th
+            return None
+
+        monkeypatch.setattr(le_mod, "check_and_evolve", capture)
+        self._live_evo({"martian_type": "compute"})
+        assert captured["threshold"] == LIVE_EVO_THRESHOLD
 
 
 class TestSummonFromPopulationShape:
