@@ -9,6 +9,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { NetworkAPIClient, GenomeEntry } from './client.js';
+import { sanitizeFilenameSegment } from '../../../telemetry/telemetry-writer.js';
 
 export interface PullResult {
   martianType: string;
@@ -83,7 +84,8 @@ async function _pullType(
 }
 
 function _writeEntry(entriesDir: string, entry: GenomeEntry): void {
-  const filename = `network-${entry.submission_id}.json`;
+  const safeId = sanitizeFilenameSegment(entry.submission_id, 'submission_id');
+  const filename = `network-${safeId}.json`;
   const path = join(entriesDir, filename);
   // Full PopulationEntry shape (mirrors evolution/storage.py _entry_to_dict).
   // Genomes are server-validated (length/alphabet/checksum) at submission
