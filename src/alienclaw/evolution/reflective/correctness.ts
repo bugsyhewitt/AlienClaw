@@ -116,10 +116,21 @@ function validateSchema(value: unknown, schema: unknown): boolean {
   if (schema === null || schema === undefined) return true;
   if (typeof schema !== "object") return true;
   const s = schema as Record<string, unknown>;
-  if (s["type"] === "object" && typeof value !== "object") return false;
-  if (s["type"] === "array" && !Array.isArray(value)) return false;
-  if (s["type"] === "string" && typeof value !== "string") return false;
-  if (s["type"] === "number" && typeof value !== "number") return false;
+  const t = s["type"];
+  if (typeof t === "string") {
+    let typeOk = true;
+    switch (t) {
+      case "string":  typeOk = typeof value === "string"; break;
+      case "number":  typeOk = typeof value === "number" && Number.isFinite(value); break;
+      case "integer": typeOk = typeof value === "number" && Number.isInteger(value); break;
+      case "boolean": typeOk = typeof value === "boolean"; break;
+      case "null":    typeOk = value === null; break;
+      case "array":   typeOk = Array.isArray(value); break;
+      case "object":  typeOk = value !== null && typeof value === "object" && !Array.isArray(value); break;
+      // Unknown type string — permissive: no opinion
+    }
+    if (!typeOk) return false;
+  }
   if (s["required"] && Array.isArray(s["required"])) {
     if (typeof value !== "object" || value === null) return false;
     for (const key of s["required"] as string[]) {
