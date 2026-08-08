@@ -63,6 +63,12 @@ def evaluate_and_evolve(
     rng: random.Random,
 ) -> dict[str, Any]:
     """Run one generational step. Returns a result dict for logging."""
+    if not (0 <= config.elitism_count <= config.population_size):
+        raise ValueError(
+            f"Invalid elitism_count {config.elitism_count!r} for "
+            f"population_size {config.population_size!r}; "
+            f"elitism_count must be in [0, population_size]."
+        )
     generation = pop.current_generation()
     current_pool = list(pop.all())
 

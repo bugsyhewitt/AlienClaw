@@ -308,3 +308,28 @@ class TestParentIdsLineage:
             assert child.parent_ids, (
                 f"Child {child.entry_id!r} has empty parent_ids after disk round-trip"
             )
+
+
+class TestElitismCountValidation:
+    """PKT-570: evaluate_and_evolve must raise on elitism_count out of [0, population_size]."""
+
+    def test_elitism_count_equals_population_size_produces_no_children(self):
+        """elitism_count == population_size is valid; children_needed = 0, no offspring."""
+        config = EvolutionConfig(martian_type="e_eq", population_size=4, elitism_count=4, seed=1)
+        pop = Population.create(config)
+        result = evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(1))
+        assert result["children_minted"] == 0
+
+    def test_elitism_count_greater_than_population_size_raises(self):
+        """elitism_count > population_size used to silently produce 0 offspring; now raises."""
+        config = EvolutionConfig(martian_type="e_big", population_size=4, elitism_count=10, seed=1)
+        pop = Population.create(config)
+        with pytest.raises(ValueError, match="elitism_count"):
+            evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(1))
+
+    def test_elitism_count_negative_raises(self):
+        """elitism_count < 0 used to silently grow the pool unboundedly; now raises."""
+        config = EvolutionConfig(martian_type="e_neg", population_size=4, elitism_count=-1, seed=1)
+        pop = Population.create(config)
+        with pytest.raises(ValueError, match="elitism_count"):
+            evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(1))
