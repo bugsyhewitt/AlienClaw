@@ -158,8 +158,24 @@ class TestTruncation:
     def test_truncated_true_when_capped(self):
         text = "\n".join([f"foo line {i}" for i in range(20)])
         r = run({"text": text, "pattern": "foo"}, {"max_results": 5})
-        assert r.output["totalMatches"] == 5
+        assert r.output["totalMatches"] == 20  # FULL count, not truncated
         assert r.output["truncated"] is True
+        assert len(r.output["matches"]) == 5  # returned list is still capped
+
+    def test_total_matches_total_count_when_truncated(self):
+        # 20 matches, max_results=5 → totalMatches = 20 (full), matches = 5 (truncated)
+        text = "\n".join([f"foo line {i}" for i in range(20)])
+        r = run({"text": text, "pattern": "foo"}, {"max_results": 5})
+        assert r.output["totalMatches"] == 20
+        assert r.output["truncated"] is True
+        assert len(r.output["matches"]) == 5
+
+    def test_total_matches_full_count_under_limit(self):
+        # 5 matches, no truncation → totalMatches = 5
+        text = "\n".join([f"foo line {i}" for i in range(5)])
+        r = run({"text": text, "pattern": "foo"})
+        assert r.output["totalMatches"] == 5
+        assert r.output["truncated"] is False
 
 
 # ---------------------------------------------------------------------------
