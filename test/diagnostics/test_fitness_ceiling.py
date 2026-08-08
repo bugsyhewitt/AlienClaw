@@ -76,6 +76,31 @@ class TestAnalyzeFormula:
         with pytest.raises(ValueError, match="same length"):
             analyze_formula([1.0, 1.0], [1])
 
+    def test_empty_lists_raise_caller_facing_error(self):
+        """analyze_formula([], []) must raise ValueError with a message that names
+        the actual input (slot_correctnesses / slot_tool_calls), NOT a leaked
+        parameter from an internal helper (k_slots)."""
+        with pytest.raises(ValueError) as excinfo:
+            analyze_formula([], [])
+        msg = str(excinfo.value)
+        assert "k_slots" not in msg, (
+            f"error leaks internal helper argname 'k_slots': {msg!r}"
+        )
+        assert "slot_correctnesses" in msg or "slot_tool_calls" in msg, (
+            f"error should name the caller's input; got: {msg!r}"
+        )
+
+    def test_mismatched_length_error_unchanged(self):
+        """The existing length-mismatch arm must still raise its specific message."""
+        with pytest.raises(ValueError, match="must have same length"):
+            analyze_formula([1.0, 1.0], [1])
+
+    def test_single_slot_regression_after_empty_guard(self):
+        """Regression: the empty-input guard must not break k=1."""
+        result = analyze_formula([1.0], [1])
+        assert result["fitness"] == pytest.approx(1.0)
+        assert result["at_ceiling"] is True
+
 
 class TestVerifyCeilingFromFormula:
     def test_k1_ceiling_confirmed(self):
