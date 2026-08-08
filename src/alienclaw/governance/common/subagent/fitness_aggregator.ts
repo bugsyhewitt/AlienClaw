@@ -29,7 +29,8 @@ export function aggregate(
 ): CampaignFitness {
   const completed = termination_reason === 'state_machine_finalized';
   const final = summons.length > 0 ? summons[summons.length - 1]! : null;
-  const final_summon_fitness = final?.fitness ?? 0.0;
+  // ?? only catches null/undefined — use isFinite to also reject NaN/Infinity/-Infinity
+  const final_summon_fitness = (final !== null && Number.isFinite(final.fitness)) ? final.fitness : 0.0;
   const completion_bonus = completed ? 0.2 : 0.0;
   const fitness = Math.max(0.0, Math.min(1.0, final_summon_fitness + completion_bonus));
 
