@@ -84,3 +84,57 @@ class TestParseMartian:
         )
         with pytest.raises(MartianParseError, match="inputs_from must be null or have"):
             parse_martian(yaml)
+
+    def test_slot_index_float_raises(self):
+        """PKT-564: float slot_index (0.5) must raise MartianParseError, not silently truncate."""
+        yaml = (
+            "martian_type: test\nslots:\n"
+            "  - slot_index: 0.5\n    tool_name: compute\n    inputs_from: null\n"
+        )
+        with pytest.raises(MartianParseError, match="non-negative integer"):
+            parse_martian(yaml)
+
+    def test_slot_index_str_float_raises(self):
+        """PKT-564: quoted float string slot_index ("0.5") must raise MartianParseError."""
+        yaml = (
+            "martian_type: test\nslots:\n"
+            "  - slot_index: \"0.5\"\n    tool_name: compute\n    inputs_from: null\n"
+        )
+        with pytest.raises(MartianParseError, match="non-negative integer"):
+            parse_martian(yaml)
+
+    def test_slot_index_negative_raises(self):
+        """PKT-564: negative slot_index (-1) must raise MartianParseError."""
+        yaml = (
+            "martian_type: test\nslots:\n"
+            "  - slot_index: -1\n    tool_name: compute\n    inputs_from: null\n"
+        )
+        with pytest.raises(MartianParseError, match="non-negative integer"):
+            parse_martian(yaml)
+
+    def test_slot_index_null_raises(self):
+        """PKT-564: null slot_index must raise MartianParseError (not raw TypeError)."""
+        yaml = (
+            "martian_type: test\nslots:\n"
+            "  - slot_index: null\n    tool_name: compute\n    inputs_from: null\n"
+        )
+        with pytest.raises(MartianParseError, match="non-negative integer"):
+            parse_martian(yaml)
+
+    def test_slot_index_str_nonnumeric_raises(self):
+        """PKT-564: non-numeric string slot_index (abc) must raise MartianParseError (not raw ValueError)."""
+        yaml = (
+            "martian_type: test\nslots:\n"
+            "  - slot_index: abc\n    tool_name: compute\n    inputs_from: null\n"
+        )
+        with pytest.raises(MartianParseError, match="non-negative integer"):
+            parse_martian(yaml)
+
+    def test_slot_index_bool_raises(self):
+        """PKT-564: boolean slot_index (true) must raise MartianParseError (not silently become 1)."""
+        yaml = (
+            "martian_type: test\nslots:\n"
+            "  - slot_index: true\n    tool_name: compute\n    inputs_from: null\n"
+        )
+        with pytest.raises(MartianParseError, match="non-negative integer"):
+            parse_martian(yaml)

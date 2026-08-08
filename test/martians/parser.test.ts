@@ -731,3 +731,62 @@ describe('parseMartian — _parseSequence L162: non-dash line at sequence indent
     expect(() => parseMartian(md)).toThrow(/unexpected indent/);
   });
 });
+
+// ── describe: parseMartian — slot_index value validation (PKT-564) ─────────
+//
+// Each of the 6 cases exercises a distinct invalid slot_index value that the
+// current implementation accepts silently (truncation / NaN / wrong type).
+// After PKT-564 these must all throw MartianParseError with a message
+// matching /non-negative integer/.
+
+describe('parseMartian — slot_index value validation (PKT-564)', () => {
+  const mkSlotYaml = (slotIndexVal: string): string =>
+    [
+      'martian_type: test',
+      'slots:',
+      `  - slot_index: ${slotIndexVal}`,
+      '    tool_name: compute',
+      '    inputs_from: null',
+    ].join('\n');
+
+  it('throws MartianParseError for float slot_index (0.5 — not silent truncation to 0)', () => {
+    // _parseScalar: "0.5" fails /^-?\d+$/ → returned as string "0.5"
+    // current code: parseInt("0.5", 10) → 0 (silent truncation — WRONG)
+    expect(() => parseMartian(mkSlotYaml('0.5'))).toThrow(MartianParseError);
+    expect(() => parseMartian(mkSlotYaml('0.5'))).toThrow(/non-negative integer/);
+  });
+
+  it('throws MartianParseError for quoted float slot_index ("0.5" — not silent truncation to 0)', () => {
+    // _parseScalar strips quotes → string "0.5" → same truncation path
+    expect(() => parseMartian(mkSlotYaml('"0.5"'))).toThrow(MartianParseError);
+    expect(() => parseMartian(mkSlotYaml('"0.5"'))).toThrow(/non-negative integer/);
+  });
+
+  it('throws MartianParseError for negative slot_index (-1)', () => {
+    // _parseScalar: "-1" matches /^-?\d+$/ → returns -1 (number)
+    // current code: passes through as -1 (WRONG — negative is invalid)
+    expect(() => parseMartian(mkSlotYaml('-1'))).toThrow(MartianParseError);
+    expect(() => parseMartian(mkSlotYaml('-1'))).toThrow(/non-negative integer/);
+  });
+
+  it('throws MartianParseError for null slot_index (not raw TypeError)', () => {
+    // _parseScalar: "null" → returns null
+    // current code: typeof null !== 'number' → parseInt(null as any, 10) → NaN (WRONG)
+    expect(() => parseMartian(mkSlotYaml('null'))).toThrow(MartianParseError);
+    expect(() => parseMartian(mkSlotYaml('null'))).toThrow(/non-negative integer/);
+  });
+
+  it('throws MartianParseError for non-numeric string slot_index (abc — not raw crash)', () => {
+    // _parseScalar: "abc" → returned as string "abc"
+    // current code: parseInt("abc", 10) → NaN (WRONG)
+    expect(() => parseMartian(mkSlotYaml('abc'))).toThrow(MartianParseError);
+    expect(() => parseMartian(mkSlotYaml('abc'))).toThrow(/non-negative integer/);
+  });
+
+  it('throws MartianParseError for boolean slot_index (true — not silent coercion to 1)', () => {
+    // _parseScalar: "true" → returns boolean true
+    // current code: typeof true !== 'number' → parseInt("true", 10) → NaN (WRONG)
+    expect(() => parseMartian(mkSlotYaml('true'))).toThrow(MartianParseError);
+    expect(() => parseMartian(mkSlotYaml('true'))).toThrow(/non-negative integer/);
+  });
+});
