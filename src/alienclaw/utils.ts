@@ -59,7 +59,7 @@ export function parseModelJson<T>(
   onJson: (parsed: unknown, clean: string) => T,
   onText: (clean: string) => T,
 ): T {
-  const clean = raw.replace(/```(?:json)?\n?/g, '').trim();
+  const clean = raw.replace(/```(?:[a-zA-Z][a-zA-Z0-9_+\-]*)?\n?/g, '').trim();
   try {
     return onJson(JSON.parse(clean), clean);
   } catch {
