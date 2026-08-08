@@ -81,6 +81,9 @@ function evalCondition(cond: Condition, result: SummonResult): boolean {
 }
 
 function evalGroup(group: ConditionGroup, result: SummonResult): boolean {
+  // An empty condition list never fires (fail-closed). Vacuous truth for all:[]
+  // would silently bypass exit gates when malformed n: values drop their conditions.
+  if (group.conditions.length === 0) return false;
   if (group.kind === 'all') {
     return group.conditions.every(c => evalCondition(c, result));
   }

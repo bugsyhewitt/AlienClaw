@@ -344,6 +344,45 @@ describe('decide() — uncovered evalCondition branches', () => {
   });
 });
 
+describe('decide() — empty condition group fail-closed (PKT-562)', () => {
+  it('all: [] does not fire — returns no_matching_transition', () => {
+    // Regression guard: a condition that was dropped (e.g. malformed n: foo) leaves
+    // an empty all-group. evalGroup must return false (not vacuous-true) so the
+    // transition does not bypass the exit gate.
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: {
+        s: {
+          name: 's', martian_type: 'x', inputs: {},
+          transitions: [
+            { when: { kind: 'all', conditions: [] }, goto: 'FINALIZE' },
+          ],
+        },
+      },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult(), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
+
+  it('any: [] does not fire — returns no_matching_transition', () => {
+    const table: TransitionTable = {
+      initial_state: 's',
+      states: {
+        s: {
+          name: 's', martian_type: 'x', inputs: {},
+          transitions: [
+            { when: { kind: 'any', conditions: [] }, goto: 'FINALIZE' },
+          ],
+        },
+      },
+    };
+    const a = decide({ current_state: 's', last_result: makeResult(), table, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
+});
+
 describe('decide() — purity', () => {
   it('same input 100 times → identical output', () => {
     const input: DecisionInput = {

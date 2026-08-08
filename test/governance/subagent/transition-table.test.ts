@@ -7,6 +7,10 @@ import {
   validateTransitionTable,
   evaluateInputs,
 } from '../../../src/alienclaw/governance/common/subagent/transition_table.js';
+import {
+  decide,
+  type SummonResult,
+} from '../../../src/alienclaw/governance/common/subagent/decision_engine.js';
 
 const SINGLE_STATE_YAML = `# CAMPAIGN.md content above
 transition_table:
@@ -303,7 +307,9 @@ describe('evaluateInputs', () => {
 
 
 describe('parseConditionInner unknown-kind fallback', () => {
-  it('drops unknown-kind entries, leaving empty conditions when all are unknown', () => {
+  it('drops the entire transition when all conditions have unknown kind (fail-closed)', () => {
+    // Unknown kind returns false (poison), not null (skip). A condition the parser
+    // cannot identify must not silently vanish from a multi-condition all-group.
     const yaml = `transition_table:
   initial_state: step1
   states:
@@ -317,15 +323,13 @@ describe('parseConditionInner unknown-kind fallback', () => {
 `;
     const r = parseTransitionTable(yaml);
     expect(r.ok).toBe(true);
-    if (r.ok && r.table) {
-      const when = r.table.states['step1']!.transitions[0]!.when;
-      expect(when.conditions.length).toBe(0);
-    }
+    expect(r.table?.states['step1']?.transitions?.length).toBe(0);
   });
 });
 
 describe('parseConditionInner missing-kind fallback', () => {
-  it('drops entries with no kind field, leaving empty conditions when none remain', () => {
+  it('drops the entire transition when a condition has no kind field (fail-closed)', () => {
+    // Missing kind returns false (poison), not null (skip). Symmetric with unknown kind.
     const yaml = `transition_table:
   initial_state: step1
   states:
@@ -339,15 +343,14 @@ describe('parseConditionInner missing-kind fallback', () => {
 `;
     const r = parseTransitionTable(yaml);
     expect(r.ok).toBe(true);
-    if (r.ok && r.table) {
-      const when = r.table.states['step1']!.transitions[0]!.when;
-      expect(when.conditions.length).toBe(0);
-    }
+    expect(r.table?.states['step1']?.transitions?.length).toBe(0);
   });
 });
 
 describe('parseConditionsFromArray with mixed valid and invalid kinds', () => {
-  it('drops the invalid entry but keeps the valid one', () => {
+  it('drops the entire transition when any condition has an unknown kind (fail-closed)', () => {
+    // An unresolvable condition must poison the entire transition, not be silently
+    // dropped while keeping the sibling. A weakened all-group is a bypassed gate.
     const yaml = `transition_table:
   initial_state: step1
   states:
@@ -361,11 +364,7 @@ describe('parseConditionsFromArray with mixed valid and invalid kinds', () => {
 `;
     const r = parseTransitionTable(yaml);
     expect(r.ok).toBe(true);
-    if (r.ok && r.table) {
-      const when = r.table.states['step1']!.transitions[0]!.when;
-      expect(when.conditions.length).toBe(1);
-      expect(when.conditions[0]!.kind).toBe('martian_succeeded');
-    }
+    expect(r.table?.states['step1']?.transitions?.length).toBe(0);
   });
 });
 
@@ -591,7 +590,9 @@ describe('unquote — single-quoted values in YAML', () => {
 });
 
 describe('parseConditionInner — no-colon part guard (L139)', () => {
-  it('silently skips condition parts that have no colon separator', () => {
+  it('drops the entire transition when no colon separator produces a missing kind', () => {
+    // Parts without a colon are skipped; if all parts fail, fields={} → kind is
+    // missing → returns false (poison) → entire transition dropped (fail-closed).
     const yaml = `transition_table:
   initial_state: step1
   states:
@@ -605,8 +606,7 @@ describe('parseConditionInner — no-colon part guard (L139)', () => {
 `;
     const r = parseTransitionTable(yaml);
     expect(r.ok).toBe(true);
-    const conds = r.table?.states?.step1?.transitions?.[0]?.when?.conditions ?? [];
-    expect(conds.length).toBe(0);
+    expect(r.table?.states?.step1?.transitions?.length).toBe(0);
   });
 });
 
@@ -735,6 +735,286 @@ describe('parseTransitionTable — non-when line in transitions block (L310)', (
     }
   });
 });
+
+// ── PKT-562 adversarial tests: malformed n: in parseConditionInner ──────────
+
+describe('parseConditionInner — malformed n: values are rejected (PKT-562)', () => {
+  function yamlWithN(nValue: string): string {
+    return `transition_table:
+  initial_state: s
+  states:
+    s:
+      martian_type: m
+      inputs:
+        x: y
+      transitions:
+        - when: { all: [{ kind: fitness_gt, n: ${nValue} }] }
+          goto: FINALIZE
+`;
+  }
+
+  it.each([
+    ['foo', 'non-numeric string'],
+    ['', 'empty value'],
+    ['-1', 'negative n'],
+    ['Infinity', 'positive infinity keyword'],
+    ['1e1000', 'overflow to infinity'],
+    ['1.5.5', 'double-dot silent truncation'],
+    ['0x10', 'hex notation'],
+    ['null', 'null literal'],
+    ['true', 'boolean literal'],
+  ])('drops entire transition for n: "%s" (%s)', (nValue) => {
+    // A malformed n drops the whole transition (not just the condition), so
+    // a multi-condition all-group cannot be silently weakened by partial drop.
+    const yaml = yamlWithN(nValue);
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['s']?.transitions?.length).toBe(0);
+  });
+
+  it('drops entire transition for n: unsubstituted template ${campaign.X}', () => {
+    // Note: must build YAML via string concat to avoid JavaScript template-literal evaluation
+    const yaml =
+      'transition_table:\n' +
+      '  initial_state: s\n' +
+      '  states:\n' +
+      '    s:\n' +
+      '      martian_type: m\n' +
+      '      inputs:\n' +
+      '        x: y\n' +
+      '      transitions:\n' +
+      '        - when: { all: [{ kind: fitness_gt, n: ${campaign.X} }] }\n' +
+      '          goto: FINALIZE\n';
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['s']?.transitions?.length).toBe(0);
+  });
+
+  it('accepts n: 0.5 (valid finite non-negative decimal)', () => {
+    const r = parseTransitionTable(yamlWithN('0.5'));
+    expect(r.ok).toBe(true);
+    const c = r.table?.states['s']?.transitions?.[0]?.when?.conditions?.[0];
+    expect(c?.kind).toBe('fitness_gt');
+    if (c?.kind === 'fitness_gt') expect(c.n).toBe(0.5);
+  });
+
+  it('accepts n: 0 (zero boundary)', () => {
+    const r = parseTransitionTable(yamlWithN('0'));
+    expect(r.ok).toBe(true);
+    const c = r.table?.states['s']?.transitions?.[0]?.when?.conditions?.[0];
+    expect(c?.kind).toBe('fitness_gt');
+    if (c?.kind === 'fitness_gt') expect(c.n).toBe(0);
+  });
+
+  it('accepts n: 1e2 (valid scientific notation)', () => {
+    const r = parseTransitionTable(yamlWithN('1e2'));
+    expect(r.ok).toBe(true);
+    const c = r.table?.states['s']?.transitions?.[0]?.when?.conditions?.[0];
+    expect(c?.kind).toBe('fitness_gt');
+    if (c?.kind === 'fitness_gt') expect(c.n).toBe(100);
+  });
+});
+
+describe('parseConditionInner — malformed n: rejected across all n-bearing kinds (PKT-562)', () => {
+  const N_BEARING_KINDS = [
+    'martian_correctness_gt',
+    'martian_correctness_lt',
+    'fitness_gt',
+    'fitness_lt',
+    'tool_calls_gt',
+    'tool_calls_lt',
+  ] as const;
+
+  it.each(N_BEARING_KINDS.map(k => [k] as [string]))('drops entire transition for %s with n: foo', (kind) => {
+    const yaml = `transition_table:
+  initial_state: s
+  states:
+    s:
+      martian_type: m
+      inputs:
+        x: y
+      transitions:
+        - when: { all: [{ kind: ${kind}, n: foo }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['s']?.transitions?.length).toBe(0);
+  });
+});
+
+describe('validateTransitionTable — n: field validation (PKT-562)', () => {
+  const permissive = { has: () => true };
+
+  function tableWithN(n: number) {
+    return {
+      initial_state: 'a',
+      states: {
+        a: {
+          name: 'a',
+          martian_type: 'm',
+          inputs: {},
+          transitions: [
+            {
+              when: { kind: 'all' as const, conditions: [{ kind: 'fitness_gt' as const, n }] },
+              goto: 'FINALIZE',
+            },
+          ],
+        },
+      },
+    };
+  }
+
+  it('rejects programmatic condition with n: NaN', () => {
+    const v = validateTransitionTable(tableWithN(NaN), permissive);
+    expect(v.valid).toBe(false);
+    expect(v.errors.some(e => /\bn\b/.test(e))).toBe(true);
+  });
+
+  it('rejects programmatic condition with n: Infinity', () => {
+    const v = validateTransitionTable(tableWithN(Infinity), permissive);
+    expect(v.valid).toBe(false);
+    expect(v.errors.some(e => /\bn\b/.test(e))).toBe(true);
+  });
+
+  it('rejects programmatic condition with n: -Infinity', () => {
+    const v = validateTransitionTable(tableWithN(-Infinity), permissive);
+    expect(v.valid).toBe(false);
+    expect(v.errors.some(e => /\bn\b/.test(e))).toBe(true);
+  });
+
+  it('rejects programmatic condition with n: -1 (negative)', () => {
+    const v = validateTransitionTable(tableWithN(-1), permissive);
+    expect(v.valid).toBe(false);
+    expect(v.errors.some(e => /\bn\b/.test(e))).toBe(true);
+  });
+
+  it('accepts programmatic condition with n: 0.5', () => {
+    const v = validateTransitionTable(tableWithN(0.5), permissive);
+    expect(v.valid).toBe(true);
+    expect(v.errors.length).toBe(0);
+  });
+
+  it('accepts programmatic condition with n: 0 (zero boundary)', () => {
+    const v = validateTransitionTable(tableWithN(0), permissive);
+    expect(v.valid).toBe(true);
+    expect(v.errors.length).toBe(0);
+  });
+});
+
+describe('parseTransitionTable + decide — malformed n: does NOT bypass exit gate (PKT-562 end-to-end)', () => {
+  const makeSummonResult = (overrides: Partial<SummonResult> = {}): SummonResult => ({
+    martian_type: 'm', output: {}, correctness: 1.0, fitness: 0.8, tool_calls: 1, error: null,
+    ...overrides,
+  });
+
+  it('n: foo (NaN) — decide returns Fail, not Finalize', () => {
+    // A CAMPAIGN.md typo (n: foo) must not let the fitness_gt gate fire unconditionally.
+    const yaml = `transition_table:
+  initial_state: s
+  states:
+    s:
+      martian_type: m
+      inputs:
+        x: y
+      transitions:
+        - when: { all: [{ kind: fitness_gt, n: foo }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    const a = decide({ current_state: 's', last_result: makeSummonResult(), table: r.table!, history: [] });
+    // Must not Finalize — the malformed gate must not bypass the exit criterion.
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
+
+  it('n: -1 (negative, former always-fire bypass) — decide returns Fail', () => {
+    // n: -1 with fitness_gt used to always fire (any fitness ≥ 0 > -1).
+    // After fix, the entire transition is dropped; the gate cannot bypass.
+    const yaml = `transition_table:
+  initial_state: s
+  states:
+    s:
+      martian_type: m
+      inputs:
+        x: y
+      transitions:
+        - when: { all: [{ kind: fitness_gt, n: -1 }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    const a = decide({ current_state: 's', last_result: makeSummonResult(), table: r.table!, history: [] });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
+
+  it('multi-condition all gate: unknown sibling kind does NOT weaken the remaining condition', () => {
+    // Mirror of the malformed-n case — an unknown kind triggers the same poison path.
+    // A CreatorBot typo (martian_correctnes_gt instead of martian_correctness_gt)
+    // must not leave a weakened gate that fires when the correctness requirement is not met.
+    const yaml = `transition_table:
+  initial_state: s
+  states:
+    s:
+      martian_type: m
+      inputs:
+        x: y
+      transitions:
+        - when: { all: [{ kind: fitness_gt, n: 0.5 }, { kind: martian_correctnes_gt, n: 0.9 }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    expect(r.table?.states['s']?.transitions?.length).toBe(0);
+    // fitness=0.8 would satisfy the fitness gate — but the correctness gate was poisoned
+    // → entire transition dropped → no transition fires → Fail.
+    const a = decide({
+      current_state: 's',
+      last_result: { martian_type: 'm', output: {}, correctness: 0.2, fitness: 0.8, tool_calls: 1, error: null },
+      table: r.table!,
+      history: [],
+    });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
+
+  it('multi-condition all gate: one malformed n: does NOT weaken the sibling condition (critical case)', () => {
+    // This is the primary vulnerability: a 2-condition all-gate where one condition
+    // has malformed n. Before the fix, the malformed condition was silently dropped,
+    // leaving a weakened gate (one condition instead of two) that fired when the
+    // correctness threshold was not met.
+    // After the fix: the entire transition is dropped → decide returns Fail.
+    const yaml = `transition_table:
+  initial_state: s
+  states:
+    s:
+      martian_type: m
+      inputs:
+        x: y
+      transitions:
+        - when: { all: [{ kind: fitness_gt, n: 0.5 }, { kind: martian_correctness_gt, n: foo }] }
+          goto: FINALIZE
+`;
+    const r = parseTransitionTable(yaml);
+    expect(r.ok).toBe(true);
+    // Entire transition must be dropped — not just the malformed condition.
+    expect(r.table?.states['s']?.transitions?.length).toBe(0);
+    // Confirm with decide: fitness=0.8 satisfies the fitness gate, but the correctness
+    // gate was poisoned → entire transition was dropped → no transition fires → Fail.
+    const a = decide({
+      current_state: 's',
+      last_result: { martian_type: 'm', output: {}, correctness: 0.2, fitness: 0.8, tool_calls: 1, error: null },
+      table: r.table!,
+      history: [],
+    });
+    expect(a.kind).toBe('Fail');
+    if (a.kind === 'Fail') expect(a.reason).toBe('no_matching_transition');
+  });
+});
+
+// ── end PKT-562 tests ────────────────────────────────────────────────────────
 
 describe('_parseTableYaml parser edge cases', () => {
   it('silently ignores an unrecognized top-level key (bid=31 arm=1)', () => {

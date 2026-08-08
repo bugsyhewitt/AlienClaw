@@ -67,6 +67,16 @@ export function validateTransitionTable(
       if (goto !== 'FINALIZE' && !goto.startsWith('FAIL:') && !table.states[goto]) {
         errors.push(`State '${name}': goto '${goto}' references undeclared state`);
       }
+      for (const cond of t.when.conditions) {
+        if ('n' in cond) {
+          const nVal = (cond as { kind: string; n: number }).n;
+          if (!Number.isFinite(nVal) || nVal < 0) {
+            errors.push(
+              `State '${name}' condition '${cond.kind}': n must be a finite non-negative number (got ${nVal})`,
+            );
+          }
+        }
+      }
     }
   }
 
@@ -115,8 +125,8 @@ function unquote(s: string): string {
   return s;
 }
 
-function parseConditionsFromArray(arrText: string): Condition[] {
-  // arrText is the contents inside [ ... ] — a series of {kind: X, ...} entries
+function parseConditionsFromArray(arrText: string): Condition[] | false {
+  // Returns false if any condition is unresolvable — caller drops the entire transition.
   const conds: Condition[] = [];
   // Match each {...} group (no nesting expected)
   const re = /\{([^}]+)\}/g;
@@ -124,16 +134,15 @@ function parseConditionsFromArray(arrText: string): Condition[] {
   while ((m = re.exec(arrText)) !== null) {
     const inner = m[1]!;
     const c = parseConditionInner(inner);
-    if (c) conds.push(c);
+    if (c === false) return false;  // unresolvable condition → poison entire group
+    conds.push(c);
   }
   return conds;
 }
 
-function parseConditionInner(inner: string): Condition | null {
-  // Inner has key: value pairs separated by commas
-  // Examples: "kind: martian_succeeded"
-  //           "kind: fitness_gt, n: 0.5"
-  //           "kind: output_field_present, field: result"
+function parseConditionInner(inner: string): Condition | false {
+  // Returns Condition (valid) or false (unresolvable — caller drops the entire enclosing
+  // transition). No path returns null; false is the uniform fail-closed sentinel.
   const fields: Record<string, string> = {};
   const parts = inner.split(',');
   for (const p of parts) {
@@ -144,8 +153,22 @@ function parseConditionInner(inner: string): Condition | null {
     fields[key] = val;
   }
   const kind = fields['kind'];
-  if (!kind) return null;
-  const n = fields['n'] !== undefined ? parseFloat(fields['n']!) : 0;
+  // Missing kind: return false (poison) — a condition we cannot identify must not
+  // silently shrink a multi-condition all-group; unknown conditions fail closed.
+  if (!kind) return false;
+  let n = 0;
+  if (fields['n'] !== undefined) {
+    const raw = fields['n']!.trim();
+    // Reject non-decimal, non-numeric, and overflow values at the parse boundary.
+    // Only standard decimal floats pass (e.g. "0.5", "1", "1e2"); hex, partial
+    // parses, NaN strings, Infinity keyword, negatives, and unsubstituted templates.
+    // Return false (not null) so the caller drops the entire transition — silently
+    // shrinking a multi-condition all-group would bypass the remaining gate(s).
+    if (!/^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(raw)) return false;
+    const parsed = parseFloat(raw);
+    if (!Number.isFinite(parsed) || parsed < 0) return false;
+    n = parsed;
+  }
   const field = fields['field'] ?? '';
   const value: unknown = fields['value'] ?? '';
   switch (kind) {
@@ -160,12 +183,14 @@ function parseConditionInner(inner: string): Condition | null {
     case 'tool_calls_lt':           return { kind, n };
     case 'output_field_present':   return { kind: 'output_field_present', field };
     case 'output_field_eq':        return { kind: 'output_field_eq', field, value };
-    default: return null;
+    // Unknown kind: return false (poison) — symmetric with malformed n. An engine
+    // that cannot fully interpret a gate must fail closed, not silently remove it.
+    default: return false;
   }
 }
 
-function parseConditionGroup(whenText: string): ConditionGroup {
-  // whenText looks like: "{ all: [{ kind: martian_succeeded }] }" possibly with extra whitespace
+function parseConditionGroup(whenText: string): ConditionGroup | false {
+  // Returns false when any condition in the group has a malformed n: value.
   const trimmed = whenText.trim().replace(/^\{|\}$/g, '').trim();
   // groupKind: all|any
   const groupMatch = trimmed.match(/^(all|any)\s*:\s*\[([\s\S]*)\]\s*$/);
@@ -175,6 +200,7 @@ function parseConditionGroup(whenText: string): ConditionGroup {
   const groupKind = groupMatch[1] as 'all' | 'any';
   const arrText = groupMatch[2]!;
   const conditions = parseConditionsFromArray(arrText);
+  if (conditions === false) return false;
   return { kind: groupKind, conditions };
 }
 
@@ -307,7 +333,7 @@ function _parseTableYaml(text: string): TransitionTable | null {
                 }
                 if (gotoStr) {
                   const when = parseConditionGroup(whenStr);
-                  transitions.push({ when, goto: gotoStr });
+                  if (when !== false) transitions.push({ when, goto: gotoStr });
                 }
               } else {
                 i++;
