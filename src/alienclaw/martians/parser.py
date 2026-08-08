@@ -40,7 +40,12 @@ def parse_martian(content: str, source_path: str = "<string>") -> MartianSpec:
         for req in ("slot_index", "tool_name"):
             if req not in slot_raw:
                 raise MartianParseError(f"{source_path}: slot {i} missing '{req}'")
-        slot_index = int(slot_raw["slot_index"])
+        slot_index_raw = slot_raw["slot_index"]
+        if isinstance(slot_index_raw, bool) or not isinstance(slot_index_raw, int) or slot_index_raw < 0:
+            raise MartianParseError(
+                f"{source_path}: slot {i} slot_index must be a non-negative integer; got {slot_index_raw!r}"
+            )
+        slot_index = slot_index_raw
         tool_name = str(slot_raw["tool_name"])
         raw_inputs = slot_raw.get("inputs_from")
         if raw_inputs is None:
