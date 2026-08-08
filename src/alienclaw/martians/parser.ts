@@ -260,14 +260,34 @@ export function parseMartian(content: string, sourcePath = '<string>'): MartianS
     }
   }
 
-  const martianType = String(raw['martian_type']);
+  const mtRaw = raw['martian_type'];
+  if (typeof mtRaw !== 'string') {
+    throw new MartianParseError(
+      `${sourcePath}: martian_type must be a string, got ${mtRaw === null ? 'null' : typeof mtRaw} (${JSON.stringify(mtRaw)})`
+    );
+  }
+  const martianType = mtRaw;
   const description = raw['description'] !== undefined && raw['description'] !== null
     ? String(raw['description'])
     : '';
   const useCasesRaw = raw['use_cases'];
-  const useCases: string[] = Array.isArray(useCasesRaw)
-    ? useCasesRaw.map(u => String(u))
-    : [];
+  let useCases: string[];
+  if (useCasesRaw === undefined || useCasesRaw === null) {
+    useCases = [];
+  } else if (!Array.isArray(useCasesRaw)) {
+    throw new MartianParseError(
+      `${sourcePath}: use_cases must be a list of strings, got ${typeof useCasesRaw}`
+    );
+  } else {
+    useCases = useCasesRaw.map((u, i) => {
+      if (typeof u !== 'string') {
+        throw new MartianParseError(
+          `${sourcePath}: use_cases[${i}] must be a string, got ${u === null ? 'null' : typeof u} (${JSON.stringify(u)})`
+        );
+      }
+      return u;
+    });
+  }
 
   const rawSlots = raw['slots'];
   if (!Array.isArray(rawSlots) || rawSlots.length === 0) {

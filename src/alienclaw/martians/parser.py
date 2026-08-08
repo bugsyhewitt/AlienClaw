@@ -25,9 +25,30 @@ def parse_martian(content: str, source_path: str = "<string>") -> MartianSpec:
         if req not in raw:
             raise MartianParseError(f"{source_path}: missing required field '{req}'")
 
-    martian_type = str(raw["martian_type"])
+    mt_raw = raw["martian_type"]
+    if not isinstance(mt_raw, str):
+        raise MartianParseError(
+            f"{source_path}: martian_type must be a string, got "
+            f"{type(mt_raw).__name__} ({mt_raw!r})"
+        )
+    martian_type = mt_raw
     description = str(raw.get("description", ""))
-    use_cases = tuple(str(u) for u in (raw.get("use_cases") or []))
+    uc_raw = raw.get("use_cases")
+    if uc_raw is None:
+        uc_raw = []
+    if not isinstance(uc_raw, list):
+        raise MartianParseError(
+            f"{source_path}: use_cases must be a list of strings, got {type(uc_raw).__name__}"
+        )
+    use_cases_list: list[str] = []
+    for i, u in enumerate(uc_raw):
+        if not isinstance(u, str):
+            raise MartianParseError(
+                f"{source_path}: use_cases[{i}] must be a string, got "
+                f"{type(u).__name__} ({u!r})"
+            )
+        use_cases_list.append(u)
+    use_cases = tuple(use_cases_list)
 
     raw_slots = raw["slots"]
     if not isinstance(raw_slots, list) or len(raw_slots) == 0:

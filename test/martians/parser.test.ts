@@ -249,6 +249,47 @@ slots:
 `;
     expect(() => parseMartian(md)).toThrow(/inputs_from must be null or have 'fields' mapping/);
   });
+
+  // PKT-500 type-guard cases
+  it('throws when martian_type is an integer (PKT-500 type-guard)', () => {
+    const md = `martian_type: 42\nslots:\n  - slot_index: 0\n    tool_name: a\n`;
+    expect(() => parseMartian(md)).toThrow(/martian_type must be a string, got number/);
+  });
+
+  it('throws when martian_type is a boolean (PKT-500 type-guard)', () => {
+    const md = `martian_type: true\nslots:\n  - slot_index: 0\n    tool_name: a\n`;
+    expect(() => parseMartian(md)).toThrow(/martian_type must be a string, got boolean/);
+  });
+
+  it('throws when martian_type is null (PKT-500 type-guard)', () => {
+    const md = `martian_type: null\nslots:\n  - slot_index: 0\n    tool_name: a\n`;
+    expect(() => parseMartian(md)).toThrow(/martian_type must be a string, got null/);
+  });
+
+  it('throws when a use_cases item is a nested mapping (PKT-500 — cross-lang compliance)', () => {
+    const md = `martian_type: x\nuse_cases:\n  - foo\n  - bar: baz\nslots:\n  - slot_index: 0\n    tool_name: a\n`;
+    expect(() => parseMartian(md)).toThrow(/use_cases\[1\] must be a string, got object/);
+  });
+
+  it('throws when a use_cases item is a boolean (PKT-500 — cross-lang compliance)', () => {
+    const md = `martian_type: x\nuse_cases:\n  - true\nslots:\n  - slot_index: 0\n    tool_name: a\n`;
+    expect(() => parseMartian(md)).toThrow(/use_cases\[0\] must be a string, got boolean/);
+  });
+
+  it('throws when a use_cases item is an integer (PKT-500 — cross-lang compliance)', () => {
+    const md = `martian_type: x\nuse_cases:\n  - 42\nslots:\n  - slot_index: 0\n    tool_name: a\n`;
+    expect(() => parseMartian(md)).toThrow(/use_cases\[0\] must be a string, got number/);
+  });
+
+  it('throws when use_cases is a scalar string instead of a list (PKT-500 — container guard)', () => {
+    const md = `martian_type: x\nuse_cases: hello\nslots:\n  - slot_index: 0\n    tool_name: a\n`;
+    expect(() => parseMartian(md)).toThrow(/use_cases must be a list of strings, got string/);
+  });
+
+  it('throws when use_cases is an empty string scalar (PKT-500 — falsy parity)', () => {
+    const md = `martian_type: x\nuse_cases: ""\nslots:\n  - slot_index: 0\n    tool_name: a\n`;
+    expect(() => parseMartian(md)).toThrow(/use_cases must be a list of strings, got string/);
+  });
 });
 
 // ── describe: parseMartian — YAML tokenize / indent errors ─────────────
