@@ -14,8 +14,8 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join }              from 'node:path';
-import { PATHS }             from '../constants.js';
-import type { TierAAgent }   from '../constants.js';
+import { PATHS, TIER_A_AGENTS } from '../constants.js';
+import type { TierAAgent }      from '../constants.js';
 import { dateStamp }         from '../utils.js';
 
 // ── Message type ──────────────────────────────────────────────────────────────
@@ -52,8 +52,21 @@ export class AgentChannel {
   /**
    * Send a message on the channel.
    * Appends to in-memory log AND writes an audit file.
+   *
+   * Throws TypeError if `from` or `to` is not a valid TierAAgent — the
+   * runtime check is the boundary guard against path-traversal via `from`/`to`.
    */
   send(msg: AgentMessage): void {
+    if (!(TIER_A_AGENTS as readonly string[]).includes(msg.from)) {
+      throw new TypeError(
+        `AgentChannel.send: invalid 'from' value "${msg.from}" — must be one of ${TIER_A_AGENTS.join(', ')}`,
+      );
+    }
+    if (!(TIER_A_AGENTS as readonly string[]).includes(msg.to)) {
+      throw new TypeError(
+        `AgentChannel.send: invalid 'to' value "${msg.to}" — must be one of ${TIER_A_AGENTS.join(', ')}`,
+      );
+    }
     // Ensure immutable record with a stable ts
     const record: AgentMessage = { ...msg, ts: msg.ts ?? Date.now() };
     this._log.push(record);
@@ -89,12 +102,17 @@ export class AgentChannel {
   private async _writeAuditFile(msg: AgentMessage): Promise<void> {
     const date = dateStamp(); // YYYY-MM-DD
     const dir  = join(this._baseDir, date, 'agent-channel');
-    const filename = `${msg.from}-${msg.to}-${msg.ts}.json`;
+    // Defense-in-depth: strip any character that is not alphanumeric, hyphen, or underscore
+    // so the filename can never contain path separators even if validation is bypassed.
+    const safeFrom = msg.from.replace(/[^A-Za-z0-9_-]/g, '_');
+    const safeTo   = msg.to.replace(/[^A-Za-z0-9_-]/g, '_');
+    const filename = `${safeFrom}-${safeTo}-${msg.ts}.json`;
     try {
       await mkdir(dir, { recursive: true });
       await writeFile(join(dir, filename), JSON.stringify(msg, null, 2), 'utf-8');
-    } catch {
-      // Audit write failures are non-fatal — log is still in memory
+    } catch (err) {
+      // Audit write failures are non-fatal — log is still in memory, but warn so failures are observable
+      console.warn('[AgentChannel] audit write failed (non-fatal):', err);
     }
   }
 }
