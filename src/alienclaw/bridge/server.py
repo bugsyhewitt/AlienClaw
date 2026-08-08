@@ -227,6 +227,12 @@ def handle(raw: bytes) -> dict:
         return _error_response(request_id, "INVALID_GENOME", f"Genome validation failed: {validation.errors[0]}", {"errors": validation.errors})
 
     martian_type = req["martian_type"]
+    if not isinstance(martian_type, str) or not martian_type:
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "martian_type must be a non-empty string",
+            {"missing_fields": ["martian_type"]},
+        )
     registry = _get_martian_registry()
     if not registry.has(martian_type):
         return _error_response(
@@ -237,7 +243,8 @@ def handle(raw: bytes) -> dict:
         )
 
     timeout_ms = req["timeout_ms"]
-    if not isinstance(timeout_ms, int) or not (1 <= timeout_ms <= 600_000):
+    if (not isinstance(timeout_ms, int) or isinstance(timeout_ms, bool)
+            or not (1 <= timeout_ms <= 600_000)):
         return _error_response(request_id, "MALFORMED_REQUEST", "timeout_ms must be integer in [1, 600000]", {"missing_fields": []})
 
     if not isinstance(req["inputs"], dict):
@@ -258,13 +265,26 @@ def _handle_live_evo(request_id: str | None, req: dict, t0: float) -> dict:
     from alienclaw.evolution.live_evo import check_and_evolve, LIVE_EVO_THRESHOLD
 
     martian_type = req.get("martian_type")
-    if not martian_type:
+    if not isinstance(martian_type, str) or not martian_type:
         return _error_response(
             request_id, "MALFORMED_REQUEST",
-            "Missing field: martian_type",
+            "martian_type must be a non-empty string",
             {"missing_fields": ["martian_type"]},
         )
-    threshold = int(req.get("threshold", LIVE_EVO_THRESHOLD))
+    raw_threshold = req.get("threshold", LIVE_EVO_THRESHOLD)
+    if isinstance(raw_threshold, bool) or not isinstance(raw_threshold, int):
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "threshold must be integer in [1, 1000000]",
+            {"missing_fields": ["threshold"]},
+        )
+    if not (1 <= raw_threshold <= 1_000_000):
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "threshold must be integer in [1, 1000000]",
+            {"missing_fields": ["threshold"]},
+        )
+    threshold = raw_threshold
     try:
         result = check_and_evolve(martian_type, threshold)
     except Exception as exc:
@@ -306,6 +326,12 @@ def _handle_summon_from_population(request_id: str | None, req: dict, t0: float)
             return _error_response(request_id, "MALFORMED_REQUEST", f"Missing field: {field}", {"missing_fields": [field]})
 
     martian_type = req["martian_type"]
+    if not isinstance(martian_type, str) or not martian_type:
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "martian_type must be a non-empty string",
+            {"missing_fields": ["martian_type"]},
+        )
     inputs = req.get("inputs", {})
     if not isinstance(inputs, dict):
         return _error_response(request_id, "MALFORMED_REQUEST", "inputs must be an object", {"missing_fields": ["inputs"]})

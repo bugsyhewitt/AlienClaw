@@ -202,12 +202,28 @@ class TestSummonValidation:
         assert available == sorted(available)
         assert "compute_alone" in available
 
-    @pytest.mark.parametrize("bad_timeout", [0, 600_001, "5000", None])
+    @pytest.mark.parametrize("bad_timeout", [0, 600_001, "5000", None, True, False])
     def test_timeout_ms_must_be_int_in_range(self, bad_timeout):
         resp = handle(_envelope(timeout_ms=bad_timeout))
         err = resp["response"]["error"]
         assert err["code"] == "MALFORMED_REQUEST"
         assert "timeout_ms" in err["message"]
+
+    @pytest.mark.parametrize("bad_martian_type", [{}, [], 42, True, False, 3.14])
+    def test_martian_type_must_be_nonempty_string(self, bad_martian_type):
+        """L229: martian_type must be a non-empty string; reject dict/list/int/bool/float.
+
+        Bug-class: unhashable inputs (dict, list) raised TypeError inside
+        registry.has() and crashed the bridge subprocess. Hashable non-strings
+        (int, bool, float) silently fell through to UNKNOWN_MARTIAN_TYPE — a
+        quieter symptom but still a contract violation. Mirror of PKT-386's
+        s-f-p guard, applied to the v1.0 summon path.
+        """
+        resp = handle(_envelope(martian_type=bad_martian_type))
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["message"]
+        assert err["details"]["missing_fields"] == ["martian_type"]
 
     def test_tool_failure_is_structured_with_slot_index(self):
         resp = handle(_envelope(inputs={"input": "this is not math"}))
@@ -301,6 +317,54 @@ class TestLiveEvoHandler:
         assert err["code"] == "INTERNAL"
         assert "disk full" in err["details"]["exception"]
 
+    @pytest.mark.parametrize("bad_martian_type", [{}, [], 42, True, 3.14])
+    def test_live_evo_martian_type_must_be_nonempty_string(self, bad_martian_type) -> None:
+        """live-evo path: non-string martian_type must return MALFORMED_REQUEST, never crash.
+
+        Bug: _handle_live_evo used `if not martian_type:` which only catches falsy values.
+        Unhashable types (dict, list) pass the `not` check; numeric/bool/float wrap truthy
+        (42, True, 3.14) all slip through to check_and_evolve silently — either
+        crashing the bridge subprocess (unhashable keys) or silently returning
+        `evolved=False` for an unknown martian_type, which is the wrong contract response.
+
+        This is the live-evo analogue of the v1 summon + summon-from-population gap
+        fixed in the same PR (test_martian_type_must_be_nonempty_string,
+        test_sfp_martian_type_must_be_nonempty_string).
+        """
+        resp = self._live_evo({"martian_type": bad_martian_type})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type must be a non-empty string" in err["message"]
+        assert err["details"]["missing_fields"] == ["martian_type"]
+
+    @pytest.mark.parametrize("bad_threshold", [None, "foo", {}, []])
+    def test_live_evo_threshold_uncoercible_returns_malformed(self, bad_threshold) -> None:
+        """live-evo path: threshold must coerce cleanly to int or return MALFORMED_REQUEST.
+
+        Bug: `_handle_live_evo` does `threshold = int(req.get("threshold", LIVE_EVO_THRESHOLD))`
+        with no try/except. None / "foo" / {} / [] all raise TypeError or ValueError
+        out of int(), crashing the bridge subprocess (the bridge contract requires
+        structured responses, never raised exceptions — see module docstring L1-11).
+        """
+        resp = self._live_evo({"martian_type": "compute", "threshold": bad_threshold})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold must be integer" in err["message"]
+
+    @pytest.mark.parametrize("bad_threshold", [True, False, -5, 0, 10**18])
+    def test_live_evo_threshold_out_of_range_or_bool_returns_malformed(self, bad_threshold) -> None:
+        """live-evo path: threshold must be int in a sane range; reject bools explicitly.
+
+        Bug: `int(True) == 1` and `int(False) == 0` both pass cleanly through the
+        existing coercion. `threshold=False`/`-5`/`0` cause `check_and_evolve` to
+        unconditionally evolve (mint children) because the threshold check
+        becomes `0 >= 0`. This is a silent side-effect from a malformed request.
+        """
+        resp = self._live_evo({"martian_type": "compute", "threshold": bad_threshold})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "threshold must be integer" in err["message"]
+
 
 class TestSummonFromPopulationShape:
     @staticmethod
@@ -321,6 +385,28 @@ class TestSummonFromPopulationShape:
     def test_unknown_martian_type(self):
         resp = self._sfp({"martian_type": "no_such_martian", "inputs": {}, "timeout_ms": 1000})
         assert resp["response"]["error"]["code"] == "UNKNOWN_MARTIAN_TYPE"
+
+    @pytest.mark.parametrize("bad_martian_type", [{}, [], 42, True, False, 3.14])
+    def test_sfp_martian_type_must_be_nonempty_string(self, bad_martian_type):
+        """SFP path: non-string martian_type must return MALFORMED_REQUEST, never crash.
+
+        Bug: _handle_summon_from_population passed martian_type directly to
+        registry.has() without a prior isinstance(str) guard. Unhashable types
+        (dict, list) raised TypeError and crashed the bridge subprocess. Hashable
+        non-strings (int, bool, float) silently fell through to UNKNOWN_MARTIAN_TYPE
+        — the wrong error code.
+
+        This is the summon-from-population analogue of the v1 summon gap fixed
+        in the same commit (PKT-461 / test_martian_type_must_be_nonempty_string).
+        """
+        resp = self._sfp({
+            "martian_type": bad_martian_type,
+            "inputs": {"input": "2+2"},
+            "timeout_ms": 1000,
+        })
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["message"]
 
     def test_sfp_non_dict_inputs_rejected(self):
         """L262: inputs must be an object in summon-from-population."""
