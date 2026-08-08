@@ -88,4 +88,52 @@ describe('BudgetTracker', () => {
     now += 5_000;
     expect(t.checkPreSummon('s1')).toBe('budget_exhausted_wallclock');
   });
+
+  // PKT-397: NaN/non-finite limit guard tests
+  it('NaN max_wall_clock_seconds returns decision_rule_error', () => {
+    let now = new Date('2026-01-01T00:00:00Z').getTime();
+    const clock = () => new Date(now);
+    const t = new BudgetTracker(
+      { max_summons_per_campaign: 10, max_wall_clock_seconds: NaN, max_summons_per_state: 3 },
+      clock(),
+      clock,
+    );
+    now += 3_600_000; // 1 hour
+    expect(t.checkPreSummon('s1')).toBe('decision_rule_error');
+  });
+
+  it('NaN max_summons_per_campaign returns decision_rule_error', () => {
+    const t = new BudgetTracker(
+      { max_summons_per_campaign: NaN, max_wall_clock_seconds: 300, max_summons_per_state: 3 },
+      new Date(),
+    );
+    for (let i = 0; i < 5; i++) t.recordSummon('s' + i);
+    expect(t.checkPreSummon('new_state')).toBe('decision_rule_error');
+  });
+
+  it('NaN max_summons_per_state returns decision_rule_error', () => {
+    const t = new BudgetTracker(
+      { max_summons_per_campaign: 10, max_wall_clock_seconds: 300, max_summons_per_state: NaN },
+      new Date(),
+    );
+    expect(t.checkPreSummon('any_state')).toBe('decision_rule_error');
+  });
+
+  it('NaN clock() returns decision_rule_error', () => {
+    const clock = () => new Date(NaN);
+    const t = new BudgetTracker(
+      { max_summons_per_campaign: 10, max_wall_clock_seconds: 300, max_summons_per_state: 3 },
+      new Date(),
+      clock,
+    );
+    expect(t.checkPreSummon('s1')).toBe('decision_rule_error');
+  });
+
+  it('finite negative max_summons_per_state exhausts on first summon (NaN guard does not block finite)', () => {
+    const t = new BudgetTracker(
+      { max_summons_per_campaign: 10, max_wall_clock_seconds: 300, max_summons_per_state: -1 },
+      new Date(),
+    );
+    expect(t.checkPreSummon('s1')).toBe('budget_exhausted_per_state');
+  });
 });
