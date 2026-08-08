@@ -304,3 +304,30 @@ describe('pullTopGenomes — write-error resilience (packet 104)', () => {
     expect(byType['compute'].errors[0]).toMatch(/EISDIR/);
   });
 });
+
+// ── PKT-561 — submission_id path-traversal rejection ────────────────────────
+
+describe('pullTopGenomes — submission_id path-traversal rejection (PKT-561)', () => {
+  const TRAVERSAL_IDS: { label: string; id: string }[] = [
+    { label: 'dot-dot traversal',  id: '../../etc/passwd' },
+    { label: 'empty string',       id: '' },
+    { label: 'forward slash',      id: 'a/b' },
+    { label: 'NUL byte',           id: 'a\x00b' },
+    { label: 'over 128 chars',     id: 'x'.repeat(129) },
+  ];
+
+  for (const { label, id } of TRAVERSAL_IDS) {
+    it(`rejects submission_id: ${label}`, async () => {
+      const entry = makeGenomeEntry({ submission_id: id });
+      const client = new StubClient({ top: { compute: topGenomes('compute', [entry]) } });
+      const [result] = await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+      expect(result.received).toBe(1);
+      expect(result.written).toBe(0);
+      expect(result.errors).toHaveLength(1);
+      const files = existsSync(join(root, 'compute', 'entries'))
+        ? readdirSync(join(root, 'compute', 'entries'))
+        : [];
+      expect(files).toEqual([]);
+    });
+  }
+});
