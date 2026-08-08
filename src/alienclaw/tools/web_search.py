@@ -14,6 +14,15 @@ _TIMEOUT_S = 20
 _SEARCH_BASE: str = ""
 
 
+def _result_dicts(body: object) -> list[dict]:
+    if isinstance(body, list):
+        return [r for r in body if isinstance(r, dict)]
+    if isinstance(body, dict):
+        inner = body.get("results", [])
+        return [r for r in inner if isinstance(r, dict)] if isinstance(inner, list) else []
+    return []
+
+
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     query = inputs.get("query", inputs.get("task", ""))
     if not query:
@@ -55,7 +64,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
                     data = json.loads(resp.read())
                 page_results = [
                     {"title": r.get("title", ""), "url": r.get("href", ""), "snippet": r.get("body", "")}
-                    for r in (data if isinstance(data, list) else data.get("results", []))
+                    for r in _result_dicts(data)
                 ][:num_results]
                 all_results.extend(page_results)
             except urllib.error.HTTPError as exc:
