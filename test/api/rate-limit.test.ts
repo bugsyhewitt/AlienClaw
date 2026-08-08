@@ -173,3 +173,68 @@ describe('RateLimiter — sliding window (fake timers)', () => {
     expect(retryAfter).toBe(56);
   });
 });
+
+// PKT-496: corrected re-author of PKT-473 — aligned fix + tests on option (a):
+// any non-empty file with ≥1 unparseable timestamp ⇒ FAIL CLOSED (cache = limit timestamps at now).
+describe('RateLimiter — corrupted timestamps (fail-closed per option a, PKT-496)', () => {
+  function writeRateFile(installId: string, payload: unknown): void {
+    const dir = join(dataRoot, 'rate_limit', installId.slice(0, 2));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${installId}.json`), JSON.stringify(payload));
+  }
+
+  it('case 1: all-corrupt strings → remaining()=0 and check()=[false, retryAfter>0]', () => {
+    writeRateFile('corrupt-all', { install_id: 'corrupt-all', window_timestamps: ['not-iso', 'still-not-iso'] });
+    const rl = new RateLimiter({ limit: 3, windowSeconds: 3600, dataRoot });
+    expect(rl.remaining('corrupt-all')).toBe(0);
+    const [ok, retryAfter] = rl.check('corrupt-all');
+    expect(ok).toBe(false);
+    expect(retryAfter).toBeGreaterThan(0);
+    expect(retryAfter).toBeLessThanOrEqual(3601);
+  });
+
+  it('case 2: all-null entries → remaining()=0 and check()=[false, retryAfter>0]', () => {
+    writeRateFile('corrupt-null', { install_id: 'corrupt-null', window_timestamps: [null, null, null] });
+    const rl = new RateLimiter({ limit: 3, windowSeconds: 3600, dataRoot });
+    expect(rl.remaining('corrupt-null')).toBe(0);
+    const [ok, retryAfter] = rl.check('corrupt-null');
+    expect(ok).toBe(false);
+    expect(retryAfter).toBeGreaterThan(0);
+    expect(retryAfter).toBeLessThanOrEqual(3601);
+  });
+
+  // PKT-496: corrected from PKT-473 §4.2 case 3: was expect(remaining()).toBe(1) (option b),
+  // now expect(remaining()).toBe(0) to match option (a) fix contract.
+  it('case 3: mixed valid+corrupt [validISO, null, validISO] → remaining()=0 (option a)', () => {
+    const recentISO = new Date(Date.now() - 60_000).toISOString();
+    writeRateFile('corrupt-mix', {
+      install_id: 'corrupt-mix',
+      window_timestamps: [recentISO, null, recentISO],
+    });
+    const rl = new RateLimiter({ limit: 3, windowSeconds: 3600, dataRoot });
+    expect(rl.remaining('corrupt-mix')).toBe(0);
+    const [ok, retryAfter] = rl.check('corrupt-mix');
+    expect(ok).toBe(false);
+    expect(retryAfter).toBeGreaterThan(0);
+    expect(retryAfter).toBeLessThanOrEqual(3601);
+  });
+
+  it('case 4: missing window_timestamps key → treated as empty cache (remaining()=limit)', () => {
+    writeRateFile('no-timestamps', { install_id: 'no-timestamps' });
+    const rl = new RateLimiter({ limit: 3, windowSeconds: 3600, dataRoot });
+    expect(rl.remaining('no-timestamps')).toBe(3);
+  });
+
+  it('case 5 (regression): valid ISO file with limit-1 entries → remaining()=1 and check()=[true,0]', () => {
+    const recentISO = new Date(Date.now() - 60_000).toISOString();
+    writeRateFile('valid-two', {
+      install_id: 'valid-two',
+      window_timestamps: [recentISO, recentISO],
+    });
+    const rl = new RateLimiter({ limit: 3, windowSeconds: 3600, dataRoot });
+    expect(rl.remaining('valid-two')).toBe(1);
+    const [ok, retryAfter] = rl.check('valid-two');
+    expect(ok).toBe(true);
+    expect(retryAfter).toBe(0);
+  });
+});
