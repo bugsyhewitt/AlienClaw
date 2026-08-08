@@ -21,15 +21,29 @@ _DEFAULT_WATERMARK_PATH = Path.home() / ".alienclaw" / "live_evo_watermarks.json
 def _read_watermark(martian_type: str, watermark_path: Path) -> int:
     if not watermark_path.exists():
         return 0
-    data: dict = json.loads(watermark_path.read_text(encoding="utf-8"))
-    return int(data.get(martian_type, 0))
+    try:
+        data = json.loads(watermark_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return 0
+    if not isinstance(data, dict):
+        return 0
+    value = data.get(martian_type, 0)
+    # bool is a subclass of int; reject it along with all non-int types.
+    if not isinstance(value, int) or isinstance(value, bool):
+        return 0
+    return value
 
 
 def _write_watermark(martian_type: str, count: int, watermark_path: Path) -> None:
     data: dict = {}
     if watermark_path.exists():
-        data = json.loads(watermark_path.read_text(encoding="utf-8"))
-    data[martian_type] = count
+        try:
+            existing = json.loads(watermark_path.read_text(encoding="utf-8"))
+            if isinstance(existing, dict):
+                data = existing
+        except (json.JSONDecodeError, OSError):
+            data = {}  # overwrite corruption on next write
+    data[martian_type] = int(count)
     watermark_path.parent.mkdir(parents=True, exist_ok=True)
     watermark_path.write_text(json.dumps(data), encoding="utf-8")
 
