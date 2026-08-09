@@ -28,8 +28,9 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         flavor = "literal"
     case_sensitive = bool(inputs.get("case_sensitive", False))
     max_results = max(1, int(params.get("max_results", 100)))
-    # context_lines 1-10: directly used as surrounding lines count (capped at available lines)
-    context_lines = max(0, min(10, int(params.get("context_lines", 1)) - 1))  # 1→0, 2→1, ... 10→9
+    # Production path: decode_params always sets context_lines from genome or field.default=1.
+    # Literal fallback=1 mirrors field.default; only fires on direct no-params calls.
+    context_lines = max(1, min(10, int(params.get("context_lines", 1))))
     flags = 0 if case_sensitive else re.IGNORECASE
     try:
         if flavor == "literal":
