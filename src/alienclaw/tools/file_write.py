@@ -1,3 +1,5 @@
+import os
+import uuid
 from pathlib import Path
 from typing import Any
 from .types import RunResult
@@ -16,7 +18,19 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     repeated = (str(content) + "\n") * repeat_count
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(repeated, encoding="utf-8")
+        # Atomic write: write to a tmp sibling then os.replace to avoid leaving a
+        # corrupted target on mid-write failure (MSB LIMITATIONS: "Writes entire
+        # content atomically — no partial writes exposed to caller.").
+        tmp_path = path.parent / f".tmp-{uuid.uuid4().hex}"
+        try:
+            tmp_path.write_text(repeated, encoding="utf-8")
+            os.replace(tmp_path, path)
+        except OSError:
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+            raise
     except OSError as exc:
         return RunResult(ok=False, error=f"Write error: {exc}", correctness=0.0)
     return RunResult(
