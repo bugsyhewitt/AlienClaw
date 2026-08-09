@@ -87,7 +87,7 @@ describe('AgentChannel — constructor', () => {
     expect(existsSync(expectedDir)).toBe(true);
     const files = readdirSync(expectedDir);
     expect(files).toHaveLength(1);
-    expect(files[0]).toMatch(/^BossBot-AdvisorBot-1700000001000\.json$/);
+    expect(files[0]).toMatch(/^BossBot-AdvisorBot-1700000001000-\d+\.json$/);
   });
 });
 
@@ -267,7 +267,7 @@ describe('AgentChannel — audit file writes', () => {
     rmTmp(tmpDir);
   });
 
-  it('writes a JSON file to <baseDir>/<YYYY-MM-DD>/agent-channel/<from>-<to>-<ts>.json', async () => {
+  it('writes a JSON file to <baseDir>/<YYYY-MM-DD>/agent-channel/<from>-<to>-<ts>-<seq>.json', async () => {
     const ts = Date.now();
     ch.send(makeMsg({ ts, from: 'BossBot', to: 'AdvisorBot' }));
 
@@ -281,7 +281,7 @@ describe('AgentChannel — audit file writes', () => {
     expect(existsSync(auditDir)).toBe(true);
     const files = readdirSync(auditDir);
     expect(files).toHaveLength(1);
-    expect(files[0]).toBe(`BossBot-AdvisorBot-${ts}.json`);
+    expect(files[0]).toMatch(new RegExp(`^BossBot-AdvisorBot-${ts}-\\d+\\.json$`));
   });
 
   it('writes the message JSON verbatim into the audit file', async () => {
@@ -292,7 +292,9 @@ describe('AgentChannel — audit file writes', () => {
     await new Promise((r) => setTimeout(r, 50));
 
     const today = new Date().toISOString().slice(0, 10);
-    const auditFile = join(tmpDir, today, 'agent-channel', `BossBot-AdvisorBot-${ts}.json`);
+    const auditDir = join(tmpDir, today, 'agent-channel');
+    const [auditFilename] = readdirSync(auditDir);
+    const auditFile = join(auditDir, auditFilename!);
     const raw = readFileSync(auditFile, 'utf-8');
     const parsed = JSON.parse(raw) as AgentMessage;
     expect(parsed).toEqual(msg);
@@ -310,11 +312,11 @@ describe('AgentChannel — audit file writes', () => {
     const auditDir = join(tmpDir, today, 'agent-channel');
     const files = readdirSync(auditDir);
     expect(files).toHaveLength(3);
-    expect(files.sort()).toEqual([
-      `BossBot-AdvisorBot-${baseTs}.json`,
-      `BossBot-AdvisorBot-${baseTs + 1}.json`,
-      `BossBot-CreatorBot-${baseTs + 2}.json`,
-    ]);
+    // Filename now includes a per-instance seq suffix; check prefix and count.
+    const sorted = files.sort();
+    expect(sorted[0]).toMatch(new RegExp(`^BossBot-AdvisorBot-${baseTs}-\\d+\\.json$`));
+    expect(sorted[1]).toMatch(new RegExp(`^BossBot-AdvisorBot-${baseTs + 1}-\\d+\\.json$`));
+    expect(sorted[2]).toMatch(new RegExp(`^BossBot-CreatorBot-${baseTs + 2}-\\d+\\.json$`));
   });
 });
 
@@ -443,7 +445,7 @@ describe('AgentChannel — non-finite ts edge cases', () => {
     const files = readdirSync(auditDir);
     expect(files).toHaveLength(1);
     expect(files[0]).not.toContain('Infinity');
-    expect(files[0]).toMatch(/^BossBot-AdvisorBot-\d+\.json$/);
+    expect(files[0]).toMatch(/^BossBot-AdvisorBot-\d+-\d+\.json$/);
   });
 
   it('ts=NaN → audit filename uses Date.now() backfill (not NaN.json)', async () => {
@@ -455,7 +457,7 @@ describe('AgentChannel — non-finite ts edge cases', () => {
     const files = readdirSync(auditDir);
     expect(files).toHaveLength(1);
     expect(files[0]).not.toContain('NaN');
-    expect(files[0]).toMatch(/^BossBot-AdvisorBot-\d+\.json$/);
+    expect(files[0]).toMatch(/^BossBot-AdvisorBot-\d+-\d+\.json$/);
   });
 
   it('ts=NaN → in-memory log record has backfilled finite ts, not NaN', () => {
@@ -485,7 +487,7 @@ describe('AgentChannel — non-finite ts edge cases', () => {
     expect(files).toHaveLength(2);
     for (const file of files) {
       expect(file).not.toContain('Infinity');
-      expect(file).toMatch(/^BossBot-AdvisorBot-\d+\.json$/);
+      expect(file).toMatch(/^BossBot-AdvisorBot-\d+-\d+\.json$/);
     }
   });
 
@@ -499,5 +501,78 @@ describe('AgentChannel — non-finite ts edge cases', () => {
     } as AgentMessage);
     const record = ch.history('BossBot', 'AdvisorBot', 'no-ts-nonfinite')[0]!;
     expect(Number.isFinite(record.ts)).toBe(true);
+  });
+});
+
+describe('AgentChannel — audit-filename uniqueness under same-ts', () => {
+  let tmpDir: string;
+  let ch: AgentChannel;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    ch = new AgentChannel(tmpDir);
+  });
+
+  afterEach(() => { rmTmp(tmpDir); });
+
+  it('CASE A: explicit-shared-ts → exactly N files for N sends', async () => {
+    const sharedTs = 1700000000000;
+    ch.send(makeMsg({ ts: sharedTs, content: 'first' }));
+    ch.send(makeMsg({ ts: sharedTs, content: 'second' }));
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const files = readdirSync(join(tmpDir, today, 'agent-channel'));
+    expect(files).toHaveLength(2);
+    expect(files.sort()).toEqual([
+      `BossBot-AdvisorBot-${sharedTs}-0.json`,
+      `BossBot-AdvisorBot-${sharedTs}-1.json`,
+    ]);
+  });
+
+  it('CASE B: rapid-fire auto-Date.now() burst → exactly N files for N sends', async () => {
+    const n = 1_700_000_000_000;
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => n);
+    try {
+      for (let i = 0; i < 4; i++) {
+        ch.send(makeMsg({ ts: undefined as unknown as number, content: `msg-${i}` } as AgentMessage));
+      }
+    } finally { spy.mockRestore(); }
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const files = readdirSync(join(tmpDir, today, 'agent-channel'));
+    expect(files).toHaveLength(4);
+    expect(files.sort()).toEqual([
+      `BossBot-AdvisorBot-${n}-0.json`,
+      `BossBot-AdvisorBot-${n}-1.json`,
+      `BossBot-AdvisorBot-${n}-2.json`,
+      `BossBot-AdvisorBot-${n}-3.json`,
+    ]);
+  });
+
+  it('regression: in-memory log still preserves all records', () => {
+    const sharedTs = 1700000000000;
+    ch.send(makeMsg({ ts: sharedTs, content: 'A', taskId: 't1' }));
+    ch.send(makeMsg({ ts: sharedTs, content: 'B', taskId: 't1' }));
+    expect(ch.history('BossBot', 'AdvisorBot', 't1')).toHaveLength(2);
+    expect(ch.history('BossBot', 'AdvisorBot', 't1').map((m) => m.content)).toEqual(['A', 'B']);
+  });
+
+  it('regression: filename preserves ${from}-${to}-${ts} prefix for human scannability', async () => {
+    const ts = 1700000000000;
+    ch.send(makeMsg({ ts, from: 'BossBot', to: 'CreatorBot' }));
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const files = readdirSync(join(tmpDir, today, 'agent-channel'));
+    expect(files[0]).toMatch(/^BossBot-CreatorBot-1700000000000-\d+\.json$/);
+  });
+
+  it('mixed agents (BossBot→AdvisorBot + BossBot→CreatorBot) with shared ts → no cross-collision', async () => {
+    const sharedTs = 1700000000000;
+    ch.send(makeMsg({ ts: sharedTs, from: 'BossBot', to: 'AdvisorBot', content: 'A' }));
+    ch.send(makeMsg({ ts: sharedTs, from: 'BossBot', to: 'CreatorBot', content: 'B' }));
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const files = readdirSync(join(tmpDir, today, 'agent-channel'));
+    expect(files).toHaveLength(2);
   });
 });

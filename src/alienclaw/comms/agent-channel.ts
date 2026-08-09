@@ -5,7 +5,7 @@
  * Design invariants:
  *   - NEVER writes to stdout — AgentChannel is a structural gate, not a user-facing output
  *   - All inter-agent coordination passes through here; UserChannel never sees agent-to-agent messages
- *   - Audit log: writes to ~/.alienclaw/registry/telemetry/<date>/agent-channel/<from>-<to>-<ts>.json
+ *   - Audit log: writes to ~/.alienclaw/registry/telemetry/<date>/agent-channel/<from>-<to>-<ts>-<seq>.json
  *
  * Usage:
  *   agentChannel.send({ from: 'BossBot', to: 'AdvisorBot', kind: 'request', content: '...', taskId: '...' })
@@ -36,6 +36,9 @@ export interface AgentMessage {
 export class AgentChannel {
   /** In-memory log of all messages */
   private _log: AgentMessage[] = [];
+
+  /** Per-instance monotonic counter for audit-filename uniqueness under same-ts collisions */
+  private _seq = 0;
 
   /** Live observers notified on each send */
   private _subscribers = new Set<(msg: AgentMessage) => void>();
@@ -94,7 +97,9 @@ export class AgentChannel {
   private async _writeAuditFile(msg: AgentMessage): Promise<void> {
     const date = dateStamp(); // YYYY-MM-DD
     const dir  = join(this._baseDir, date, 'agent-channel');
-    const filename = `${msg.from}-${msg.to}-${msg.ts}.json`;
+    // _seq guarantees uniqueness within an AgentChannel lifetime under same-ts sends.
+    // The ${from}-${to}-${ts} prefix is preserved for human-scannability.
+    const filename = `${msg.from}-${msg.to}-${msg.ts}-${this._seq++}.json`;
     try {
       await mkdir(dir, { recursive: true });
       await writeFile(join(dir, filename), JSON.stringify(msg, null, 2), 'utf-8');
