@@ -140,26 +140,52 @@ export class OpusReflector implements Reflector {
 function tryParseReflectionJson(
   raw: string,
 ): { diagnosis: string; proposedValue: string; lesson: string } | null {
-  // Extract JSON object from response (model might include prose around it)
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[0]) as Record<string, unknown>;
-    if (
-      typeof parsed["diagnosis"] === "string" &&
-      typeof parsed["proposedValue"] === "string" &&
-      typeof parsed["lesson"] === "string"
-    ) {
-      return {
-        diagnosis: parsed["diagnosis"],
-        proposedValue: parsed["proposedValue"],
-        lesson: parsed["lesson"],
-      };
+  // String-aware balanced-brace scan: from each top-level `{`, walk the string
+  // tracking brace depth while skipping JSON string literals (respect `\"` escapes);
+  // extract the first complete balanced object, JSON.parse it, validate 3 required
+  // string keys; on failure advance past this object's closing `}` to the next `{`.
+  // Fixes the leading-prose case (multiple brace regions, which break /\{[\s\S]*\}/)
+  // WITHOUT regressing inner-brace / nested payloads.
+  const REQUIRED_KEYS = ["diagnosis", "proposedValue", "lesson"] as const;
+  let i = 0;
+  while (i < raw.length) {
+    if (raw[i] !== "{") { i++; continue; }
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let end = -1;
+    for (let j = i; j < raw.length; j++) {
+      const c = raw[j];
+      if (inString) {
+        if (escape) { escape = false; continue; }
+        if (c === "\\") { escape = true; continue; }
+        if (c === "\"") { inString = false; }
+        continue;
+      }
+      if (c === "\"") { inString = true; continue; }
+      if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) { end = j; break; }
+      }
     }
-    return null;
-  } catch {
-    return null;
+    if (end === -1) return null;
+    const candidate = raw.substring(i, end + 1);
+    try {
+      const parsed = JSON.parse(candidate) as Record<string, unknown>;
+      if (REQUIRED_KEYS.every((k) => typeof parsed[k] === "string")) {
+        return {
+          diagnosis: parsed["diagnosis"] as string,
+          proposedValue: parsed["proposedValue"] as string,
+          lesson: parsed["lesson"] as string,
+        };
+      }
+    } catch {
+      // candidate wasn't valid JSON — advance to the next top-level `{`
+    }
+    i = end + 1;
   }
+  return null;
 }
 
 function getConstraints(component: string): string {

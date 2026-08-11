@@ -253,6 +253,89 @@ describe("OpusReflector — tryParseReflectionJson corner cases", () => {
     });
     expect(result.diagnosis).toBe("parse_failure");
   });
+
+  it("PKT-474: parses correctly when leading prose contains a brace block (greedy-regex trap)", async () => {
+    // Opus emits {my_thoughts: ...} before the final JSON. Old greedy regex matches from
+    // first `{` to last `}`, concatenating the prose with the JSON → parse_failure.
+    // New balanced-brace scan returns the first complete balanced object that
+    // JSON-parses with the 3 required string keys.
+    const raw = `Let me reason... {my_thoughts: I see the tool_slot issue} answer: {"diagnosis":"d","proposedValue":"v","lesson":"l"}`;
+    const llm = makeLlm([raw]);
+    const r = new OpusReflector(llm, "test-model", 0.2, "/tmp/no-prompts-ac");
+    const result = await r.reflect({
+      candidate: genome,
+      component: "tool_slots",
+      records,
+      ancestorLessons: [],
+    });
+    expect(result.diagnosis).toBe("d");
+    expect(result.proposedValue).toBe("v");
+    expect(result.lesson).toBe("l");
+  });
+
+  it("PKT-474 REGRESSION GUARD: parses object whose lesson string contains a literal '}'", async () => {
+    // Non-greedy regex /\{[\s\S]*?\}/g would stop at the first `}` inside the string
+    // value, returning invalid JSON. Balanced-brace scan with string-aware state
+    // tracking walks past the `}` inside the string.
+    const raw = `{"diagnosis":"d","proposedValue":"v","lesson":"use {x} here"}`;
+    const llm = makeLlm([raw]);
+    const r = new OpusReflector(llm, "test-model", 0.2, "/tmp/no-prompts-ac");
+    const result = await r.reflect({
+      candidate: genome,
+      component: "tool_slots",
+      records,
+      ancestorLessons: [],
+    });
+    expect(result.diagnosis).toBe("d");
+    expect(result.lesson).toBe("use {x} here");
+  });
+
+  it("PKT-474 REGRESSION GUARD: parses object with a nested object value", async () => {
+    // Non-greedy regex would stop at the first `}` after "k":1, leaving the
+    // trailing `}` unmatched. Balanced-brace scan tracks depth correctly.
+    const raw = `{"diagnosis":"d","proposedValue":"v","lesson":"l","meta":{"k":1}}`;
+    const llm = makeLlm([raw]);
+    const r = new OpusReflector(llm, "test-model", 0.2, "/tmp/no-prompts-ac");
+    const result = await r.reflect({
+      candidate: genome,
+      component: "tool_slots",
+      records,
+      ancestorLessons: [],
+    });
+    expect(result.diagnosis).toBe("d");
+    expect(result.lesson).toBe("l");
+  });
+
+  it("PKT-474: skips a malformed prose brace block and parses the next valid one", async () => {
+    // First balanced region: {unclosed: this is not JSON} — balanced but not valid JSON.
+    // JSON.parse throws → advance to next top-level `{`.
+    const raw = `thought: {unclosed: this is not JSON} final: {"diagnosis":"d","proposedValue":"v","lesson":"l"}`;
+    const llm = makeLlm([raw]);
+    const r = new OpusReflector(llm, "test-model", 0.2, "/tmp/no-prompts-ac");
+    const result = await r.reflect({
+      candidate: genome,
+      component: "tool_slots",
+      records,
+      ancestorLessons: [],
+    });
+    expect(result.diagnosis).toBe("d");
+  });
+
+  it("PKT-474: handles escaped quote inside string value, then '}' inside same string", async () => {
+    // Combined guard: the string contains both an escaped quote and a literal `{`/`}`.
+    // The string-aware scanner must treat the entire `\"...\"` span as a string.
+    const raw = `{"diagnosis":"d","proposedValue":"v","lesson":"he said \\"hi\\" then {x}"}`;
+    const llm = makeLlm([raw]);
+    const r = new OpusReflector(llm, "test-model", 0.2, "/tmp/no-prompts-ac");
+    const result = await r.reflect({
+      candidate: genome,
+      component: "tool_slots",
+      records,
+      ancestorLessons: [],
+    });
+    expect(result.diagnosis).toBe("d");
+    expect(result.lesson).toBe(`he said "hi" then {x}`);
+  });
 });
 
 describe("MockReflector — default response path", () => {
