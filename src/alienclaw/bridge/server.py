@@ -327,6 +327,12 @@ def _handle_summon_from_population(request_id: str | None, req: dict, t0: float)
     if not isinstance(inputs, dict):
         return _error_response(request_id, "MALFORMED_REQUEST", "inputs must be an object", {"missing_fields": ["inputs"]})
     timeout_ms = req.get("timeout_ms", 30_000)
+    if not isinstance(timeout_ms, int) or not (1 <= timeout_ms <= 600_000):
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "timeout_ms must be integer in [1, 600000]",
+            {"missing_fields": ["timeout_ms"]},
+        )
 
     registry = _get_martian_registry()
     if not registry.has(martian_type):

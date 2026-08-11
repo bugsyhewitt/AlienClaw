@@ -558,3 +558,16 @@ class TestSummonFromPopulationShape:
         )
         # Bridge still produced a valid response after the cap
         assert "ok" in resp["response"]
+
+    @pytest.mark.parametrize("bad_timeout", [
+        "not an int", 1.5, {}, [1, 2, 3], None, 0, -1, 600_001, 10**9,
+    ])
+    def test_sfp_timeout_ms_must_be_int_in_range(self, bad_timeout):
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": {"input": "2 + 2"},
+            "timeout_ms": bad_timeout,
+        })
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "timeout_ms" in err["message"]
