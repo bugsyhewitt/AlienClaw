@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import Any
 from .types import RunResult
+from ._boundary import assert_inside_boundary, workspace_root
 
 from .limits import MAX_TOOL_IO_BYTES as _MAX_BYTES
 
@@ -11,7 +12,10 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     path_str = inputs.get("path", "")
     if not path_str:
         return RunResult(ok=False, error="Missing 'path' field", correctness=0.0)
-    path = Path(path_str)
+    try:
+        path = assert_inside_boundary(path_str, workspace_root())
+    except ValueError as exc:
+        return RunResult(ok=False, error=str(exc), correctness=0.0)
     if not path.exists():
         return RunResult(ok=False, error=f"File not found: {path_str}", correctness=0.0)
     if not path.is_file():

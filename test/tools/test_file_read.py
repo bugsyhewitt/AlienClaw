@@ -314,3 +314,69 @@ class TestPreservedFromPacket112:
         result = file_read_run({"path": path}, {})
         assert result.ok is True
         assert result.tool_calls == 1
+
+
+# ---------------------------------------------------------------------------
+# PKT-576 — workspace-boundary enforcement (file_read)
+# ALIENCLAW_FILE_WORKSPACE_ROOT is set to tmp_path via conftest autouse fixture.
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceBoundary:
+    """file_read must reject paths outside ALIENCLAW_FILE_WORKSPACE_ROOT."""
+
+    def test_rejects_absolute_path_outside_workspace(self, tmp_path):
+        # /etc/passwd is never under tmp_path — must be rejected before any I/O
+        result = file_read_run({"path": "/etc/passwd"}, {})
+        assert result.ok is False
+        assert result.error is not None
+        assert "traversal" in result.error.lower()
+
+    def test_rejects_traversal_with_dotdot(self, tmp_path):
+        # tmp_path/../sibling.txt resolves to tmp_path.parent/sibling.txt — outside workspace
+        sibling = tmp_path.parent / "pkt576-sibling.txt"
+        sibling.write_text("secret-content", encoding="utf-8")
+        try:
+            result = file_read_run({"path": str(tmp_path / ".." / "pkt576-sibling.txt")}, {})
+            assert result.ok is False
+            assert result.error is not None
+            assert "traversal" in result.error.lower()
+        finally:
+            sibling.unlink(missing_ok=True)
+
+    def test_allows_path_inside_workspace(self, tmp_path):
+        # A file directly inside the workspace root is allowed
+        allowed = tmp_path / "allowed.txt"
+        allowed.write_text("safe content", encoding="utf-8")
+        result = file_read_run({"path": str(allowed)}, {})
+        assert result.ok is True
+
+    def test_allows_nested_path_inside_workspace(self, tmp_path):
+        # A file in a subdirectory of the workspace is allowed
+        nested = tmp_path / "subdir" / "nested.txt"
+        nested.parent.mkdir(parents=True, exist_ok=True)
+        nested.write_text("nested safe content", encoding="utf-8")
+        result = file_read_run({"path": str(nested)}, {})
+        assert result.ok is True
+
+    def test_rejection_has_zero_correctness(self, tmp_path):
+        # Rejection returns correctness=0.0 (matches RunResult convention for error paths)
+        result = file_read_run({"path": "/etc/hosts"}, {})
+        assert result.ok is False
+        assert result.correctness == 0.0
+
+    def test_rejects_prefix_sibling_path(self, tmp_path):
+        # Sibling directory sharing the workspace prefix must be rejected.
+        # e.g. workspace=/tmp/ws → /tmp/ws-evil/x must NOT pass the startsWith check.
+        # The `+ os.sep` in _boundary.assert_inside_boundary prevents this.
+        sibling_dir = tmp_path.parent / (tmp_path.name + "-evil")
+        sibling_dir.mkdir(parents=True, exist_ok=True)
+        victim = sibling_dir / "secret.txt"
+        victim.write_text("sibling secret", encoding="utf-8")
+        try:
+            result = file_read_run({"path": str(victim)}, {})
+            assert result.ok is False
+            assert "traversal" in result.error.lower()
+        finally:
+            import shutil
+            shutil.rmtree(sibling_dir, ignore_errors=True)
