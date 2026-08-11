@@ -651,3 +651,53 @@ describe('GoalManager — integration: full goal lifecycle', () => {
     expect(onDisk.activeGoalId).toBeNull();
   });
 });
+
+// ─── 15. save() — concurrent writes (PKT-563) ───────────────────────────────
+
+describe('GoalManager.save() — concurrent writes (PKT-563 race fix)', () => {
+  it('both concurrent saves fulfill — no ENOENT from shared TMP_PATH race', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+
+    const fileA = { version: '1' as const, activeGoalId: 'A', goals: [makeGoal('A')] };
+    const fileB = { version: '1' as const, activeGoalId: 'B', goals: [makeGoal('B'), makeGoal('B2')] };
+
+    const [resultA, resultB] = await Promise.allSettled([
+      gm.save(fileA),
+      gm.save(fileB),
+    ]);
+
+    expect(resultA.status).toBe('fulfilled');
+    expect(resultB.status).toBe('fulfilled');
+  });
+
+  it('goals.json holds a self-consistent state after concurrent saves (no data inversion)', async () => {
+    const { GoalManager, PATHS } = await loadGoalManager();
+    const gm = new GoalManager();
+
+    const fileA = { version: '1' as const, activeGoalId: 'A', goals: [makeGoal('A')] };
+    const fileB = { version: '1' as const, activeGoalId: 'B', goals: [makeGoal('B'), makeGoal('B2')] };
+
+    await Promise.allSettled([gm.save(fileA), gm.save(fileB)]);
+
+    const onDisk = JSON.parse(readFileSync(PATHS.goals, 'utf-8'));
+    const goalIds: string[] = onDisk.goals.map((g: any) => g.id);
+
+    const isStateA = onDisk.activeGoalId === 'A' && goalIds.length === 1 && goalIds[0] === 'A';
+    const isStateB = onDisk.activeGoalId === 'B' && goalIds.length === 2 && goalIds[0] === 'B' && goalIds[1] === 'B2';
+
+    expect(isStateA || isStateB).toBe(true);
+  });
+
+  it('no TMP_PATH orphan left on disk after concurrent saves', async () => {
+    const { GoalManager, PATHS } = await loadGoalManager();
+    const gm = new GoalManager();
+
+    const fileA = { version: '1' as const, activeGoalId: 'A', goals: [makeGoal('A')] };
+    const fileB = { version: '1' as const, activeGoalId: 'B', goals: [makeGoal('B'), makeGoal('B2')] };
+
+    await Promise.allSettled([gm.save(fileA), gm.save(fileB)]);
+
+    expect(existsSync(`${PATHS.goals}.tmp`)).toBe(false);
+  });
+});
