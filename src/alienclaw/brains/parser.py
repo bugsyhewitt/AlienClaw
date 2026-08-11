@@ -167,6 +167,21 @@ def _extract_parameter_schema(
             raise BrainParseError(
                 f"PARAMETER_SCHEMA entry '{name}' in {source_path}: numeric field error: {exc}"
             )
+        if not (0 <= xcode_index <= 30):
+            raise BrainParseError(
+                f"PARAMETER_SCHEMA entry '{name}' in {source_path}: xcode_index "
+                f"must be in [0,30]; got {xcode_index}."
+            )
+        if range_min > range_max:
+            raise BrainParseError(
+                f"PARAMETER_SCHEMA entry '{name}' in {source_path}: range_min "
+                f"({range_min}) must be <= range_max ({range_max})."
+            )
+        if not (range_min <= default <= range_max):
+            raise BrainParseError(
+                f"PARAMETER_SCHEMA entry '{name}' in {source_path}: default "
+                f"({default}) must be in [{range_min}, {range_max}]."
+            )
         if direction not in ("lower", "higher", "none"):
             raise BrainParseError(
                 f"PARAMETER_SCHEMA entry '{name}' in {source_path} has invalid "

@@ -139,6 +139,21 @@ function extractParameterSchema(
         `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: numeric field error`
       );
     }
+    if (!(xcodeIndex >= 0 && xcodeIndex <= 30)) {
+      throw new Error(
+        `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: xcode_index must be in [0,30]; got ${xcodeIndex}.`
+      );
+    }
+    if (rangeMin > rangeMax) {
+      throw new Error(
+        `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: range_min (${rangeMin}) must be <= range_max (${rangeMax}).`
+      );
+    }
+    if (!(rangeMin <= defaultVal && defaultVal <= rangeMax)) {
+      throw new Error(
+        `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: default (${defaultVal}) must be in [${rangeMin}, ${rangeMax}].`
+      );
+    }
     if (direction !== 'lower' && direction !== 'higher' && direction !== 'none') {
       throw new Error(
         `PARAMETER_SCHEMA entry '${name}' in ${sourcePath} has invalid direction '${direction}'. Must be: lower | higher | none.`

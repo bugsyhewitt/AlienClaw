@@ -699,4 +699,51 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     expect(captured).not.toBeNull();
     expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry.*has \d+ fields \(expected 7/);
   });
+
+  // --- PKT-578: numeric bounds validation ---
+
+  it('R-506: xcode_index=31 (> 30) → throws "xcode_index must be in [0,30]"', () => {
+    const msb = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|31|1|5|1|lower|desc');
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toMatch(/xcode_index must be in \[0,30\]/);
+  });
+
+  it('R-507: xcode_index=-1 (< 0) → throws "xcode_index must be in [0,30]"', () => {
+    const msb = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|-1|1|5|1|lower|desc');
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toMatch(/xcode_index must be in \[0,30\]/);
+  });
+
+  it('R-508: range_min > range_max → throws "range_min (N) must be <= range_max (N)"', () => {
+    const msb = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|0|10|5|5|lower|desc');
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toMatch(/range_min \(\d+\) must be <= range_max \(\d+\)/);
+  });
+
+  it('R-509: default outside [range_min, range_max] → throws "default (N) must be in [N, N]"', () => {
+    const msb = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|0|1|5|10|lower|desc');
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toMatch(/default \(\d+\) must be in \[\d+, \d+\]/);
+  });
+
+  it('R-510: xcode_index at boundaries (0 and 30) → valid, parses ok', () => {
+    const msb0  = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|0|1|5|1|lower|desc');
+    const msb30 = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|30|1|5|1|lower|desc');
+    expect(() => parseMsbContent(msb0)).not.toThrow();
+    expect(() => parseMsbContent(msb30)).not.toThrow();
+    expect(parseMsbContent(msb0).parameterSchema[0]?.xcodeIndex).toBe(0);
+    expect(parseMsbContent(msb30).parameterSchema[0]?.xcodeIndex).toBe(30);
+  });
 });
