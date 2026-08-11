@@ -354,6 +354,24 @@ class TestLiveEvoHandler:
         resp = self._live_evo({"martian_type": "compute", "threshold": 1e20})
         assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
 
+    # ── T-40: martian_type type guard (PKT-587) ───────────────────────────────
+
+    @pytest.mark.parametrize("bad_martian_type", [
+        42,                   # int — silent ok=true,below_threshold misclassification
+        1.5,                  # float — silent ok=true,below_threshold misclassification
+        True,                 # bool-True — silent ok=true,below_threshold (isinstance bool check)
+        ["compute"],          # list — unhashable → INTERNAL misclassification
+        {"name": "compute"},  # dict — unhashable → INTERNAL misclassification
+        ("compute",),         # tuple — unhashable → INTERNAL misclassification
+    ])
+    def test_live_evo_martian_type_must_be_string(self, bad_martian_type) -> None:
+        """T-40: martian_type as non-string must return MALFORMED_REQUEST, not silently
+        accept as ok=true,below_threshold and not misclassify as INTERNAL."""
+        resp = self._live_evo({"martian_type": bad_martian_type, "threshold": 1000000})
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "martian_type" in err["details"]["missing_fields"]
+
 
 class TestSummonFromPopulationShape:
     @staticmethod
