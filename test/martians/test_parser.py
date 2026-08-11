@@ -114,3 +114,30 @@ class TestParseMartian:
                 "martian_type: foo\nuse_cases: \"\"\nslots:\n"
                 "  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n"
             )
+
+    # PKT-582 tool_name type-guard cases
+    def test_tool_name_null_raises(self):
+        with pytest.raises(MartianParseError, match="tool_name must be a string"):
+            parse_martian("martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: null\n")
+
+    def test_tool_name_int_raises(self):
+        with pytest.raises(MartianParseError, match="tool_name must be a string"):
+            parse_martian("martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: 42\n")
+
+    def test_tool_name_bool_raises(self):
+        with pytest.raises(MartianParseError, match="tool_name must be a string"):
+            parse_martian("martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: true\n")
+
+    def test_tool_name_float_raises(self):
+        with pytest.raises(MartianParseError, match="tool_name must be a string"):
+            parse_martian("martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: 3.14\n")
+
+    def test_tool_name_mapping_raises(self):
+        with pytest.raises(MartianParseError, match="tool_name must be a string"):
+            parse_martian("martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: {}\n")
+
+    def test_tool_name_quoted_digit_string_accepts(self):
+        spec = parse_martian(
+            "martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: \"42\"\n"
+        )
+        assert spec.slots[0].tool_name == "42"
