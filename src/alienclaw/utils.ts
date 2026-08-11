@@ -54,11 +54,23 @@ export function atomicWrite(filePath: string, content: string): void {
  * JSON.parse. `onJson` maps the parsed value (it runs inside the try, so a
  * throwing mapper also falls back); `onText` handles non-JSON output.
  */
+// Overload 1: both callbacks return the same type T (original, backward-compat)
 export function parseModelJson<T>(
   raw: string,
   onJson: (parsed: unknown, clean: string) => T,
   onText: (clean: string) => T,
-): T {
+): T;
+// Overload 2: callbacks may return distinct types J and S (discriminated-union pattern)
+export function parseModelJson<J, S>(
+  raw: string,
+  onJson: (parsed: unknown, clean: string) => J,
+  onText: (clean: string) => S,
+): J | S;
+export function parseModelJson(
+  raw: string,
+  onJson: (parsed: unknown, clean: string) => unknown,
+  onText: (clean: string) => unknown,
+): unknown {
   const clean = raw.replace(/```(?:json)?\n?/g, '').trim();
   try {
     return onJson(JSON.parse(clean), clean);
