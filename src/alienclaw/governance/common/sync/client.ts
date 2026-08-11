@@ -60,6 +60,8 @@ export type APIResult<T> =
   | { ok: false; status: number; error: APIError['error'] };
 
 
+const DEFAULT_TIMEOUT_MS = 10_000;
+
 export class NetworkAPIClient {
   private readonly base: string;
   private readonly apiKey: string;
@@ -127,7 +129,9 @@ export class NetworkAPIClient {
   }
 
   private async _get<T>(path: string): Promise<APIResult<T>> {
-    const res = await fetch(this.base + path);
+    const res = await fetch(this.base + path, {
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+    });
     return this._parse<T>(res);
   }
 
@@ -140,6 +144,7 @@ export class NetworkAPIClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...extraHeaders },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
     return this._parse<T>(res);
   }
