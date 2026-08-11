@@ -232,3 +232,87 @@ class TestExtractParameterSchema:
         raw = "PARAMETER_SCHEMA:\nname|0|1|5|1|lower\n"
         with pytest.raises(BrainParseError, match="has 6 fields"):
             _extract_parameter_schema(raw)
+
+    # --- PKT-578: xcode_index bounds ---
+
+    def test_xcode_index_zero_valid(self) -> None:
+        from alienclaw.brains.parser import _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|1|5|1|lower|desc\n"
+        fields = _extract_parameter_schema(raw)
+        assert len(fields) == 1
+        assert fields[0].xcode_index == 0
+
+    def test_xcode_index_thirty_valid(self) -> None:
+        from alienclaw.brains.parser import _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|30|1|5|1|lower|desc\n"
+        fields = _extract_parameter_schema(raw)
+        assert len(fields) == 1
+        assert fields[0].xcode_index == 30
+
+    def test_xcode_index_thirty_one_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|31|1|5|1|lower|desc\n"
+        with pytest.raises(BrainParseError, match="xcode_index must be in \\[0,30\\]"):
+            _extract_parameter_schema(raw)
+
+    def test_xcode_index_negative_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|-1|1|5|1|lower|desc\n"
+        with pytest.raises(BrainParseError, match="xcode_index must be in \\[0,30\\]"):
+            _extract_parameter_schema(raw)
+
+    def test_xcode_index_999_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|999|1|5|1|lower|desc\n"
+        with pytest.raises(BrainParseError, match="xcode_index must be in \\[0,30\\]"):
+            _extract_parameter_schema(raw)
+
+    # --- PKT-578: range_min <= range_max ---
+
+    def test_range_min_max_inverted_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|10|5|5|lower|desc\n"
+        with pytest.raises(BrainParseError, match="range_min.*must be <= range_max"):
+            _extract_parameter_schema(raw)
+
+    def test_range_min_equal_range_max_valid(self) -> None:
+        from alienclaw.brains.parser import _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|5|5|5|lower|desc\n"
+        fields = _extract_parameter_schema(raw)
+        assert len(fields) == 1
+        assert fields[0].range_min == 5
+        assert fields[0].range_max == 5
+
+    # --- PKT-578: default in [range_min, range_max] ---
+
+    def test_default_below_range_min_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|1|5|0|lower|desc\n"
+        with pytest.raises(BrainParseError, match="default.*must be in"):
+            _extract_parameter_schema(raw)
+
+    def test_default_above_range_max_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|1|5|10|lower|desc\n"
+        with pytest.raises(BrainParseError, match="default.*must be in"):
+            _extract_parameter_schema(raw)
+
+    def test_default_at_range_min_valid(self) -> None:
+        from alienclaw.brains.parser import _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|1|5|1|lower|desc\n"
+        fields = _extract_parameter_schema(raw)
+        assert len(fields) == 1
+        assert fields[0].default == 1
+
+    def test_default_at_range_max_valid(self) -> None:
+        from alienclaw.brains.parser import _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|1|5|5|lower|desc\n"
+        fields = _extract_parameter_schema(raw)
+        assert len(fields) == 1
+        assert fields[0].default == 5
+
+    def test_negative_default_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|1|5|-100|lower|desc\n"
+        with pytest.raises(BrainParseError, match="default.*must be in"):
+            _extract_parameter_schema(raw)
