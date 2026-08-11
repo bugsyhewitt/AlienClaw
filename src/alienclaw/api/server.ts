@@ -200,7 +200,7 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
           const [s, b] = await handleMartianTypes(_REGISTERED, _SUBMISSION);
           return send(res, s, b, true);
         }
-        if (path.startsWith('/v1/genomes/top') || path === '/v1/genomes/top') {
+        if (path === '/v1/genomes/top') {
           const martianType = String(qs['martian_type'] ?? '');
           if (!martianType) return err(res, 400, 'MISSING_PARAMETER', 'martian_type query parameter is required.');
           // Parse only. The 1..100 clamp is owned solely by handleTopGenomes
