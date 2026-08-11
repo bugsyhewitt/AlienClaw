@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseCliArgs } from '../src/alienclaw/cli/args.js';
+import { parseCliArgs, isValidMartianType, MARTIAN_TYPE_RE } from '../src/alienclaw/cli/args.js';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -188,5 +188,82 @@ describe('parseCliArgs — interpreter-prefix handling', () => {
       type: 'run',
       args: { goal: 'hello', verbosity: 'normal' },
     });
+  });
+});
+
+// ── 5. isValidMartianType / MARTIAN_TYPE_RE (PKT-506) ────────────────────────
+
+describe('isValidMartianType', () => {
+  it.each([
+    // valid — all seed martian types match ^[a-z][a-z0-9_]{0,31}$
+    ['compute_alone',             true],
+    ['search_web_then_summarize', true],
+    ['hermes_outbox_send',        true],
+    ['hermes_echo_brief',         true],
+    ['a',                         true],   // single char — minimum valid
+    // invalid — path traversal attempts
+    ['../../../tmp/evil',         false],
+    ['../etc/passwd',             false],
+    ['../',                       false],
+    ['../foo',                    false],
+    // invalid — disallowed characters
+    ['compute-alone',             false],   // hyphen not in [a-z0-9_]
+    ['compute alone',             false],   // space not allowed
+    ['Compute_Alone',             false],   // uppercase not allowed
+    ['COMPUTE_ALONE',             false],   // uppercase not allowed
+    ['compute/alone',             false],   // slash not allowed
+    ['compute.alone',             false],   // dot not allowed
+    // invalid — length / empty
+    ['',                          false],   // empty string rejected
+    ['a'.repeat(33),              false],   // 33 chars > 32-char max
+  ])('isValidMartianType(%j) === %j', (input, expected) => {
+    expect(isValidMartianType(input)).toBe(expected);
+  });
+
+  it('MARTIAN_TYPE_RE matches same set as isValidMartianType for representative inputs', () => {
+    expect(MARTIAN_TYPE_RE.test('compute_alone')).toBe(true);
+    expect(MARTIAN_TYPE_RE.test('../etc/passwd')).toBe(false);
+    expect(MARTIAN_TYPE_RE.test('')).toBe(false);
+  });
+});
+
+// ── 6. parseCliArgs path-traversal guard (PKT-506) ───────────────────────────
+
+describe('parseCliArgs — evolve rejects path-traversal --type', () => {
+  it('R-014: returns unknown when --type is a path-traversal string (evolve)', () => {
+    const r = parseCliArgs(cli('evolve', '--type', '../../../tmp/evil', '--generations', '5', '--population', '8'));
+    expect(r.type).toBe('unknown');
+  });
+
+  it('R-015: returns unknown when --type contains a slash (evolve)', () => {
+    const r = parseCliArgs(cli('evolve', '--type', 'compute/evil', '--generations', '5', '--population', '8'));
+    expect(r.type).toBe('unknown');
+  });
+
+  it('R-016: returns unknown when --type contains uppercase (evolve)', () => {
+    const r = parseCliArgs(cli('evolve', '--type', 'ComputeAlone', '--generations', '5', '--population', '8'));
+    expect(r.type).toBe('unknown');
+  });
+
+  it('R-017: still accepts valid martian type (evolve — regression guard)', () => {
+    const r = parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', '5', '--population', '8'));
+    expect(r).toEqual({ type: 'evolve', args: { martianType: 'compute_alone', generations: 5, population: 8, seed: undefined, inputs: undefined } });
+  });
+});
+
+describe('parseCliArgs — submit rejects path-traversal --type', () => {
+  it('R-018: returns unknown when --type is a path-traversal string (submit)', () => {
+    const r = parseCliArgs(cli('submit', '--type', '../../../tmp/evil', '--yes'));
+    expect(r.type).toBe('unknown');
+  });
+
+  it('R-019: returns unknown when --type contains a dot (submit)', () => {
+    const r = parseCliArgs(cli('submit', '--type', 'compute.evil', '--yes'));
+    expect(r.type).toBe('unknown');
+  });
+
+  it('R-020: still accepts valid martian type (submit — regression guard)', () => {
+    const r = parseCliArgs(cli('submit', '--type', 'hermes_echo', '--yes'));
+    expect(r).toEqual({ type: 'submit', args: { martianType: 'hermes_echo', yes: true, force: false, name: undefined } });
   });
 });

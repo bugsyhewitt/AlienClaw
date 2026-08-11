@@ -37,6 +37,14 @@ export type CliCommand =
   | { type: 'help' }
   | { type: 'unknown'; raw: string[] };
 
+// ── Martian type validation ───────────────────────────────────────────────────
+
+export const MARTIAN_TYPE_RE = /^[a-z][a-z0-9_]{0,31}$/;
+
+export function isValidMartianType(s: string): boolean {
+  return MARTIAN_TYPE_RE.test(s);
+}
+
 // ── Parser ───────────────────────────────────────────────────────────────────
 
 /**
@@ -86,7 +94,7 @@ export function parseCliArgs(argv: string[]): CliCommand {
       Number.isFinite(args.generations) && args.generations >= 1 &&
       Number.isFinite(args.population)  && args.population  >= 1 &&
       (args.seed === undefined || Number.isFinite(args.seed));
-    if (!args.martianType || !numbersOk) {
+    if (!args.martianType || !numbersOk || !isValidMartianType(args.martianType)) {
       return { type: 'unknown', raw };
     }
     try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }
@@ -108,7 +116,7 @@ export function parseCliArgs(argv: string[]): CliCommand {
           return { type: 'unknown', raw };
       }
     }
-    if (!args.martianType) {
+    if (!args.martianType || !isValidMartianType(args.martianType)) {
       return { type: 'unknown', raw };
     }
     try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }
