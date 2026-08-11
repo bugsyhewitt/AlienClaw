@@ -158,7 +158,7 @@ class TestTruncation:
     def test_truncated_true_when_capped(self):
         text = "\n".join([f"foo line {i}" for i in range(20)])
         r = run({"text": text, "pattern": "foo"}, {"max_results": 5})
-        assert r.output["totalMatches"] == 5
+        assert r.output["totalMatches"] == 20
         assert r.output["truncated"] is True
 
 
