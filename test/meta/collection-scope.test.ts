@@ -19,6 +19,19 @@ describe('vitest.config.ts collection scope', () => {
     expect(scratchCovered).toBe(true);
   });
 
+  // PKT-586: assert probe namespaces are excluded (follow-up to PKT-537)
+  it('exclude list contains test/_probe/** glob', () => {
+    expect(configText).toContain("'test/_probe/**'");
+  });
+
+  it('exclude list contains test/**/_probe*.{ts,mts} glob', () => {
+    expect(configText).toContain("'test/**/_probe*.{ts,mts}'");
+  });
+
+  it('exclude list contains test/**/probe*.{ts,mts} glob', () => {
+    expect(configText).toContain("'test/**/probe*.{ts,mts}'");
+  });
+
   it('.salvaged suffix is not matched by the default vitest include glob', () => {
     // Default include: **/*.{test,spec}.?(c|m)[jt]s?(x)
     // A .salvaged file ends in ".salvaged", not ".ts", so it does NOT match.
