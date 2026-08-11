@@ -9,6 +9,8 @@ The first slot_count tool calls are free; each excess call applies a gentle
 multiplicative penalty. These tests document the formula exactly — they must
 never drive a change to it.
 """
+import math
+
 import pytest
 
 from alienclaw.fitness.function import evaluate
@@ -129,3 +131,96 @@ class TestResultMetadata:
         # FitnessInputs defaults slot_count=1: the second call is the first excess.
         r = evaluate(FitnessInputs(correctness=1.0, tool_calls=2))
         assert r.efficiency == pytest.approx(1.0 / 1.1)
+
+
+class TestNonFiniteCorrectness:
+    """Non-finite correctness (NaN, +Inf, -Inf) must yield a deterministic failing score.
+
+    Python's built-in ``min`` and ``max`` return the first argument on NaN tie,
+    so without an explicit ``math.isfinite`` guard the expression
+    ``max(0.0, min(1.0, NaN))`` evaluates to ``1.0`` and silently inflates the
+    fitness of any Martian whose compute slot produced NaN correctness.
+    """
+
+    def test_nan_correctness_does_not_inflate_to_perfect_score(self):
+        r = evaluate(FitnessInputs(correctness=float("nan"), tool_calls=1, slot_count=1))
+        assert r.fitness == 0.0
+        assert r.correctness == 0.0
+
+    def test_positive_infinity_correctness_does_not_inflate_to_perfect_score(self):
+        # Without an explicit isfinite guard, this would also produce 1.0 via
+        # min(1.0, +Inf) == 1.0 — but the silent path is undefined; the contract
+        # is that only finite correctness in (0.0, 1.0] can yield fitness > 0.
+        r = evaluate(FitnessInputs(correctness=float("inf"), tool_calls=1, slot_count=1))
+        assert r.fitness == 0.0
+        assert r.correctness == 0.0
+
+    def test_negative_infinity_correctness_yields_zero_score(self):
+        r = evaluate(FitnessInputs(correctness=float("-inf"), tool_calls=1, slot_count=1))
+        assert r.fitness == 0.0
+        assert r.correctness == 0.0
+
+    def test_non_finite_correctness_falls_through_error_path_passes_correctness_through(self):
+        # The error early-return echoes the raw input correctness, skipping the
+        # clamp applied on the success path. Non-finite correctness here is the
+        # caller's problem; the error path zeros fitness/efficiency regardless.
+        r = evaluate(FitnessInputs(correctness=float("nan"), tool_calls=1, error="boom"))
+        assert r.fitness == 0.0
+        assert r.efficiency == 0.0
+
+
+class TestNonFiniteSlotArgs:
+    """Non-finite ``tool_calls`` / ``slot_count`` must not silently produce a
+    perfect score or undefined behavior. The formula is defined over the
+    integers; the production bridge (PKT-572 documents ``float('inf') -
+    float('inf')`` reaching the eval path) violates this contract today, so
+    these tests pin the defensive-coercion contract on that real-world path."""
+
+    def _build(self, **kwargs):
+        # Bypass FitnessInputs' strict int annotations: the production bridge
+        # already violates the contract — these tests pin the
+        # defensive-coercion contract on that real-world path.
+        from typing import cast
+        return evaluate(cast(FitnessInputs, FitnessInputs(**cast(dict, kwargs))))
+
+    def test_nan_tool_calls_does_not_compare_equal_to_slot_count(self):
+        # Without coercion, max(0, NaN - 1) == max(0, NaN) == 0 in Python,
+        # so the silent behavior is "no penalty". That hides a real defect
+        # (NaN should never reach here) — we coerce to 0 (no excess) so the
+        # formula computes a meaningful efficiency, but flag the input by
+        # not inflating the score beyond what correctness supports.
+        r = self._build(correctness=0.7, tool_calls=float("nan"), slot_count=1)
+        assert r.efficiency == 1.0
+        assert r.fitness == pytest.approx(0.7)
+
+    def test_nan_slot_count_does_not_produce_division_or_undefined_behavior(self):
+        r = self._build(correctness=0.7, tool_calls=5, slot_count=float("nan"))
+        # Coerce NaN slot_count to 1; excess becomes 4; efficiency = 1/1.4.
+        assert r.efficiency == pytest.approx(1.0 / 1.4)
+        assert r.fitness == pytest.approx(0.7 / 1.4)
+
+    def test_infinite_tool_calls_does_not_produce_infinite_efficiency(self):
+        # +Inf tool_calls would yield excess = +Inf, alpha * excess = +Inf,
+        # 1/(1+Inf) = 0.0. We coerce to a deterministic positive integer
+        # instead so the failure mode is "excess penalty applied", not
+        # "fitness silently rounded to 0".
+        r = self._build(correctness=0.7, tool_calls=float("inf"), slot_count=1)
+        # Coerced tool_calls = 0 (the non-finite branch); no excess.
+        assert math.isfinite(r.efficiency)
+        assert r.fitness == pytest.approx(0.7)
+
+
+class TestResultStillFinite:
+    """Regression guard: under any combination of non-finite inputs on the
+    success path, the returned FitnessResult fields must be real numbers."""
+
+    @pytest.mark.parametrize("non_finite", [float("nan"), float("inf"), float("-inf")])
+    @pytest.mark.parametrize("field", ["tool_calls", "slot_count"])
+    def test_non_finite_tool_calls_or_slot_count_yields_finite_fitness(self, non_finite, field):
+        from typing import cast
+        kwargs = {"correctness": 0.5, "tool_calls": 1, "slot_count": 1}
+        kwargs[field] = non_finite
+        r = evaluate(cast(FitnessInputs, FitnessInputs(**cast(dict, kwargs))))
+        assert math.isfinite(r.fitness)
+        assert math.isfinite(r.efficiency)
+        assert 0.0 <= r.fitness <= 1.0

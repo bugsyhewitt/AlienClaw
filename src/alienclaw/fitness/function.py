@@ -1,3 +1,5 @@
+import math
+
 from .types import FitnessInputs, FitnessResult
 
 
@@ -20,13 +22,30 @@ def evaluate(inputs: FitnessInputs) -> FitnessResult:
     eliminating the 1/k ceiling of the prior formula.
 
     α = 0.1 (hardcoded; Bayesian optimization in Packet 27 converged to this value).
+
+    Non-finite `correctness` (NaN, +Inf, -Inf) is coerced to 0.0 — silent fitness
+    inflation to maximum (Python `min`/`max` returns the first argument on NaN tie)
+    is replaced by a deterministic failing-score. `tool_calls` / `slot_count` are
+    defensively coerced to a non-negative integer on non-finite input.
     """
     if inputs.error is not None:
         return FitnessResult(fitness=0.0, correctness=inputs.correctness, efficiency=0.0,
                              formula_version="v2.0")
 
-    correctness = clamp01(inputs.correctness)
-    excess = max(0, inputs.tool_calls - inputs.slot_count)
+    # Defensive: coerce non-finite correctness to 0.0 (failing score) instead of
+    # silently mapping to 1.0 via Python's min/max NaN-tie behavior.
+    correctness_raw = 0.0 if not math.isfinite(inputs.correctness) else inputs.correctness
+    tool_calls_raw = (
+        0 if (not math.isfinite(inputs.tool_calls) or inputs.tool_calls < 0)
+        else int(inputs.tool_calls)
+    )
+    slot_count_raw = (
+        1 if (not math.isfinite(inputs.slot_count) or inputs.slot_count < 0)
+        else max(1, int(inputs.slot_count))
+    )
+
+    correctness = clamp01(correctness_raw)
+    excess = max(0, tool_calls_raw - slot_count_raw)
     efficiency = 1.0 / (1.0 + _ALPHA * excess)
     fitness = clamp01(correctness * efficiency)
     return FitnessResult(fitness=fitness, correctness=correctness, efficiency=efficiency,
