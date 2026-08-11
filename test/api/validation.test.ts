@@ -189,6 +189,38 @@ describe('validateInstallRequest', () => {
     expect(r.error?.code).toBe('INVALID_MACHINE_HASH');
     expect(r.error?.details.received_length).toBe(64);
   });
+
+  it('rejects null api_key with INVALID_API_KEY_FORMAT and received_type null (PKT-472)', () => {
+    const req = { api_key: null, machine_hash: 'a'.repeat(64) } as unknown as Pick<InstallRequest, 'api_key' | 'machine_hash'>;
+    const r = validateInstallRequest(req);
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('INVALID_API_KEY_FORMAT');
+    expect(r.error?.details.received_type).toBe('null');
+  });
+
+  it('rejects undefined api_key with INVALID_API_KEY_FORMAT and received_type undefined (PKT-472)', () => {
+    const req = { machine_hash: 'a'.repeat(64) } as unknown as Pick<InstallRequest, 'api_key' | 'machine_hash'>;
+    const r = validateInstallRequest(req);
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('INVALID_API_KEY_FORMAT');
+    expect(r.error?.details.received_type).toBe('undefined');
+  });
+
+  it('rejects null machine_hash with INVALID_MACHINE_HASH and received_type null (PKT-472)', () => {
+    const req = { api_key: 'A'.repeat(43), machine_hash: null } as unknown as Pick<InstallRequest, 'api_key' | 'machine_hash'>;
+    const r = validateInstallRequest(req);
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('INVALID_MACHINE_HASH');
+    expect(r.error?.details.received_type).toBe('null');
+  });
+
+  it('rejects numeric api_key (42) with INVALID_API_KEY_FORMAT and received_type number (PKT-472)', () => {
+    const req = { api_key: 42, machine_hash: 'a'.repeat(64) } as unknown as Pick<InstallRequest, 'api_key' | 'machine_hash'>;
+    const r = validateInstallRequest(req);
+    expect(r.valid).toBe(false);
+    expect(r.error?.code).toBe('INVALID_API_KEY_FORMAT');
+    expect(r.error?.details.received_type).toBe('number');
+  });
 });
 
 // ── isValidApiKeyFormat ───────────────────────────────────────────────────

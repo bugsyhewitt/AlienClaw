@@ -390,4 +390,15 @@ describe('API server: route-handler defensive paths', () => {
     expect(res.status).toBe(400);
     expect((parsed as { error: { code: string } }).error.code).toBe('MALFORMED_REQUEST');
   });
+
+  it('POST /v1/install with null api_key returns 400 INVALID_API_KEY_FORMAT (not 500) (PKT-472)', async () => {
+    const { status, body } = await post('/v1/install', {
+      api_key: null,
+      machine_hash: 'a'.repeat(64),
+    });
+    expect(status).toBe(400);
+    const b = body as { error: { code: string; details: { received_type: string } } };
+    expect(b.error.code).toBe('INVALID_API_KEY_FORMAT');
+    expect(b.error.details.received_type).toBe('null');
+  });
 });
