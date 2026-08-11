@@ -239,6 +239,24 @@ function _isPlainObject(v: unknown): v is Record<string, YamlValue> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+function _parseStrictSlotIndex(raw: unknown, sourcePath: string, slotNum: number): number {
+  if (typeof raw === 'number') {
+    if (!Number.isInteger(raw) || !Number.isFinite(raw)) {
+      throw new MartianParseError(
+        `${sourcePath}: slot ${slotNum} slot_index must be a finite integer, got ${raw}`
+      );
+    }
+    return raw;
+  }
+  const s = String(raw).trim();
+  if (!/^-?\d+$/.test(s)) {
+    throw new MartianParseError(
+      `${sourcePath}: slot ${slotNum} slot_index must be a finite integer, got ${JSON.stringify(s)}`
+    );
+  }
+  return Number(s);
+}
+
 export function parseMartian(content: string, sourcePath = '<string>'): MartianSpec {
   let raw: YamlValue;
   try {
@@ -305,9 +323,7 @@ export function parseMartian(content: string, sourcePath = '<string>'): MartianS
         throw new MartianParseError(`${sourcePath}: slot ${i} missing '${req}'`);
       }
     }
-    const slotIndex = typeof slotRaw['slot_index'] === 'number'
-      ? slotRaw['slot_index']
-      : parseInt(String(slotRaw['slot_index']), 10);
+    const slotIndex = _parseStrictSlotIndex(slotRaw['slot_index'], sourcePath, i);
     const toolName  = String(slotRaw['tool_name']);
 
     const rawInputs = slotRaw['inputs_from'] ?? null;
