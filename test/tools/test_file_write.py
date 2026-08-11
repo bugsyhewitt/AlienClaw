@@ -195,6 +195,19 @@ class TestWorkspaceBoundary:
         assert r.ok is False
         assert r.correctness == 0.0
 
+    def test_rejects_prefix_sibling_path(self, tmp_path):
+        # Sibling directory sharing the workspace prefix must be rejected.
+        # e.g. workspace=/tmp/ws → /tmp/ws-evil/x must NOT pass the startsWith check.
+        import shutil
+        sibling_dir = tmp_path.parent / (tmp_path.name + "-evil")
+        try:
+            r = run({"path": str(sibling_dir / "escape.txt"), "content": "evil"})
+            assert r.ok is False
+            assert "traversal" in r.error.lower()
+            assert not sibling_dir.exists(), "sibling dir must not be created"
+        finally:
+            shutil.rmtree(sibling_dir, ignore_errors=True)
+
 
 class TestAtomicWrite:
     """MSB LIMITATIONS: file_write is atomic — no partial writes on interruption."""

@@ -364,3 +364,19 @@ class TestWorkspaceBoundary:
         result = file_read_run({"path": "/etc/hosts"}, {})
         assert result.ok is False
         assert result.correctness == 0.0
+
+    def test_rejects_prefix_sibling_path(self, tmp_path):
+        # Sibling directory sharing the workspace prefix must be rejected.
+        # e.g. workspace=/tmp/ws → /tmp/ws-evil/x must NOT pass the startsWith check.
+        # The `+ os.sep` in _boundary.assert_inside_boundary prevents this.
+        sibling_dir = tmp_path.parent / (tmp_path.name + "-evil")
+        sibling_dir.mkdir(parents=True, exist_ok=True)
+        victim = sibling_dir / "secret.txt"
+        victim.write_text("sibling secret", encoding="utf-8")
+        try:
+            result = file_read_run({"path": str(victim)}, {})
+            assert result.ok is False
+            assert "traversal" in result.error.lower()
+        finally:
+            import shutil
+            shutil.rmtree(sibling_dir, ignore_errors=True)
