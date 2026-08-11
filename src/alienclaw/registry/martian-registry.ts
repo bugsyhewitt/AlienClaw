@@ -49,7 +49,8 @@ export class MartianRegistry {
       const dirents = await fs.readdir(this.registryDir, { withFileTypes: true });
       entries = dirents
         .filter(d => d.isFile() && d.name.endsWith('.ms'))
-        .map(d => d.name);
+        .map(d => d.name)
+        .sort();
     } catch (err) {
       throw new RegistryError(
         `Cannot read registry dir ${this.registryDir}: ${errorMessage(err)}`
@@ -64,6 +65,14 @@ export class MartianRegistry {
         const spec = loadMsFile(filePath);   // sync — MsParseError on bad files
         if (spec.status === 'graveyard') {
           // Graveyard entries stay on disk but are not loaded into active registry
+          continue;
+        }
+        if (this.store.has(spec.id)) {
+          console.error(
+            `[MartianRegistry] Duplicate Martian id "${spec.id}" in ${name} — ` +
+            `already loaded from another .ms file. Skipping duplicate (first wins). ` +
+            `Resolve the conflict to ensure deterministic registry state.`
+          );
           continue;
         }
         this.store.set(spec.id, spec);
