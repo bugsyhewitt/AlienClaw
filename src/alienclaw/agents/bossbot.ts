@@ -69,7 +69,9 @@ export function parseSchemeDraft(goalId: string, raw: string): Scheme {
         role:          s.role,
         domain:        s.domain ?? 'general',
         knowledgeBase: s.knowledgeBase ?? '',
-        martianTags:  s.martianTags ?? [],
+        martianTags:  Array.isArray(s.martianTags)
+          ? s.martianTags.filter((t): t is string => typeof t === 'string')
+          : [],
       }) satisfies SubagentRole),
     }));
 
