@@ -224,3 +224,57 @@ class TestChecksumValidAfterMutation:
         for _ in range(20):
             res = mutate_directed(_BASE_GENOME, [None, brain, None, None], rng, rate=1.0)
             assert validate(res).valid
+
+
+class TestOutOfRangeXcodeIndex:
+    """Mirror TS test/registry/genome-operators.test.ts:135-151.
+
+    xcode_index is only valid in [0,30] — the codec's decode_xcode enforces
+    this (genome/codec.py). mutate_directed must apply the same guard;
+    without it xcode_index=31 on slot 1 writes chars[127,128] (wrong section),
+    xcode_index=63 raises IndexError.
+    """
+
+    def test_xcode_index_31_on_slot_2_is_skipped(self) -> None:
+        brain = make_brain([ParameterSchemaField("a", "x", 31, 1, 5, 1, "none")])
+        result = mutate_directed(_BASE_GENOME, [None, None, brain, None],
+                                 random.Random(5), rate=1.0)
+        assert result[:192] == _BASE_GENOME[:192]
+
+    def test_xcode_index_31_on_slot_1_is_skipped(self) -> None:
+        brain = make_brain([ParameterSchemaField("a", "x", 31, 1, 5, 1, "none")])
+        result = mutate_directed(_BASE_GENOME, [None, brain, None, None],
+                                 random.Random(7), rate=1.0)
+        assert result[:192] == _BASE_GENOME[:192]
+
+    def test_xcode_index_63_on_slot_1_does_not_raise(self) -> None:
+        brain = make_brain([ParameterSchemaField("a", "x", 63, 1, 5, 1, "none")])
+        result = mutate_directed(_BASE_GENOME, [None, brain, None, None],
+                                 random.Random(139), rate=1.0)
+        assert result[:192] == _BASE_GENOME[:192]
+
+    def test_xcode_index_999_on_slot_1_does_not_raise(self) -> None:
+        brain = make_brain([ParameterSchemaField("a", "x", 999, 1, 5, 1, "none")])
+        result = mutate_directed(_BASE_GENOME, [None, brain, None, None],
+                                 random.Random(139), rate=1.0)
+        assert result[:192] == _BASE_GENOME[:192]
+
+    def test_xcode_index_negative_does_not_raise(self) -> None:
+        brain = make_brain([ParameterSchemaField("a", "x", -1, 1, 5, 1, "none")])
+        result = mutate_directed(_BASE_GENOME, [None, brain, None, None],
+                                 random.Random(139), rate=1.0)
+        assert result[:192] == _BASE_GENOME[:192]
+
+    def test_out_of_range_field_does_not_prevent_in_range_fields(self) -> None:
+        brain = make_brain([
+            ParameterSchemaField("bad",  "x", 999, 1,    5, 1, "none"),
+            ParameterSchemaField("good", "x",   0, 1, 3843, 1, "lower"),
+        ])
+        mutated = 0
+        for seed in range(100):
+            result = mutate_directed(_BASE_GENOME, [None, brain, None, None],
+                                     random.Random(seed), rate=1.0)
+            if result != _BASE_GENOME:
+                mutated += 1
+                assert decode_xcode(result, 1, 0) != decode_xcode(_BASE_GENOME, 1, 0)
+        assert mutated > 0, "in-range field should have been mutated at least once"
