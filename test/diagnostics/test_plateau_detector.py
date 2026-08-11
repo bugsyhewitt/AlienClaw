@@ -1,10 +1,12 @@
 """Tests for plateau_detector.py."""
 from __future__ import annotations
 
+import pytest
+
 from alienclaw.diagnostics.plateau_detector import (
     detect_plateaus,
-    time_to_convergence,
     summarize_convergence,
+    time_to_convergence,
 )
 
 
@@ -114,4 +116,59 @@ class TestSummarizeConvergence:
         assert result["converged_count"] == 1
 
 
-import pytest
+class TestNonFiniteAndInvalidInputs:
+    """plateau_detector must reject NaN/Inf/zero/negative scalar args
+    and reject NaN/Inf elements in fitness curves."""
+
+    # D1: NaN in fitness curve
+    def test_detect_plateaus_nan_curve_raises(self):
+        with pytest.raises(ValueError, match="finite"):
+            detect_plateaus([0.5] + [float("nan")] * 20, window_size=10)
+
+    # D2: Inf in fitness curve
+    def test_detect_plateaus_inf_curve_raises(self):
+        with pytest.raises(ValueError, match="finite"):
+            detect_plateaus([0.5] + [float("inf")] * 20, window_size=10)
+
+    # D3/D4: invalid window_size (non-positive)
+    @pytest.mark.parametrize("ws", [0, -1, -5])
+    def test_detect_plateaus_window_size_non_positive_raises(self, ws):
+        with pytest.raises(ValueError, match="positive int"):
+            detect_plateaus([0.5] * 30, window_size=ws)
+
+    def test_detect_plateaus_window_size_nan_raises(self):
+        with pytest.raises(ValueError, match="positive int"):
+            detect_plateaus([0.5] * 30, window_size=float("nan"))
+
+    def test_detect_plateaus_window_size_float_raises(self):
+        with pytest.raises(ValueError, match="positive int"):
+            detect_plateaus([0.5] * 30, window_size=10.5)
+
+    def test_detect_plateaus_window_size_bool_raises(self):
+        """bool is int subclass — must be rejected."""
+        with pytest.raises(ValueError, match="positive int"):
+            detect_plateaus([0.5] * 30, window_size=True)
+
+    # D6: invalid threshold
+    @pytest.mark.parametrize("t", [float("nan"), float("inf"), float("-inf"), -0.01, 1.5])
+    def test_detect_plateaus_threshold_invalid_raises(self, t):
+        with pytest.raises(ValueError):
+            detect_plateaus([0.5] * 30, window_size=10, threshold=t)
+
+    # D7/D8: invalid convergence_window (non-positive)
+    @pytest.mark.parametrize("cw", [0, -1, -3])
+    def test_time_to_convergence_window_non_positive_raises(self, cw):
+        with pytest.raises(ValueError, match="positive int"):
+            time_to_convergence([0.95] * 10, convergence_window=cw)
+
+    # D11: convergence_fitness out of [0, 1]
+    @pytest.mark.parametrize("cf", [-0.1, 1.1, float("nan"), float("inf")])
+    def test_time_to_convergence_fitness_invalid_raises(self, cf):
+        with pytest.raises(ValueError):
+            time_to_convergence([0.5] * 20, convergence_fitness=cf)
+
+    # D9: summarize_convergence with NaN-curve raises at the leaf
+    def test_summarize_convergence_nan_curve_raises(self):
+        """Pre-fix silently dropped NaN-curve seeds; post-fix raises at the leaf."""
+        with pytest.raises(ValueError, match="finite"):
+            summarize_convergence([[float("nan")] * 100, [0.95] * 20])
