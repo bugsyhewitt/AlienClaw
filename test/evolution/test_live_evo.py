@@ -154,3 +154,72 @@ class TestCheckAndEvolve:
         result = check_and_evolve("compute", log_path=log_path, watermark_path=wpath)
 
         assert result is None
+
+
+# ── watermark corruption guards ─────────────────────────────────────────────
+
+
+class TestWatermarkCorruptionGuards:
+    """Ensure _read_watermark and _write_watermark never raise on corrupt input."""
+
+    def test_read_watermark_malformed_json_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"compute": 1, "bar": 2', encoding="utf-8")  # truncated JSON
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_read_watermark_empty_file_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text("", encoding="utf-8")
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_read_watermark_non_int_value_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"compute": "five"}', encoding="utf-8")
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_read_watermark_bool_value_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"compute": true}', encoding="utf-8")
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_read_watermark_float_value_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"compute": 1.9}', encoding="utf-8")
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_read_watermark_root_list_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('[1, 2, 3]', encoding="utf-8")
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_read_watermark_root_null_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('null', encoding="utf-8")
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_read_watermark_value_dict_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"compute": {"nested": 1}}', encoding="utf-8")
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_read_watermark_value_list_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"compute": [1, 2]}', encoding="utf-8")
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_read_watermark_value_null_returns_zero(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('{"compute": null}', encoding="utf-8")
+        assert _read_watermark("compute", wpath) == 0
+
+    def test_write_watermark_overwrites_corrupted_existing(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text("this is not json", encoding="utf-8")
+        _write_watermark("compute", 7, wpath)
+        assert _read_watermark("compute", wpath) == 7
+
+    def test_write_watermark_handles_existing_list_root(self, tmp_path: Path) -> None:
+        wpath = tmp_path / "watermarks.json"
+        wpath.write_text('[1, 2, 3]', encoding="utf-8")
+        _write_watermark("compute", 5, wpath)
+        assert _read_watermark("compute", wpath) == 5
