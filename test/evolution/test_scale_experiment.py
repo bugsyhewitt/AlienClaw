@@ -178,3 +178,54 @@ def test_truncation_strategy_actually_selects_top_fraction(tmp_output):
         gen_mod._make_selector = orig
 
     assert captured == ["truncation"] * 2, f"Expected truncation dispatched; got {captured}"
+
+
+def test_brain_field_is_forwarded_to_per_seed_config(tmp_output, monkeypatch):
+    """config_base.brain must be propagated to each per-seed EvolutionConfig.
+
+    Regression guard for the same forwarding-gap class as PKT-463
+    (selection_strategy/truncation_top_fraction). The brain field controls
+    whether mutate_directed or mutate is used in evaluate_and_evolve.
+    """
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock, patch
+
+    from alienclaw.evolution.types import GenerationStats
+
+    brain_sentinel = MagicMock(name="BrainSpec")
+    config = EvolutionConfig(
+        martian_type="compute_alone",
+        population_size=4,
+        brain=brain_sentinel,
+    )
+
+    captured_configs: list[EvolutionConfig] = []
+
+    def null_evolve(pop, cfg, runner, rng):
+        captured_configs.append(cfg)
+        stats = GenerationStats(
+            martian_type=cfg.martian_type, generation=0, count=0,
+            mean_fitness=0.0, median_fitness=0.0, max_fitness=0.0,
+            min_fitness=0.0, stddev_fitness=0.0, distinct_genomes=0,
+            captured_at=datetime.now(timezone.utc).isoformat(),
+        )
+        return {"stats": stats, "generation": 0, "next_generation": 1, "children_minted": 0}
+
+    with patch("alienclaw.evolution.scale_experiment.evaluate_and_evolve", null_evolve), \
+         patch("alienclaw.evolution.scale_experiment.population_diversity",
+               return_value={"unique_genomes": 0, "mean_pairwise_hamming": 0.0,
+                             "monoculture": True}):
+        run_scale_experiment(
+            martian_type="compute_alone",
+            config_base=config,
+            run_martian_fn=mock_runner,
+            generations=1,
+            seeds=[42],
+            output_dir=tmp_output,
+        )
+
+    assert len(captured_configs) == 1
+    assert captured_configs[0].brain is brain_sentinel, (
+        f"brain not forwarded to per-seed config: expected {brain_sentinel!r}, "
+        f"got {captured_configs[0].brain!r}"
+    )
