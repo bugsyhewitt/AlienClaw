@@ -61,7 +61,7 @@ alienclaw --help
   // ── Pass through to the active host framework ────────────────────────────
   // ALIENCLAW_HOST selects the host binary (default 'openclaw'); 'hermes'
   // routes passthrough to the Hermes CLI instead.
-  const host = (process.env.ALIENCLAW_HOST || 'openclaw').toLowerCase();
+  const host = (process.env.ALIENCLAW_HOST || '').trim().toLowerCase() || 'openclaw';
   if (host !== 'openclaw' && host !== 'hermes') {
     console.error(`alienclaw: ALIENCLAW_HOST must be 'openclaw' or 'hermes' (got '${host}')`);
     process.exit(2);

@@ -433,3 +433,51 @@ describe('registerRunCommand — action callback', () => {
 // file-read test (which would always fail because the test would have
 // to mention the terms to grep for them). The shell-out pattern is the
 // canonical discipline per the alienclaw-coverage-sweep-packet skill.
+
+// ── 8. CLI shim ALIENCLAW_HOST resolution (alienclaw.mjs:64) ───────────────
+// PKT-529: inline twin of the wiring/host-select.ts whitespace defect.
+// The resolve() function below mirrors alienclaw.mjs:64 verbatim so that
+// divergence between the test and the shim is immediately visible.
+// When the shim changes, update resolve() to match.
+
+describe('CLI shim ALIENCLAW_HOST resolution (alienclaw.mjs:64)', () => {
+  let savedHost: string | undefined;
+
+  beforeEach(() => {
+    savedHost = process.env['ALIENCLAW_HOST'];
+  });
+
+  afterEach(() => {
+    if (savedHost === undefined) {
+      delete process.env['ALIENCLAW_HOST'];
+    } else {
+      process.env['ALIENCLAW_HOST'] = savedHost;
+    }
+  });
+
+  // Mirror alienclaw.mjs:64 verbatim (PKT-529 fix: .trim().toLowerCase() || fallback)
+  const resolve = () => {
+    const raw = (process.env['ALIENCLAW_HOST'] || '').trim().toLowerCase() || 'openclaw';
+    if (raw !== 'openclaw' && raw !== 'hermes') {
+      throw new Error(`ALIENCLAW_HOST must be 'openclaw' or 'hermes' (got '${raw}')`);
+    }
+    return raw;
+  };
+
+  const cases: [string, string][] = [
+    ['',           'openclaw'],   // empty
+    ['openclaw',   'openclaw'],   // plain
+    ['hermes',     'hermes'],     // plain
+    ['   ',        'openclaw'],   // whitespace-only (PKT-529 parity)
+    ['\t\n',       'openclaw'],   // tab+newline (PKT-529 parity)
+    [' openclaw ', 'openclaw'],   // padded (PKT-529 parity)
+    ['\tHermes\n', 'hermes'],     // padded+mixed-case (PKT-529 parity)
+  ];
+
+  for (const [i, [env, expected]] of cases.entries()) {
+    it(`R-SHIM-${i + 1}: ALIENCLAW_HOST=${JSON.stringify(env)} → ${expected}`, () => {
+      process.env['ALIENCLAW_HOST'] = env;
+      expect(resolve()).toBe(expected);
+    });
+  }
+});

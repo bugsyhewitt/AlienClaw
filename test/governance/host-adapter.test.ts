@@ -332,4 +332,25 @@ describe('Host selection (ALIENCLAW_HOST)', () => {
     process.env['ALIENCLAW_HOST'] = 'bogus';
     expect(() => selectHostId()).toThrow(/must be 'openclaw' or 'hermes'/);
   });
+
+  // PKT-529 parity: whitespace/padded inputs must be trimmed, not rejected.
+  it('trims whitespace-only value to the default (openclaw)', () => {
+    process.env['ALIENCLAW_HOST'] = '   ';
+    expect(selectHostId()).toBe('openclaw');
+  });
+
+  it('trims tab+newline value to the default (openclaw)', () => {
+    process.env['ALIENCLAW_HOST'] = '\t\n';
+    expect(selectHostId()).toBe('openclaw');
+  });
+
+  it('trims padded openclaw value (PKT-529 parity)', () => {
+    process.env['ALIENCLAW_HOST'] = ' openclaw ';
+    expect(selectHostId()).toBe('openclaw');
+  });
+
+  it('trims padded hermes value (PKT-529 parity)', () => {
+    process.env['ALIENCLAW_HOST'] = '\tHermes\n';
+    expect(selectHostId()).toBe('hermes');
+  });
 });
