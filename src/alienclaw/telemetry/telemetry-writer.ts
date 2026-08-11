@@ -117,7 +117,7 @@ export class TelemetryWriter {
     const safeCode = sanitizeFilenameSegment(reportCode, 'reportCode');
     const dir = this.dirForDate();
     await this.ensureDir(dir);
-    const payload = { reportCode, ts: Date.now(), ...data };
+    const payload = { ...data, reportCode, ts: Date.now() };
     await writeFile(
       join(dir, `${safeCode}.json`),
       JSON.stringify(payload, null, 2),
@@ -136,7 +136,7 @@ export class TelemetryWriter {
     const dir = this.dirForDate();
     await this.ensureDir(dir);
     const ts      = Date.now();
-    const payload = { ts, ...data };
+    const payload = { ...data, ts };
     await writeFile(
       join(dir, `failforward_${ts}.json`),
       JSON.stringify(payload, null, 2),
@@ -152,7 +152,7 @@ export class TelemetryWriter {
     const safeTaskId = sanitizeFilenameSegment(taskId, 'taskId');
     const dir = this.dirForDate();
     await this.ensureDir(dir);
-    const payload = { taskId, ts: Date.now(), ...data };
+    const payload = { ...data, taskId, ts: Date.now() };
     await writeFile(
       join(dir, `advisory_${safeTaskId}.json`),
       JSON.stringify(payload, null, 2),
