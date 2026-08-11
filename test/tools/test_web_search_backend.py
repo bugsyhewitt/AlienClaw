@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -105,3 +105,58 @@ class TestWithStub:
                 r3 = web_search_run({"query": "test"}, {"page_count": 3})
         assert r1.tool_calls != r3.tool_calls, "tool_calls must vary with page_count"
         assert r1.ok and r3.ok
+
+
+def _make_response(body: bytes, status: int = 200, content_type: str = "application/json") -> MagicMock:
+    resp = MagicMock()
+    resp.status = status
+    resp.read.return_value = body
+    resp.headers = {"Content-Type": content_type}
+    resp.__enter__ = MagicMock(return_value=resp)
+    resp.__exit__ = MagicMock(return_value=False)
+    return resp
+
+
+class TestMalformedResponse:
+    """Degrade gracefully on any JSON body that is not a list-of-dicts."""
+
+    _STUB = "http://stub.test/search"
+
+    def _run(self, body_value) -> object:
+        body = json.dumps(body_value).encode()
+        resp = _make_response(body)
+        with patch("urllib.request.urlopen", return_value=resp):
+            with patch.dict(os.environ, {"ALIENCLAW_SEARCH_URL": self._STUB}):
+                return web_search_run({"query": "test"}, {"max_attempts": 1, "page_count": 1})
+
+    def _assert_degraded(self, result) -> None:
+        assert result.ok is True, f"expected ok=True, got ok={result.ok}, error={getattr(result, 'error', None)}"
+        assert result.output["results"] == [], f"expected [], got {result.output['results']}"
+        assert result.correctness == 0.5, f"expected 0.5, got {result.correctness}"
+
+    def test_null_body(self):
+        self._assert_degraded(self._run(None))
+
+    def test_string_body(self):
+        self._assert_degraded(self._run("hello"))
+
+    def test_number_body(self):
+        self._assert_degraded(self._run(42))
+
+    def test_bool_body(self):
+        self._assert_degraded(self._run(True))
+
+    def test_list_of_strings(self):
+        self._assert_degraded(self._run(["a", "b"]))
+
+    def test_list_of_ints(self):
+        self._assert_degraded(self._run([1, 2, 3]))
+
+    def test_dict_with_null_results(self):
+        self._assert_degraded(self._run({"results": None}))
+
+    def test_dict_with_string_results(self):
+        self._assert_degraded(self._run({"results": "not a list"}))
+
+    def test_dict_with_int_results(self):
+        self._assert_degraded(self._run({"results": 42}))
