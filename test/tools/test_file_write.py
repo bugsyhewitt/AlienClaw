@@ -50,10 +50,21 @@ class TestRunNormalWrites:
         assert r.output["bytesWritten"] == 3  # "ab\n" = 3 bytes, not 2
 
     def test_creates_parent_directories(self, tmp_path):
-        p = tmp_path / "a" / "b" / "out.txt"
-        r = run({"path": str(p), "content": "nested"})
-        assert r.ok is True
-        assert p.exists()
+        # PKT-576: inverted — paths OUTSIDE the workspace boundary are rejected even
+        # when they have nested parent dirs.  The mkdir primitive must not escape the
+        # workspace.  Positive case (inside workspace) is covered by
+        # TestWorkspaceBoundary.test_allows_nested_paths_inside_workspace below.
+        import shutil
+        outside_root = tmp_path.parent / "pkt576-outside"
+        p = outside_root / "nested" / "out.txt"
+        try:
+            r = run({"path": str(p), "content": "should-be-rejected"})
+            assert r.ok is False
+            assert r.error is not None
+            assert "traversal" in r.error.lower()
+            assert not p.parent.exists(), "mkdir must not create dirs outside workspace"
+        finally:
+            shutil.rmtree(outside_root, ignore_errors=True)
 
     def test_path_in_output(self, tmp_path):
         p = tmp_path / "out.txt"
@@ -127,6 +138,62 @@ class TestOutputContract:
         r = run({"path": target, "content": "round-trip"})
         assert r.ok is True
         assert r.output["path"] == target
+
+
+# ---------------------------------------------------------------------------
+# PKT-576 — workspace-boundary enforcement (file_write)
+# ALIENCLAW_FILE_WORKSPACE_ROOT is set to tmp_path via conftest autouse fixture.
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceBoundary:
+    """file_write must reject paths outside ALIENCLAW_FILE_WORKSPACE_ROOT.
+    The mkdir primitive (path.parent.mkdir) must not create directories outside
+    the workspace boundary.
+    """
+
+    def test_rejects_absolute_path_outside_workspace(self, tmp_path):
+        # /nonexistent/attack.txt is never under tmp_path
+        r = run({"path": "/nonexistent/pkt576-attack.txt", "content": "evil"})
+        assert r.ok is False
+        assert r.error is not None
+        assert "traversal" in r.error.lower()
+
+    def test_rejects_traversal_with_dotdot(self, tmp_path):
+        # tmp_path/../escape.txt resolves to tmp_path.parent/escape.txt — outside
+        r = run({"path": str(tmp_path / ".." / "pkt576-escape.txt"), "content": "evil"})
+        assert r.ok is False
+        assert r.error is not None
+        assert "traversal" in r.error.lower()
+
+    def test_allows_path_inside_workspace(self, tmp_path):
+        p = tmp_path / "safe.txt"
+        r = run({"path": str(p), "content": "safe content"})
+        assert r.ok is True
+        assert p.exists()
+
+    def test_allows_nested_paths_inside_workspace(self, tmp_path):
+        # Nested parent dirs inside the workspace are allowed (and created)
+        p = tmp_path / "a" / "b" / "out.txt"
+        r = run({"path": str(p), "content": "nested"})
+        assert r.ok is True
+        assert p.exists()
+
+    def test_mkdir_does_not_create_arbitrary_directories(self, tmp_path):
+        # The mkdir primitive must NOT create dirs outside the workspace boundary
+        import shutil
+        outside_dir = tmp_path.parent / "pkt576-attacker-dir"
+        try:
+            r = run({"path": str(outside_dir / "file.txt"), "content": "evil"})
+            assert r.ok is False
+            assert not outside_dir.exists(), "attacker directory was created outside workspace"
+        finally:
+            shutil.rmtree(outside_dir, ignore_errors=True)
+
+    def test_rejection_has_zero_correctness(self, tmp_path):
+        r = run({"path": "/etc/pkt576-crontab-test", "content": "evil"})
+        assert r.ok is False
+        assert r.correctness == 0.0
 
 
 class TestAtomicWrite:
