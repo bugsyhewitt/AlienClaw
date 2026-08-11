@@ -161,7 +161,7 @@ function installMsbSeeds(overwrite: boolean): void {
     const src    = path.join(seedDir, file);
     const target = path.join(REGISTRY_MSB, file);
     try {
-      fs.copyFileSync(src, target);
+      fs.copyFileSync(src, target, fs.constants.COPYFILE_EXCL);
       console.log(`[SeedInstaller] Installed msb/${file}`);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
@@ -182,7 +182,7 @@ function installMsSeeds(overwrite: boolean): void {
     const target = path.join(REGISTRY_MS, `${spec.id}.ms`);
     const content = buildMsContent(spec);  // build once
     try {
-      fs.writeFileSync(target, content, 'utf-8');
+      fs.writeFileSync(target, content, { encoding: 'utf-8', flag: 'wx' });
       console.log(`[SeedInstaller] Installed ms/${spec.id}.ms (genome assembled fresh)`);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
