@@ -2,6 +2,7 @@ import urllib.request
 import urllib.error
 from typing import Any
 from .types import RunResult
+from ._ssrf_guard import SsrfBlockedError, assert_safe_fetch_url, build_no_redirect_opener
 
 _TIMEOUT_S = 30
 _MAX_RESPONSE_BYTES = 1 * 1024 * 1024
@@ -11,6 +12,12 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     url = inputs.get("url", "")
     if not url:
         return RunResult(ok=False, error="Missing 'url' field", correctness=0.0)
+    # PKT-577: SSRF core guard (scheme allowlist + IP-literal block; no host allowlist per rejection rationale)
+    try:
+        url = assert_safe_fetch_url(url)
+    except SsrfBlockedError as exc:
+        return RunResult(ok=False, error=str(exc), correctness=0.0)
+    opener = build_no_redirect_opener()
     # max_attempts (slot 0): transient-retry budget per the MSB PARAMETER_SCHEMA.
     max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
     field_count = max(1, min(5, int(params.get("field_count", 3))))
@@ -34,7 +41,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         for _ in range(request_count):
             req = urllib.request.Request(url, headers=headers, method="GET")
             try:
-                with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
+                with opener.open(req, timeout=_TIMEOUT_S) as resp:
                     status = resp.status
                     # If Content-Length is advertised and exceeds the cap, mark truncated
                     # before reading (we still read only up to the cap to bound memory).
@@ -48,6 +55,9 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
                     body_bytes = len(raw)
                     body = raw.decode("utf-8", errors="replace")
                     content_type = resp.headers.get("Content-Type", "")
+            except SsrfBlockedError as exc:
+                total_tool_calls += 1
+                return RunResult(ok=False, error=str(exc), tool_calls=total_tool_calls, correctness=0.0)
             except urllib.error.HTTPError as exc:
                 total_tool_calls += 1
                 return RunResult(
