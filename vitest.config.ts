@@ -8,6 +8,8 @@ export default defineConfig({
       '**/.{idea,git,cache,output,temp}/**',
       '**/{coverage,reports}/**',
       '.claude/**',
+      'MEMORY/**',
+      '**/scratch/**',
     ],
   },
 });
