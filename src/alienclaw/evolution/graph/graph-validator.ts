@@ -58,6 +58,14 @@ export function validateSubagent(
   if (k === "best_of_n" && (s.parsed.operators as { n: number }).n < 1) {
     return fail("best_of_n n must be >= 1");
   }
+  if (k === "review_revise") {
+    const rounds = (s.parsed.operators as { rounds: number }).rounds;
+    // Reject non-finite, zero, and negative values: rounds=0 silently collapses to no-op,
+    // rounds=Infinity hangs reviewReviseOp at operators.ts:54 indefinitely (DoS vector).
+    if (!Number.isFinite(rounds) || rounds < 1) {
+      return fail("review_revise rounds must be a finite integer >= 1");
+    }
+  }
   return { ok: true };
 }
 
