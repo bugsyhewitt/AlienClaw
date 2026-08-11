@@ -71,7 +71,7 @@ export class SubmissionStore {
     runMetadata:     Record<string, unknown>;
     leaderboardName: string;
   }): Promise<[string, string]> {
-    const sid = `sub_${randomBytes(3).toString('hex')}`;
+    const sid = `sub_${randomBytes(8).toString('hex')}`;
     const now = new Date().toISOString().replace('T', ' ').replace('Z', '');
     await this._pool.execute(
       `INSERT INTO leaderboard_entries

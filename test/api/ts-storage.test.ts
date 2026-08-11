@@ -357,3 +357,86 @@ describe('SubmissionStore.topForType — LIMIT boundary assertion', () => {
     await expect(store.topForType('compute', 100)).rejects.toThrow(SENTINEL);
   });
 });
+
+// ── SubmissionStore.save() submission_id entropy (DB-free) ──────────────────
+//
+// The submission_id is generated in-process (no DB call) before the INSERT is
+// attempted. This block verifies the format and the entropy bound at the source,
+// using a sabotage pool to prove the format check happens before any DB write.
+//
+// Mirrors the pattern at SubmissionStore.topForType — LIMIT boundary assertion
+// (this file). No MySQL connection required.
+describe('SubmissionStore.save — submission_id entropy', () => {
+  const SENTINEL = 'SABOTAGE_POOL_EXECUTE_REACHED';
+
+  const validOpts = {
+    genome:          'A'.repeat(256),
+    martianType:     'compute',
+    fitness:         0.5,
+    apiKeyHash:      'a'.repeat(64),
+    runMetadata:     {},
+    leaderboardName: 'ALIENBOT',
+  };
+
+  it('save() returns an ID matching /^sub_[0-9a-f]{16}$/ (8 bytes of entropy)', async () => {
+    let capturedSid: string | undefined;
+    const capturePool: mysql.Pool = {
+      execute: async (_sql: string, params: unknown[]) => {
+        capturedSid = params[0] as string;
+        throw new Error(SENTINEL);
+      },
+    } as unknown as mysql.Pool;
+    const captureStore = new SubmissionStore(capturePool);
+    await expect(captureStore.save(validOpts)).rejects.toThrow(SENTINEL);
+    expect(capturedSid).toMatch(/^sub_[0-9a-f]{16}$/);
+    expect(capturedSid!.length).toBe(20);   // "sub_" + 16 hex
+  });
+
+  it('save() IDs are unique over a 1,000-call loop (8 bytes = no birthday zone at N=1000)', async () => {
+    const seen = new Set<string>();
+    let firstDupAt = -1;
+    const capturePool: mysql.Pool = {
+      execute: async (_sql: string, params: unknown[]) => {
+        const sid = params[0] as string;
+        if (seen.has(sid) && firstDupAt === -1) firstDupAt = seen.size;
+        seen.add(sid);
+        throw new Error(SENTINEL);
+      },
+    } as unknown as mysql.Pool;
+    const captureStore = new SubmissionStore(capturePool);
+    for (let i = 0; i < 1000; i++) {
+      await expect(captureStore.save(validOpts)).rejects.toThrow(SENTINEL);
+    }
+    expect(seen.size).toBe(1000);
+    expect(firstDupAt).toBe(-1);   // no duplicate in 1,000 calls
+    // Format check on the full set.
+    for (const sid of seen) expect(sid).toMatch(/^sub_[0-9a-f]{16}$/);
+  });
+
+  it('install_id in InstallStore.register() uses the same 8-byte pattern (consistency check)', async () => {
+    // Regression: the asymmetry between submission_id (3 bytes) and install_id
+    // (8 bytes) at the same site was the smoking gun. After Fix A both are 8
+    // bytes. This test guards against future drift back to a narrower choice.
+    //
+    // InstallStore.register() does a SELECT first (checks for existing install),
+    // then the INSERT. We let the SELECT return empty rows so flow proceeds to
+    // the INSERT where params[0] is the generated install_id.
+    let capturedInstallId: string | undefined;
+    let callCount = 0;
+    const twoPhasePool: mysql.Pool = {
+      execute: async (_sql: string, params: unknown[]) => {
+        callCount++;
+        if (callCount === 1) {
+          // First call: SELECT — return empty rows (no existing install)
+          return [[], []];
+        }
+        // Second call: INSERT — capture install_id (params[0]) and throw
+        capturedInstallId = params[0] as string;
+        throw new Error(SENTINEL);
+      },
+    } as unknown as mysql.Pool;
+    const installs = new InstallStore(twoPhasePool);
+    await expect(installs.register('a'.repeat(64), 'b'.repeat(64))).rejects.toThrow(SENTINEL);
+    expect(capturedInstallId).toMatch(/^[0-9a-f]{16}$/);
+  });
+});
