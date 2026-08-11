@@ -20,6 +20,7 @@ import path from 'node:path';
 
 import { CreatorBot } from '../../src/alienclaw/governance/common/creator-bot.js';
 import { DomainResolver } from '../../src/alienclaw/governance/common/domain-resolver.js';
+import { makeSubagentBrief } from '../../src/alienclaw/governance/common/subagent.js';
 import type { Logger } from '../../src/alienclaw/governance/common/logger.js';
 import type {
   MartianSummonAdapter,
@@ -130,5 +131,19 @@ describe('CreatorBot.buildSubagent', () => {
       const source = readFileSync(path.join(root, file), 'utf-8');
       expect(source).not.toMatch(/from ['"].*genome/);
     }
+  });
+
+  it('buildSubagent produces a Subagent that can run a multi-Martian campaign (buildTransitionTableYaml wiring)', async () => {
+    const adapter = new CapturingAdapter();
+    const bot = new CreatorBot(noopLogger, adapter, baseDir, new DomainResolver(['compute']));
+    const sub = bot.buildSubagent('compute', { campaignId: 'c-run', objective: 'go' });
+    const brief = makeSubagentBrief({
+      campaignId: 'c-run', role: 'compute Subagent', domain: 'compute',
+      objective: 'go', allowedMartians: ['compute'],
+    });
+    const result = await sub.runCampaign(brief, { plan: 'go' });
+    expect(result.termination_reason).not.toBe('decision_rule_error');
+    expect(result.summon_count).toBeGreaterThan(0);
+    sub.erase();
   });
 });
