@@ -9,6 +9,8 @@ The first slot_count tool calls are free; each excess call applies a gentle
 multiplicative penalty. These tests document the formula exactly — they must
 never drive a change to it.
 """
+import math
+
 import pytest
 
 from alienclaw.fitness.function import evaluate
@@ -129,3 +131,61 @@ class TestResultMetadata:
         # FitnessInputs defaults slot_count=1: the second call is the first excess.
         r = evaluate(FitnessInputs(correctness=1.0, tool_calls=2))
         assert r.efficiency == pytest.approx(1.0 / 1.1)
+
+
+class TestNonFiniteCorrectness:
+    """Non-finite correctness values must produce fitness=0.0, not silent inflation.
+
+    PKT-588: Python's min/max return the first arg when NaN comparisons are
+    unordered. min(1.0, NaN) returns 1.0 (NaN < 1.0 is False), so
+    clamp01(NaN) = max(0.0, 1.0) = 1.0. The fix coerces non-finite
+    correctness to 0.0 before clamp01, so any non-finite input yields fitness=0.0.
+    """
+
+    def test_nan_correctness_zeroes_fitness(self):
+        r = evaluate(FitnessInputs(correctness=math.nan, tool_calls=1, slot_count=1))
+        assert r.fitness == 0.0
+        assert r.correctness == 0.0
+
+    def test_pos_inf_correctness_zeroes_fitness(self):
+        r = evaluate(FitnessInputs(correctness=math.inf, tool_calls=1, slot_count=1))
+        assert r.fitness == 0.0
+        assert r.correctness == 0.0
+
+    def test_neg_inf_correctness_zeroes_fitness(self):
+        r = evaluate(FitnessInputs(correctness=-math.inf, tool_calls=1, slot_count=1))
+        assert r.fitness == 0.0
+        assert r.correctness == 0.0
+
+    def test_nan_correctness_with_excess_still_zeroes(self):
+        # No partial credit via efficiency: NaN correctness → fitness=0.0 regardless.
+        r = evaluate(FitnessInputs(correctness=math.nan, tool_calls=3, slot_count=1))
+        assert r.fitness == 0.0
+
+    def test_nan_correctness_with_error_zeroes_fitness(self):
+        # Error path always zeroes fitness; NaN correctness does not change that.
+        r = evaluate(FitnessInputs(correctness=math.nan, tool_calls=1, error="boom"))
+        assert r.fitness == 0.0
+
+    def test_nan_correctness_reachable_via_bridge_min_path(self):
+        # Documents bridge semantics: min([NaN]) == NaN (NaN is first element).
+        # min([NaN, 0.8]) == NaN; min([0.8, NaN]) == 0.8 (Python's NaN ordering).
+        # Any path that reaches evaluate() with correctness=NaN must yield 0.0.
+        for slot_correctnesses in ([math.nan], [math.nan, 0.8]):
+            martian_correctness = min(slot_correctnesses)
+            r = evaluate(FitnessInputs(
+                correctness=martian_correctness,
+                tool_calls=len(slot_correctnesses),
+                slot_count=len(slot_correctnesses),
+            ))
+            assert r.fitness == 0.0, (
+                f"min({slot_correctnesses!r}) = {martian_correctness!r} "
+                f"must not inflate to 1.0"
+            )
+
+    @pytest.mark.parametrize("c", [0.0, 0.001, 0.5, 0.999, 1.0])
+    def test_finite_correctness_in_unit_interval_unchanged(self, c):
+        # The fix must not perturb any valid correctness value.
+        r = evaluate(FitnessInputs(correctness=c, tool_calls=1, slot_count=1))
+        assert r.correctness == pytest.approx(c)
+        assert r.fitness == pytest.approx(c)

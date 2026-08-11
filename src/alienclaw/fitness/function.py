@@ -1,3 +1,5 @@
+import math
+
 from .types import FitnessInputs, FitnessResult
 
 
@@ -25,7 +27,10 @@ def evaluate(inputs: FitnessInputs) -> FitnessResult:
         return FitnessResult(fitness=0.0, correctness=inputs.correctness, efficiency=0.0,
                              formula_version="v2.0")
 
-    correctness = clamp01(inputs.correctness)
+    # Non-finite correctness coerces to 0.0 (failing score). Python's min/max
+    # return the first arg on NaN ties, so clamp01(NaN) → 1.0 silently. (PKT-588)
+    correctness_raw = 0.0 if not math.isfinite(inputs.correctness) else inputs.correctness
+    correctness = clamp01(correctness_raw)
     excess = max(0, inputs.tool_calls - inputs.slot_count)
     efficiency = 1.0 / (1.0 + _ALPHA * excess)
     fitness = clamp01(correctness * efficiency)
