@@ -1,13 +1,73 @@
+import ast
 import math
 from typing import Any
 from .types import RunResult
 
-_SAFE_NAMES = {
+_SAFE_NAMES: dict[str, Any] = {
     "abs": abs, "round": round, "min": min, "max": max, "sum": sum,
     "len": len, "int": int, "float": float, "str": str, "bool": bool,
     "pow": pow, "divmod": divmod,
     **{k: getattr(math, k) for k in dir(math) if not k.startswith("_")},
 }
+
+# AST node allowlist for the eval sandbox (PKT-575 Option B).
+# Each entry is (ast.NodeType, predicate) — predicate may be None to accept all instances.
+# Nodes NOT in this list cause an evaluation error (security boundary).
+_ALLOWED_AST_NODES: list[tuple[type, Any]] = [
+    # Literals + containers
+    (ast.Expression, None),
+    (ast.Constant, None),                # covers Num/Str/Bytes/NameConstant/Constant (Py3.8+)
+    (ast.Tuple, None),
+    (ast.List, None),
+    (ast.Dict, None),
+    (ast.Set, None),
+    # Arithmetic + comparison + boolean
+    (ast.BinOp, None),
+    (ast.UnaryOp, None),
+    (ast.BoolOp, None),
+    (ast.Compare, None),
+    (ast.operator, None),                 # Add/Sub/ Mult/Div/FloorDiv/Mod/Pow/LShift/RShift/BitOr/BitXor/BitAnd
+    (ast.unaryop, None),                  # Invert/Not/UAdd/USub
+    (ast.cmpop, None),                    # Eq/NotEq/Lt/LtE/Gt/GtE/Is/IsNot/In/NotIn
+    (ast.boolop, None),                   # And/Or
+    # Calls (callable names verified against _SAFE_NAMES in _check_call below)
+    (ast.Call, None),
+    (ast.Name, None),
+    (ast.Load, None),
+    (ast.Starred, None),                  # for *args in calls — keyword `**` is BLOCKED (see _check_call)
+]
+
+
+def _check_call(node: ast.Call) -> None:
+    """Verify a Call node only invokes safe names with positional args + safe kwargs.
+
+    Rejects:
+      - Attribute access on the function (e.g., (1).__class__(...))
+      - Subscript access (e.g., (1).__class__[0](...))
+      - Lambdas / comprehensions inside args
+      - **kwargs (unverifiable spread)
+    """
+    if not isinstance(node.func, ast.Name):
+        raise ValueError("only direct name calls are allowed")
+    if node.func.id not in _SAFE_NAMES:
+        raise ValueError(f"function '{node.func.id}' is not in the safe name set")
+    if node.keywords:
+        # keyword `**kwargs` is Starred-kwargs; Starred is allowlisted for *args, not **kwargs.
+        # We reject ANY keyword to be conservative; the existing tests do not use kwargs.
+        raise ValueError("keyword arguments are not allowed in the sandbox")
+
+
+def _eval_sandboxed(expression: str) -> Any:
+    """Evaluate `expression` under the AST allowlist. Raises ValueError on violation."""
+    tree = ast.parse(expression, mode="eval")
+    for node in ast.walk(tree):
+        if not isinstance(node, tuple(ntype for ntype, _ in _ALLOWED_AST_NODES)):
+            raise ValueError(f"disallowed AST node: {type(node).__name__}")
+        if isinstance(node, ast.Call):
+            _check_call(node)
+    # After the walk confirms the tree is clean, compile + eval in the safe namespace.
+    code = compile(tree, "<sandbox>", "eval")
+    return eval(code, {"__builtins__": {}}, _SAFE_NAMES)  # noqa: S307 — guarded by AST walk above
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -32,13 +92,13 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     last_error: str | None = None
     for attempt in range(max_attempts):
         try:
-            result = eval(str(expression), {"__builtins__": {}}, _SAFE_NAMES)  # noqa: S307
+            result = _eval_sandboxed(str(expression))
             if isinstance(result, float):
                 result = round(result, precision_digits)
             result_type = type(result).__name__
             # Re-evaluate for validation_count-1 additional passes (verification)
             for _ in range(validation_count - 1):
-                eval(str(expression), {"__builtins__": {}}, _SAFE_NAMES)  # noqa: S307
+                _eval_sandboxed(str(expression))
             # MSB OUTPUT CONTRACT (seed/msb/compute.msb lines 39-47):
             #   { input: "any", operation: "string", result: "any",
             #     resultType: "string", precision: "string", steps: ["string"] }

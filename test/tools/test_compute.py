@@ -227,13 +227,12 @@ class TestFailurePaths:
 
     def test_unsupported_operation_returns_failure(self):
         """MSB FAILURE MODES: 'Unsupported operation type: return FAILURE — do
-        not guess or hallucinate.' Calling e.g. open() raises NameError since
-        it's not in _SAFE_NAMES."""
+        not guess or hallucinate.' Calling e.g. open() is blocked because
+        it's not in _SAFE_NAMES (checked by _check_call in the AST walker)."""
         r = run({"input": "open('/tmp/foo')"})
         assert r.ok is False
         assert r.error is not None
         assert "open" in r.error
-        assert "not defined" in r.error
 
     def test_syntax_error_returns_failure(self):
         r = run({"input": "2 +"})
@@ -268,6 +267,99 @@ class TestSafeNameSandbox:
         """`_`-prefixed math names (e.g., math.__doc__) are deliberately
         excluded from _SAFE_NAMES."""
         r = run({"input": "math.__doc__"})
+        assert r.ok is False
+
+
+class TestSafeNameSandbox_AttributeIntrospection:
+    """PKT-575 regression — the §3 escape chains MUST all raise (not silently succeed).
+
+    Before PKT-575 these chains returned ok=True with correctness=1.0, achieving
+    full host RCE from a single compute slot. After PKT-575 each must raise
+    either a ValueError (caught by run() as a failed-attempt error) or any
+    exception that causes run() to return ok=False.
+    """
+
+    def test_chain1_attribute_on_int_literal_blocked(self):
+        """`(1).__class__` — Attribute access blocked at AST level."""
+        r = run({"input": "(1).__class__"})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_chain2_builtinimporter_load_module_blocked(self):
+        """The canonical PKT-475 §3 chain — must NOT achieve RCE."""
+        chain = (
+            "[c for c in ().__class__.__base__.__subclasses__()"
+            " if c.__name__ == 'BuiltinImporter'][0]"
+            ".load_module('os').system('id')"
+        )
+        r = run({"input": chain})
+        assert r.ok is False
+        assert r.correctness == 0.0
+
+    def test_chain3_catch_warnings_module_access_blocked(self):
+        """PKT-475 §3 chain 1 — warnings.catch_warnings._module.__builtins__."""
+        chain = (
+            "[c for c in ().__class__.__base__.__subclasses__()"
+            " if c.__name__ == 'catch_warnings'][0]()._module"
+            ".__builtins__['__import__']('os').system('id')"
+        )
+        r = run({"input": chain})
+        assert r.ok is False
+
+    def test_chain4_subscript_attribute_blocked(self):
+        """`[] .__class__.__bases__[0].__subclasses__()` — Subscript + Attribute blocked."""
+        chain = "[] .__class__.__bases__[0].__subclasses__()"
+        r = run({"input": chain})
+        assert r.ok is False
+
+    def test_chain5_lambda_blocked(self):
+        """Lambdas can capture arbitrary scope. AST allowlist rejects Lambda."""
+        r = run({"input": "(lambda: __import__('os').system('id'))()"})
+        assert r.ok is False
+
+    def test_chain6_kwargs_spread_blocked(self):
+        """`**kwargs` spread is rejected by _check_call."""
+        r = run({"input": "abs(**{'x': -99})"})
+        assert r.ok is False
+
+    def test_chain7_attribute_call_blocked(self):
+        """`(1).__class__.__bases__(...)` — Attribute + Call chained."""
+        r = run({"input": "(1).__class__.__bases__(0)"})
+        assert r.ok is False
+
+    def test_chain8_nested_comprehension_blocked(self):
+        """`[[x for x in y] for y in z]` — both ListComp layers blocked."""
+        r = run({"input": "[[x for x in (1,)] for y in (1,)]"})
+        assert r.ok is False
+
+    def test_chain9_dict_comp_blocked(self):
+        """`{k: v for k, v in ...}` — DictComp blocked."""
+        r = run({"input": "{k: v for k, v in [('a', 1)]}"})
+        assert r.ok is False
+
+    def test_chain10_generator_expr_blocked(self):
+        """`(x for x in ...)` — GeneratorExp blocked."""
+        r = run({"input": "list(x for x in (1,))"})
+        assert r.ok is False
+
+    def test_existing_math_names_still_work(self):
+        """Re-grounding: these MUST still pass after the fix."""
+        for expr, expected in [
+            ("abs(-99)", 99),
+            ("sqrt(144)", 12.0),
+            ("pow(2, 10)", 1024),
+            ("pi", round(math.pi, 6)),  # compute.py rounds floats to precision_digits=6 by default
+            ("min(5,3,8)", 3),
+        ]:
+            r = run({"input": expr})
+            assert r.ok is True, f"regression: {expr} broke after PKT-575"
+            assert r.output["result"] == expected
+
+    def test_existing_blocked_still_blocked(self):
+        """Re-grounding: `math.__doc__` and `open(...)` MUST still fail."""
+        r = run({"input": "math.__doc__"})
+        assert r.ok is False
+        r = run({"input": "open('/tmp/x')"})
         assert r.ok is False
 
 
