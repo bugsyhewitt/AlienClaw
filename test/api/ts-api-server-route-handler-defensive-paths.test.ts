@@ -338,6 +338,8 @@ describe('API server: route-handler defensive paths', () => {
     let parsed: unknown = null;
     try { parsed = JSON.parse(text); } catch { /* keep null */ }
     expect((parsed as {error: {code: string}}).error.code).toBe('INTERNAL_ERROR');
+    expect(res.headers.get('content-type')).toBe('application/json');
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
   });
 
   // ── Bonus: 404 NOT_FOUND for a non-existent POST path (server.ts:282) ──
