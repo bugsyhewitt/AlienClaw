@@ -163,11 +163,14 @@ export class NetworkAPIClient {
     if (res.ok) {
       return { ok: true, status: res.status, data: json as T };
     }
-    const errBody = json as APIError;
+    const errBody = json as APIError | null;
+    const err = errBody && typeof errBody === 'object' && errBody.error
+      ? errBody.error
+      : { code: 'UNKNOWN_ERROR', message: String(json) };
     return {
       ok: false,
       status: res.status,
-      error: errBody.error ?? { code: 'UNKNOWN_ERROR', message: String(json) },
+      error: err,
     };
   }
 }
