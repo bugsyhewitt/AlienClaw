@@ -253,8 +253,11 @@ export class InMemoryEvolutionStore implements EvolutionStore {
   async lineageLessons(genomeId: string): Promise<string[]> {
     const lessons: string[] = [];
     const seen = new Set<string>();
+    const visited = new Set<string>();
     let current: string | null = genomeId;
     while (current) {
+      if (visited.has(current)) break;
+      visited.add(current);
       const edge = this.lineage.find(e => e.childId === current);
       if (!edge) break;
       const lesson = edge.reflection?.lesson;

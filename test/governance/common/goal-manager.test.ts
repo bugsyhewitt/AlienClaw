@@ -383,6 +383,62 @@ describe('GoalManager.getReadySubGoals()', () => {
   });
 });
 
+// ─── 6b. getReadySubGoals() — malformed dependsOn (PKT-559) ─────────────────
+
+describe('GoalManager.getReadySubGoals() — malformed dependsOn (PKT-559)', () => {
+  it('does not throw and skips sub-goal with dependsOn: undefined', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [
+      makeSubGoal('sg-ok', { status: 'pending', dependsOn: [] }),
+      { ...makeSubGoal('sg-bad'), dependsOn: undefined },
+    ]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadySubGoals(file, 'g1')).not.toThrow();
+    const ready = gm.getReadySubGoals(file, 'g1').map(s => s.id);
+    expect(ready).toEqual(['sg-ok']);
+  });
+
+  it('does not throw and skips sub-goal with dependsOn: null', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [
+      makeSubGoal('sg-ok', { status: 'pending', dependsOn: [] }),
+      { ...makeSubGoal('sg-bad'), dependsOn: null },
+    ]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadySubGoals(file, 'g1')).not.toThrow();
+    const ready = gm.getReadySubGoals(file, 'g1').map(s => s.id);
+    expect(ready).toEqual(['sg-ok']);
+  });
+
+  it('does not throw and skips sub-goal with dependsOn: "abc" (string)', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [
+      makeSubGoal('sg-ok', { status: 'pending', dependsOn: [] }),
+      { ...makeSubGoal('sg-bad'), dependsOn: 'abc' },
+    ]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadySubGoals(file, 'g1')).not.toThrow();
+    const ready = gm.getReadySubGoals(file, 'g1').map(s => s.id);
+    expect(ready).toEqual(['sg-ok']);
+  });
+
+  it('does not throw and skips sub-goal with dependsOn: 0 (number)', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [
+      makeSubGoal('sg-ok', { status: 'pending', dependsOn: [] }),
+      { ...makeSubGoal('sg-bad'), dependsOn: 0 },
+    ]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadySubGoals(file, 'g1')).not.toThrow();
+    const ready = gm.getReadySubGoals(file, 'g1').map(s => s.id);
+    expect(ready).toEqual(['sg-ok']);
+  });
+});
+
 // ─── 7. isGoalComplete() ────────────────────────────────────────────────────
 
 describe('GoalManager.isGoalComplete()', () => {
@@ -567,6 +623,86 @@ describe('GoalManager.getReadyCampaigns()', () => {
     // c-c: dep c-a pending → NOT ready
     // c-d: no deps → ready
     // c-e: status=active → NOT ready
+    expect(ready).toEqual(['c-a', 'c-d']);
+  });
+});
+
+// ─── 12b. getReadyCampaigns() — malformed dependsOn (PKT-559) ───────────────
+
+describe('GoalManager.getReadyCampaigns() — malformed dependsOn (PKT-559)', () => {
+  it('does not throw and skips campaign with dependsOn: undefined', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([
+        makeCampaign('c-ok', { status: 'pending', dependsOn: [] }),
+        { ...makeCampaign('c-bad'), dependsOn: undefined },
+      ]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    const ready = gm.getReadyCampaigns(file, 'g1').map(c => c.id);
+    expect(ready).toEqual(['c-ok']);
+  });
+
+  it('does not throw and skips campaign with dependsOn: null', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([
+        makeCampaign('c-ok', { status: 'pending', dependsOn: [] }),
+        { ...makeCampaign('c-bad'), dependsOn: null },
+      ]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    const ready = gm.getReadyCampaigns(file, 'g1').map(c => c.id);
+    expect(ready).toEqual(['c-ok']);
+  });
+
+  it('does not throw and skips campaign with dependsOn: "abc" (string)', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([
+        makeCampaign('c-ok', { status: 'pending', dependsOn: [] }),
+        { ...makeCampaign('c-bad'), dependsOn: 'abc' },
+      ]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    const ready = gm.getReadyCampaigns(file, 'g1').map(c => c.id);
+    expect(ready).toEqual(['c-ok']);
+  });
+
+  it('does not throw and skips campaign with dependsOn: 0 (number)', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([
+        makeCampaign('c-ok', { status: 'pending', dependsOn: [] }),
+        { ...makeCampaign('c-bad'), dependsOn: 0 },
+      ]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    const ready = gm.getReadyCampaigns(file, 'g1').map(c => c.id);
+    expect(ready).toEqual(['c-ok']);
+  });
+
+  it('mixed: well-formed pending + malformed dependsOn — returns only well-formed', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([
+        makeCampaign('c-a', { status: 'pending', dependsOn: [] }),
+        { ...makeCampaign('c-b'), dependsOn: undefined },
+        makeCampaign('c-c', { status: 'complete', dependsOn: [] }),
+        makeCampaign('c-d', { status: 'pending', dependsOn: ['c-c'] }),
+      ]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    const ready = gm.getReadyCampaigns(file, 'g1').map(c => c.id).sort();
     expect(ready).toEqual(['c-a', 'c-d']);
   });
 });
