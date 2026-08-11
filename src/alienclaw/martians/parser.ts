@@ -324,7 +324,13 @@ export function parseMartian(content: string, sourcePath = '<string>'): MartianS
       }
     }
     const slotIndex = _parseStrictSlotIndex(slotRaw['slot_index'], sourcePath, i);
-    const toolName  = String(slotRaw['tool_name']);
+    const rawToolName = slotRaw['tool_name'];
+    if (typeof rawToolName !== 'string') {
+      throw new MartianParseError(
+        `${sourcePath}: slot ${i} tool_name must be a string; got ${JSON.stringify(rawToolName)}`
+      );
+    }
+    const toolName = rawToolName;
 
     const rawInputs = slotRaw['inputs_from'] ?? null;
     let inputsFrom: InputWiring | null;

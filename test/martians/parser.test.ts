@@ -617,23 +617,19 @@ describe('parseMartian — remaining reachable defensive branches (packet 109)',
   // ── line 142: obj[key] = null in _parseMapping ────────────────────────
   //
   // A bare key with a colon and an empty value (no nested block at deeper
-  // indent) yields the slot's tool_name as null. The MartianSpec constructor
-  // coerces null to the string "null" via String(null) at the field-extraction
-  // step (see parser.ts:284 `String(slotRaw['tool_name'])`), so the resulting
-  // spec has tool_name: "null" (NOT empty string, NOT undefined).
+  // indent) yields the slot's tool_name as null. PKT-582 added a typeof guard
+  // that now rejects null with a precise "tool_name must be a string" error
+  // instead of silently coercing via String(null).
 
-  it('line 142: slot-level key with empty value + no nested block → toolName coerces to "null"', () => {
+  it('line 142: slot-level key with empty value + no nested block → throws (PKT-582 type guard)', () => {
     const md = `\
 martian_type: x
 slots:
   - slot_index: 0
     tool_name:`;
-    const spec = parseMartian(md);
-    expect(spec.martianType).toBe('x');
-    expect(spec.slots).toHaveLength(1);
-    expect(spec.slots[0]!.slotIndex).toBe(0);
-    // String(null) = "null" — pin the actual coercion behavior.
-    expect(spec.slots[0]!.toolName).toBe('null');
+    // Previously coerced null → "null" via String(null). Now rejected.
+    expect(() => parseMartian(md)).toThrow(MartianParseError);
+    expect(() => parseMartian(md)).toThrow(/tool_name must be a string/);
   });
 
   it('line 142: top-level key with empty value + no nested block → raw value is null', () => {
@@ -828,5 +824,40 @@ slots:
 `;
     const spec = parseMartian(md);
     expect(spec.slots[0]!.slotIndex).toBe(7);
+  });
+});
+
+// ── describe: parseMartian — tool_name type guard (PKT-582) ─────────────
+describe('parseMartian — tool_name type guard (PKT-582)', () => {
+  it('throws when tool_name is null', () => {
+    const md = 'martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: null\n';
+    expect(() => parseMartian(md)).toThrow(/tool_name must be a string/);
+  });
+
+  it('throws when tool_name is an integer', () => {
+    const md = 'martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: 42\n';
+    expect(() => parseMartian(md)).toThrow(/tool_name must be a string/);
+  });
+
+  it('throws when tool_name is a boolean', () => {
+    const md = 'martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: true\n';
+    expect(() => parseMartian(md)).toThrow(/tool_name must be a string/);
+  });
+
+  it('accepts tool_name: 3.14 — custom YAML parser has no float type; returns string "3.14"', () => {
+    // The custom YAML parser does not parse floats (only integers via /^-?\d+$/).
+    // So 3.14 arrives at the type guard already as the string "3.14" — no throw.
+    const md = 'martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: 3.14\n';
+    expect(() => parseMartian(md)).not.toThrow();
+  });
+
+  it('throws when tool_name is a mapping ({})', () => {
+    const md = 'martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: {}\n';
+    expect(() => parseMartian(md)).toThrow(/tool_name must be a string/);
+  });
+
+  it('accepts a quoted digit-only tool_name ("42")', () => {
+    const md = 'martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: "42"\n';
+    expect(() => parseMartian(md)).not.toThrow();
   });
 });
