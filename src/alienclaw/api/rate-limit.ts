@@ -46,7 +46,20 @@ export class RateLimiter {
     }
     try {
       const state: RateState = JSON.parse(readFileSync(path, 'utf8'));
-      this._cache.set(installId, state.window_timestamps.map(iso => new Date(iso).getTime() / 1000));
+      const raw = Array.isArray(state.window_timestamps) ? state.window_timestamps : [];
+      const mapped = raw.map((iso: unknown) =>
+        typeof iso === 'string' ? new Date(iso).getTime() / 1000 : NaN,
+      );
+      if (mapped.length === 0) {
+        this._cache.set(installId, []);
+      } else if (mapped.every((t: number) => Number.isFinite(t))) {
+        this._cache.set(installId, mapped);
+      } else {
+        // FAIL CLOSED per overmind directive 2026-08-01T11:28:05Z (PKT-473 re-author, PKT-496):
+        // any non-empty file with ≥1 unparseable timestamp ⇒ treat as limit-reached.
+        // Prevents a corrupted rate_limit file from silently restoring the per-install budget.
+        this._cache.set(installId, new Array(this._limit).fill(Date.now() / 1000));
+      }
     } catch {
       this._cache.set(installId, []);
     }
