@@ -92,8 +92,6 @@ def sample_landscape(
             })
 
     fitnesses = [r["formula_fitness"] for r in all_records]
-    formula_name = all_records[0]["formula_fitness"] if all_records else "unknown"
-    # Get formula name from a test run
     test_result = formula_fn(1.0, slot_count, slot_count, **formula_kwargs)
 
     return {
