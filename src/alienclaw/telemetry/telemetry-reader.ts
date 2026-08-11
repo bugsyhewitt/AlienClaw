@@ -67,9 +67,13 @@ export async function readRecentMartianReports(sinceMs: number): Promise<Martian
       }
       for (const entry of entries) {
         if (!entry.endsWith('.json')) continue;
-        // Skip non-report files (advisory_*, failforward_*)
+        // Skip non-report files (advisory_*, failforward_*, agent-channel*).
+        // Note: readdir returns basenames only (no slashes), so the agent-channel
+        // subdirectory itself is already filtered by !entry.endsWith('.json') above.
+        // The prefix check below guards against any top-level file whose basename
+        // starts with "agent-channel" (e.g. a write that lands outside the subdir).
         if (entry.startsWith('advisory_') || entry.startsWith('failforward_')) continue;
-        if (entry.startsWith('agent-channel/')) continue;
+        if (entry.startsWith('agent-channel')) continue;
         try {
           const raw = await readFile(join(dirPath, entry), 'utf-8');
           const parsed = JSON.parse(raw) as MartianReport;

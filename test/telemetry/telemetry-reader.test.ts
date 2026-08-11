@@ -13,8 +13,10 @@
  *   The module has ZERO throw sites (verified §G-1). All failure modes are
  *   catch-and-skip: a missing telemetry dir returns []; unreadable subdirs are
  *   skipped; malformed JSON files are skipped; files without martianId are
- *   skipped; non-report files (advisory_*, failforward_*, agent-channel/) are
- *   skipped.
+ *   skipped; non-report files (advisory_*, failforward_*) are skipped; entries
+ *   whose basename starts with "agent-channel" are skipped (the subdirectory is
+ *   caught first by the .json extension guard; top-level agent-channel* files
+ *   are caught by the explicit prefix check — packet 521).
  *
  *   `readRecentMartianReports` is called by `src/alienclaw/wiring/hierarchy-bootstrap.ts:139, 194`
  *   (production-critical bootstrap path, invoked at CLI startup). `summarizeFitness`
@@ -248,6 +250,40 @@ describe('readRecentMartianReports', () => {
     const { readRecentMartianReports } = await loadReader();
     const result = await readRecentMartianReports(0);
     expect(result.map(r => r.martianId)).toEqual(['M1', 'M2', 'M3']);
+  });
+
+  it('skips top-level files whose name starts with the agent-channel prefix', async () => {
+    // Regression test for packet 521: the dead check `entry.startsWith('agent-channel/')`
+    // never fires because readdir returns basenames (no slashes). A top-level file
+    // named `agent-channel-leaked.json` passed through unguarded. The fix changes
+    // the check to `entry.startsWith('agent-channel')` (no trailing slash).
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    writeReport(root, date, 'good.json', { ts: Date.now(), martianId: 'M-keep' });
+    writeReport(root, date, 'agent-channel-leaked.json', { ts: Date.now() + 1, martianId: 'M-leak' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-keep']);
+  });
+
+  it('skips the agent-channel/ subdirectory via the .json extension guard', async () => {
+    // The agent-channel subdirectory entry (`agent-channel`, no trailing slash,
+    // no .json extension) is filtered by `!entry.endsWith('.json')` at line 69.
+    // This test documents that existing behaviour and ensures the subdirectory
+    // is never recursed into or mistaken for a Martian report.
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const { mkdirSync: mkdir, writeFileSync: write } = await import('node:fs');
+    writeReport(root, date, 'good.json', { ts: Date.now(), martianId: 'M-keep' });
+    mkdir(join(root, date, 'agent-channel'), { recursive: true });
+    write(
+      join(root, date, 'agent-channel', 'BossBot-AdvisorBot-1.json'),
+      JSON.stringify({ from: 'BossBot', to: 'AdvisorBot', kind: 'request', content: 'x', ts: 1 }),
+      'utf-8',
+    );
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-keep']);
   });
 
   it('aggregates reports across multiple date directories in chronological order', async () => {
