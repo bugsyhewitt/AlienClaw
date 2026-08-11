@@ -16,20 +16,34 @@ const SOUL_PATH  = join(__dirname, '..', 'prompts', 'bossbot.soul.md');
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function parseSubGoals(raw: string): SubGoal[] {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return [];
   return parseModelJson(
-    raw,
-    parsed => (parsed as Array<{
-      description: string;
-      domain?: string;
-      dependsOn?: string[];
-    }>).map(item => ({
-      id:          crypto.randomUUID(),
-      description: item.description,
-      domain:      item.domain ?? 'general',
-      status:      'pending' as const,
-      dependsOn:   item.dependsOn ?? [],
-    })),
-    // Graceful fallback: treat raw text as a single sub-goal
+    trimmed,
+    parsed => {
+      if (!Array.isArray(parsed)) return [];
+      const out: SubGoal[] = [];
+      for (const item of parsed) {
+        if (item === null || typeof item !== 'object' || Array.isArray(item)) continue;
+        const rec = item as Record<string, unknown>;
+        const description = rec.description;
+        if (typeof description !== 'string' || description.length === 0) continue;
+        const deps = rec.dependsOn;
+        if (deps !== undefined && !Array.isArray(deps)) continue;
+        const cleanDeps = Array.isArray(deps)
+          ? deps.filter((d: unknown): d is string => typeof d === 'string')
+          : [];
+        out.push({
+          id:          crypto.randomUUID(),
+          description,
+          domain:      typeof rec.domain === 'string' ? rec.domain : 'general',
+          status:      'pending' as const,
+          dependsOn:   cleanDeps,
+        });
+      }
+      return out;
+    },
+    // Non-JSON fallback: PRESERVED (existing tests L52-60, L62-66)
     clean => [{
       id:          crypto.randomUUID(),
       description: clean.slice(0, 200),
@@ -43,72 +57,112 @@ export function parseSubGoals(raw: string): SubGoal[] {
 // ── Scheme parser ─────────────────────────────────────────────────────────────
 
 export function parseSchemeDraft(goalId: string, raw: string): Scheme {
-  return parseModelJson(raw, (json) => {
-    const parsed = json as {
-      rationale: string;
-      campaigns: Array<{
-        name:        string;
-        objective:   string;
-        dependsOn?:  string[];
-        subagents:   Array<{
-          role:          string;
-          domain:        string;
-          knowledgeBase: string;
-          martianTags?: string[];
-        }>;
-      }>;
-    };
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    throw new Error('parseSchemeDraft: empty LLM output cannot produce a scheme');
+  }
+  // Strip markdown fences (same as parseModelJson does internally)
+  const clean = trimmed.replace(/```(?:json)?\n?/g, '').trim();
 
-    const campaigns: Campaign[] = parsed.campaigns.map(c => ({
-      id:          crypto.randomUUID(),
-      name:        c.name,
-      objective:   c.objective,
-      dependsOn:   c.dependsOn ?? [],
-      status:      'pending' as const,
-      subagents:   c.subagents.map(s => ({
-        role:          s.role,
-        domain:        s.domain ?? 'general',
-        knowledgeBase: s.knowledgeBase ?? '',
-        martianTags:  s.martianTags ?? [],
-      }) satisfies SubagentRole),
-    }));
+  // Attempt JSON parse: if it fails, fall to non-JSON text fallback (PRESERVED)
+  let json: unknown;
+  let jsonParsed = false;
+  try {
+    json = JSON.parse(clean);
+    jsonParsed = true;
+  } catch {
+    // genuine non-JSON output from LLM — fall through to text fallback
+  }
 
-    // Resolve dependsOn: names → IDs
-    const nameToId = new Map(campaigns.map(c => [c.name, c.id]));
-    for (const campaign of campaigns) {
-      campaign.dependsOn = campaign.dependsOn
-        .map(dep => nameToId.get(dep) ?? dep)
-        .filter(id => campaigns.some(c => c.id === id));
-    }
-
+  if (!jsonParsed) {
+    // Non-JSON fallback: PRESERVED (existing tests L129-140, L142-146)
     return {
       goalId,
-      rationale:          parsed.rationale ?? '',
-      campaigns,
+      rationale: 'LLM produced non-JSON output; falling back to single-campaign scheme.',
+      campaigns: [{
+        id:          crypto.randomUUID(),
+        name:        'Main Campaign',
+        objective:   clean.slice(0, 200),
+        dependsOn:   [],
+        status:      'pending',
+        subagents:   [{
+          role:          'Generalist',
+          domain:        'general',
+          knowledgeBase: '',
+          martianTags:   ['web_search', 'file_read', 'file_write'],
+        }],
+      }],
       advisorEndorsement: '',
       createdAt:          Date.now(),
     };
-  },
-  // Graceful fallback — single campaign, single generalist role
-  clean => ({
+  }
+
+  // JSON parsed — validate structure and throw on malformed shape
+  if (json === null || typeof json !== 'object' || Array.isArray(json)) {
+    throw new Error('parseSchemeDraft: expected JSON object');
+  }
+  const parsed = json as { rationale?: unknown; campaigns?: unknown };
+  const rawCampaigns = parsed.campaigns;
+  if (!Array.isArray(rawCampaigns)) {
+    throw new Error('parseSchemeDraft: expected campaigns array');
+  }
+  const campaigns: Campaign[] = [];
+  for (const c of rawCampaigns) {
+    if (c === null || typeof c !== 'object' || Array.isArray(c)) continue;
+    const rec = c as Record<string, unknown>;
+    const name = rec.name;
+    const objective = rec.objective;
+    if (typeof name !== 'string' || name.length === 0) continue;
+    if (typeof objective !== 'string') continue;
+    const rawSubs = rec.subagents;
+    if (rawSubs !== undefined && !Array.isArray(rawSubs)) continue;
+    const subagents: SubagentRole[] = [];
+    if (Array.isArray(rawSubs)) {
+      for (const s of rawSubs) {
+        if (s === null || typeof s !== 'object' || Array.isArray(s)) continue;
+        const srec = s as Record<string, unknown>;
+        const role = srec.role;
+        if (typeof role !== 'string' || role.length === 0) continue;
+        subagents.push({
+          role,
+          domain:        typeof srec.domain === 'string' ? srec.domain : 'general',
+          knowledgeBase: typeof srec.knowledgeBase === 'string' ? srec.knowledgeBase : '',
+          martianTags:   Array.isArray(srec.martianTags)
+            ? srec.martianTags.filter((t: unknown): t is string => typeof t === 'string')
+            : [],
+        } satisfies SubagentRole);
+      }
+    }
+    const rawDeps = rec.dependsOn;
+    const cleanDeps = Array.isArray(rawDeps)
+      ? rawDeps.filter((d: unknown): d is string => typeof d === 'string')
+      : [];
+    campaigns.push({
+      id:        crypto.randomUUID(),
+      name,
+      objective,
+      dependsOn: cleanDeps,
+      status:    'pending' as const,
+      subagents,
+    });
+  }
+  if (campaigns.length === 0) {
+    throw new Error('parseSchemeDraft: no valid campaigns after parsing');
+  }
+  // Resolve dependsOn: names → IDs (post-filtering)
+  const nameToId = new Map(campaigns.map(c => [c.name, c.id]));
+  for (const campaign of campaigns) {
+    campaign.dependsOn = campaign.dependsOn
+      .map(dep => nameToId.get(dep) ?? dep)
+      .filter(id => campaigns.some(c => c.id === id));
+  }
+  return {
     goalId,
-    rationale: 'LLM produced non-JSON output; falling back to single-campaign scheme.',
-    campaigns: [{
-      id:          crypto.randomUUID(),
-      name:        'Main Campaign',
-      objective:   clean.slice(0, 200),
-      dependsOn:   [],
-      status:      'pending',
-      subagents:   [{
-        role:          'Generalist',
-        domain:        'general',
-        knowledgeBase: '',
-        martianTags:   ['web_search', 'file_read', 'file_write'],
-      }],
-    }],
+    rationale:          typeof parsed.rationale === 'string' ? parsed.rationale : '',
+    campaigns,
     advisorEndorsement: '',
     createdAt:          Date.now(),
-  }));
+  };
 }
 
 // ── BossBot ───────────────────────────────────────────────────────────────────
