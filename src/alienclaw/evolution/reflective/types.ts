@@ -86,6 +86,7 @@ export interface CostRecord {
   readonly dollars: number;
   readonly toolCalls: number;
   readonly wallMs: number;
+  readonly slotCount?: number;
 }
 
 // ── Objectives ───────────────────────────────────────────────────────────────

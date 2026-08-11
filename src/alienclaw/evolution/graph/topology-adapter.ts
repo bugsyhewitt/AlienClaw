@@ -48,6 +48,7 @@ export class TopologyAdapter implements GenomeAdapter {
       const correctnessScore = Math.min(1, (partitionLen / 300) * (subagentCount / 2));
       const wallMs = 300 + (opts.seed % 600);
       const dollars = subagentCount * 0.003;
+      const slotCount = candidate.toolSlots.length || 1;
       const trace: BaseTrace = {
         runId: randomUUID(),
         genomeId: candidate.id,
@@ -62,7 +63,7 @@ export class TopologyAdapter implements GenomeAdapter {
           evidence: `stub topology evaluation: subagent_count=${subagentCount} partition_len=${partitionLen}`,
           confidence: correctnessScore,
         },
-        cost: { inputTokens: 400, outputTokens: 200, dollars, toolCalls: 0, wallMs },
+        cost: { inputTokens: 400, outputTokens: 200, dollars, toolCalls: 0, slotCount, wallMs },
         startedAt: new Date().toISOString(),
         endedAt: new Date().toISOString(),
       };

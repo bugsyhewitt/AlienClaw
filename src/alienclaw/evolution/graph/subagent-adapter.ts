@@ -63,6 +63,7 @@ export class SubagentAdapter implements GenomeAdapter {
       const correctnessScore = Math.min(1, (roleLen + decompLen) / 500);
       const wallMs = 200 + (opts.seed % 800);
       const dollars = 0.002;
+      const slotCount = candidate.toolSlots.length || 1;
       const trace: BaseTrace = {
         runId: randomUUID(),
         genomeId: candidate.id,
@@ -77,7 +78,7 @@ export class SubagentAdapter implements GenomeAdapter {
           evidence: `stub subagent evaluation: role_len=${roleLen} decomp_len=${decompLen}`,
           confidence: correctnessScore,
         },
-        cost: { inputTokens: 200, outputTokens: 100, dollars, toolCalls: 0, wallMs },
+        cost: { inputTokens: 200, outputTokens: 100, dollars, toolCalls: 0, slotCount, wallMs },
         startedAt: new Date().toISOString(),
         endedAt: new Date().toISOString(),
       };
