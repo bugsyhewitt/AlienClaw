@@ -18,10 +18,20 @@ from __future__ import annotations
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from unittest import mock
 
 import pytest
 
 from alienclaw.tools.http_get import run as http_get_run
+
+
+# PKT-577: existing tests use 127.0.0.1 local servers to test content-handling
+# logic, not SSRF guarding. Bypass the guard so these tests remain faithful to
+# their intent. SSRF-specific coverage is in test_http_get_ssrf.py.
+@pytest.fixture(autouse=True)
+def _bypass_ssrf_guard():
+    with mock.patch("alienclaw.tools.http_get.assert_safe_fetch_url", lambda u: u):
+        yield
 
 
 # ── Test stub server ──────────────────────────────────────────────────────

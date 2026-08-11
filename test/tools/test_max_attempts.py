@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import urllib.error
 from io import BytesIO
+from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -59,6 +60,19 @@ def _raise_url_error(msg: str = "Name or service not known") -> urllib.error.URL
 
 class TestUrlFetchMaxAttempts:
     """url_fetch.run() honors params['max_attempts'] for transient retries."""
+
+    # PKT-577: bypass the SSRF guard and bridge opener.open() → urllib.request.urlopen
+    # so existing mock-urllib tests keep their call_count assertions intact.
+    @pytest.fixture(autouse=True)
+    def _bypass_ssrf_and_link_opener(self):
+        _mod = url_fetch_mod
+        fake_opener = MagicMock()
+        fake_opener.open.side_effect = (
+            lambda req, timeout=None: _mod.urllib.request.urlopen(req, timeout=timeout)
+        )
+        with mock.patch("alienclaw.tools.url_fetch.assert_safe_fetch_url", lambda u: u):
+            with mock.patch("alienclaw.tools.url_fetch.build_no_redirect_opener", return_value=fake_opener):
+                yield
 
     def test_default_max_attempts_is_one_preserves_current_behavior(self):
         """No max_attempts in params → exactly 1 attempt, same as before packet 110."""
@@ -182,6 +196,18 @@ class TestUrlFetchMaxAttempts:
 
 class TestHttpGetMaxAttempts:
     """http_get.run() honors params['max_attempts'] for transient retries."""
+
+    # PKT-577: bypass the SSRF guard and bridge opener.open() → urllib.request.urlopen.
+    @pytest.fixture(autouse=True)
+    def _bypass_ssrf_and_link_opener(self):
+        _mod = http_get_mod
+        fake_opener = MagicMock()
+        fake_opener.open.side_effect = (
+            lambda req, timeout=None: _mod.urllib.request.urlopen(req, timeout=timeout)
+        )
+        with mock.patch("alienclaw.tools.http_get.assert_safe_fetch_url", lambda u: u):
+            with mock.patch("alienclaw.tools.http_get.build_no_redirect_opener", return_value=fake_opener):
+                yield
 
     def test_default_max_attempts_is_one_preserves_current_behavior(self):
         """No max_attempts in params → exactly 1 attempt."""
