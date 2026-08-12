@@ -196,3 +196,131 @@ describe('AuditLog — failure path', () => {
     );
   });
 });
+
+describe('AuditLog.record — non-finite fitness flagging (PKT-609)', () => {
+  function readEntry(idx: number): Record<string, unknown> {
+    const today = new Date().toISOString().slice(0, 10);
+    const content = readFileSync(
+      join(dataRoot, 'audit', `submissions-${today}.jsonl`), 'utf8'
+    );
+    const lines = content.split('\n').filter(l => l.length > 0);
+    return JSON.parse(lines[idx]!);
+  }
+
+  it('fitness: NaN (rejected) -> on-disk fitness:null + fitness_was_nonfinite:true', () => {
+    const al = new AuditLog({ dataRoot });
+    al.record({
+      apiKeyHash: 'k', martianType: 'mt', genome: 'A'.repeat(256),
+      fitness: NaN, result: 'rejected', rejectionCode: 'INVALID_FITNESS_RANGE',
+    });
+    const entry = readEntry(0);
+    expect(entry.fitness).toBeNull();
+    expect(entry.fitness_was_nonfinite).toBe(true);
+    expect(entry.rejection_code).toBe('INVALID_FITNESS_RANGE');
+  });
+
+  it('fitness: +Infinity (rejected) -> on-disk fitness:null + fitness_was_nonfinite:true', () => {
+    const al = new AuditLog({ dataRoot });
+    al.record({
+      apiKeyHash: 'k', martianType: 'mt', genome: 'A'.repeat(256),
+      fitness: Infinity, result: 'rejected', rejectionCode: 'INVALID_FITNESS_RANGE',
+    });
+    const entry = readEntry(0);
+    expect(entry.fitness).toBeNull();
+    expect(entry.fitness_was_nonfinite).toBe(true);
+  });
+
+  it('fitness: -Infinity (rejected) -> on-disk fitness:null + fitness_was_nonfinite:true', () => {
+    const al = new AuditLog({ dataRoot });
+    al.record({
+      apiKeyHash: 'k', martianType: 'mt', genome: 'A'.repeat(256),
+      fitness: -Infinity, result: 'rejected', rejectionCode: 'INVALID_FITNESS_RANGE',
+    });
+    const entry = readEntry(0);
+    expect(entry.fitness).toBeNull();
+    expect(entry.fitness_was_nonfinite).toBe(true);
+  });
+
+  it('fitness: NaN (accepted path) -> on-disk fitness:null + fitness_was_nonfinite:true (the worst case)', () => {
+    const al = new AuditLog({ dataRoot });
+    al.record({
+      apiKeyHash: 'k', martianType: 'mt', genome: 'A'.repeat(256),
+      fitness: NaN, result: 'accepted',
+    });
+    const entry = readEntry(0);
+    expect(entry.fitness).toBeNull();
+    expect(entry.fitness_was_nonfinite).toBe(true);
+    expect(entry.result).toBe('accepted');
+  });
+
+  it('fitness: 0.5 (finite, accepted) -> on-disk fitness:0.5 + fitness_was_nonfinite:false (regression)', () => {
+    const al = new AuditLog({ dataRoot });
+    al.record({
+      apiKeyHash: 'k', martianType: 'mt', genome: 'A'.repeat(256),
+      fitness: 0.5, result: 'accepted',
+    });
+    const entry = readEntry(0);
+    expect(entry.fitness).toBe(0.5);
+    expect(typeof entry.fitness).toBe('number');
+    expect(entry.fitness_was_nonfinite).toBe(false);
+  });
+
+  it('fitness: 0 (finite, rejected) -> on-disk fitness:0 + fitness_was_nonfinite:false (regression)', () => {
+    const al = new AuditLog({ dataRoot });
+    al.record({
+      apiKeyHash: 'k', martianType: 'mt', genome: 'A'.repeat(256),
+      fitness: 0, result: 'rejected', rejectionCode: 'INVALID_FITNESS_RANGE',
+    });
+    const entry = readEntry(0);
+    expect(entry.fitness).toBe(0);
+    expect(entry.fitness_was_nonfinite).toBe(false);
+    expect(entry.rejection_code).toBe('INVALID_FITNESS_RANGE');
+  });
+
+  it('fitness: 1.0 (boundary, accepted) -> on-disk fitness:1 + fitness_was_nonfinite:false (regression)', () => {
+    const al = new AuditLog({ dataRoot });
+    al.record({
+      apiKeyHash: 'k', martianType: 'mt', genome: 'A'.repeat(256),
+      fitness: 1.0, result: 'accepted',
+    });
+    const entry = readEntry(0);
+    expect(entry.fitness).toBe(1);
+    expect(entry.fitness_was_nonfinite).toBe(false);
+  });
+
+  it('fitness: -0 (finite, accepted) -> on-disk fitness:0 + fitness_was_nonfinite:false (regression — JSON.stringify quirk)', () => {
+    const al = new AuditLog({ dataRoot });
+    al.record({
+      apiKeyHash: 'k', martianType: 'mt', genome: 'A'.repeat(256),
+      fitness: -0, result: 'accepted',
+    });
+    const entry = readEntry(0);
+    expect(entry.fitness).toBe(0);
+    expect(entry.fitness_was_nonfinite).toBe(false);
+  });
+
+  it('mixed batch (finite + non-finite + boundary) -> each line independently preserves the flag', () => {
+    const al = new AuditLog({ dataRoot });
+    const inputs: Array<{ fitness: number; result: 'accepted' | 'rejected'; rejectionCode?: string }> = [
+      { fitness: 0.5, result: 'accepted' },
+      { fitness: NaN, result: 'rejected', rejectionCode: 'INVALID_FITNESS_RANGE' },
+      { fitness: Infinity, result: 'rejected', rejectionCode: 'INVALID_FITNESS_RANGE' },
+      { fitness: 0, result: 'rejected', rejectionCode: 'INVALID_FITNESS_RANGE' },
+      { fitness: 1.0, result: 'accepted' },
+      { fitness: -Infinity, result: 'rejected', rejectionCode: 'INVALID_FITNESS_RANGE' },
+    ];
+    for (const i of inputs) {
+      al.record({
+        apiKeyHash: 'k', martianType: 'mt', genome: 'A'.repeat(256),
+        fitness: i.fitness, result: i.result, rejectionCode: i.rejectionCode,
+      });
+    }
+    for (let i = 0; i < inputs.length; i++) {
+      const entry = readEntry(i);
+      const expectedWasNonfinite = !Number.isFinite(inputs[i]!.fitness);
+      expect(entry.fitness_was_nonfinite).toBe(expectedWasNonfinite);
+      expect(entry.fitness === null).toBe(expectedWasNonfinite);
+      expect(typeof entry.fitness === 'number').toBe(!expectedWasNonfinite);
+    }
+  });
+});

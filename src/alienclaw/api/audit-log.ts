@@ -19,14 +19,15 @@ function todayUtc(): string {
 }
 
 interface AuditEntry {
-  ts:             string;
-  api_key_hash:   string;
-  client_ip:      string;
-  martian_type:   string;
-  genome_sha256:  string;
-  fitness:        number;
-  result:         'accepted' | 'rejected';
-  rejection_code: string | null;
+  ts:                    string;
+  api_key_hash:          string;
+  client_ip:             string;
+  martian_type:          string;
+  genome_sha256:         string;
+  fitness:               number | null;
+  fitness_was_nonfinite: boolean;
+  result:                'accepted' | 'rejected';
+  rejection_code:        string | null;
 }
 
 export class AuditLog {
@@ -54,15 +55,17 @@ export class AuditLog {
     const path = this._logPath();
     if (!path) return;
 
+    const fitnessFinite = Number.isFinite(opts.fitness);
     const entry: AuditEntry = {
-      ts:             new Date().toISOString(),
-      api_key_hash:   opts.apiKeyHash,
-      client_ip:      opts.clientIp ?? 'unknown',
-      martian_type:   opts.martianType,
-      genome_sha256:  sha256(opts.genome),
-      fitness:        opts.fitness,
-      result:         opts.result,
-      rejection_code: opts.rejectionCode ?? null,
+      ts:                    new Date().toISOString(),
+      api_key_hash:          opts.apiKeyHash,
+      client_ip:             opts.clientIp ?? 'unknown',
+      martian_type:          opts.martianType,
+      genome_sha256:         sha256(opts.genome),
+      fitness:               fitnessFinite ? opts.fitness : null,
+      fitness_was_nonfinite: !fitnessFinite,
+      result:                opts.result,
+      rejection_code:        opts.rejectionCode ?? null,
     };
     const line = JSON.stringify(entry, Object.keys(entry).sort() as (keyof AuditEntry)[]) + '\n';
 
