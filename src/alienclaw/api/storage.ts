@@ -53,6 +53,15 @@ export interface RawStats {
   top_fitness_by_type:       Record<string, number>;
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function parseRunMetadata(raw: unknown): Record<string, unknown> {
+  if (raw === null || raw === undefined) return {};
+  if (typeof raw === 'object' && !Array.isArray(raw)) return raw as Record<string, unknown>;
+  if (typeof raw !== 'string') return {};
+  try { return JSON.parse(raw) as Record<string, unknown>; } catch { return {}; }
+}
+
 // ── SubmissionStore ────────────────────────────────────────────────────────
 
 export class SubmissionStore {
@@ -117,9 +126,7 @@ export class SubmissionStore {
       fitness:          r['fitness'] as number,
       leaderboard_name: r['leaderboard_name'] as string,
       api_key_hash:     r['api_key_hash'] as string,
-      run_metadata:     typeof r['run_metadata'] === 'string'
-        ? JSON.parse(r['run_metadata']) as Record<string, unknown>
-        : (r['run_metadata'] ?? {}) as Record<string, unknown>,
+      run_metadata:     parseRunMetadata(r['run_metadata']),
       submitted_at:     r['submitted_at'] as string,
     }));
   }
@@ -176,9 +183,7 @@ export class SubmissionStore {
       fitness:          r['fitness'] as number,
       leaderboard_name: r['leaderboard_name'] as string,
       api_key_hash:     r['api_key_hash'] as string,
-      run_metadata:     typeof r['run_metadata'] === 'string'
-        ? JSON.parse(r['run_metadata']) as Record<string, unknown>
-        : (r['run_metadata'] ?? {}) as Record<string, unknown>,
+      run_metadata:     parseRunMetadata(r['run_metadata']),
       submitted_at:     r['submitted_at'] as string,
     };
   }
