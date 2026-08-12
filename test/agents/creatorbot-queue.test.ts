@@ -170,6 +170,73 @@ describe('CreatorBot scheduler (agents/creatorbot.ts:100-137)', () => {
     expect(count).toBeLessThanOrEqual(5);
   });
 
+  describe('registerScheduledJob — duplicate-label defense (creatorbot.ts:100-111)', () => {
+    it('registerScheduledJob twice with same label throws', () => {
+      const cb = makeBot();
+      cb.registerScheduledJob({ label: 'dup', intervalMs: 50, fn: async () => {} });
+      expect(() => cb.registerScheduledJob({ label: 'dup', intervalMs: 50, fn: async () => {} }))
+        .toThrow(/Duplicate scheduled-job label 'dup'/);
+    });
+
+    it('registerScheduledJob twice with same label does NOT push the duplicate', () => {
+      const cb = makeBot();
+      cb.registerScheduledJob({ label: 'dup', intervalMs: 50, fn: async () => {} });
+      try {
+        cb.registerScheduledJob({ label: 'dup', intervalMs: 50, fn: async () => {} });
+      } catch {
+        // expected throw
+      }
+      expect((cb as unknown as { scheduledJobs: unknown[] }).scheduledJobs.length).toBe(1);
+    });
+
+    it('registerScheduledJob twice with different labels registers both', () => {
+      const cb = makeBot();
+      cb.registerScheduledJob({ label: 'a', intervalMs: 50, fn: async () => {} });
+      cb.registerScheduledJob({ label: 'b', intervalMs: 50, fn: async () => {} });
+      expect((cb as unknown as { scheduledJobs: unknown[] }).scheduledJobs.length).toBe(2);
+    });
+
+    it('error message includes the offending label', () => {
+      const cb = makeBot();
+      cb.registerScheduledJob({ label: 'my-job', intervalMs: 50, fn: async () => {} });
+      let err: Error | undefined;
+      try {
+        cb.registerScheduledJob({ label: 'my-job', intervalMs: 50, fn: async () => {} });
+      } catch (e) {
+        err = e as Error;
+      }
+      expect(err).toBeInstanceOf(Error);
+      expect(err?.message).toContain('my-job');
+    });
+
+    it('throw happens BEFORE push — duplicate never lands in scheduledJobs', () => {
+      const cb = makeBot();
+      cb.registerScheduledJob({ label: 'x', intervalMs: 50, fn: async () => {} });
+      const before = (cb as unknown as { scheduledJobs: unknown[] }).scheduledJobs.length;
+      expect(() => cb.registerScheduledJob({ label: 'x', intervalMs: 50, fn: async () => {} }))
+        .toThrow();
+      expect((cb as unknown as { scheduledJobs: unknown[] }).scheduledJobs.length).toBe(before);
+    });
+
+    it('startScheduler after a throw still works for pre-existing jobs', async () => {
+      const cb = makeBot();
+      let countA = 0;
+      let countB = 0;
+      cb.registerScheduledJob({ label: 'j1', intervalMs: 30, fn: async () => { countA++; } });
+      cb.registerScheduledJob({ label: 'j2', intervalMs: 30, fn: async () => { countB++; } });
+      try {
+        cb.registerScheduledJob({ label: 'j1', intervalMs: 30, fn: async () => {} });
+      } catch {
+        // expected throw — j1 is already registered
+      }
+      cb.startScheduler();
+      await new Promise(r => setTimeout(r, 100));
+      cb.stopScheduler();
+      expect(countA).toBeGreaterThanOrEqual(2);
+      expect(countB).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   it('stopScheduler halts the interval (count stops growing)', async () => {
     const cb = makeBot();
     let count = 0;

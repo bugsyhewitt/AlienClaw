@@ -98,6 +98,18 @@ export class CreatorBot {
    * Calling startScheduler() activates all registered jobs.
    */
   registerScheduledJob(job: ScheduledJob): void {
+    // De-dup by label: startScheduler is idempotent by _handle (per-job-object);
+    // registerScheduledJob MUST be idempotent by label (the only identifier the
+    // registration exposes). Mirror of BrainRegistry.load hard-fail-on-duplicate
+    // (src/alienclaw/brains/registry.py:117-122). Without this, two registrations
+    // of the same label silently fire BOTH fn callbacks on every setInterval tick.
+    const existing = this.scheduledJobs.find(j => j.label === job.label);
+    if (existing) {
+      throw new Error(
+        `Duplicate scheduled-job label '${job.label}'. ` +
+        `Each CreatorBot.registerScheduledJob call must use a unique label.`
+      );
+    }
     this.scheduledJobs.push(job);
   }
 
