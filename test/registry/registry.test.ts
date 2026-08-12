@@ -297,6 +297,125 @@ describe('load() — error & edge path', () => {
     expect(getRegistry().size).toBe(0);
     expect(getRegistry().list()).toEqual([]);
   });
+
+  // ── R-203–R-205: duplicate-id handling (PKT-594) ──────────────────────
+
+  it('R-203: two .ms files with the same id — first-wins, duplicate is skipped with error', async () => {
+    writeFileSync(join(tmpDir, 'a-high.ms'), renderMs({
+      id: 'MS_DUPLO001',
+      description: 'HIGHER_FITNESS_LOSER',
+      status: 'active',
+      fitness: 0.99,
+      tools: ['compute'],
+      genome: buildGenome('ahighXX'),
+    }));
+    writeFileSync(join(tmpDir, 'b-low.ms'), renderMs({
+      id: 'MS_DUPLO001',
+      description: 'LOWER_FITNESS_WINNER',
+      status: 'active',
+      fitness: 0.50,
+      tools: ['compute'],
+      genome: buildGenome('blowXXX'),
+    }));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { getRegistry } = await importFresh(tmpDir);
+    getRegistry().load(tmpDir);
+
+    const winner = getRegistry().get('MS_DUPLO001');
+    expect(getRegistry().size).toBe(1);
+    expect(winner).toBeDefined();
+    expect(winner!.id).toBe('MS_DUPLO001');
+    // The key contract: exactly ONE entry is kept and an error is emitted.
+    expect(['HIGHER_FITNESS_LOSER', 'LOWER_FITNESS_WINNER']).toContain(winner!.description);
+
+    expect(errSpy).toHaveBeenCalled();
+    expect(errSpy.mock.calls.some(c =>
+      String(c[0]).includes('Duplicate Martian id') && String(c[0]).includes('MS_DUPLO001')
+    )).toBe(true);
+
+    errSpy.mockRestore();
+  });
+
+  it('R-204: duplicate id with different toolTags — first-loaded toolTags preserved, no toolIndex contamination', async () => {
+    writeFileSync(join(tmpDir, 'a-tag1.ms'), renderMs({
+      id: 'MS_DUPLO002',
+      description: 'tag1 Martian',
+      status: 'active',
+      fitness: 0.7,
+      tools: ['web_search'],
+      genome: buildGenome('tag1xxX'),
+    }));
+    writeFileSync(join(tmpDir, 'b-tag2.ms'), renderMs({
+      id: 'MS_DUPLO002',
+      description: 'tag2 Martian',
+      status: 'active',
+      fitness: 0.3,
+      tools: ['file_read'],
+      genome: buildGenome('tag2xxX'),
+    }));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { getRegistry } = await importFresh(tmpDir);
+    getRegistry().load(tmpDir);
+
+    const winner = getRegistry().get('MS_DUPLO002');
+    expect(winner).toBeDefined();
+    expect(winner!.toolTags.length).toBe(1);
+    expect(['web_search', 'file_read']).toContain(winner!.toolTags[0]);
+
+    // The loser's tool-tag must NOT be registered in toolIndex.
+    const otherTag = winner!.toolTags[0] === 'web_search' ? 'file_read' : 'web_search';
+    expect(getRegistry().bestForTool(otherTag)).toBeUndefined();
+
+    expect(errSpy.mock.calls.some(c =>
+      String(c[0]).includes('Duplicate Martian id') && String(c[0]).includes('MS_DUPLO002')
+    )).toBe(true);
+
+    errSpy.mockRestore();
+  });
+
+  it('R-205: does not abort load() on duplicate id — other Martians still load', async () => {
+    writeFileSync(join(tmpDir, 'a-dup.ms'), renderMs({
+      id: 'MS_DUPLO003',
+      description: 'first',
+      status: 'active',
+      fitness: 0.5,
+      tools: ['compute'],
+      genome: buildGenome('dupxxaX'),
+    }));
+    writeFileSync(join(tmpDir, 'b-dup.ms'), renderMs({
+      id: 'MS_DUPLO003',
+      description: 'second',
+      status: 'active',
+      fitness: 0.5,
+      tools: ['compute'],
+      genome: buildGenome('dupxxbX'),
+    }));
+    writeFileSync(join(tmpDir, 'c-uniq.ms'), renderMs({
+      id: 'MS_UNIQ0003',
+      description: 'unique',
+      status: 'active',
+      fitness: 0.5,
+      tools: ['web_search'],
+      genome: buildGenome('uniqxxX'),
+    }));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { getRegistry } = await importFresh(tmpDir);
+    expect(() => getRegistry().load(tmpDir)).not.toThrow();
+
+    expect(getRegistry().size).toBe(2);
+    expect(getRegistry().get('MS_DUPLO003')).toBeDefined();
+    expect(getRegistry().get('MS_UNIQ0003')).toBeDefined();
+    expect(getRegistry().bestForTool('web_search')).toBeDefined();
+
+    expect(errSpy.mock.calls.some(c =>
+      String(c[0]).includes('Duplicate Martian id')
+    )).toBe(true);
+
+    errSpy.mockRestore();
+  });
 });
 
 // ─── 4. bestForTool() — selection algorithm ──────────────────────────────
