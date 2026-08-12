@@ -63,16 +63,20 @@ ${getRecommendation(run)}
 
 function sparklineAscii(values: number[], width: number): string {
   if (values.length === 0) return "no data";
+  // NaN poisons Math.min/Math.max; ±Infinity makes range=Infinity and collapses all buckets to 0.
+  const finite = values.filter(Number.isFinite);
+  if (finite.length === 0) return "no finite data";
   const CHARS = "▁▂▃▄▅▆▇█";
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min = Math.min(...finite);
+  const max = Math.max(...finite);
   const range = max - min || 1;
   // Resample to width
   const out: string[] = [];
   for (let i = 0; i < width; i++) {
     const idx = Math.floor((i / width) * values.length);
     const v = values[idx] ?? 0;
-    const bucket = Math.min(7, Math.floor(((v - min) / range) * 8));
+    const safeV = Number.isFinite(v) ? v : min;
+    const bucket = Math.min(7, Math.floor(((safeV - min) / range) * 8));
     out.push(CHARS[bucket] ?? "▁");
   }
   return out.join("");
