@@ -114,6 +114,7 @@ function extractParameterSchema(
   const block = extractSection(raw, 'PARAMETER_SCHEMA');
   if (!block) return [];
   const fields: import('./msb-types.js').ParameterSchemaField[] = [];
+  const seenNames = new Set<string>();
   for (const rawLine of block.split('\n')) {
     const line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
@@ -128,6 +129,21 @@ function extractParameterSchema(
 
     const [name, xcodeStr, rminStr, rmaxStr, defaultStr, direction, description] =
       parts as [string, string, string, string, string, string, string];
+
+    if (name === '') {
+      throw new Error(
+        `PARAMETER_SCHEMA entry in ${sourcePath} has empty name ` +
+        `(field 1 of the 7-field pipe-delimited format must be non-empty)`
+      );
+    }
+    if (seenNames.has(name)) {
+      throw new Error(
+        `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: duplicate name '${name}' ` +
+        `(each field must have a unique name; collisions silently corrupt ` +
+        `decode_params output)`
+      );
+    }
+    seenNames.add(name);
 
     const xcodeIndex = parseInt(xcodeStr,   10);
     const rangeMin   = parseInt(rminStr,    10);

@@ -746,4 +746,53 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     expect(parseMsbContent(msb0).parameterSchema[0]?.xcodeIndex).toBe(0);
     expect(parseMsbContent(msb30).parameterSchema[0]?.xcodeIndex).toBe(30);
   });
+
+  // --- PKT-592: name integrity (corrective re-author of PKT-583) ---
+
+  it('R-511: PARAMETER_SCHEMA row with empty name → throws "empty name"', () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      '|0|1|5|1|lower|desc'
+    );
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry in <string> has empty name/);
+  });
+
+  it("R-512: PARAMETER_SCHEMA with duplicate names → throws \"duplicate name 'foo'\"", () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      'foo|0|1|5|1|lower|d1\nfoo|1|1|5|1|lower|d2'
+    );
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toContain("PARAMETER_SCHEMA entry 'foo' in <string>: duplicate name");
+  });
+
+  it('R-513: duplicate name at position 3 (covered by seen-set in loop) → throws', () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      'foo|0|1|5|1|lower|d1\nbar|1|1|5|1|lower|d2\nfoo|2|1|5|1|lower|d3'
+    );
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toContain("duplicate name 'foo'");
+  });
+
+  it('R-514: unique non-empty names → 2 fields parsed successfully', () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      'foo|0|1|5|1|lower|d1\nbar|1|1|5|1|lower|d2'
+    );
+    const brain = parseMsbContent(msb);
+    expect(brain.parameterSchema).toHaveLength(2);
+    expect(brain.parameterSchema[0]!.name).toBe('foo');
+    expect(brain.parameterSchema[1]!.name).toBe('bar');
+  });
 });

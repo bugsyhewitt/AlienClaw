@@ -316,3 +316,38 @@ class TestExtractParameterSchema:
         raw = "PARAMETER_SCHEMA:\nfoo|0|1|5|-100|lower|desc\n"
         with pytest.raises(BrainParseError, match="default.*must be in"):
             _extract_parameter_schema(raw)
+
+    # --- PKT-592: name integrity (corrective re-author of PKT-583) ---
+
+    def test_empty_name_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\n|0|1|5|1|lower|desc\n"
+        with pytest.raises(BrainParseError, match="empty name"):
+            _extract_parameter_schema(raw)
+
+    def test_duplicate_name_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|1|5|1|lower|d1\nfoo|1|1|5|1|lower|d2\n"
+        with pytest.raises(BrainParseError, match="duplicate name .*foo."):
+            _extract_parameter_schema(raw)
+
+    def test_duplicate_name_third_position_raises(self) -> None:
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = (
+            "PARAMETER_SCHEMA:\nfoo|0|1|5|1|lower|d1\n"
+            "bar|1|1|5|1|lower|d2\n"
+            "foo|2|1|5|1|lower|d3\n"
+        )
+        with pytest.raises(BrainParseError, match="duplicate name .*foo."):
+            _extract_parameter_schema(raw)
+
+    def test_unique_nonempty_names_accepted(self) -> None:
+        from alienclaw.brains.parser import _extract_parameter_schema
+        raw = (
+            "PARAMETER_SCHEMA:\nfoo|0|1|5|1|lower|d1\n"
+            "bar|1|1|5|1|lower|d2\n"
+        )
+        fields = _extract_parameter_schema(raw)
+        assert len(fields) == 2
+        assert fields[0].name == "foo"
+        assert fields[1].name == "bar"

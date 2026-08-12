@@ -146,6 +146,7 @@ def _extract_parameter_schema(
     if not block:
         return ()
     fields: list[ParameterSchemaField] = []
+    seen_names: set[str] = set()
     for line in block.splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
@@ -158,6 +159,18 @@ def _extract_parameter_schema(
                 f": {line!r}"
             )
         name, xcode_s, rmin_s, rmax_s, default_s, direction, description = parts[:7]
+        if not name:
+            raise BrainParseError(
+                f"PARAMETER_SCHEMA entry in {source_path} has empty name "
+                f"(field 1 of the 7-field pipe-delimited format must be non-empty)"
+            )
+        if name in seen_names:
+            raise BrainParseError(
+                f"PARAMETER_SCHEMA entry '{name}' in {source_path}: duplicate name '{name}' "
+                f"(each field must have a unique name; collisions silently corrupt "
+                f"decode_params output)"
+            )
+        seen_names.add(name)
         try:
             xcode_index = int(xcode_s)
             range_min = int(rmin_s)
