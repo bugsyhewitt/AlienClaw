@@ -286,7 +286,8 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
             if (e instanceof Error && 'apiError' in e) {
               return send(res, 422, { error: (e as {apiError: unknown}).apiError });
             }
-            return err(res, 400, 'MALFORMED_REQUEST', String(e));
+            process.stderr.write(`[api] /v1/genomes handler throw: ${e}\n`);
+            return err(res, 500, 'INTERNAL_ERROR', 'Internal server error.');
           }
         }
 
