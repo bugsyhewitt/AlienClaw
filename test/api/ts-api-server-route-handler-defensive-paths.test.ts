@@ -261,13 +261,9 @@ describe('API server: route-handler defensive paths', () => {
 
   // ── (4) 500 INTERNAL_ERROR on the outer catch (server.ts:286-288) ───────
 
-  it('POST /v1/genomes returns 400 MALFORMED_REQUEST when handleSubmitGenome throws a generic Error (inner catch else branch)', async () => {
-    // The inner try/catch on lines 274-279 catches the Error from
-    // handleSubmitGenome. When the Error is NOT tagged with `apiError`,
-    // it falls through to the `else` branch on line 278 — 400
-    // MALFORMED_REQUEST with `String(e)` as the message. This is a NEW
-    // coverage path (the else branch on line 278 was uncovered before
-    // this packet).
+  it('POST /v1/genomes returns 500 INTERNAL_ERROR when handleSubmitGenome throws a generic Error (inner catch else branch) (PKT-593)', async () => {
+    // PKT-593: the inner catch must NOT leak String(e) to the client and must
+    // return 500 (server-side failure), not 400 (which implies client fault).
     installState.exists = true;
     throwMode = { kind: 'generic', message: 'mocked unhandled boom' };
     const key = generateApiKey();
@@ -275,9 +271,38 @@ describe('API server: route-handler defensive paths', () => {
       { genome: validGenome(), martian_type: 'compute', fitness: 0.5,
         leaderboard_name: 'TESTBOTA' },
       { Authorization: `Bearer ${key}` });
-    expect(status).toBe(400);
-    expect((body as {error: {code: string; message: string}}).error.code).toBe('MALFORMED_REQUEST');
-    expect((body as {error: {code: string; message: string}}).error.message).toContain('mocked unhandled boom');
+    expect(status).toBe(500);
+    expect((body as {error: {code: string; message: string}}).error.code).toBe('INTERNAL_ERROR');
+    expect((body as {error: {code: string; message: string}}).error.message).not.toContain('mocked unhandled boom');
+    expect((body as {error: {code: string; message: string}}).error.message).toBe('Internal server error.');
+  });
+
+  it('POST /v1/genomes sanitized handler throw returns the sanitized message (PKT-593)', async () => {
+    installState.exists = true;
+    throwMode = { kind: 'generic', message: 'sensitive-marker-pkt-593' };
+    const key = generateApiKey();
+    const { status, body } = await post('/v1/genomes',
+      { genome: validGenome(), martian_type: 'compute', fitness: 0.5,
+        leaderboard_name: 'TESTBOTA' },
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(500);
+    expect((body as {error: {code: string; message: string}}).error.code).toBe('INTERNAL_ERROR');
+    expect((body as {error: {code: string; message: string}}).error.message).not.toContain('sensitive-marker-pkt-593');
+    expect((body as {error: {code: string; message: string}}).error.message).toBe('Internal server error.');
+  });
+
+  it('POST /v1/genomes handler throw does NOT leak the inner message text (PKT-593 regression)', async () => {
+    installState.exists = true;
+    throwMode = { kind: 'generic', message: 'ER_DUP_ENTRY: Duplicate entry \'sub_xyz\' on host 10.0.7.21:3306' };
+    const key = generateApiKey();
+    const { status, body } = await post('/v1/genomes',
+      { genome: validGenome(), martian_type: 'compute', fitness: 0.5,
+        leaderboard_name: 'TESTBOTA' },
+      { Authorization: `Bearer ${key}` });
+    const rawBody = JSON.stringify(body);
+    expect(rawBody).not.toContain('10.0.7.21:3306');
+    expect(rawBody).not.toContain('ER_DUP_ENTRY');
+    expect(rawBody).not.toContain('sub_xyz');
   });
 
   it('POST /v1/install with non-structured handler throw returns 400 INSTALL_HANDLER_ERROR (not 500) (PKT-530 / PKT-472 regression)', async () => {
