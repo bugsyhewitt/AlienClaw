@@ -408,5 +408,12 @@ def _handle_summon_from_population(request_id: str | None, req: dict, t0: float)
 def main() -> None:
     raw = sys.stdin.buffer.read()
     response = handle(raw)
-    sys.stdout.write(json.dumps(response) + "\n")
+    try:
+        sys.stdout.write(json.dumps(response, allow_nan=False) + "\n")
+    except ValueError as exc:
+        fallback = _error_response(
+            response.get("request_id"), "INTERNAL",
+            f"Response serialization failed: {exc}", {"exception": str(exc)},
+        )
+        sys.stdout.write(json.dumps(fallback) + "\n")
     sys.stdout.flush()

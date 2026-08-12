@@ -589,3 +589,54 @@ class TestSummonFromPopulationShape:
         err = resp["response"]["error"]
         assert err["code"] == "MALFORMED_REQUEST"
         assert "timeout_ms" in err["message"]
+
+
+class TestNonFiniteIpcSafety:
+    """PKT-591: bridge stdio IPC must never emit NaN/Inf literals (RFC-8259 violation).
+
+    Defense-in-depth:
+      - Option C (compute.py): non-finite RunResult guard → ok=False, error=TOOL_RUNNER_FAILED
+      - Option A (server.py): allow_nan=False at the json.dumps site → any stray non-finite
+        raises ValueError and is replaced by a structured INTERNAL error rather than corrupt JSON.
+    """
+
+    @pytest.mark.parametrize("expression", [
+        "float('inf') - float('inf')",   # NaN via inf arithmetic
+        "0.0 * float('inf')",            # NaN via 0*inf
+    ])
+    def test_non_finite_compute_result_returns_structured_error(self, expression):
+        """Option C: compute tool must return ok=False/TOOL_RUNNER_FAILED for NaN outputs."""
+        resp = handle(_envelope(inputs={"input": expression}))
+        response = resp["response"]
+        assert response["ok"] is False
+        assert response["fitness"] == 0.0
+        err = response["error"]
+        assert err["code"] == "TOOL_RUNNER_FAILED"
+
+    @pytest.mark.parametrize("expression", [
+        "float('inf') + 1",              # Infinity
+        "float('inf') - float('inf')",   # NaN
+        "0.0 * float('inf')",            # NaN
+    ])
+    def test_non_finite_result_yields_no_ok_true(self, expression):
+        """Non-finite outputs must never return ok=True with a poisoned output dict."""
+        resp = handle(_envelope(inputs={"input": expression}))
+        response = resp["response"]
+        assert response["ok"] is False, (
+            f"Expected ok=False for expression {expression!r}; "
+            f"got ok=True with output={response.get('output')}"
+        )
+
+    @pytest.mark.parametrize("expression", [
+        "float('inf') - float('inf')",
+        "0.0 * float('inf')",
+        "float('inf') + 1",
+    ])
+    def test_handle_response_is_strict_json_serializable(self, expression):
+        """Option A: the full response dict must survive json.dumps(allow_nan=False) without raising."""
+        resp = handle(_envelope(inputs={"input": expression}))
+        # This must not raise ValueError ("Out of range float values are not JSON compliant")
+        serialized = json.dumps(resp, allow_nan=False)
+        # Round-trip: the serialized bytes must also be parseable by strict JSON.parse
+        assert "NaN" not in serialized, f"Literal 'NaN' found in: {serialized[:200]}"
+        assert "Infinity" not in serialized, f"Literal 'Infinity' found in: {serialized[:200]}"

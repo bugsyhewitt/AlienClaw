@@ -95,6 +95,13 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             result = _eval_sandboxed(str(expression))
             if isinstance(result, float):
                 result = round(result, precision_digits)
+            if isinstance(result, float) and not math.isfinite(result):
+                return RunResult(
+                    ok=False,
+                    error=f"Non-finite result: {result!r}",
+                    tool_calls=attempt + 1,
+                    correctness=0.0,
+                )
             result_type = type(result).__name__
             # Re-evaluate for validation_count-1 additional passes (verification)
             for _ in range(validation_count - 1):
