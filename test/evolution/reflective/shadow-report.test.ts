@@ -109,3 +109,71 @@ describe('generateShadowReport', () => {
     expect(out).toContain('Flip to ON');
   });
 });
+
+// PKT-612 — sparkline non-finite input-safety guards
+describe('generateShadowReport — PKT-612 sparkline input-safety guards', () => {
+  function fe(id: string, correctness: number) {
+    return {
+      genomeId: id,
+      perInstance: new Map(),
+      aggregate: { correctness, efficiency: 0.5, costInv: 0.5, latencyInv: 0.5, confidence: 0.8 },
+      legacyScalar: 0,
+    };
+  }
+
+  it('R-SPARK-601: frontier with one NaN produces non-▁ sparkline for the finite values', () => {
+    // [0.5, NaN, 0.7, 0.8, 0.9] — finite spread should render blocks above ▁
+    const frontier = [fe('g1', 0.5), fe('g2', NaN), fe('g3', 0.7), fe('g4', 0.8), fe('g5', 0.9)];
+    const out = generateShadowReport(makeRun({ frontier }), '2026-08-12');
+    expect(out).not.toContain('no finite data');
+    expect(out).toMatch(/[▂▃▄▅▆▇█]/u);
+  });
+
+  it('R-SPARK-602: frontier with +Infinity produces non-▁ sparkline for the finite values', () => {
+    // [0.5, 0.6, +Infinity, 0.8, 0.9] — Infinity makes range=Infinity, collapsing all buckets to 0
+    const frontier = [fe('g1', 0.5), fe('g2', 0.6), fe('g3', Infinity), fe('g4', 0.8), fe('g5', 0.9)];
+    const out = generateShadowReport(makeRun({ frontier }), '2026-08-12');
+    expect(out).not.toContain('no finite data');
+    expect(out).toMatch(/[▂▃▄▅▆▇█]/u);
+  });
+
+  it('R-SPARK-603: frontier with -Infinity produces non-▁ sparkline for the finite values', () => {
+    // [-Infinity, 0.5, 0.6, 0.7, 0.8] — -Infinity wins min, range=Infinity, all buckets collapse
+    const frontier = [fe('g1', -Infinity), fe('g2', 0.5), fe('g3', 0.6), fe('g4', 0.7), fe('g5', 0.8)];
+    const out = generateShadowReport(makeRun({ frontier }), '2026-08-12');
+    expect(out).not.toContain('no finite data');
+    expect(out).toMatch(/[▂▃▄▅▆▇█]/u);
+  });
+
+  it('R-SPARK-604: frontier with all NaN produces "no finite data" sentinel', () => {
+    // [NaN, NaN, NaN] — no finite values → distinct sentinel, not all-▁ silent corruption
+    const frontier = [fe('g1', NaN), fe('g2', NaN), fe('g3', NaN)];
+    const out = generateShadowReport(makeRun({ frontier }), '2026-08-12');
+    expect(out).toContain('no finite data');
+  });
+
+  it('R-SPARK-605: frontier with mix of NaN and Infinity produces non-▁ sparkline for the finite values', () => {
+    // [NaN, 0.5, +Infinity, 0.7, NaN, 0.9, -Infinity] — finite [0.5, 0.7, 0.9] should render blocks
+    const frontier = [
+      fe('g1', NaN), fe('g2', 0.5), fe('g3', Infinity),
+      fe('g4', 0.7), fe('g5', NaN), fe('g6', 0.9), fe('g7', -Infinity),
+    ];
+    const out = generateShadowReport(makeRun({ frontier }), '2026-08-12');
+    expect(out).not.toContain('no finite data');
+    expect(out).toMatch(/[▂▃▄▅▆▇█]/u);
+  });
+
+  it('R-SPARK-606: large frontier (length > width) with NaN slots produces non-▁ sparkline for finite values', () => {
+    // 25 entries (> width=20) with wide finite spread [0.1..0.9] and 4 NaN values interspersed.
+    // The resample loop will access NaN-valued slots; safeV fallback must not collapse the sparkline.
+    const entries = [];
+    for (let i = 0; i < 25; i++) {
+      // positions 5, 10, 15, 20 are NaN; others are finite spread 0.1..0.9
+      const c = [5, 10, 15, 20].includes(i) ? NaN : 0.1 + (i / 24) * 0.8;
+      entries.push(fe(`g${i}`, c));
+    }
+    const out = generateShadowReport(makeRun({ frontier: entries }), '2026-08-12');
+    expect(out).not.toContain('no finite data');
+    expect(out).toMatch(/[▂▃▄▅▆▇█]/u);
+  });
+});
