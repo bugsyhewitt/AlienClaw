@@ -33,6 +33,14 @@ class RegistryStore {
     this.toolIndex.clear();
 
     for (const spec of specs) {
+      if (this.store.has(spec.id)) {
+        console.error(
+          `[Registry] Duplicate Martian id "${spec.id}" detected while loading — ` +
+          `already present in the registry. Skipping duplicate (first wins). ` +
+          `Resolve the conflict to ensure deterministic registry state.`
+        );
+        continue;
+      }
       this.store.set(spec.id, spec);
       if (spec.status !== 'active') continue;
       for (const tag of spec.toolTags) {
