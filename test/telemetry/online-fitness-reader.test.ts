@@ -124,14 +124,56 @@ describe('aggregateOnlineFitness', () => {
     expect(result).toEqual({ count: 0, mean_fitness: 0 });
   });
 
-  it('preserves finite negative fitness value (R-009)', async () => {
+  it('filters out finite negative fitness value (R-009)', async () => {
+    // PKT-589: finite values outside [0,1] must be rejected — -0.5 is not a valid fitness score
     const logPath = join(homeDir, 'online_fitness.jsonl');
     writeFileSync(logPath,
       JSON.stringify({ martian_type: 'compute', fitness: -0.5, ts: '2026-07-04T00:00:00Z' }) + '\n',
       'utf-8');
     const { aggregateOnlineFitness } = await loadAggregator();
     const result = await aggregateOnlineFitness('compute');
-    expect(result.count).toBe(1);
-    expect(result.mean_fitness).toBeCloseTo(-0.5, 10);
+    expect(result).toEqual({ count: 0, mean_fitness: 0 });
+  });
+
+  it('filters out finite fitness value greater than 1 (R-010)', async () => {
+    // PKT-589: 1.5 is outside the [0,1] contract and must not contribute to the aggregate
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath,
+      JSON.stringify({ martian_type: 'compute', fitness: 1.5, ts: '2026-07-04T00:00:00Z' }) + '\n',
+      'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result).toEqual({ count: 0, mean_fitness: 0 });
+  });
+
+  it('counts only valid [0,1] entries from mixed valid/out-of-range/non-finite input (R-011)', async () => {
+    // PKT-589: valid 0.8 and 0.6; out-of-range -0.5 and 1.5; null (NaN serialises to null); string 'bad'
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath, [
+      JSON.stringify({ martian_type: 'compute', fitness: 0.8,   ts: '2026-07-04T00:00:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: -0.5,  ts: '2026-07-04T00:01:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 1.5,   ts: '2026-07-04T00:02:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 0.6,   ts: '2026-07-04T00:03:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: null,  ts: '2026-07-04T00:04:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 'bad', ts: '2026-07-04T00:05:00Z' }),
+    ].join('\n') + '\n', 'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result.count).toBe(2);
+    // mean of 0.8 and 0.6 = 0.7
+    expect(result.mean_fitness).toBeCloseTo(0.7, 10);
+  });
+
+  it('preserves boundary values 0.0 and 1.0 (R-012)', async () => {
+    // PKT-589: the [0,1] contract is inclusive — exactly 0 and exactly 1 are valid
+    const logPath = join(homeDir, 'online_fitness.jsonl');
+    writeFileSync(logPath, [
+      JSON.stringify({ martian_type: 'compute', fitness: 0.0, ts: '2026-07-04T00:00:00Z' }),
+      JSON.stringify({ martian_type: 'compute', fitness: 1.0, ts: '2026-07-04T00:01:00Z' }),
+    ].join('\n') + '\n', 'utf-8');
+    const { aggregateOnlineFitness } = await loadAggregator();
+    const result = await aggregateOnlineFitness('compute');
+    expect(result.count).toBe(2);
+    expect(result.mean_fitness).toBeCloseTo(0.5, 10);
   });
 });

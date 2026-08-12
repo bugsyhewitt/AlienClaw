@@ -110,7 +110,8 @@ export async function aggregateOnlineFitness(
         try { return [JSON.parse(line) as OnlineFitnessEntry]; } catch { return []; }
       })
       .filter(e => e.martian_type === martianType &&
-                   typeof e.fitness === 'number' && Number.isFinite(e.fitness));
+                   typeof e.fitness === 'number' && Number.isFinite(e.fitness) &&
+                   e.fitness >= 0 && e.fitness <= 1);
 
     if (entries.length === 0) return { count: 0, mean_fitness: 0 };
     const sum = entries.reduce((acc, e) => acc + e.fitness, 0);
