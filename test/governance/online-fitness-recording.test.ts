@@ -12,7 +12,7 @@
  *   A-003 (R-003): no log wired → spawnCampaign succeeds, no error thrown
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir, homedir }     from 'node:os';
 import path                    from 'node:path';
 
@@ -216,5 +216,102 @@ describe('OnlineFitnessLog.clear()', () => {
     expect((log as any)._path).toBe(expected);
     // read() returns [] when file absent; array assertion covers CI and dev
     expect(log.read()).toBeInstanceOf(Array);
+  });
+});
+
+// ── PKT-634: TS-twin hardening — finite-guard + reader try/catch + BOM strip ──
+
+/** Temp file path unique per call; tests clean up via tmpdir GC or afterEach of callers. */
+function tmpFile(): string {
+  return path.join(tmpdir(), `ofl-pkt634-${process.pid}-${Math.random().toString(36).slice(2)}.jsonl`);
+}
+
+describe('OnlineFitnessLog.record() — PKT-634 finite-guard', () => {
+  it('control: 0.5 writes the entry', () => {
+    const log = new OnlineFitnessLog(tmpFile());
+    log.record('compute', 0.5);
+    expect(log.read()).toEqual([
+      expect.objectContaining({ martian_type: 'compute', fitness: 0.5 }),
+    ]);
+  });
+
+  it('NaN: drops with stderr WARNING, no entry written', () => {
+    const log = new OnlineFitnessLog(tmpFile());
+    log.record('compute', NaN);
+    expect(log.read()).toEqual([]);
+  });
+
+  it('+Infinity: drops with stderr WARNING, no entry written', () => {
+    const log = new OnlineFitnessLog(tmpFile());
+    log.record('compute', Infinity);
+    expect(log.read()).toEqual([]);
+  });
+
+  it('-Infinity: drops with stderr WARNING, no entry written', () => {
+    const log = new OnlineFitnessLog(tmpFile());
+    log.record('compute', -Infinity);
+    expect(log.read()).toEqual([]);
+  });
+
+  it('out-of-range 1.5: WRITES (Python twin preserves; overmind PKT-608 verdict)', () => {
+    // PKT-634 explicitly does NOT add writer-side range-drop. Python twin preserves
+    // out-of-range; the TS twin must match for cross-language parity.
+    const log = new OnlineFitnessLog(tmpFile());
+    log.record('compute', 1.5);
+    expect(log.read()[0]?.fitness).toBe(1.5);
+  });
+
+  it('out-of-range -0.5: WRITES (Python twin preserves; overmind PKT-608 verdict)', () => {
+    const log = new OnlineFitnessLog(tmpFile());
+    log.record('compute', -0.5);
+    expect(log.read()[0]?.fitness).toBe(-0.5);
+  });
+});
+
+describe('OnlineFitnessLog.read() — PKT-634 reader hardening', () => {
+  it('BOM-prefixed first line: strip + parse successfully', () => {
+    const p = tmpFile();
+    writeFileSync(p, '﻿{"martian_type":"compute","fitness":0.5,"ts":"2026-01-01T00:00:00Z"}\n');
+    const log = new OnlineFitnessLog(p);
+    expect(log.read()).toEqual([
+      expect.objectContaining({ martian_type: 'compute', fitness: 0.5 }),
+    ]);
+  });
+
+  it('malformed line (truncated): skipped, valid lines survive', () => {
+    const p = tmpFile();
+    writeFileSync(
+      p,
+      '{"martian_type":"compute","fitness":0.5,"ts":"2026-01-01T00:00:00Z"}\n' +
+      'garbage_not_json\n' +
+      '{"martian_type":"compute","fitness":0.7,"ts":"2026-01-01T00:00:01Z"}\n',
+    );
+    const log = new OnlineFitnessLog(p);
+    const entries = log.read();
+    expect(entries).toHaveLength(2);
+    expect(entries.map(e => e.fitness)).toEqual([0.5, 0.7]);
+  });
+
+  it('non-object JSONL line (e.g. raw "null"): skipped', () => {
+    const p = tmpFile();
+    writeFileSync(p, 'null\n{"martian_type":"compute","fitness":0.5,"ts":"..."}\n');
+    const log = new OnlineFitnessLog(p);
+    expect(log.read()).toHaveLength(1);
+  });
+
+  it('empty file: returns []', () => {
+    const log = new OnlineFitnessLog(tmpFile());
+    expect(log.read()).toEqual([]);
+  });
+
+  it('read survives an entry whose fitness is null (preserved, not filtered)', () => {
+    // PKT-634 policy: read() does NOT filter out-of-range/null/string fitness.
+    // That is the consumer's job (PKT-589 + PKT-621). Mirrors Python twin behavior.
+    const p = tmpFile();
+    writeFileSync(p, '{"martian_type":"compute","fitness":null,"ts":"2026-01-01T00:00:00Z"}\n');
+    const log = new OnlineFitnessLog(p);
+    expect(log.read()).toEqual([
+      expect.objectContaining({ fitness: null }),
+    ]);
   });
 });
