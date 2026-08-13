@@ -333,3 +333,65 @@ class TestElitismCountValidation:
         pop = Population.create(config)
         with pytest.raises(ValueError, match="elitism_count"):
             evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(1))
+
+
+class TestEvaluateAndEvolveHandlesNonFinite:
+    """PKT-618: NaN/Inf in callback fitness must coerce to 0.0, not silently inflate to 1.0."""
+
+    def test_nan_callback_fitness_coerced_to_zero(self):
+        """T-PKT618-001: NaN from callback -> all evaluated entries have fitness=0.0, not 1.0."""
+        config = EvolutionConfig(martian_type="compute", population_size=4, seed=1)
+        pop = Population.create(config)
+
+        def nan_runner(martian_type, genome):
+            return FitnessReport(fitness=float("nan"), run_metadata={})
+
+        evaluate_and_evolve(pop, config, nan_runner, random.Random(1))
+        evaluated = [e for e in pop.all() if not e.run_metadata.get("newly_minted")]
+        assert all(e.fitness == 0.0 for e in evaluated), (
+            f"NaN callback should coerce to 0.0; got fitnesses {[e.fitness for e in evaluated]}"
+        )
+
+    def test_pos_inf_callback_fitness_coerced_to_zero(self):
+        """T-PKT618-002: +Inf from callback -> all evaluated entries have fitness=0.0, not 1.0."""
+        config = EvolutionConfig(martian_type="compute", population_size=4, seed=1)
+        pop = Population.create(config)
+
+        def inf_runner(martian_type, genome):
+            return FitnessReport(fitness=float("inf"), run_metadata={})
+
+        evaluate_and_evolve(pop, config, inf_runner, random.Random(1))
+        evaluated = [e for e in pop.all() if not e.run_metadata.get("newly_minted")]
+        assert all(e.fitness == 0.0 for e in evaluated), (
+            f"+Inf callback should coerce to 0.0; got fitnesses {[e.fitness for e in evaluated]}"
+        )
+
+    def test_neg_inf_callback_fitness_coerced_to_zero(self):
+        """T-PKT618-003: -Inf from callback -> all evaluated entries have fitness=0.0."""
+        config = EvolutionConfig(martian_type="compute", population_size=4, seed=1)
+        pop = Population.create(config)
+
+        def neg_inf_runner(martian_type, genome):
+            return FitnessReport(fitness=float("-inf"), run_metadata={})
+
+        evaluate_and_evolve(pop, config, neg_inf_runner, random.Random(1))
+        evaluated = [e for e in pop.all() if not e.run_metadata.get("newly_minted")]
+        assert all(e.fitness == 0.0 for e in evaluated), (
+            f"-Inf callback should coerce to 0.0; got fitnesses {[e.fitness for e in evaluated]}"
+        )
+
+    def test_finite_callback_fitness_unchanged(self):
+        """T-PKT618-004 CONTROL: finite callback fitness clamps normally -- no regression."""
+        config = EvolutionConfig(martian_type="compute", population_size=4, seed=1)
+        pop = Population.create(config)
+        evaluate_and_evolve(pop, config, fixed_runner(0.5), random.Random(1))
+        evaluated = [e for e in pop.all() if not e.run_metadata.get("newly_minted")]
+        assert all(e.fitness == pytest.approx(0.5) for e in evaluated)
+
+    def test_make_entry_direct_nan_input_coerced(self):
+        """T-PKT618-005: _make_entry(genome, NaN, ...) directly -> fitness=0.0."""
+        from alienclaw.evolution.generation import _make_entry
+        e = _make_entry(
+            genome="A" * 256, fitness=float("nan"), generation=0, parent_ids=(), run_metadata={}
+        )
+        assert e.fitness == 0.0, f"_make_entry(NaN) should coerce to 0.0; got {e.fitness}"
