@@ -22,11 +22,18 @@ export interface ShadowRunRecord {
   frontier: CandidateScore[];
 }
 
+// Mirror of the safeNum pattern in audit-log.ts (PKT-609); guards NaN/±Inf before .toFixed()
+function safeNum(x: number, fallback: number): number {
+  return Number.isFinite(x) ? x : fallback;
+}
+
 export function generateShadowReport(run: ShadowRunRecord, runAt: string): string {
   const reflHeldOut = run.reflectiveLoopWinnerHeldOut;
-  const heldOutCorrectness = reflHeldOut ? reflHeldOut.correctness.toFixed(4) : "N/A";
-  const scalarWinner = run.scalarLoopWinnerLegacyScalar.toFixed(4);
-  const reflScalar = run.reflectiveLoopWinnerLegacyScalar.toFixed(4);
+  const heldOutCorrectness = reflHeldOut
+    ? (Number.isFinite(reflHeldOut.correctness) ? reflHeldOut.correctness.toFixed(4) : "N/A")
+    : "N/A";
+  const scalarWinner = safeNum(run.scalarLoopWinnerLegacyScalar, 0.0).toFixed(4);
+  const reflScalar = safeNum(run.reflectiveLoopWinnerLegacyScalar, 0.0).toFixed(4);
   const evalDeltaSign = run.evalCountDelta > 0 ? "+" : "";
   const costDeltaSign = run.costDeltaUsd > 0 ? "+" : "";
 
@@ -34,17 +41,20 @@ export function generateShadowReport(run: ShadowRunRecord, runAt: string): strin
   const corr = run.frontier.map(c => c.aggregate.correctness).sort((a, b) => a - b);
   const sparkline = sparklineAscii(corr, 20);
 
+  const deltaNum = safeNum(Number(reflScalar) - Number(scalarWinner), 0.0);
+  const acceptRatePct = safeNum(run.acceptRate * 100, 0.0);
+
   return `# Shadow Run Report — ${runAt}
 
 ## Verdict
 
 | Metric | Scalar loop | Reflective loop | Delta |
 |--------|-------------|-----------------|-------|
-| Winner legacy scalar | ${scalarWinner} | ${reflScalar} | ${(Number(reflScalar) - Number(scalarWinner)).toFixed(4)} |
+| Winner legacy scalar | ${scalarWinner} | ${reflScalar} | ${deltaNum.toFixed(4)} |
 | Winner held-out correctness | (not measured) | ${heldOutCorrectness} | — |
 | Eval count (metric calls) | ${run.metricCallsScalar} | ${run.metricCallsReflective} | ${evalDeltaSign}${run.evalCountDelta} |
-| Cost delta (USD) | baseline | ${costDeltaSign}$${Math.abs(run.costDeltaUsd).toFixed(4)} | — |
-| Child accept rate | — | ${(run.acceptRate * 100).toFixed(1)}% | — |
+| Cost delta (USD) | baseline | ${costDeltaSign}$${safeNum(Math.abs(run.costDeltaUsd), 0.0).toFixed(4)} | — |
+| Child accept rate | — | ${acceptRatePct.toFixed(1)}% | — |
 | Frontier size | — | ${run.frontierSize} | — |
 | Overfit (demoted) | — | ${run.overfitCount} | — |
 
@@ -83,15 +93,20 @@ function sparklineAscii(values: number[], width: number): string {
 }
 
 function getRecommendation(run: ShadowRunRecord): string {
-  const heldOut = run.reflectiveLoopWinnerHeldOut?.correctness ?? 0;
+  // ?? only triggers on null/undefined — NaN passes through; must use Number.isFinite explicitly
+  const heldOutRaw = run.reflectiveLoopWinnerHeldOut?.correctness;
+  const heldOut = Number.isFinite(heldOutRaw ?? NaN) ? (heldOutRaw as number) : NaN;
   const scalarScore = run.scalarLoopWinnerLegacyScalar;
   const delta = heldOut - scalarScore;
 
   if (run.overfitCount > 0) {
     return `⚠️  **WAIT** — ${run.overfitCount} finalist(s) were demoted for held-out regression. Tighten oracles or raise valsetFraction before enabling.`;
   }
+  if (!Number.isFinite(delta)) {
+    return `⚠️  **Data unavailable** — held-out or scalar score is non-finite. Re-run shadow-mode with a valid trace before flipping.`;
+  }
   if (delta > 0.05) {
-    return `✅  **Flip to ON** — reflective loop +${(delta * 100).toFixed(1)}pp on held-out vs scalar baseline. Cost is ${run.costDeltaUsd > 0 ? "higher" : "lower"} by $${Math.abs(run.costDeltaUsd).toFixed(4)}.`;
+    return `✅  **Flip to ON** — reflective loop +${(delta * 100).toFixed(1)}pp on held-out vs scalar baseline. Cost is ${run.costDeltaUsd > 0 ? "higher" : "lower"} by $${safeNum(Math.abs(run.costDeltaUsd), 0.0).toFixed(4)}.`;
   }
   if (delta > 0) {
     return `🟡  **Continue shadowing** — marginal gain (+${(delta * 100).toFixed(1)}pp). Run more generations or add more verifiable oracles.`;

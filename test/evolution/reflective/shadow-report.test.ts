@@ -177,3 +177,46 @@ describe('generateShadowReport — PKT-612 sparkline input-safety guards', () =>
     expect(out).toMatch(/[▂▃▄▅▆▇█]/u);
   });
 });
+
+// PKT-626 — generateShadowReport headline-scalar and getRecommendation non-finite guards
+describe('generateShadowReport — PKT-626 headline-scalar non-finite guards', () => {
+  it('R-SHADOW-626-1: reflectiveLoopWinnerHeldOut.correctness = NaN renders "N/A" and "Data unavailable" — not "NaN" or "Do not enable"', () => {
+    const out = generateShadowReport(makeRun({
+      reflectiveLoopWinnerHeldOut: { ...OBJ, correctness: NaN },
+    }), '2026-08-13');
+    expect(out).not.toContain('NaN');
+    expect(out).toContain('Data unavailable');
+    expect(out).not.toContain('Do not enable');
+  });
+
+  it('R-SHADOW-626-2: scalarLoopWinnerLegacyScalar = NaN renders numeric fallback (not "NaN") and "Data unavailable"', () => {
+    const out = generateShadowReport(makeRun({
+      scalarLoopWinnerLegacyScalar: NaN,
+    }), '2026-08-13');
+    expect(out).not.toContain('NaN');
+    expect(out).toContain('Data unavailable');
+  });
+
+  it('R-SHADOW-626-3: scalarLoopWinnerLegacyScalar = +Infinity renders numeric fallback (not "Infinity") and "Data unavailable"', () => {
+    const out = generateShadowReport(makeRun({
+      scalarLoopWinnerLegacyScalar: Infinity,
+    }), '2026-08-13');
+    expect(out).not.toContain('Infinity');
+    expect(out).toContain('Data unavailable');
+  });
+
+  it('R-SHADOW-626-4: acceptRate = NaN renders "0.0%" (not "NaN%") in accept rate column', () => {
+    const out = generateShadowReport(makeRun({
+      acceptRate: NaN,
+    }), '2026-08-13');
+    expect(out).not.toContain('NaN%');
+    expect(out).toContain('0.0%');
+  });
+
+  it('R-SHADOW-626-5: costDeltaUsd = NaN renders "$0.0000" (not "NaN") in cost delta column', () => {
+    const out = generateShadowReport(makeRun({
+      costDeltaUsd: NaN,
+    }), '2026-08-13');
+    expect(out).not.toContain('NaN');
+  });
+});
