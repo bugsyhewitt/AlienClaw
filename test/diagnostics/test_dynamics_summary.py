@@ -1,6 +1,7 @@
 """Tests for dynamics_summary.py."""
 from __future__ import annotations
 
+import random
 import pytest
 
 from alienclaw.diagnostics.dynamics_summary import (
@@ -66,11 +67,29 @@ class TestSignalToInfo:
 
     def test_constant_fitness_low_signal(self):
         from alienclaw.diagnostics.genome_information import BASE62
-        import random
         rng = random.Random(42)
         genomes = ["".join(rng.choice(BASE62) for _ in range(256)) for _ in range(50)]
         pairs = [(g, 0.5) for g in genomes]
         assert _signal_to_info(pairs) == 0.0
+
+    def test_signal_to_info_with_nan_pair_raises(self):
+        from alienclaw.diagnostics.genome_information import BASE62
+        rng = random.Random(42)
+        genomes = ["".join(rng.choice(BASE62) for _ in range(256)) for _ in range(20)]
+        fitnesses = [rng.random() for _ in range(20)]
+        fitnesses[10] = float("nan")
+        pairs = list(zip(genomes, fitnesses))
+        with pytest.raises(ValueError, match=r"fitnesses\[10\] must be a finite number"):
+            _signal_to_info(pairs)
+
+    def test_summarize_dynamics_with_nan_fitness_curve_raises(self):
+        # Sibling-defense: plateau_detector._assert_finite_sequence already raises on NaN curve.
+        # PKT-616 confirms the curve path is defended (T9 reproduction); the gap is only in
+        # the fitnesses path. This test pins the existing curve defense to prevent regression.
+        curve = [0.5 + 0.01 * i for i in range(20)]
+        curve[10] = float("nan")
+        with pytest.raises(ValueError, match=r"fitness_per_generation\[10\] must be a finite number"):
+            summarize_dynamics(curve, [], population_size=50)
 
 
 class TestSummarizeDynamics:
