@@ -10,6 +10,7 @@ pure function of the genome string) so every assertion is reproducible.
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 
 import pytest
@@ -47,6 +48,13 @@ def _make_counting_runner():
 
 def _config(population_size: int = 4, seed: int = 11) -> EvolutionConfig:
     return EvolutionConfig(martian_type="compute", population_size=population_size, seed=seed)
+
+
+def _make_const_fitness_runner(value):
+    """Return a stub RunMartianCallback that always returns the given fitness."""
+    def run(martian_type, genome):
+        return FitnessReport(fitness=value, run_metadata={"tool_calls": 1})
+    return run
 
 
 class TestCapturePerGenome:
@@ -127,6 +135,36 @@ class TestCapturePerGenome:
         records = capture_per_genome("compute", run, config, generations=1)
         assert {r["genome"] for r in records} == pre_genomes
 
+    def test_non_finite_fitness_coerced_to_zero(self, tmp_path, monkeypatch):
+        """PKT-631: NaN/±Infinity from a misbehaving callback coerce to 0.0."""
+        # Each bad value needs its own population root: storage is keyed by martian_type
+        # only, so iterations would otherwise share a directory and the second iteration
+        # would pick up a gen-1 population (1 child) left by the first.
+        for i, bad in enumerate((float('nan'), float('inf'), float('-inf'))):
+            monkeypatch.setenv(ENV_KEY, str(tmp_path / f"pop_{i}"))
+            run = _make_const_fitness_runner(bad)
+            records = capture_per_genome("compute", run, _config(3, 17), generations=1)
+            assert len(records) == 3 * 1
+            for rec in records:
+                assert rec["fitness"] == 0.0
+                assert math.isfinite(rec["fitness"])
+
+    def test_out_of_range_fitness_clamped_to_unit_interval(self):
+        """PKT-631: out-of-range fitness clamps to [0,1]."""
+        cases = [
+            (5.0, 1.0),
+            (-0.5, 0.0),
+            (1e308, 1.0),
+            (-1e308, 0.0),
+            (0.7, 0.7),
+        ]
+        for raw, expected in cases:
+            run = _make_const_fitness_runner(raw)
+            records = capture_per_genome("compute", run, _config(3, 17), generations=1)
+            for rec in records:
+                assert rec["fitness"] == pytest.approx(expected)
+                assert 0.0 <= rec["fitness"] <= 1.0
+
 
 class TestRunPerGenomeCapture:
     def test_combined_records_tagged_by_seed(self):
@@ -167,3 +205,13 @@ class TestRunPerGenomeCapture:
         seed1_genomes = {r["genome"] for r in records if r["seed"] == 1}
         seed2_genomes = {r["genome"] for r in records if r["seed"] == 2}
         assert seed1_genomes.isdisjoint(seed2_genomes)
+
+    def test_run_per_genome_capture_sanitizes_each_seed(self):
+        """PKT-631: even with multiple seeds, all records hold finite in-range fitness."""
+        run = _make_const_fitness_runner(float('nan'))
+        records = run_per_genome_capture("compute", run, population_size=2,
+                                         generations=2, seeds=[7, 8])
+        assert len(records) == 2 * 2 * 2
+        for rec in records:
+            assert rec["fitness"] == 0.0
+            assert math.isfinite(rec["fitness"])
