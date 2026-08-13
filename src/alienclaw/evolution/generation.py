@@ -14,6 +14,7 @@ a deterministic mock; Phase 6 wires in the real bridge.
 """
 from __future__ import annotations
 
+import math
 import random
 import uuid
 from dataclasses import dataclass, field
@@ -45,10 +46,16 @@ def _make_entry(
     parent_ids: tuple[str, ...],
     run_metadata: dict[str, Any],
 ) -> PopulationEntry:
+    # Non-finite fitness coerces to 0.0 (failing score). Python's min/max
+    # return the first arg on NaN ties, so clamp01(NaN) -> 1.0 silently.
+    # PKT-618: mirrors the PKT-588 production-formula defense at the
+    # entry-construction step so the defect cannot re-emerge if the bridge
+    # path ever bypasses fitness/function.py:evaluate().
+    safe_fitness = 0.0 if not math.isfinite(fitness) else fitness
     return PopulationEntry(
         entry_id=str(uuid.uuid4()),
         genome=genome,
-        fitness=clamp01(fitness),
+        fitness=clamp01(safe_fitness),
         generation=generation,
         parent_ids=parent_ids,
         run_metadata=dict(run_metadata),
