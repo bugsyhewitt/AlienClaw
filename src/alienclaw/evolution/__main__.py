@@ -14,6 +14,33 @@ import sys
 from pathlib import Path
 
 
+def _parse_seeds_csv(value: str) -> list[int]:
+    """argparse type= validator for the comma-separated --seeds flag.
+
+    Raises argparse.ArgumentTypeError for malformed entries so the user sees
+    a clean CLI error and exit 2 instead of a raw ValueError traceback.
+    """
+    if not value.strip():
+        raise argparse.ArgumentTypeError(
+            f"--seeds must contain at least one integer (got {value!r})"
+        )
+    result: list[int] = []
+    for entry in value.split(","):
+        stripped = entry.strip()
+        if not stripped:
+            raise argparse.ArgumentTypeError(
+                f"empty entry in --seeds CSV (got {value!r})"
+            )
+        try:
+            result.append(int(stripped))
+        except ValueError:
+            raise argparse.ArgumentTypeError(
+                f"invalid seeds entry {stripped!r} in CSV (got {value!r}); "
+                f"expected comma-separated integers like '42,43,44'."
+            ) from None
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="python3 -m alienclaw.evolution")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -30,7 +57,7 @@ def main() -> int:
     scale.add_argument("--generations", type=int, default=500, help="Number of generations")
     scale.add_argument("--population-size", type=int, default=100, help="Genome population size")
     scale.add_argument(
-        "--seeds", default="42,43,44,45,46",
+        "--seeds", type=_parse_seeds_csv, default=[42, 43, 44, 45, 46],
         help="Comma-separated RNG seeds (default: 42,43,44,45,46)",
     )
     scale.add_argument(
@@ -65,7 +92,7 @@ def main() -> int:
         from alienclaw.evolution.scale_experiment import run_scale_experiment
         from alienclaw.evolution.types import EvolutionConfig
 
-        seeds = [int(s.strip()) for s in args.seeds.split(",")]
+        seeds = args.seeds
         config_base = EvolutionConfig(
             martian_type=args.martian_type,
             population_size=args.population_size,
