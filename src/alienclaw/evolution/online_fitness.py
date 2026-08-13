@@ -14,6 +14,22 @@ from pathlib import Path
 _DEFAULT_PATH = Path.home() / ".alienclaw" / "online_fitness.jsonl"
 
 
+def _is_valid_fitness_entry(entry: object) -> bool:
+    """Return True iff entry is a dict with a finite numeric fitness in [0, 1].
+
+    Mirrors telemetry-reader.ts:108-114 (Number.isFinite + range check).
+    Rejects non-dict JSON values (null, arrays, scalars), bool subclass of int.
+    """
+    if not isinstance(entry, dict):
+        return False
+    f = entry.get("fitness")
+    if isinstance(f, bool) or not isinstance(f, (int, float)):
+        return False
+    if not math.isfinite(f):
+        return False
+    return 0.0 <= f <= 1.0
+
+
 class OnlineFitnessLog:
     """Append-only log of observed runtime fitness, separate from evolved Population fitness."""
 
@@ -39,7 +55,11 @@ class OnlineFitnessLog:
             fh.write(json.dumps(entry) + "\n")
 
     def read(self) -> list[dict]:
-        """Return all recorded entries, oldest first."""
+        """Return all recorded entries, oldest first.
+
+        Entries with non-finite, non-numeric, or out-of-range [0, 1] fitness
+        are silently excluded. Mirrors telemetry-reader.ts:108-114 (PKT-621).
+        """
         if not self._path.exists():
             return []
         result: list[dict] = []
@@ -48,9 +68,12 @@ class OnlineFitnessLog:
                 if not line.strip():
                     continue
                 try:
-                    result.append(json.loads(line))
+                    entry = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                if not _is_valid_fitness_entry(entry):
+                    continue
+                result.append(entry)
         return result
 
     def clear(self) -> None:
