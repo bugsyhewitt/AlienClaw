@@ -762,7 +762,108 @@ describe('GoalManager.isSchemeComplete()', () => {
   });
 });
 
-// ─── 14. Integration: full lifecycle ────────────────────────────────────────
+// ─── 14. null-safety on subGoals / campaigns arrays + elements (PKT-635) ──────
+
+describe('GoalManager — null subGoals / null campaign element (PKT-635)', () => {
+  it('getReadySubGoals does not throw and skips a null element in subGoals', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [
+      makeSubGoal('sg-ok', { status: 'pending', dependsOn: [] }),
+      null as any,
+    ]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadySubGoals(file, 'g1')).not.toThrow();
+    const ready = gm.getReadySubGoals(file, 'g1').map(s => s.id);
+    expect(ready).toEqual(['sg-ok']);
+  });
+
+  it('getReadySubGoals does not throw and returns [] when subGoals is null', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = { ...makeGoal('g1', []), subGoals: null as any };
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadySubGoals(file, 'g1')).not.toThrow();
+    expect(gm.getReadySubGoals(file, 'g1')).toEqual([]);
+  });
+
+  it('isGoalComplete does not throw and returns false when subGoals is null', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = { ...makeGoal('g1', []), subGoals: null as any };
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.isGoalComplete(file, 'g1')).not.toThrow();
+    expect(gm.isGoalComplete(file, 'g1')).toBe(false);
+  });
+
+  // ── Test #4 (overmind-corrected) ──────────────────────────────────────────
+  // PKT-607 originally asserted toBe(false) with a self-contradictory comment.
+  // After the §4 fix filters null, the surviving sg-ok IS complete, so the goal IS complete.
+  // The overmind's verdict offered two corrections:
+  //   (a) make sg-ok non-complete → toBe(false), or
+  //   (b) keep sg-ok complete → toBe(true) with corrected comment.
+  // We choose (b) — the cleaner semantic: a null element is filtered out and does
+  // NOT suppress a legitimate complete state. If a future caller wants "null poisons
+  // the goal", they must use a different sentinel (e.g., an explicit schema validator).
+  it('isGoalComplete filters a null element; surviving complete sub-goal makes the goal complete (PKT-635 test #4 corrected)', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [
+      makeSubGoal('sg-ok', { status: 'complete' }),
+      null as any,
+    ]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.isGoalComplete(file, 'g1')).not.toThrow();
+    // CORRECTED ASSERTION (was `toBe(false)` in PKT-607 — that was internally
+    // inconsistent with the §4 fix: after filtering null, sg-ok is the only
+    // surviving element, it is complete, so the goal IS complete → true).
+    expect(gm.isGoalComplete(file, 'g1')).toBe(true);
+  });
+
+  it('isGoalComplete returns false when surviving non-complete sub-goal remains after null filter', async () => {
+    // Companion to test #4 — explicitly exercises the "returns false" path
+    // (overmind correction option (a)). The surviving sub-goal is NOT complete,
+    // so the goal is not complete.
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = makeGoal('g1', [
+      makeSubGoal('sg-pending', { status: 'pending' }),
+      null as any,
+    ]);
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.isGoalComplete(file, 'g1')).not.toThrow();
+    expect(gm.isGoalComplete(file, 'g1')).toBe(false);
+  });
+
+  it('getReadyCampaigns does not throw and returns [] when campaigns is [null]', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = { ...makeGoal('g1', []), scheme: makeScheme([null as any]) };
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    expect(gm.getReadyCampaigns(file, 'g1')).toEqual([]);
+  });
+
+  it('getReadyCampaigns does not throw and returns [] when campaigns is null', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = { ...makeGoal('g1', []), scheme: { ...makeScheme([]), campaigns: null as any } };
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    expect(gm.getReadyCampaigns(file, 'g1')).toEqual([]);
+  });
+
+  it('isSchemeComplete does not throw and returns false when campaigns is null', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const goal = { ...makeGoal('g1', []), scheme: { ...makeScheme([]), campaigns: null as any } };
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.isSchemeComplete(file, 'g1')).not.toThrow();
+    expect(gm.isSchemeComplete(file, 'g1')).toBe(false);
+  });
+});
+
+// ─── 15. Integration: full lifecycle ────────────────────────────────────────
 
 describe('GoalManager — integration: full goal lifecycle', () => {
   it('addGoal → foldUserInput → updateSubGoal → markGoalComplete round-trip', async () => {

@@ -109,18 +109,20 @@ export class GoalManager {
   getReadySubGoals(file: GoalsFile, goalId: string): SubGoal[] {
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) return [];
+    const subGoals = Array.isArray(goal.subGoals) ? goal.subGoals.filter(s => s !== null && typeof s === 'object') : [];
     const doneIds = new Set(
-      goal.subGoals.filter(s => s.status === 'complete').map(s => s.id)
+      subGoals.filter(s => s.status === 'complete' && typeof s.id === 'string').map(s => s.id)
     );
-    return goal.subGoals.filter(
-      s => s.status === 'pending' && Array.isArray(s.dependsOn) && s.dependsOn.every(dep => doneIds.has(dep))
+    return subGoals.filter(
+      s => s.status === 'pending' && Array.isArray(s.dependsOn) && s.dependsOn.every((dep: unknown) => typeof dep === 'string' && doneIds.has(dep))
     );
   }
 
   isGoalComplete(file: GoalsFile, goalId: string): boolean {
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) return false;
-    return goal.subGoals.length > 0 && goal.subGoals.every(s => s.status === 'complete');
+    const subGoals = Array.isArray(goal.subGoals) ? goal.subGoals.filter(s => s !== null && typeof s === 'object') : [];
+    return subGoals.length > 0 && subGoals.every(s => s.status === 'complete');
   }
 
   async foldUserInput(goalId: string, newSubGoals: SubGoal[]): Promise<void> {
@@ -174,18 +176,19 @@ export class GoalManager {
   getReadyCampaigns(file: GoalsFile, goalId: string): Campaign[] {
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal?.scheme) return [];
+    const campaigns = Array.isArray(goal.scheme.campaigns) ? goal.scheme.campaigns.filter(c => c !== null && typeof c === 'object') : [];
     const doneIds = new Set(
-      goal.scheme.campaigns.filter(c => c.status === 'complete').map(c => c.id)
+      campaigns.filter(c => c.status === 'complete' && typeof c.id === 'string').map(c => c.id)
     );
-    return goal.scheme.campaigns.filter(
-      c => c.status === 'pending' && Array.isArray(c.dependsOn) && c.dependsOn.every(dep => doneIds.has(dep))
+    return campaigns.filter(
+      c => c.status === 'pending' && Array.isArray(c.dependsOn) && c.dependsOn.every((dep: unknown) => typeof dep === 'string' && doneIds.has(dep))
     );
   }
 
   isSchemeComplete(file: GoalsFile, goalId: string): boolean {
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal?.scheme) return false;
-    const { campaigns } = goal.scheme;
+    const campaigns = Array.isArray(goal.scheme.campaigns) ? goal.scheme.campaigns.filter(c => c !== null && typeof c === 'object') : [];
     return campaigns.length > 0 && campaigns.every(c => c.status === 'complete');
   }
 }
