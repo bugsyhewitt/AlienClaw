@@ -8,6 +8,7 @@ Used by Packet 26's H2 mutual information analysis.
 """
 from __future__ import annotations
 
+import math
 import os
 import random as _random
 import tempfile
@@ -16,6 +17,7 @@ from typing import Any
 from alienclaw.evolution.generation import RunMartianCallback, evaluate_and_evolve
 from alienclaw.evolution.population import Population
 from alienclaw.evolution.types import EvolutionConfig
+from alienclaw.fitness.function import clamp01
 
 
 def capture_per_genome(
@@ -45,9 +47,13 @@ def capture_per_genome(
 
         for entry in current_pool:
             report = run_martian_fn(martian_type, entry.genome)
+            # PKT-631: mirror PKT-618 safe-fitness + clamp01 at capture site.
+            # capture_per_genome calls run_martian_fn directly (not via evaluate_and_evolve),
+            # so the _make_entry guard doesn't apply here.
+            safe_fitness = 0.0 if not math.isfinite(report.fitness) else report.fitness
             records.append({
                 "genome": entry.genome,
-                "fitness": report.fitness,
+                "fitness": clamp01(safe_fitness),
                 "gen": gen_idx,
             })
 
