@@ -18,6 +18,13 @@ BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 BASE62_TO_INT = {c: i for i, c in enumerate(BASE62)}
 
 
+def _assert_finite_sequence(name: str, seq: Sequence[float]) -> None:
+    """Raise ValueError if any element of seq is NaN or ±Inf (PKT-616)."""
+    for i, x in enumerate(seq):
+        if not math.isfinite(x):
+            raise ValueError(f"{name}[{i}] must be a finite number, got {x!r}")
+
+
 def _freedman_diaconis_nbins(y: np.ndarray) -> int:
     """Compute number of histogram bins using Freedman-Diaconis rule."""
     n = len(y)
@@ -54,6 +61,7 @@ def mutual_information(
         return 0.0
     if len(y) != n:
         raise ValueError("x and y must have the same length")
+    _assert_finite_sequence("y", y)
 
     y_arr = np.array(y, dtype=float)
 
@@ -129,6 +137,8 @@ def genome_byte_mutual_information(
     if not genomes:
         return {"summary": {"max_byte_mi": 0.0, "mean_byte_mi": 0.0, "n_significant_bytes": 0, "threshold_nats": 0.01}}
 
+    _assert_finite_sequence("fitnesses", fitnesses)
+
     genome_len = len(genomes[0])
     if byte_indices is None:
         byte_indices = range(genome_len)
@@ -160,6 +170,8 @@ def summarize_genome_fitness_mi(
     Genome sections: bytes 0-63 (IDENTITY), 64-127 (slot 0 EXECUTION),
     128-191 (slot 1 EXECUTION), 192-255 (CHECKSUM).
     """
+    _assert_finite_sequence("fitnesses", fitnesses)
+
     sections = {
         "identity_bytes_0_63": list(range(64)),
         "slot0_exec_64_127": list(range(64, 128)),

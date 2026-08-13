@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import random
 import pytest
 import numpy as np
 
@@ -143,7 +144,56 @@ class TestSummarizeGenomeFitnessMi:
         assert result["n_samples"] == 30
 
 
-# ── Dead-code exclusions (no test required) ───────────────────────────────────
-# L30: _freedman_diaconis_nbins branch `if h <= 0 or span <= 0` is unreachable.
-# The only caller (mutual_information) guards n<2 first; once _freedman_diaconis_nbins
-# is reached, iqr>0 (checked at L25), so h>0 and span>=iqr>0 always hold.
+# ── Dead-code note (updated PKT-616) ──────────────────────────────────────────
+# L29-30 (_freedman_diaconis_nbins `if h <= 0 or span <= 0`) is now genuinely
+# unreachable: the PKT-616 entry-point guard in mutual_information raises before
+# _freedman_diaconis_nbins is ever called with NaN/Inf. The prior claim that
+# "iqr>0 always holds" was FALSE under NaN/Inf inputs — that code path was
+# reachable and crashed with ValueError/OverflowError. The new guard at the
+# mutual_information entry point closes that gap.
+
+
+class TestMutualInformationInputSafety:
+    """PKT-616: y/fitnesses input-safety guards."""
+
+    def test_y_with_nan_raises(self):
+        x = list(range(10))
+        y = [0.1 * i if i != 5 else float("nan") for i in range(10)]
+        with pytest.raises(ValueError, match=r"y\[5\] must be a finite number, got nan"):
+            mutual_information(x, y)
+
+    def test_y_with_pos_inf_raises(self):
+        x = list(range(10))
+        y = [0.1 * i if i != 5 else float("inf") for i in range(10)]
+        with pytest.raises(ValueError, match=r"y\[5\] must be a finite number, got inf"):
+            mutual_information(x, y)
+
+    def test_y_with_neg_inf_raises(self):
+        x = list(range(10))
+        y = [0.1 * i if i != 5 else float("-inf") for i in range(10)]
+        with pytest.raises(ValueError, match=r"y\[5\] must be a finite number, got -inf"):
+            mutual_information(x, y)
+
+    def test_all_nan_y_raises(self):
+        x = list(range(10))
+        y = [float("nan")] * 10
+        with pytest.raises(ValueError, match=r"y\[0\] must be a finite number, got nan"):
+            mutual_information(x, y)
+
+    def test_genome_byte_mutual_information_with_nan_raises(self):
+        from alienclaw.diagnostics.genome_information import BASE62
+        rng = random.Random(42)
+        genomes = ["".join(rng.choice(BASE62) for _ in range(256)) for _ in range(20)]
+        fitnesses = [rng.random() for _ in range(20)]
+        fitnesses[10] = float("nan")
+        with pytest.raises(ValueError, match=r"fitnesses\[10\] must be a finite number, got nan"):
+            genome_byte_mutual_information(genomes, fitnesses, byte_indices=range(5))
+
+    def test_summarize_genome_fitness_mi_with_inf_raises(self):
+        from alienclaw.diagnostics.genome_information import BASE62
+        rng = random.Random(42)
+        genomes = ["".join(rng.choice(BASE62) for _ in range(256)) for _ in range(30)]
+        fitnesses = [rng.random() for _ in range(30)]
+        fitnesses[15] = float("inf")
+        with pytest.raises(ValueError, match=r"fitnesses\[15\] must be a finite number, got inf"):
+            summarize_genome_fitness_mi(genomes, fitnesses)
