@@ -283,3 +283,226 @@ describe('fitness-update — live-fitness-summary.json (E2 item 5)', () => {
     shutdown();
   });
 });
+
+// ── PKT-615: fitness-update — malformed outcome enum ──────────────────────────
+
+describe('fitness-update — malformed outcome enum (PKT-615)', () => {
+  const SUMMARY_PATH_615 = '/tmp/ac-test-fit-sum/live-fitness-summary.json';
+
+  beforeEach(() => {
+    mkdirSync('/tmp/ac-test-fit-sum', { recursive: true });
+    mockFakeRegistry.list.mockReset();
+    mockFakeRegistry.list.mockImplementation(function() { return []; });
+    mockFakeRegistry.get.mockReset();
+    vi.mocked(creatorBot.registerScheduledJob).mockClear();
+    vi.mocked(creatorBot.enqueue).mockClear();
+  });
+
+  afterEach(() => {
+    try { unlinkSync(SUMMARY_PATH_615); }           catch { /* may not exist */ }
+    try { unlinkSync(SUMMARY_PATH_615 + '.tmp'); }  catch { /* may not exist */ }
+  });
+
+  it('PKT615-FU-T1: baseline — 4 SUCCESS + 1 FAILURE — no NOTABLE, no spurious URGENT, EMA correct', async () => {
+    const mutable: { id: string; fitness: number } = { id: 'M-base', fitness: 0.5 };
+    mockFakeRegistry.list.mockReturnValue([mutable]);
+    mockFakeRegistry.get.mockImplementation(function(id: string) {
+      return id === 'M-base' ? mutable : undefined;
+    });
+
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      { reportCode: 'r1', ts: 1000, taskId: 't1', subagentId: 's1', martianId: 'M-base', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      { reportCode: 'r2', ts: 1001, taskId: 't1', subagentId: 's1', martianId: 'M-base', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      { reportCode: 'r3', ts: 1002, taskId: 't1', subagentId: 's1', martianId: 'M-base', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      { reportCode: 'r4', ts: 1003, taskId: 't1', subagentId: 's1', martianId: 'M-base', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      { reportCode: 'r5', ts: 1004, taskId: 't1', subagentId: 's1', martianId: 'M-base', domain: 'd', outcome: 'FAILURE', summary: 'fail' },
+    ] as Parameters<typeof readRecentMartianReports>[0] extends number ? never : Awaited<ReturnType<typeof readRecentMartianReports>>);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    // successRate = 4/5 = 0.8; newFitness = 0.3*0.8 + 0.7*0.5 = 0.59
+    expect(mutable.fitness).toBeCloseTo(0.59, 10);
+    // No spurious URGENT evolve-genome
+    const urgentEnqueues = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri]) => pri === 'URGENT',
+    );
+    const evolveUrgents = urgentEnqueues.filter(([, msg]) => (msg as string).includes('evolve genome'));
+    expect(evolveUrgents).toHaveLength(0);
+    // No NOTABLE malformed diagnostic
+    const notableEnqueues = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri]) => pri === 'NOTABLE',
+    );
+    expect(notableEnqueues).toHaveLength(0);
+
+    shutdown();
+  });
+
+  it('PKT615-FU-T2: 4 SUCCESS + 1 lowercase "unknown" — ghost filtered, successRate=1.0, NOTABLE enqueued, NO spurious URGENT', async () => {
+    const mutable: { id: string; fitness: number } = { id: 'M-t2', fitness: 0.5 };
+    mockFakeRegistry.list.mockReturnValue([mutable]);
+    mockFakeRegistry.get.mockImplementation(function(id: string) {
+      return id === 'M-t2' ? mutable : undefined;
+    });
+
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      { reportCode: 'r1', ts: 1000, taskId: 't1', subagentId: 's1', martianId: 'M-t2', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      { reportCode: 'r2', ts: 1001, taskId: 't1', subagentId: 's1', martianId: 'M-t2', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      { reportCode: 'r3', ts: 1002, taskId: 't1', subagentId: 's1', martianId: 'M-t2', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      { reportCode: 'r4', ts: 1003, taskId: 't1', subagentId: 's1', martianId: 'M-t2', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      // Ghost outcome — must be filtered out of denominator
+      { reportCode: 'r5', ts: 1004, taskId: 't1', subagentId: 's1', martianId: 'M-t2', domain: 'd', outcome: 'unknown' as 'SUCCESS', summary: 'ghost' },
+    ]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    // successRate = 4/4 = 1.0 (ghost filtered); newFitness = 0.3*1.0 + 0.7*0.5 = 0.65
+    expect(mutable.fitness).toBeCloseTo(0.65, 10);
+    // Fitness 0.65 > 0.4 threshold — NO spurious URGENT evolve-genome
+    const evolveUrgents = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri, msg]) => pri === 'URGENT' && (msg as string).includes('evolve genome'),
+    );
+    expect(evolveUrgents).toHaveLength(0);
+    // NOTABLE diagnostic enqueued for the malformed outcome
+    expect(creatorBot.enqueue).toHaveBeenCalledWith(
+      'NOTABLE',
+      expect.stringContaining('M-t2'),
+      'fitness-update',
+    );
+    const notableMsg = vi.mocked(creatorBot.enqueue).mock.calls.find(
+      ([pri]) => pri === 'NOTABLE',
+    )?.[1] as string | undefined;
+    expect(notableMsg).toMatch(/non-canonical|malformed|1/i);
+
+    shutdown();
+  });
+
+  it('PKT615-FU-T3: 1 SUCCESS + 4 ghosts (unknown, Success, null, undefined) — successRate=1.0, NO URGENT, ONE NOTABLE', async () => {
+    const mutable: { id: string; fitness: number } = { id: 'M-t3', fitness: 0.5 };
+    mockFakeRegistry.list.mockReturnValue([mutable]);
+    mockFakeRegistry.get.mockImplementation(function(id: string) {
+      return id === 'M-t3' ? mutable : undefined;
+    });
+
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      { reportCode: 'r1', ts: 1000, taskId: 't1', subagentId: 's1', martianId: 'M-t3', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      { reportCode: 'r2', ts: 1001, taskId: 't1', subagentId: 's1', martianId: 'M-t3', domain: 'd', outcome: 'unknown' as 'SUCCESS', summary: 'ghost' },
+      { reportCode: 'r3', ts: 1002, taskId: 't1', subagentId: 's1', martianId: 'M-t3', domain: 'd', outcome: 'Success' as 'SUCCESS', summary: 'ghost' },
+      { reportCode: 'r4', ts: 1003, taskId: 't1', subagentId: 's1', martianId: 'M-t3', domain: 'd', outcome: null as unknown as 'SUCCESS', summary: 'ghost' },
+      { reportCode: 'r5', ts: 1004, taskId: 't1', subagentId: 's1', martianId: 'M-t3', domain: 'd', outcome: undefined as unknown as 'SUCCESS', summary: 'ghost' },
+    ]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    // successRate = 1/1 = 1.0; newFitness = 0.3*1.0 + 0.7*0.5 = 0.65
+    expect(mutable.fitness).toBeCloseTo(0.65, 10);
+    const evolveUrgents = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri, msg]) => pri === 'URGENT' && (msg as string).includes('evolve genome'),
+    );
+    expect(evolveUrgents).toHaveLength(0);
+    const notableEnqueues = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri]) => pri === 'NOTABLE',
+    );
+    expect(notableEnqueues).toHaveLength(1);
+
+    shutdown();
+  });
+
+  it('PKT615-FU-T4: all-malformed — EMA skipped entirely, fitness unchanged, NO spurious URGENT, NOTABLE fires', async () => {
+    const mutable: { id: string; fitness: number } = { id: 'M-t4', fitness: 0.5 };
+    mockFakeRegistry.list.mockReturnValue([mutable]);
+    mockFakeRegistry.get.mockImplementation(function(id: string) {
+      return id === 'M-t4' ? mutable : undefined;
+    });
+
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      { reportCode: 'r1', ts: 1000, taskId: 't1', subagentId: 's1', martianId: 'M-t4', domain: 'd', outcome: 'unknown' as 'SUCCESS', summary: 'ghost' },
+      { reportCode: 'r2', ts: 1001, taskId: 't1', subagentId: 's1', martianId: 'M-t4', domain: 'd', outcome: 'Success' as 'SUCCESS', summary: 'ghost' },
+      { reportCode: 'r3', ts: 1002, taskId: 't1', subagentId: 's1', martianId: 'M-t4', domain: 'd', outcome: null as unknown as 'SUCCESS', summary: 'ghost' },
+    ]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    // All reports malformed → EMA skipped entirely — fitness must remain at its prior value.
+    // This is the core PKT-615 fix: zero valid evidence must NOT decay persisted fitness.
+    expect(mutable.fitness).toBe(0.5);
+    // NO spurious evolve-genome URGENT — no valid observations means no threshold can be crossed.
+    const evolveUrgents = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri, msg]) => pri === 'URGENT' && (msg as string).includes('evolve genome'),
+    );
+    expect(evolveUrgents).toHaveLength(0);
+    // NOTABLE fires to surface the ghost count for observability.
+    const notableEnqueues = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri]) => pri === 'NOTABLE',
+    );
+    expect(notableEnqueues).toHaveLength(1);
+
+    shutdown();
+  });
+
+  it('PKT615-FU-T5: previously spurious URGENT no longer fires when ghosts inflate denominator — key regression guard', async () => {
+    // Prior to fix: 1 SUCCESS + 4 ghosts → successRate=0.2 → newFitness=0.41 (just above 0.4)
+    // or with slightly different prior: would cross threshold and fire spurious URGENT.
+    // After fix: successRate=1.0 → newFitness=0.65 → NO URGENT.
+    const mutable: { id: string; fitness: number } = { id: 'M-t5', fitness: 0.5 };
+    mockFakeRegistry.list.mockReturnValue([mutable]);
+    mockFakeRegistry.get.mockImplementation(function(id: string) {
+      return id === 'M-t5' ? mutable : undefined;
+    });
+
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      { reportCode: 'r1', ts: 1000, taskId: 't1', subagentId: 's1', martianId: 'M-t5', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+      { reportCode: 'r2', ts: 1001, taskId: 't1', subagentId: 's1', martianId: 'M-t5', domain: 'd', outcome: 'unknown' as 'SUCCESS', summary: 'ghost' },
+      { reportCode: 'r3', ts: 1002, taskId: 't1', subagentId: 's1', martianId: 'M-t5', domain: 'd', outcome: 'unknown' as 'SUCCESS', summary: 'ghost' },
+      { reportCode: 'r4', ts: 1003, taskId: 't1', subagentId: 's1', martianId: 'M-t5', domain: 'd', outcome: 'unknown' as 'SUCCESS', summary: 'ghost' },
+      { reportCode: 'r5', ts: 1004, taskId: 't1', subagentId: 's1', martianId: 'M-t5', domain: 'd', outcome: 'unknown' as 'SUCCESS', summary: 'ghost' },
+    ]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    // After fix: successRate=1/1=1.0; newFitness=0.65 — above threshold, NO spurious URGENT
+    // Before fix: successRate=1/5=0.2; newFitness=0.41 — just above 0.4 but close to spurious fire
+    expect(mutable.fitness).toBeCloseTo(0.65, 10);
+    const evolveUrgents = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri, msg]) => pri === 'URGENT' && (msg as string).includes('evolve genome'),
+    );
+    expect(evolveUrgents).toHaveLength(0);
+
+    shutdown();
+  });
+
+  it('PKT615-FU-T6: PKT-458 regression — NaN ms.fitness fires URGENT and skips EMA (PKT-615 NOTABLE NOT enqueued)', async () => {
+    const nanMartian: { id: string; fitness: number } = { id: 'nan_m', fitness: NaN };
+    mockFakeRegistry.list.mockReturnValue([nanMartian]);
+    mockFakeRegistry.get.mockImplementation(function(id: string) {
+      return id === 'nan_m' ? nanMartian : undefined;
+    });
+
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      { reportCode: 'r1', ts: 1000, taskId: 't1', subagentId: 's1', martianId: 'nan_m', domain: 'd', outcome: 'SUCCESS', summary: 'ok' },
+    ]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    // PKT-458 guard fires first — ms.fitness stays NaN, EMA skipped
+    expect(Number.isNaN(nanMartian.fitness)).toBe(true);
+    // URGENT for non-finite ms.fitness
+    expect(creatorBot.enqueue).toHaveBeenCalledWith(
+      'URGENT',
+      expect.stringContaining('nan_m'),
+      'fitness-update',
+    );
+    // PKT-615 NOTABLE must NOT be enqueued (non-finite guard is upstream of outcome filter)
+    const notableEnqueues = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri]) => pri === 'NOTABLE',
+    );
+    expect(notableEnqueues).toHaveLength(0);
+
+    shutdown();
+  });
+});

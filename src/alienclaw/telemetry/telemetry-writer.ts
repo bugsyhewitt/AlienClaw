@@ -115,6 +115,17 @@ export class TelemetryWriter {
    */
   async writeMartianReport(reportCode: string, data: Record<string, unknown>): Promise<void> {
     const safeCode = sanitizeFilenameSegment(reportCode, 'reportCode');
+    // PKT-615 (defense-in-depth): validate outcome enum at producer side.
+    // The read-side filter (telemetry-reader.ts + hierarchy-bootstrap.ts) is the primary
+    // defense; this catches malformed outcomes before they reach disk.
+    if ('outcome' in data) {
+      const o = data['outcome'];
+      if (o !== 'SUCCESS' && o !== 'FAILURE' && o !== 'ESCALATED') {
+        throw new TelemetryFilenameError(
+          `Invalid outcome enum value: ${JSON.stringify(o)}. Must be one of: SUCCESS | FAILURE | ESCALATED.`,
+        );
+      }
+    }
     const dir = this.dirForDate();
     await this.ensureDir(dir);
     const payload = { ...data, reportCode, ts: Date.now() };

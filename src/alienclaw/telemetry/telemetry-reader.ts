@@ -26,11 +26,12 @@ export interface MartianReport {
 }
 
 export interface FitnessSummary {
-  runs:        number;
-  successes:   number;
-  escalations: number;
-  failures:    number;
-  rate:        number;  // successes / runs (0 if runs === 0)
+  runs:            number;
+  successes:       number;
+  escalations:     number;
+  failures:        number;
+  rate:            number;  // successes / runs (0 if runs === 0)
+  malformed_count?: number; // PKT-615: count of reports with non-canonical outcome enum values
 }
 
 export interface OnlineFitnessEntry {
@@ -133,11 +134,17 @@ export async function summarizeFitness(
   const reports = await readRecentMartianReports(sinceMs);
 
   const relevant = reports.filter(r => r.martianId === martianId);
-  const runs      = relevant.length;
-  const successes = relevant.filter(r => r.outcome === 'SUCCESS').length;
-  const escalations = relevant.filter(r => r.outcome === 'ESCALATED').length;
-  const failures  = relevant.filter(r => r.outcome === 'FAILURE').length;
-  const rate = runs > 0 ? successes / runs : 0;
+  // PKT-615: reject malformed outcomes (non-canonical enum values) so they don't
+  // inflate `runs` while contributing to no numerator (silent deflation defect).
+  const valid = relevant.filter(r =>
+    r.outcome === 'SUCCESS' || r.outcome === 'FAILURE' || r.outcome === 'ESCALATED',
+  );
+  const malformedCount = relevant.length - valid.length;
+  const runs        = valid.length;
+  const successes   = valid.filter(r => r.outcome === 'SUCCESS').length;
+  const escalations = valid.filter(r => r.outcome === 'ESCALATED').length;
+  const failures    = valid.filter(r => r.outcome === 'FAILURE').length;
+  const rate        = runs > 0 ? successes / runs : 0;
 
-  return { runs, successes, escalations, failures, rate };
+  return { runs, successes, escalations, failures, rate, ...(malformedCount > 0 ? { malformed_count: malformedCount } : {}) };
 }

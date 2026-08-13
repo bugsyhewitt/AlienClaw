@@ -402,3 +402,159 @@ describe('summarizeFitness', () => {
     expect(c.rate).toBe(0);
   });
 });
+
+// ── PKT-615: summarizeFitness — malformed outcome enum ────────────────────────
+
+describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
+  function writeRawReport(
+    root: string,
+    dateDir: string,
+    filename: string,
+    fields: Record<string, unknown>,
+  ): void {
+    const dir = join(root, dateDir);
+    mkdirSync(dir, { recursive: true });
+    const payload = {
+      reportCode: 'r-001',
+      ts: Date.now(),
+      taskId: 'task-1',
+      subagentId: 'sub-1',
+      martianId: 'M-target',
+      domain: 'general',
+      outcome: 'SUCCESS',
+      summary: 'ok',
+      ...fields,
+    };
+    writeFileSync(join(dir, filename), JSON.stringify(payload), 'utf-8');
+  }
+
+  it('PKT615-TR-T1: baseline — 2 SUCCESS + 1 FAILURE returns correct counts without malformed_count', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeRawReport(root, date, 's1.json', { ts: now,     martianId: 'M-x', outcome: 'SUCCESS' });
+    writeRawReport(root, date, 's2.json', { ts: now + 1, martianId: 'M-x', outcome: 'SUCCESS' });
+    writeRawReport(root, date, 'f1.json', { ts: now + 2, martianId: 'M-x', outcome: 'FAILURE' });
+    const { summarizeFitness } = await loadReader();
+    const summary = await summarizeFitness('M-x', 60_000);
+    expect(summary.runs).toBe(3);
+    expect(summary.successes).toBe(2);
+    expect(summary.failures).toBe(1);
+    expect(summary.rate).toBeCloseTo(2 / 3, 10);
+    // No malformed outcomes → malformed_count absent or zero
+    expect((summary as Record<string, unknown>)['malformed_count'] ?? 0).toBe(0);
+  });
+
+  it('PKT615-TR-T2: lowercase "unknown" outcome is rejected — runs counts only canonical records', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeRawReport(root, date, 's1.json', { ts: now,     martianId: 'M-x', outcome: 'SUCCESS' });
+    writeRawReport(root, date, 's2.json', { ts: now + 1, martianId: 'M-x', outcome: 'SUCCESS' });
+    writeRawReport(root, date, 'b1.json', { ts: now + 2, martianId: 'M-x', outcome: 'unknown' });
+    const { summarizeFitness } = await loadReader();
+    const summary = await summarizeFitness('M-x', 60_000);
+    // Ghost filtered: runs=2, not 3; rate=1.0, not 0.667
+    expect(summary.runs).toBe(2);
+    expect(summary.successes).toBe(2);
+    expect(summary.rate).toBe(1);
+    expect((summary as Record<string, unknown>)['malformed_count']).toBe(1);
+  });
+
+  it('PKT615-TR-T3: null outcome is rejected — only canonical records count', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeRawReport(root, date, 's1.json', { ts: now,     martianId: 'M-x', outcome: 'SUCCESS' });
+    writeRawReport(root, date, 's2.json', { ts: now + 1, martianId: 'M-x', outcome: 'SUCCESS' });
+    writeRawReport(root, date, 'b1.json', { ts: now + 2, martianId: 'M-x', outcome: null });
+    const { summarizeFitness } = await loadReader();
+    const summary = await summarizeFitness('M-x', 60_000);
+    expect(summary.runs).toBe(2);
+    expect(summary.successes).toBe(2);
+    expect(summary.rate).toBe(1);
+    expect((summary as Record<string, unknown>)['malformed_count']).toBe(1);
+  });
+
+  it('PKT615-TR-T4: undefined outcome (missing field) is rejected', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeRawReport(root, date, 's1.json', { ts: now,     martianId: 'M-x', outcome: 'SUCCESS' });
+    // Write report with no outcome field at all (simulates undefined serialized as missing key)
+    const dir = join(root, date);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'b1.json'), JSON.stringify({
+      reportCode: 'b1', ts: now + 1, taskId: 't1', subagentId: 's1',
+      martianId: 'M-x', domain: 'general', summary: 'no outcome field',
+    }), 'utf-8');
+    const { summarizeFitness } = await loadReader();
+    const summary = await summarizeFitness('M-x', 60_000);
+    expect(summary.runs).toBe(1);
+    expect(summary.successes).toBe(1);
+    expect(summary.rate).toBe(1);
+    expect((summary as Record<string, unknown>)['malformed_count']).toBe(1);
+  });
+
+  it('PKT615-TR-T5: titlecase "Success" outcome is rejected', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeRawReport(root, date, 's1.json', { ts: now,     martianId: 'M-x', outcome: 'SUCCESS' });
+    writeRawReport(root, date, 's2.json', { ts: now + 1, martianId: 'M-x', outcome: 'SUCCESS' });
+    writeRawReport(root, date, 'b1.json', { ts: now + 2, martianId: 'M-x', outcome: 'Success' });
+    const { summarizeFitness } = await loadReader();
+    const summary = await summarizeFitness('M-x', 60_000);
+    expect(summary.runs).toBe(2);
+    expect(summary.successes).toBe(2);
+    expect(summary.rate).toBe(1);
+    expect((summary as Record<string, unknown>)['malformed_count']).toBe(1);
+  });
+
+  it('PKT615-TR-T6: all-malformed — runs=0, malformed_count=5, rate=0, distinguishable from "broken Martian"', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    const malformed = ['unknown', 'Success', null, 'TIMEOUT', 'PARTIAL'];
+    malformed.forEach((o, i) => {
+      writeRawReport(root, date, `b${i}.json`, { ts: now + i, martianId: 'M-x', outcome: o });
+    });
+    const { summarizeFitness } = await loadReader();
+    const summary = await summarizeFitness('M-x', 60_000);
+    expect(summary.runs).toBe(0);
+    expect(summary.successes).toBe(0);
+    expect(summary.failures).toBe(0);
+    expect(summary.escalations).toBe(0);
+    expect(summary.rate).toBe(0);
+    // malformed_count surfaces the ghost count — BossBot can distinguish
+    expect((summary as Record<string, unknown>)['malformed_count']).toBe(5);
+  });
+
+  it('PKT615-TR-T7: empty relevant set — returns zeros without malformed_count', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeRawReport(root, date, 'other.json', { ts: now, martianId: 'M-other', outcome: 'SUCCESS' });
+    const { summarizeFitness } = await loadReader();
+    const summary = await summarizeFitness('M-target-none', 60_000);
+    expect(summary.runs).toBe(0);
+    expect(summary.successes).toBe(0);
+    expect(summary.failures).toBe(0);
+    expect(summary.escalations).toBe(0);
+    expect(summary.rate).toBe(0);
+    expect((summary as Record<string, unknown>)['malformed_count'] ?? 0).toBe(0);
+  });
+
+  it('PKT615-TR-T8: malformed_count absent (not zero) when all outcomes are canonical (backward-compat)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeRawReport(root, date, 's1.json', { ts: now,     martianId: 'M-x', outcome: 'SUCCESS' });
+    writeRawReport(root, date, 'e1.json', { ts: now + 1, martianId: 'M-x', outcome: 'ESCALATED' });
+    const { summarizeFitness } = await loadReader();
+    const summary = await summarizeFitness('M-x', 60_000);
+    expect(summary.runs).toBe(2);
+    // malformed_count key must NOT be present when count is zero
+    expect('malformed_count' in summary).toBe(false);
+  });
+});

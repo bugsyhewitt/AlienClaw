@@ -185,8 +185,26 @@ export function bootstrap(): BootstrapResult {
             continue;
           }
 
-          const total = martianReports.length;
-          const successes = martianReports.filter(r => r.outcome === 'SUCCESS').length;
+          // PKT-615: reject malformed outcomes before computing successRate so ghosts
+          // don't inflate the denominator and deflate the EMA fitness.
+          const validReports = martianReports.filter(r =>
+            r.outcome === 'SUCCESS' || r.outcome === 'FAILURE' || r.outcome === 'ESCALATED',
+          );
+          const malformedCount = martianReports.length - validReports.length;
+          // PKT-615: surface malformed-outcome count via NOTABLE enqueue. One-shot per Martian per tick.
+          if (malformedCount > 0) {
+            creatorBot.enqueue(
+              'NOTABLE',
+              `fitness-update: martian ${martianId} had ${malformedCount} report(s) with non-canonical outcome enum values; rejected before EMA blend`,
+              'fitness-update',
+            );
+          }
+          // PKT-615: if ALL reports are malformed (zero valid observations), skip the EMA blend,
+          // .ms rewrite, and URGENT threshold check entirely. Decaying fitness on zero valid
+          // evidence would create a spurious evolve-genome storm (the core PKT-615 symptom).
+          if (validReports.length === 0) continue;
+          const total      = validReports.length;
+          const successes  = validReports.filter(r => r.outcome === 'SUCCESS').length;
           const successRate = total > 0 ? successes / total : 0;
           const newFitness = FITNESS_EMA_ALPHA * successRate + (1 - FITNESS_EMA_ALPHA) * ms.fitness;
 
