@@ -14,12 +14,14 @@ from pathlib import Path
 _DEFAULT_PATH = Path.home() / ".alienclaw" / "online_fitness.jsonl"
 
 
-def _is_valid_fitness_entry(entry: dict) -> bool:
-    """Return True iff entry has a finite numeric fitness in [0, 1].
+def _is_valid_fitness_entry(entry: object) -> bool:
+    """Return True iff entry is a dict with a finite numeric fitness in [0, 1].
 
     Mirrors telemetry-reader.ts:108-114 (Number.isFinite + range check).
-    Rejects bool subclass of int (True/False are not fitness values).
+    Rejects non-dict JSON values (null, arrays, scalars), bool subclass of int.
     """
+    if not isinstance(entry, dict):
+        return False
     f = entry.get("fitness")
     if isinstance(f, bool) or not isinstance(f, (int, float)):
         return False

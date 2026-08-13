@@ -312,3 +312,26 @@ class TestOnlineFitnessReadPoisonGuard:
         log = OnlineFitnessLog(p)
         entries = log.read()
         assert len(entries) == 2
+
+    def test_read_non_dict_json_values_do_not_raise(self, tmp_path):
+        """PKT-621 T11: bare non-dict JSON lines (null, int, array) are silently excluded.
+
+        These parse without JSONDecodeError but are not valid entries; read()
+        must not raise AttributeError and must return only the surrounding
+        valid dict entries unchanged.
+        """
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            '{"martian_type":"compute","fitness":0.5,"ts":"2026-01-01T00:00:00+00:00"}\n'
+            "null\n"
+            "42\n"
+            "[1, 2, 3]\n"
+            '"just a string"\n'
+            '{"martian_type":"compute","fitness":0.8,"ts":"2026-01-01T00:01:00+00:00"}\n',
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        entries = log.read()
+        assert len(entries) == 2
+        assert entries[0]["fitness"] == 0.5
+        assert entries[1]["fitness"] == 0.8
