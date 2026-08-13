@@ -91,9 +91,9 @@ export function parseCliArgs(argv: string[]): CliCommand {
       }
     }
     const numbersOk =
-      Number.isFinite(args.generations) && args.generations >= 1 &&
-      Number.isFinite(args.population)  && args.population  >= 1 &&
-      (args.seed === undefined || Number.isFinite(args.seed));
+      Number.isInteger(args.generations) && args.generations >= 1 &&
+      Number.isInteger(args.population)  && args.population  >= 1 &&
+      (args.seed === undefined || (Number.isInteger(args.seed) && args.seed >= 0));
     if (!args.martianType || !numbersOk || !isValidMartianType(args.martianType)) {
       return { type: 'unknown', raw };
     }

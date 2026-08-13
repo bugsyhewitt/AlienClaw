@@ -267,3 +267,39 @@ describe('parseCliArgs — submit rejects path-traversal --type', () => {
     expect(r).toEqual({ type: 'submit', args: { martianType: 'hermes_echo', yes: true, force: false, name: undefined } });
   });
 });
+
+// ── 7. parseCliArgs — non-integer flag values (PKT-629) ──────────────────────
+
+describe('parseCliArgs — non-integer flag values (PKT-629)', () => {
+  it('R-101: --generations 1.5 returns unknown (non-integer rejected at TS boundary)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', '1.5')).type).toBe('unknown');
+  });
+
+  it('R-102: --seed 3.14 returns unknown (non-integer rejected at TS boundary)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--seed', '3.14')).type).toBe('unknown');
+  });
+
+  it('R-103: --population 32.0 returns evolve with population=32 (JS Number collapse, benign parity)', () => {
+    const r = parseCliArgs(cli('evolve', '--type', 'compute_alone', '--population', '32.0'));
+    expect(r.type).toBe('evolve');
+    if (r.type === 'evolve') expect(r.args.population).toBe(32);
+  });
+
+  it('R-104: --generations NaN returns unknown (NaN rejected by isInteger)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', 'NaN')).type).toBe('unknown');
+  });
+
+  it('R-105: --generations Infinity returns unknown (Infinity rejected by isInteger)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', 'Infinity')).type).toBe('unknown');
+  });
+
+  it('R-106: --generations 1e100 returns evolve (documented decision: isInteger passes; Python argparse is second defense)', () => {
+    const r = parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', '1e100'));
+    expect(r.type).toBe('evolve');
+    if (r.type === 'evolve') expect(r.args.generations).toBe(1e100);
+  });
+
+  it('R-107: --seed -5 returns unknown (negative seed rejected)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--seed', '-5')).type).toBe('unknown');
+  });
+});
