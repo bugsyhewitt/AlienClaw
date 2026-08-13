@@ -90,9 +90,9 @@ class TestOnlineFitnessRecordNanGuard:
         captured = capsys.readouterr()
         assert "dropped non-finite fitness" in captured.err
 
-    @pytest.mark.parametrize("fitness", [0.0, 0.5, 1.0, -0.5])
+    @pytest.mark.parametrize("fitness", [0.0, 0.5, 1.0])
     def test_record_accepts_finite_fitness_regression(self, tmp_path, fitness):
-        """B-004: finite fitness values (including negative) are accepted."""
+        """B-004: finite in-range fitness values [0, 1] round-trip through record()+read()."""
         log = OnlineFitnessLog(tmp_path / "of.jsonl")
         log.record("compute", fitness)
         entries = log.read()
@@ -185,3 +185,130 @@ class TestOnlineFitnessReadMalformedGuard:
         assert isinstance(entries[0]["martian_type"], str)
         assert isinstance(entries[0]["fitness"], float)
         assert isinstance(entries[0]["ts"], str)
+
+
+class TestOnlineFitnessReadPoisonGuard:
+    """PKT-621: read() must silently exclude entries with non-finite / out-of-range fitness."""
+
+    def test_read_excludes_nan_fitness(self, tmp_path):
+        """PKT-621 T1: NaN-poisoned entry is silently excluded from read()."""
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            '{"martian_type":"compute","fitness":0.5,"ts":"2026-01-01T00:00:00+00:00"}\n'
+            '{"martian_type":"compute","fitness":NaN,"ts":"2026-01-01T00:01:00+00:00"}\n',
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        entries = log.read()
+        assert len(entries) == 1
+        assert entries[0]["fitness"] == 0.5
+
+    def test_read_excludes_positive_infinity_fitness(self, tmp_path):
+        """PKT-621 T2: +Inf-poisoned entry is silently excluded."""
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            '{"martian_type":"compute","fitness":Infinity,"ts":"2026-01-01T00:00:00+00:00"}\n',
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        assert log.read() == []
+
+    def test_read_excludes_negative_infinity_fitness(self, tmp_path):
+        """PKT-621 T3: -Inf-poisoned entry is silently excluded."""
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            '{"martian_type":"compute","fitness":-Infinity,"ts":"2026-01-01T00:00:00+00:00"}\n',
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        assert log.read() == []
+
+    def test_read_excludes_out_of_range_above_one(self, tmp_path):
+        """PKT-621 T4: fitness=1.5 (out-of-range above 1) is silently excluded."""
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            '{"martian_type":"compute","fitness":1.5,"ts":"2026-01-01T00:00:00+00:00"}\n',
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        assert log.read() == []
+
+    def test_read_excludes_out_of_range_below_zero(self, tmp_path):
+        """PKT-621 T5: fitness=-0.5 (out-of-range below 0) is silently excluded."""
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            '{"martian_type":"compute","fitness":-0.5,"ts":"2026-01-01T00:00:00+00:00"}\n',
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        assert log.read() == []
+
+    def test_read_excludes_non_numeric_fitness(self, tmp_path):
+        """PKT-621 T6: fitness="NaN" or fitness="not a number" is silently excluded."""
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            '{"martian_type":"compute","fitness":"NaN","ts":"2026-01-01T00:00:00+00:00"}\n'
+            '{"martian_type":"compute","fitness":"not a number","ts":"2026-01-01T00:01:00+00:00"}\n',
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        assert log.read() == []
+
+    def test_read_excludes_bool_fitness(self, tmp_path):
+        """PKT-621 T7: fitness=true (bool) is silently excluded (bool is subclass of int)."""
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            '{"martian_type":"compute","fitness":true,"ts":"2026-01-01T00:00:00+00:00"}\n',
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        assert log.read() == []
+
+    def test_read_preserves_valid_entries_among_poisoned(self, tmp_path):
+        """PKT-621 T8: 3 valid + 5 poisoned → 3 entries returned, poisoned silently excluded."""
+        p = tmp_path / "of.jsonl"
+        lines = [
+            '{"martian_type":"compute","fitness":0.5,"ts":"2026-01-01T00:00:00+00:00"}',
+            '{"martian_type":"compute","fitness":NaN,"ts":"2026-01-01T00:01:00+00:00"}',
+            '{"martian_type":"compute","fitness":0.7,"ts":"2026-01-01T00:02:00+00:00"}',
+            '{"martian_type":"compute","fitness":Infinity,"ts":"2026-01-01T00:03:00+00:00"}',
+            '{"martian_type":"compute","fitness":1.5,"ts":"2026-01-01T00:04:00+00:00"}',
+            '{"martian_type":"compute","fitness":0.9,"ts":"2026-01-01T00:05:00+00:00"}',
+            '{"martian_type":"compute","fitness":-0.5,"ts":"2026-01-01T00:06:00+00:00"}',
+            '{"martian_type":"compute","fitness":-Infinity,"ts":"2026-01-01T00:07:00+00:00"}',
+        ]
+        p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        log = OnlineFitnessLog(p)
+        entries = log.read()
+        assert len(entries) == 3
+        fitnesses = [e["fitness"] for e in entries]
+        assert fitnesses == [0.5, 0.7, 0.9]
+
+    def test_live_evo_count_unaffected_by_poisoned_entries(self, tmp_path, monkeypatch):
+        """PKT-621 T9: live_evo.py:70 counts only valid entries after the fix."""
+        monkeypatch.setenv("ALIENCLAW_POPULATIONS_ROOT", str(tmp_path / "populations"))
+        p = tmp_path / "of.jsonl"
+        lines = [
+            '{"martian_type":"compute","fitness":0.5,"ts":"2026-01-01T00:00:00+00:00"}',
+            '{"martian_type":"compute","fitness":NaN,"ts":"2026-01-01T00:01:00+00:00"}',
+            '{"martian_type":"compute","fitness":0.7,"ts":"2026-01-01T00:02:00+00:00"}',
+            '{"martian_type":"compute","fitness":Infinity,"ts":"2026-01-01T00:03:00+00:00"}',
+            '{"martian_type":"compute","fitness":1.5,"ts":"2026-01-01T00:04:00+00:00"}',
+            '{"martian_type":"compute","fitness":0.9,"ts":"2026-01-01T00:05:00+00:00"}',
+        ]
+        p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        log = OnlineFitnessLog(path=p)
+        all_entries = [e for e in log.read() if e["martian_type"] == "compute"]
+        assert len(all_entries) == 3  # post-fix: only valid entries
+
+    def test_read_fitness_zero_one_boundary_inclusive(self, tmp_path):
+        """PKT-621 T10: fitness=0.0 and fitness=1.0 are accepted (boundary inclusive)."""
+        p = tmp_path / "of.jsonl"
+        p.write_text(
+            '{"martian_type":"compute","fitness":0.0,"ts":"2026-01-01T00:00:00+00:00"}\n'
+            '{"martian_type":"compute","fitness":1.0,"ts":"2026-01-01T00:01:00+00:00"}\n',
+            encoding="utf-8",
+        )
+        log = OnlineFitnessLog(p)
+        entries = log.read()
+        assert len(entries) == 2
