@@ -14,6 +14,8 @@ This module provides functions to:
 """
 from __future__ import annotations
 
+import math
+
 from alienclaw.fitness.function import clamp01
 
 
@@ -77,7 +79,7 @@ def analyze_formula(
             "(at least one slot required)"
         )
     correctness_agg = min(slot_correctnesses) if slot_correctnesses else 0.0
-    correctness_agg = clamp01(correctness_agg)
+    correctness_agg = 0.0 if not math.isfinite(correctness_agg) else clamp01(correctness_agg)  # PKT-617
     tool_calls_agg = sum(slot_tool_calls)
     efficiency = 1.0 / max(1, tool_calls_agg)
     fitness = clamp01(correctness_agg * efficiency)
