@@ -110,6 +110,35 @@ class TestFitnessFormulaResult:
             assert 0.0 <= r.fitness <= 1.0
 
 
+class TestFiniteDefense:
+    """PKT-617: clamp01(NaN) silently returns 1.0; the 4 candidate formulas must
+    coerce non-finite correctness to 0.0 (mirror PKT-588's fitness/function.py:32-33)."""
+
+    @pytest.mark.parametrize("formula", [option_current, option_b, option_c_prime, option_d])
+    def test_nan_correctness_returns_zero_fitness(self, formula):
+        """T-PKT617-001 to T-PKT617-004: NaN correctness → fitness=0.0 (NOT silently inflated to 1.0)."""
+        r = formula(float('nan'), 1, 1)
+        assert r.fitness == 0.0, f"NaN should coerce to 0.0 fitness, got {r.fitness}"
+
+    @pytest.mark.parametrize("formula", [option_current, option_b, option_c_prime, option_d])
+    def test_pos_inf_correctness_returns_zero_fitness(self, formula):
+        """T-PKT617-005: +Inf correctness → fitness=0.0 (NOT silently accepted as 1.0)."""
+        r = formula(float('inf'), 1, 1)
+        assert r.fitness == 0.0, f"+Inf should coerce to 0.0 fitness, got {r.fitness}"
+
+    @pytest.mark.parametrize("formula", [option_current, option_b, option_c_prime, option_d])
+    def test_neg_inf_correctness_returns_zero_fitness(self, formula):
+        """T-PKT617-006: -Inf correctness → fitness=0.0 (NOT silently accepted as 0.0 by clamp01's -Inf coercion)."""
+        r = formula(-float('inf'), 1, 1)
+        assert r.fitness == 0.0, f"-Inf should coerce to 0.0 fitness, got {r.fitness}"
+
+    def test_nan_correctness_preserves_raw_in_result(self):
+        """Raw correctness field must be preserved as-is for debugging (not coerced)."""
+        import math
+        r = option_b(float('nan'), 1, 1)
+        assert math.isnan(r.correctness), "Raw correctness field should remain NaN for traceability"
+
+
 class TestLandscapeGrid:
     def test_grid_structure(self):
         rows = landscape_grid(slot_count=2)

@@ -102,6 +102,36 @@ class TestAnalyzeFormula:
         assert result["at_ceiling"] is True
 
 
+class TestFiniteDefense:
+    """PKT-617: analyze_formula must coerce non-finite correctness_agg to 0.0."""
+
+    def test_nan_in_slot_correctnesses_returns_zero(self):
+        """T-PKT617-007: NaN in slot_correctnesses → correctness_agg=0.0, fitness=0.0, at_ceiling=False."""
+        result = analyze_formula([float('nan'), 1.0], [1, 1])
+        assert result['correctness_agg'] == 0.0
+        assert result['fitness'] == 0.0
+        assert result['at_ceiling'] is False
+
+    def test_all_nan_in_slot_correctnesses_returns_zero(self):
+        """T-PKT617-008: all NaN → correctness_agg=0.0, fitness=0.0, at_ceiling=False."""
+        result = analyze_formula([float('nan'), float('nan')], [1, 1])
+        assert result['correctness_agg'] == 0.0
+        assert result['fitness'] == 0.0
+        assert result['at_ceiling'] is False
+
+    def test_pos_inf_correctness_agg_returns_zero(self):
+        """T-PKT617-009: +Inf → correctness_agg=0.0, fitness=0.0 (NOT silently inflated to 1.0)."""
+        result = analyze_formula([float('inf')], [1])
+        assert result['correctness_agg'] == 0.0
+        assert result['fitness'] == 0.0
+
+    def test_neg_inf_correctness_agg_returns_zero(self):
+        """T-PKT617-010: -Inf → correctness_agg=0.0, fitness=0.0 (NOT silently accepted as 0.0 by clamp01's -Inf coercion)."""
+        result = analyze_formula([-float('inf')], [1])
+        assert result['correctness_agg'] == 0.0
+        assert result['fitness'] == 0.0
+
+
 class TestVerifyCeilingFromFormula:
     def test_k1_ceiling_confirmed(self):
         result = verify_ceiling_from_formula(1)

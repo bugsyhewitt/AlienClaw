@@ -23,6 +23,7 @@ Option D: fitness = max(0, correctness - β × max(0, tool_calls - slot_count) /
 from __future__ import annotations
 
 import json
+import math
 import uuid
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -49,7 +50,8 @@ def option_current(
 
     Caps k-slot compositions at 1/k for perfect execution.
     """
-    fitness = clamp01(correctness * (1.0 / max(1, tool_calls)))
+    safe_correctness = 0.0 if not math.isfinite(correctness) else correctness  # PKT-617
+    fitness = clamp01(safe_correctness * (1.0 / max(1, tool_calls)))
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
@@ -67,7 +69,8 @@ def option_b(
     Perfect k-slot execution (tool_calls = slot_count) → fitness = correctness.
     No ceiling for perfect compositions.
     """
-    fitness = clamp01(correctness * (slot_count / max(1, tool_calls)))
+    safe_correctness = 0.0 if not math.isfinite(correctness) else correctness  # PKT-617
+    fitness = clamp01(safe_correctness * (slot_count / max(1, tool_calls)))
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
@@ -86,8 +89,9 @@ def option_c_prime(
     excess = tool_calls - slot_count
     No penalty when tool_calls = slot_count. Multiplicative excess penalty.
     """
+    safe_correctness = 0.0 if not math.isfinite(correctness) else correctness  # PKT-617
     excess = max(0, tool_calls - slot_count)
-    fitness = clamp01(correctness / (1.0 + alpha * excess))
+    fitness = clamp01(safe_correctness / (1.0 + alpha * excess))
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
@@ -106,9 +110,10 @@ def option_d(
     excess = tool_calls - slot_count
     No penalty when tool_calls = slot_count. Additive excess penalty.
     """
+    safe_correctness = 0.0 if not math.isfinite(correctness) else correctness  # PKT-617
     excess = max(0, tool_calls - slot_count)
     penalty = beta * excess / max(1, slot_count)
-    fitness = clamp01(correctness - penalty)
+    fitness = clamp01(safe_correctness - penalty)
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
