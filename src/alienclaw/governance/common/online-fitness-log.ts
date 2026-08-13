@@ -52,11 +52,14 @@ export class OnlineFitnessLog {
 
   read(): FitnessEntry[] {
     if (!existsSync(this._path)) return [];
-    // PKT-634: BOM strip + per-line try/catch, mirroring Python twin `online_fitness.py:65-76`.
-    // Malformed lines (BOM-prefixed, truncated, partial-write from crash mid-serialization) are
-    // silently skipped — same policy as Python. Non-object lines (raw JSON null/number/string)
-    // are also skipped. Out-of-range/null/string fitness is preserved — read-side filtering is
-    // the consumer's job (PKT-589 + PKT-621 own that layer).
+    // PKT-634 prescribed subset (BOM strip + per-line try/catch + non-object skip).
+    // Malformed lines (truncated, partial-write from crash mid-serialization) are silently skipped.
+    // Non-object JSON lines (raw null, number, string) are skipped.
+    // NOTE: Python `online_fitness.py:65-76 read()` also runs `_is_valid_fitness_entry` which
+    // rejects non-finite, non-numeric, and out-of-range [0,1] fitness values. That validity
+    // filter is outside PKT-634 scope (overmind verdict: reader-side range filter is the
+    // consumer's job — PKT-589 `telemetry-reader.ts` owns that layer). Out-of-range/null/string
+    // fitness entries are therefore preserved here, unlike the Python twin's read().
     const raw = stripBom(readFileSync(this._path, 'utf-8'));
     const out: FitnessEntry[] = [];
     for (const line of raw.split('\n')) {

@@ -305,8 +305,10 @@ describe('OnlineFitnessLog.read() — PKT-634 reader hardening', () => {
   });
 
   it('read survives an entry whose fitness is null (preserved, not filtered)', () => {
-    // PKT-634 policy: read() does NOT filter out-of-range/null/string fitness.
-    // That is the consumer's job (PKT-589 + PKT-621). Mirrors Python twin behavior.
+    // PKT-634 scope: read() implements BOM strip + try/catch + non-object skip only.
+    // It does NOT replicate Python `_is_valid_fitness_entry` range/type/finiteness filter —
+    // that filter is deferred (PKT-589 telemetry-reader.ts owns the consumer-side layer).
+    // Python read() would exclude this null-fitness entry; TS read() preserves it intentionally.
     const p = tmpFile();
     writeFileSync(p, '{"martian_type":"compute","fitness":null,"ts":"2026-01-01T00:00:00Z"}\n');
     const log = new OnlineFitnessLog(p);
