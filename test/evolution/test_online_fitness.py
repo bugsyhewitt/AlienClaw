@@ -248,7 +248,8 @@ class TestOnlineFitnessReadPoisonGuard:
         p = tmp_path / "of.jsonl"
         p.write_text(
             '{"martian_type":"compute","fitness":"NaN","ts":"2026-01-01T00:00:00+00:00"}\n'
-            '{"martian_type":"compute","fitness":"not a number","ts":"2026-01-01T00:01:00+00:00"}\n',
+            '{"martian_type":"compute","fitness":"not a number",'
+            '"ts":"2026-01-01T00:01:00+00:00"}\n',
             encoding="utf-8",
         )
         log = OnlineFitnessLog(p)
