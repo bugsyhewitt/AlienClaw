@@ -266,6 +266,82 @@ describe('CreatorBot scheduler (agents/creatorbot.ts:100-137)', () => {
   });
 });
 
+describe('TestSchedulerOverlapProtection — PKT-636 in-flight guard (creatorbot.ts:startScheduler)', () => {
+  const bots: CreatorBot[] = [];
+  function makeBot(): CreatorBot {
+    const b = new CreatorBot();
+    bots.push(b);
+    return b;
+  }
+  afterEach(() => {
+    for (const b of bots) b.stopScheduler();
+    bots.length = 0;
+  });
+
+  it('T-OBJ-001: max concurrent in-flight stays 1 when fn duration exceeds intervalMs', async () => {
+    const cb = makeBot();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    cb.registerScheduledJob({
+      label: 'slow-job',
+      intervalMs: 30,
+      fn: async () => {
+        inFlight++;
+        if (inFlight > maxInFlight) maxInFlight = inFlight;
+        await new Promise(r => setTimeout(r, 100)); // fn takes 100ms > 30ms interval
+        inFlight--;
+      },
+    });
+    cb.startScheduler();
+    await new Promise(r => setTimeout(r, 400));
+    cb.stopScheduler();
+    expect(maxInFlight).toBe(1);
+  });
+
+  it('T-OBJ-002: _running resets to false after fn throws, allowing future ticks', async () => {
+    const cb = makeBot();
+    let callCount = 0;
+    let throwCount = 0;
+    cb.registerScheduledJob({
+      label: 'throw-recover',
+      intervalMs: 30,
+      fn: async () => {
+        callCount++;
+        if (callCount === 1) {
+          throwCount++;
+          throw new Error('planned-throw');
+        }
+      },
+    });
+    cb.startScheduler();
+    await new Promise(r => setTimeout(r, 200));
+    cb.stopScheduler();
+    // First call threw; subsequent calls must still fire (not stuck with _running=true)
+    expect(callCount).toBeGreaterThanOrEqual(2);
+    expect(throwCount).toBe(1);
+  });
+
+  it('T-OBJ-003: slow fn completion allows subsequent ticks to run normally', async () => {
+    const cb = makeBot();
+    let callCount = 0;
+    cb.registerScheduledJob({
+      label: 'slow-then-normal',
+      intervalMs: 30,
+      fn: async () => {
+        callCount++;
+        if (callCount === 1) {
+          await new Promise(r => setTimeout(r, 80)); // first tick is slow
+        }
+      },
+    });
+    cb.startScheduler();
+    await new Promise(r => setTimeout(r, 400));
+    cb.stopScheduler();
+    // After the slow first tick completes, subsequent ticks run normally
+    expect(callCount).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe('CreatorBot.systemPrompt (agents/creatorbot.ts:62-64)', () => {
   it('returns the loaded soul content', () => {
     const cb = new CreatorBot();

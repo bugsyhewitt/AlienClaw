@@ -288,7 +288,7 @@ export function bootstrap(): BootstrapResult {
     },
   });
 
-  /** Spawn `python3 -m alienclaw.bridge` and send a live-evo request (fire-and-forget). */
+  /** Spawn `python3 -m alienclaw.bridge`, send a live-evo request, and handle the response. */
   function callLiveEvoBridge(martianType: string): Promise<void> {
     return new Promise((resolve) => {
       const req = JSON.stringify({
@@ -297,11 +297,65 @@ export function bootstrap(): BootstrapResult {
         request:        { kind: 'live-evo', martian_type: martianType },
       });
       const child = spawn('python3', ['-m', 'alienclaw.bridge'], { shell: false });
+      let stdout = '';
+      let stderrBuf = '';
+      const timer = setTimeout(() => {
+        child.kill('SIGTERM');
+        setTimeout(() => { child.kill('SIGKILL'); }, 5000);
+      }, 30_000);
+      child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
+      child.stderr.on('data', (chunk: Buffer) => { stderrBuf += chunk.toString('utf8'); });
       child.stdin.write(req + '\n');
       child.stdin.end();
-      child.on('close', () => resolve());
-      child.on('error',  () => resolve());
+      child.on('close', (exitCode) => {
+        clearTimeout(timer);
+        handleLiveEvoResponse(martianType, exitCode, stdout, stderrBuf);
+        resolve();
+      });
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        creatorBot.enqueue('NOTABLE',
+          `live-evo spawn failed for ${martianType}: ${err.message}`,
+          'live-evo-check');
+        resolve();
+      });
     });
+  }
+
+  function handleLiveEvoResponse(
+    martianType: string,
+    exitCode: number | null,
+    stdout: string,
+    stderr: string,
+  ): void {
+    if (exitCode !== 0) {
+      creatorBot.enqueue('URGENT',
+        `live-evo bridge exit ${exitCode} for ${martianType}: ${stderr.slice(-512) || '<no stderr>'}`,
+        'live-evo-check');
+      return;
+    }
+    try {
+      const envelope = JSON.parse(stdout.trim()) as {
+        response: {
+          evolved: boolean;
+          reason?: string;
+          generation?: number;
+          next_generation?: number;
+          children_minted?: number;
+          new_observations?: number;
+        };
+      };
+      const r = envelope.response;
+      if (r.evolved) {
+        creatorBot.enqueue('NOTABLE',
+          `live-evo evolved ${martianType}: gen ${r.generation} → ${r.next_generation}, children=${r.children_minted}, new_obs=${r.new_observations}`,
+          'live-evo-check');
+      }
+    } catch (parseErr) {
+      creatorBot.enqueue('URGENT',
+        `live-evo response parse failed for ${martianType}: ${parseErr}; stdout=${stdout.slice(0, 256)}`,
+        'live-evo-check');
+    }
   }
 
   /** live-evo-check: trigger threshold-gated generational evolution per martian type */

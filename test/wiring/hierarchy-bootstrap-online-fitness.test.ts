@@ -272,7 +272,9 @@ describe('hierarchy-bootstrap — OnlineFitnessLog wiring (E2 item 1)', () => {
 
   it('HB-107: live-evo-check fn invokes callLiveEvoBridge which resolves on close', async () => {
     const fakeChild = new EventEmitter() as any;
-    fakeChild.stdin = { write: vi.fn(), end: vi.fn() };
+    fakeChild.stdin  = { write: vi.fn(), end: vi.fn() };
+    fakeChild.stdout = new EventEmitter();
+    fakeChild.stderr = new EventEmitter();
     vi.mocked(spawn).mockReturnValue(fakeChild);
 
     const reg = {
@@ -298,7 +300,9 @@ describe('hierarchy-bootstrap — OnlineFitnessLog wiring (E2 item 1)', () => {
 
   it('HB-108: callLiveEvoBridge resolves (does not reject) on child error', async () => {
     const fakeChild = new EventEmitter() as any;
-    fakeChild.stdin = { write: vi.fn(), end: vi.fn() };
+    fakeChild.stdin  = { write: vi.fn(), end: vi.fn() };
+    fakeChild.stdout = new EventEmitter();
+    fakeChild.stderr = new EventEmitter();
     vi.mocked(spawn).mockReturnValue(fakeChild);
 
     const reg = {
@@ -315,6 +319,136 @@ describe('hierarchy-bootstrap — OnlineFitnessLog wiring (E2 item 1)', () => {
     fakeChild.emit('error', new Error('spawn failed'));
     // Must NOT reject — callLiveEvoBridge calls resolve() on error
     await expect(fnPromise).resolves.toBeUndefined();
+    result.shutdown();
+  });
+
+  // ── Cluster B continued: PKT-636 output-observability tests ─────────────────
+
+  it('HB-109: callLiveEvoBridge enqueues NOTABLE when bridge returns evolved=true', async () => {
+    const fakeChild = new EventEmitter() as any;
+    fakeChild.stdin  = { write: vi.fn(), end: vi.fn() };
+    fakeChild.stdout = new EventEmitter();
+    fakeChild.stderr = new EventEmitter();
+    vi.mocked(spawn).mockReturnValue(fakeChild);
+
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'mt-c', fitness: 0.5 }] as any[]),
+      get: vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+    vi.mocked(creatorBot.enqueue).mockClear();
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('live-evo-check');
+    const fnPromise = fn();
+
+    const envelope = {
+      bridge_version: '1.0', request_id: 'live-evo-check',
+      response: { ok: true, evolved: true, generation: 1, next_generation: 2, children_minted: 3, new_observations: 5 },
+    };
+    fakeChild.stdout.emit('data', Buffer.from(JSON.stringify(envelope)));
+    fakeChild.emit('close', 0);
+    await fnPromise;
+
+    expect(vi.mocked(creatorBot.enqueue)).toHaveBeenCalledWith(
+      'NOTABLE',
+      expect.stringContaining('mt-c'),
+      'live-evo-check',
+    );
+    result.shutdown();
+  });
+
+  it('HB-110: callLiveEvoBridge enqueues URGENT when bridge exits with non-zero code', async () => {
+    const fakeChild = new EventEmitter() as any;
+    fakeChild.stdin  = { write: vi.fn(), end: vi.fn() };
+    fakeChild.stdout = new EventEmitter();
+    fakeChild.stderr = new EventEmitter();
+    vi.mocked(spawn).mockReturnValue(fakeChild);
+
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'mt-d', fitness: 0.5 }] as any[]),
+      get: vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+    vi.mocked(creatorBot.enqueue).mockClear();
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('live-evo-check');
+    const fnPromise = fn();
+
+    fakeChild.stderr.emit('data', Buffer.from('Traceback: KeyError'));
+    fakeChild.emit('close', 1);
+    await fnPromise;
+
+    expect(vi.mocked(creatorBot.enqueue)).toHaveBeenCalledWith(
+      'URGENT',
+      expect.stringContaining('mt-d'),
+      'live-evo-check',
+    );
+    result.shutdown();
+  });
+
+  it('HB-111: callLiveEvoBridge enqueues URGENT when bridge returns malformed JSON', async () => {
+    const fakeChild = new EventEmitter() as any;
+    fakeChild.stdin  = { write: vi.fn(), end: vi.fn() };
+    fakeChild.stdout = new EventEmitter();
+    fakeChild.stderr = new EventEmitter();
+    vi.mocked(spawn).mockReturnValue(fakeChild);
+
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'mt-e', fitness: 0.5 }] as any[]),
+      get: vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+    vi.mocked(creatorBot.enqueue).mockClear();
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('live-evo-check');
+    const fnPromise = fn();
+
+    fakeChild.stdout.emit('data', Buffer.from('not-json{'));
+    fakeChild.emit('close', 0);
+    await fnPromise;
+
+    expect(vi.mocked(creatorBot.enqueue)).toHaveBeenCalledWith(
+      'URGENT',
+      expect.stringContaining('parse failed'),
+      'live-evo-check',
+    );
+    result.shutdown();
+  });
+
+  it('HB-112: callLiveEvoBridge enqueues URGENT when bridge exits 0 with empty stdout', async () => {
+    const fakeChild = new EventEmitter() as any;
+    fakeChild.stdin  = { write: vi.fn(), end: vi.fn() };
+    fakeChild.stdout = new EventEmitter();
+    fakeChild.stderr = new EventEmitter();
+    vi.mocked(spawn).mockReturnValue(fakeChild);
+
+    const reg = {
+      load: vi.fn(),
+      list: vi.fn(() => [{ id: 'mt-f', fitness: 0.5 }] as any[]),
+      get: vi.fn(),
+    };
+    vi.mocked(getRegistry).mockReturnValue(reg as any);
+    vi.mocked(creatorBot.enqueue).mockClear();
+
+    const result = bootstrap();
+    const fn = getRegisteredFn('live-evo-check');
+    const fnPromise = fn();
+
+    // No stdout data emitted — buffer remains empty
+    fakeChild.emit('close', 0);
+    await fnPromise;
+
+    expect(vi.mocked(creatorBot.enqueue)).toHaveBeenCalledWith(
+      'URGENT',
+      expect.stringContaining('parse failed'),
+      'live-evo-check',
+    );
     result.shutdown();
   });
 
