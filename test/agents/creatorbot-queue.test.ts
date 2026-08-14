@@ -70,6 +70,72 @@ describe('CreatorBot queue (agents/creatorbot.ts:68-89)', () => {
     cb.enqueue('URGENT', 'u', 'c');
     expect(cb.flushNotable()).toEqual([]);
   });
+
+  // PKT-637: priority-aware overflow drop tests
+  it('enqueue at cap with mixed priorities drops NOTABLE first (preserves URGENT)', () => {
+    const cb = new CreatorBot();
+    // Fill 999 URGENTs — queue has 999, below cap
+    for (let i = 0; i < CREATOR_QUEUE_MAX - 1; i++) {
+      cb.enqueue('URGENT', `urgent-${i}`, 'ctx');
+    }
+    // Push to exactly cap with one NOTABLE (no shift yet)
+    cb.enqueue('NOTABLE', 'notable-1', 'ctx');
+    // Now at cap — next enqueue must drop oldest NOTABLE, not oldest URGENT
+    cb.enqueue('NOTABLE', 'notable-2', 'ctx');
+    // urgent-0 must be preserved (the oldest URGENT was NOT evicted)
+    expect(cb.peekUrgent()?.observation).toBe('urgent-0');
+    // Only notable-2 remains (notable-1 was the dropped NOTABLE)
+    const notables = cb.flushNotable();
+    expect(notables).toHaveLength(1);
+    expect(notables[0]?.observation).toBe('notable-2');
+  });
+
+  it('enqueue at cap with all NOTABLE drops oldest NOTABLE', () => {
+    const cb = new CreatorBot();
+    // Fill to cap with NOTABLEs
+    for (let i = 0; i < CREATOR_QUEUE_MAX; i++) {
+      cb.enqueue('NOTABLE', `notable-${i}`, 'ctx');
+    }
+    // At cap: next enqueue drops oldest NOTABLE (notable-0)
+    cb.enqueue('NOTABLE', 'notable-last', 'ctx');
+    // notable-0 was dropped; notable-1 is now the oldest
+    const notables = cb.flushNotable();
+    expect(notables[0]?.observation).toBe('notable-1');
+    expect(notables).toHaveLength(CREATOR_QUEUE_MAX);
+    // No URGENT was touched
+    expect(cb.peekUrgent()).toBeUndefined();
+  });
+
+  it('enqueue at cap with all URGENT drops oldest URGENT (regression)', () => {
+    const cb = new CreatorBot();
+    // Existing behavior must be preserved when only URGENTs exist
+    for (let i = 0; i < CREATOR_QUEUE_MAX + 1; i++) {
+      cb.enqueue('URGENT', `flood-${i}`, 'ctx');
+    }
+    // flood-0 was dropped; flood-1 is the new oldest URGENT
+    expect(cb.peekUrgent()?.observation).toBe('flood-1');
+  });
+
+  it('enqueue at cap with interleaved priorities preserves URGENT count', () => {
+    const cb = new CreatorBot();
+    // Interleave URGENTs and NOTABLEs up to capacity
+    const URGENT_COUNT = 500;
+    const NOTABLE_COUNT = CREATOR_QUEUE_MAX - URGENT_COUNT; // 500
+    for (let i = 0; i < URGENT_COUNT; i++) {
+      cb.enqueue('URGENT', `u-${i}`, 'ctx');
+    }
+    for (let i = 0; i < NOTABLE_COUNT; i++) {
+      cb.enqueue('NOTABLE', `n-${i}`, 'ctx');
+    }
+    // Now add 10 more NOTABLEs — each should evict a NOTABLE, not a URGENT
+    for (let i = 0; i < 10; i++) {
+      cb.enqueue('NOTABLE', `overflow-${i}`, 'ctx');
+    }
+    // All 500 URGENTs must still be present
+    let urgentCount = 0;
+    while (cb.consumeUrgent()) urgentCount++;
+    expect(urgentCount).toBe(URGENT_COUNT);
+  });
 });
 
 describe('CreatorBot subagent lifecycle (agents/creatorbot.ts:145-181)', () => {

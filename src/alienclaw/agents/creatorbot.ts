@@ -67,7 +67,17 @@ export class CreatorBot {
 
   enqueue(priority: CreatorQueuePriority, observation: string, context: string): void {
     if (this.queue.length >= CREATOR_QUEUE_MAX) {
-      this.queue.shift();  // drop oldest to make room
+      // Priority-aware drop: evict the oldest NOTABLE first; only fall back to
+      // dropping the oldest URGENT when no NOTABLE remains. This preserves the
+      // URGENT > NOTABLE invariant that flushNotable/peekUrgent/consumeUrgent
+      // (L75-89) rely on — a plain shift() violates it when NOTABLE entries flood
+      // the cap and cause the oldest URGENT to be evicted instead.
+      const notableIdx = this.queue.findIndex(i => i.priority === 'NOTABLE');
+      if (notableIdx !== -1) {
+        this.queue.splice(notableIdx, 1);
+      } else {
+        this.queue.shift();  // only URGENTs remain; drop oldest URGENT
+      }
     }
     this.queue.push({ priority, observation, context, ts: Date.now() });
   }
