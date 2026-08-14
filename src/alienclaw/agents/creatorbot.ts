@@ -23,6 +23,8 @@ export interface ScheduledJob {
   fn:           () => Promise<void>;
   /** Timer handle (NodeJS) */
   _handle?:     ReturnType<typeof setInterval>;
+  /** PKT-636: in-flight tick guard — true while fn() is executing; next tick is a no-op */
+  _running?:    boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +123,8 @@ export class CreatorBot {
     for (const job of this.scheduledJobs) {
       if (job._handle) continue; // already running
       job._handle = setInterval(async () => {
+        if (job._running) return; // PKT-636: skip if previous tick still in-flight
+        job._running = true;
         try {
           await job.fn();
         } catch (err) {
@@ -129,6 +133,8 @@ export class CreatorBot {
             `Scheduled job "${job.label}" threw: ${errorMessage(err)}`,
             `Job: ${job.label}`
           );
+        } finally {
+          job._running = false;
         }
       }, job.intervalMs);
     }
