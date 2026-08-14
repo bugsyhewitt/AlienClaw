@@ -153,6 +153,7 @@ export class GoalManager {
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) throw new Error(`Goal ${goalId} not found`);
     goal.scheme = scheme;
+    this._dirty = true;
     await this.save(file);
   }
 
