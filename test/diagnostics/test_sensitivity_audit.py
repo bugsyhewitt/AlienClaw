@@ -39,12 +39,14 @@ class TestRunAudit:
             f"compute still BLIND: output_sensitivity = {compute.output_sensitivity}"
         )
 
-    def test_search_text_tool_calls_sensitivity(self):
-        """Packet 8.6: search_text max_results param varies tool_calls."""
+    def test_search_text_tool_calls_reports_constant_1(self):
+        """PKT-642: search_text tool_calls is always 1 (one scan), not match count.
+        Sensitivity must be 0.0 — max_results does NOT affect the invocation count."""
         results = run_audit(seed=42)
         search = next(s for s in results.sensitivities if s.martian_type == "search_text")
-        assert search.tool_calls_sensitivity > 0.0, (
-            f"search_text tool_calls still constant: {search.tool_calls_sensitivity}"
+        assert search.tool_calls_sensitivity == 0.0, (
+            f"search_text tool_calls should be constant 1 (PKT-642): "
+            f"sensitivity={search.tool_calls_sensitivity}"
         )
 
     def test_at_least_three_runners_show_sensitivity(self):
@@ -106,3 +108,4 @@ class TestReporting:
         report = format_report(results)
         for mtype in results.runners_audited:
             assert mtype in report
+

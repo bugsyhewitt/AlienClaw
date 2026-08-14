@@ -222,3 +222,35 @@ class TestContextLines:
         match = r.output["matches"][0]
         assert len(match["contextBefore"]) == 10
         assert len(match["contextAfter"]) == 10
+
+
+# ---------------------------------------------------------------------------
+# Class 7 — tool_calls semantics (PKT-642)
+# tool_calls must reflect INVOCATION COUNT (1 scan), not match count.
+# ---------------------------------------------------------------------------
+
+
+class TestToolCallsSemantics:
+    def test_zero_matches_reports_tool_calls_1(self):
+        r = run({"text": "abc def", "pattern": "xyz"})
+        assert r.ok is True
+        assert r.tool_calls == 1
+
+    def test_single_match_reports_tool_calls_1(self):
+        r = run({"text": "foo bar", "pattern": "foo"})
+        assert r.ok is True
+        assert r.tool_calls == 1
+
+    def test_many_matches_reports_tool_calls_1_not_match_count(self):
+        text = "\n".join([f"foo line {i}" for i in range(20)])
+        r = run({"text": text, "pattern": "foo"})
+        assert r.ok is True
+        assert r.output["totalMatches"] == 20
+        assert r.tool_calls == 1  # NOT 20
+
+    def test_max_results_does_not_affect_tool_calls(self):
+        text = "\n".join([f"foo line {i}" for i in range(20)])
+        r = run({"text": text, "pattern": "foo"}, {"max_results": 5})
+        assert r.ok is True
+        assert r.output["truncated"] is True
+        assert r.tool_calls == 1  # NOT min(5, 20) = 5

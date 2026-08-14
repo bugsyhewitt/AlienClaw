@@ -66,7 +66,6 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         return RunResult(ok=False, error=f"Regex error: {exc}", correctness=0.0)
     matches = all_matches[:max_results]
     truncated = len(all_matches) > len(matches)
-    tool_calls = min(max_results, len(all_matches))
     return RunResult(
         ok=True,
         output={
@@ -77,6 +76,6 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             "truncated": truncated,
             "matches": matches,
         },
-        tool_calls=max(1, tool_calls),
+        tool_calls=1,
         correctness=1.0,
     )
