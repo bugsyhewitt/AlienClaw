@@ -552,6 +552,25 @@ describe('GoalManager.attachScheme()', () => {
     await expect(gm.attachScheme('g-missing', makeScheme([])))
       .rejects.toThrow('Goal g-missing not found');
   });
+
+  it('sets _dirty=true before save() so cache is invalidated when save() throws', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    await gm.addGoal(makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })]));
+    const scheme = makeScheme([makeCampaign('c1')]);
+    gm.save = async (_: any) => { throw new Error('simulated disk full'); };
+    await expect(gm.attachScheme('g1', scheme)).rejects.toThrow('simulated disk full');
+    expect((gm as any)._dirty).toBe(true);
+  });
+
+  it('resets _dirty=false after successful save() — parity with addGoal', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    await gm.addGoal(makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })]));
+    const scheme = makeScheme([makeCampaign('c1')]);
+    await gm.attachScheme('g1', scheme);
+    expect((gm as any)._dirty).toBe(false);
+  });
 });
 
 // ─── 11. updateCampaign() ───────────────────────────────────────────────────
