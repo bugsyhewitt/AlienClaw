@@ -55,7 +55,7 @@ export class CompletionHandler {
     if (!goal) throw new Error(`Goal ${goalId} not found`);
 
     // Fitness gate: short-circuit before calling the LLM when objective signal is clear.
-    if (martianFitness !== undefined && martianFitness < REVIEW_THRESHOLD) {
+    if (martianFitness !== undefined && (!Number.isFinite(martianFitness) || martianFitness < REVIEW_THRESHOLD)) {
       const firstIncompleteSubGoal   = goal.subGoals.find(s => s.status !== 'complete');
       const firstIncompleteCampaign  = (goal.scheme?.campaigns ?? [])
         .find(c => c.status !== 'complete');

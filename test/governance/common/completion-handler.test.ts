@@ -340,6 +340,59 @@ describe('CompletionHandler', () => {
       expect(advisor.advise).toHaveBeenCalledOnce();
       expect(out).toEqual({ proceed: true });
     });
+
+    describe('CompletionHandler — non-finite fitness boundary (PKT-640)', () => {
+      it('A-008: NaN fitness fires the gate without calling AdvisorBot', async () => {
+        advisor = makeAdvisorBot({ verdict: 'ok', confidence: 'high' });
+        goalMgr = makeGoalManager([makeGoal({
+          subGoals: [
+            { id: 'sg-1', description: 'done',   status: 'complete' },
+            { id: 'sg-2', description: 'undone', status: 'pending'  },
+          ],
+        })]);
+        handler = new CompletionHandler(advisor as any, goalMgr as any, userCh as any, agentCh as any);
+
+        const out = await handler.review('goal-1', NaN);
+        expect(out).toEqual({ proceed: false, reopenIds: ['sg-2'] });
+        expect(advisor.advise).not.toHaveBeenCalled();
+      });
+
+      it('A-009: +Infinity fitness fires the gate without calling AdvisorBot', async () => {
+        advisor = makeAdvisorBot({ verdict: 'ok', confidence: 'high' });
+        goalMgr = makeGoalManager([makeGoal({
+          subGoals: [
+            { id: 'sg-1', description: 'done',   status: 'complete' },
+            { id: 'sg-2', description: 'undone', status: 'pending'  },
+          ],
+        })]);
+        handler = new CompletionHandler(advisor as any, goalMgr as any, userCh as any, agentCh as any);
+
+        const out = await handler.review('goal-1', Number.POSITIVE_INFINITY);
+        expect(out).toEqual({ proceed: false, reopenIds: ['sg-2'] });
+        expect(advisor.advise).not.toHaveBeenCalled();
+      });
+
+      it('A-010: -Infinity fitness fires the gate (regression guard — was already correct)', async () => {
+        advisor = makeAdvisorBot({ verdict: 'ok', confidence: 'high' });
+        goalMgr = makeGoalManager([makeGoal({
+          subGoals: [
+            { id: 'sg-1', description: 'done',   status: 'complete' },
+            { id: 'sg-2', description: 'undone', status: 'pending'  },
+          ],
+        })]);
+        handler = new CompletionHandler(advisor as any, goalMgr as any, userCh as any, agentCh as any);
+
+        const out = await handler.review('goal-1', Number.NEGATIVE_INFINITY);
+        expect(out).toEqual({ proceed: false, reopenIds: ['sg-2'] });
+        expect(advisor.advise).not.toHaveBeenCalled();
+      });
+
+      it('A-011: undefined fitness still does NOT fire the gate (regression guard for A-007)', async () => {
+        const out = await handler.review('goal-1');
+        expect(advisor.advise).toHaveBeenCalledOnce();
+        expect(out).toEqual({ proceed: true });
+      });
+    });
   });
 
   // ── promptSignoff() ──────────────────────────────────────────────────────
