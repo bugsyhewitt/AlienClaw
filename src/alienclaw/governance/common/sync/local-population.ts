@@ -45,10 +45,15 @@ export function readTopEntries(
   for (const f of files) {
     try {
       const raw = JSON.parse(readFileSync(join(entriesDir, f), 'utf-8')) as Record<string, unknown>;
-      if (typeof raw['genome'] !== 'string' || typeof raw['fitness'] !== 'number') continue;
+      const fit = raw['fitness'];
+      if (typeof raw['genome'] !== 'string'
+          || typeof fit !== 'number'
+          || !Number.isFinite(fit)
+          || fit < 0
+          || fit > 1) continue;
       parsed.push({
         genome:       raw['genome'],
-        fitness:      raw['fitness'],
+        fitness:      fit,
         generation:   typeof raw['generation'] === 'number' ? raw['generation'] : undefined,
         run_metadata: (raw['run_metadata'] ?? {}) as Record<string, unknown>,
       });
