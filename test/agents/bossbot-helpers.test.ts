@@ -196,6 +196,95 @@ describe('parseSchemeDraft (agents/bossbot.ts:54)', () => {
   });
 });
 
+// ── PKT-667: parseSchemeDraft cycle detection ─────────────────────────────────
+
+describe('parseSchemeDraft — cycle detection (PKT-667)', () => {
+  it('R-667-1: self-reference (A.dependsOn = [\'A\']) throws with cycle path', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'A', objective: 'do A', dependsOn: ['A'], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw)).toThrow(/parseSchemeDraft: cyclic campaign dependencies detected/);
+    expect(() => parseSchemeDraft('g', raw)).toThrow(/A/);
+  });
+
+  it('R-667-2: mutual cycle (A↔B) throws', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'A', objective: 'do A', dependsOn: ['B'], subagents: [] },
+        { name: 'B', objective: 'do B', dependsOn: ['A'], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw)).toThrow(/parseSchemeDraft: cyclic campaign dependencies detected/);
+  });
+
+  it('R-667-3: 3-cycle (A→B→C→A) throws', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'A', objective: 'o', dependsOn: ['B'], subagents: [] },
+        { name: 'B', objective: 'o', dependsOn: ['C'], subagents: [] },
+        { name: 'C', objective: 'o', dependsOn: ['A'], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw)).toThrow(/parseSchemeDraft: cyclic campaign dependencies detected/);
+  });
+
+  it('R-667-4: duplicate dependsOn (A.dependsOn = [\'B\', \'B\']) resolves to single B id', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'B', objective: 'o', dependsOn: [],         subagents: [] },
+        { name: 'A', objective: 'o', dependsOn: ['B', 'B'], subagents: [] },
+      ],
+    });
+    const out = parseSchemeDraft('g', raw);
+    const b = out.campaigns.find(c => c.name === 'B')!;
+    const a = out.campaigns.find(c => c.name === 'A')!;
+    expect(a.dependsOn).toHaveLength(1);
+    expect(a.dependsOn[0]).toBe(b.id);
+  });
+
+  it('R-667-5: healthy diamond (A→B, A→C, B→D, C→D) passes without throwing', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'A', objective: 'o', dependsOn: [],          subagents: [] },
+        { name: 'B', objective: 'o', dependsOn: ['A'],       subagents: [] },
+        { name: 'C', objective: 'o', dependsOn: ['A'],       subagents: [] },
+        { name: 'D', objective: 'o', dependsOn: ['B', 'C'], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw)).not.toThrow();
+  });
+
+  it('R-667-6: ghost name + self-reference → throws (cycle detected despite ghost being dropped)', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'A', objective: 'o', dependsOn: ['A', 'NONEXISTENT'], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw)).toThrow(/parseSchemeDraft: cyclic campaign dependencies detected/);
+  });
+
+  it('R-667-7: cycle error message includes campaign NAMES (not just IDs) for LLM self-correction', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'AlphaCampaign', objective: 'o', dependsOn: ['AlphaCampaign'], subagents: [] },
+      ],
+    });
+    let msg = '';
+    try { parseSchemeDraft('g', raw); } catch (e) { msg = (e as Error).message; }
+    expect(msg).toContain('AlphaCampaign');
+    expect(msg).not.toBe('');
+  });
+});
+
 // ── Packet 422: strict validation additions ───────────────────────────────────
 
 describe('parseSubGoals — strict validation (packet 422)', () => {

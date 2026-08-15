@@ -149,12 +149,60 @@ export function parseSchemeDraft(goalId: string, raw: string): Scheme {
   if (campaigns.length === 0) {
     throw new Error('parseSchemeDraft: no valid campaigns after parsing');
   }
-  // Resolve dependsOn: names → IDs (post-filtering)
+  // Resolve dependsOn: names → IDs (post-filtering), then deduplicate (PKT-667)
   const nameToId = new Map(campaigns.map(c => [c.name, c.id]));
   for (const campaign of campaigns) {
-    campaign.dependsOn = campaign.dependsOn
-      .map(dep => nameToId.get(dep) ?? dep)
-      .filter(id => campaigns.some(c => c.id === id));
+    campaign.dependsOn = [
+      ...new Set(
+        campaign.dependsOn
+          .map(dep => nameToId.get(dep) ?? dep)
+          .filter(id => campaigns.some(c => c.id === id)),
+      ),
+    ];
+  }
+  // Cycle detection: DFS back-edge detection over resolved adjacency list (PKT-667).
+  // Any cycle produces a silent permanent deadlock in getReadyCampaigns; throw
+  // here so the LLM-driven retry layer can self-correct rather than hang silently.
+  const adj = new Map<string, string[]>(campaigns.map(c => [c.id, c.dependsOn]));
+  const color = new Map<string, 0 | 1 | 2>(); // 0=white 1=gray 2=black
+  const parent = new Map<string, string>();
+  const nameById = new Map(campaigns.map(c => [c.id, c.name]));
+  function visit(u: string): string[] | null {
+    color.set(u, 1);
+    for (const v of adj.get(u) ?? []) {
+      if (color.get(v) === 1) {
+        // back-edge: reconstruct cycle as v → ... → u → v
+        const path: string[] = [v];
+        let cur: string = u;
+        while (cur !== v) {
+          path.unshift(cur);
+          const p = parent.get(cur);
+          if (p === undefined) break;
+          cur = p;
+        }
+        path.unshift(v);
+        return path;
+      }
+      if (!color.has(v)) {
+        parent.set(v, u);
+        const cycle = visit(v);
+        if (cycle !== null) return cycle;
+      }
+    }
+    color.set(u, 2);
+    return null;
+  }
+  for (const c of campaigns) {
+    if (!color.has(c.id)) {
+      const cycle = visit(c.id);
+      if (cycle !== null) {
+        const cycleNames = cycle.map(id => nameById.get(id) ?? id);
+        throw new Error(
+          `parseSchemeDraft: cyclic campaign dependencies detected: ${cycleNames.join(' → ')}. ` +
+          `Each campaign may only depend on campaigns that come before it (or form a DAG).`,
+        );
+      }
+    }
   }
   return {
     goalId,

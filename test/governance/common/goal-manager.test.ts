@@ -781,6 +781,46 @@ describe('GoalManager.isSchemeComplete()', () => {
   });
 });
 
+// ─── PKT-667: cyclic schemes — getReadyCampaigns + isSchemeComplete ─────────────
+
+describe('GoalManager — cyclic scheme behavior (PKT-667)', () => {
+  it('R-667-8: getReadyCampaigns on self-loop scheme does not throw and returns []', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const c = makeCampaign('c-loop', { status: 'pending', dependsOn: ['c-loop'] });
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([c]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    expect(gm.getReadyCampaigns(file, 'g1')).toEqual([]);
+  });
+
+  it('R-667-9: getReadyCampaigns on mutual cycle (A↔B) does not throw and returns []', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const a = makeCampaign('c-a', { status: 'pending', dependsOn: ['c-b'] });
+    const b = makeCampaign('c-b', { status: 'pending', dependsOn: ['c-a'] });
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([a, b]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(() => gm.getReadyCampaigns(file, 'g1')).not.toThrow();
+    expect(gm.getReadyCampaigns(file, 'g1')).toEqual([]);
+  });
+
+  it('R-667-10: isSchemeComplete on cyclic scheme returns false (permanent deadlock documented)', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    const c = makeCampaign('c-loop', { status: 'pending', dependsOn: ['c-loop'] });
+    const goal = makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([c]),
+    });
+    const file = { version: '1', activeGoalId: 'g1', goals: [goal] };
+    expect(gm.isSchemeComplete(file, 'g1')).toBe(false);
+  });
+});
+
 // ─── 14. null-safety on subGoals / campaigns arrays + elements (PKT-635) ──────
 
 describe('GoalManager — null subGoals / null campaign element (PKT-635)', () => {
