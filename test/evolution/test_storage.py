@@ -212,3 +212,74 @@ class TestPopulationStorage:
         path = tmp_path / "output.json"
         with pytest.raises(TypeError):
             PopulationStorage._atomic_write_json(path, {"bad": object()})
+
+
+class TestEntryFromDictGenomeLengthValidation:
+    """_entry_from_dict must reject any genome whose length != GENOME_LENGTH (256)."""
+
+    _VALID = {
+        "entry_id": "e1",
+        "genome": "A" * 256,
+        "fitness": 0.5,
+        "generation": 0,
+        "created_at": "2026-01-01T00:00:00Z",
+    }
+
+    def _bad(self, **overrides):
+        return {**self._VALID, **overrides}
+
+    @pytest.mark.parametrize("genome,label", [
+        ("A" * 10, "short (10)"),
+        ("A" * 255, "off-by-one short (255)"),
+        ("A" * 257, "off-by-one long (257)"),
+        ("A" * 512, "long (512)"),
+        ("", "empty"),
+    ])
+    def test_rejects_wrong_length_genome(self, genome, label):
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="invalid genome length"):
+            _entry_from_dict(self._bad(genome=genome))
+
+    def test_rejects_non_string_genome(self):
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="invalid genome length"):
+            _entry_from_dict(self._bad(genome=12345))
+
+    def test_rejects_none_genome(self):
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="invalid genome length"):
+            _entry_from_dict(self._bad(genome=None))
+
+    def test_accepts_canonical_length_genome(self):
+        from alienclaw.evolution.storage import _entry_from_dict
+        entry = _entry_from_dict(self._VALID)
+        assert len(entry.genome) == 256
+
+    def test_error_message_includes_entry_id(self):
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="e1"):
+            _entry_from_dict(self._bad(genome="short"))
+
+    def test_error_message_includes_actual_length(self):
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="5"):
+            _entry_from_dict(self._bad(genome="short"))
+
+    def test_read_all_entries_raises_on_persisted_bad_genome(self, tmp_path, monkeypatch):
+        """read_all_entries propagates ValueError for a persisted entry with bad genome."""
+        monkeypatch.setenv("ALIENCLAW_POPULATIONS_ROOT", str(tmp_path / "populations"))
+        s = PopulationStorage("compute")
+        s.initialize(EvolutionConfig(martian_type="compute"))
+        bad = {
+            "entry_id": "corrupt-1",
+            "genome": "X" * 10,
+            "fitness": 0.5,
+            "generation": 0,
+            "parent_ids": [],
+            "run_metadata": {},
+            "created_at": "2026-01-01T00:00:00Z",
+        }
+        path = s.entries_dir / "corrupt-1.json"
+        path.write_text(__import__("json").dumps(bad))
+        with pytest.raises(ValueError, match="invalid genome length"):
+            s.read_all_entries()
