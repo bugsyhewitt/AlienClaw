@@ -107,6 +107,33 @@ function extractVariables(raw: string): Record<string, string> {
   return result;
 }
 
+// Strict integer parser: rejects float-shaped strings, scientific notation,
+// trailing garbage, and values beyond Number.MAX_SAFE_INTEGER — mirroring
+// Python int() which raises ValueError on any non-integer-shaped string.
+function parseStrictInt(
+  s:          string,
+  fieldName:  string,
+  entryName:  string,
+  sourcePath: string,
+): number {
+  const m = /^([-+]?\d+)$/.exec(s.trim());
+  if (!m) {
+    throw new Error(
+      `PARAMETER_SCHEMA entry '${entryName}' in ${sourcePath}: ` +
+      `numeric field must be an integer; got ${JSON.stringify(s)} (field "${fieldName}")`
+    );
+  }
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || Math.abs(n) > Number.MAX_SAFE_INTEGER) {
+    throw new Error(
+      `PARAMETER_SCHEMA entry '${entryName}' in ${sourcePath}: ` +
+      `numeric field out of range [${-Number.MAX_SAFE_INTEGER}, ${Number.MAX_SAFE_INTEGER}]; ` +
+      `got ${n} (field "${fieldName}")`
+    );
+  }
+  return n;
+}
+
 function extractParameterSchema(
   raw: string,
   sourcePath: string = '<string>',
@@ -145,16 +172,10 @@ function extractParameterSchema(
     }
     seenNames.add(name);
 
-    const xcodeIndex = parseInt(xcodeStr,   10);
-    const rangeMin   = parseInt(rminStr,    10);
-    const rangeMax   = parseInt(rmaxStr,    10);
-    const defaultVal = parseInt(defaultStr, 10);
-
-    if ([xcodeIndex, rangeMin, rangeMax, defaultVal].some(v => isNaN(v))) {
-      throw new Error(
-        `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: numeric field error`
-      );
-    }
+    const xcodeIndex = parseStrictInt(xcodeStr,   'xcode_index', name, sourcePath);
+    const rangeMin   = parseStrictInt(rminStr,    'range_min',   name, sourcePath);
+    const rangeMax   = parseStrictInt(rmaxStr,    'range_max',   name, sourcePath);
+    const defaultVal = parseStrictInt(defaultStr, 'default',     name, sourcePath);
     if (!(xcodeIndex >= 0 && xcodeIndex <= 30)) {
       throw new Error(
         `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: xcode_index must be in [0,30]; got ${xcodeIndex}.`
