@@ -351,3 +351,187 @@ class TestExtractParameterSchema:
         assert len(fields) == 2
         assert fields[0].name == "foo"
         assert fields[1].name == "bar"
+
+
+# ---------------------------------------------------------------------------
+# PKT-673: _extract_section embedded-heading premature-termination (R-673-1..14)
+# ---------------------------------------------------------------------------
+
+def _make_673_msb(
+    capabilities:    str = "cap line",
+    limitations:     str = "lim line",
+    failure_modes:   str = "fm line",
+    best_practices:  str = "bp line",
+    variables:       str = "task: the task",
+    parameter_schema: str | None = None,
+) -> str:
+    """Build a minimal valid .msb string for PKT-673 tests."""
+    out = (
+        f"TOOL: pkt673_test\n"
+        f"VERSION: 1.0\n\n"
+        f"CAPABILITIES:\n{capabilities}\n\n"
+        f"LIMITATIONS:\n{limitations}\n\n"
+        f"FAILURE MODES:\n{failure_modes}\n\n"
+        f"BEST PRACTICES:\n{best_practices}\n\n"
+        f"EXECUTION ORDER:\n1. step\n\n"
+        f"OUTPUT CONTRACT:\n{{}}\n\n"
+        f"GENOME SECTIONS:\nIDENTITY: x\nEXECUTION: y\nBEHAVIOR: z\nCHECKSUM: w\n\n"
+        f"VARIABLES:\n{variables}\n"
+    )
+    if parameter_schema is not None:
+        out += f"\nPARAMETER_SCHEMA:\n{parameter_schema}\n"
+    return out
+
+
+class TestExtractSectionEmbeddedHeading:
+    """PKT-673: _extract_section premature termination on embedded ALL-CAPS heading."""
+
+    # R-673-1..6: embedded developer-comment patterns must NOT truncate section body
+
+    def test_r673_1_capabilities_with_note_does_not_truncate(self) -> None:
+        raw = _make_673_msb(
+            capabilities="cap line\nNOTE: this should not terminate\nLine two of capabilities."
+        )
+        spec = parse_msb(raw)
+        assert "NOTE: this should not terminate" in spec.capabilities
+        assert "Line two of capabilities." in spec.capabilities
+
+    def test_r673_2_capabilities_with_todo_does_not_truncate(self) -> None:
+        raw = _make_673_msb(
+            capabilities="cap line\nTODO: fix this later\nLine two of capabilities."
+        )
+        spec = parse_msb(raw)
+        assert "TODO: fix this later" in spec.capabilities
+        assert "Line two of capabilities." in spec.capabilities
+
+    def test_r673_3_capabilities_with_fixme_does_not_truncate(self) -> None:
+        raw = _make_673_msb(
+            capabilities="cap line\nFIXME: broken edge case\nLine two of capabilities."
+        )
+        spec = parse_msb(raw)
+        assert "FIXME: broken edge case" in spec.capabilities
+        assert "Line two of capabilities." in spec.capabilities
+
+    def test_r673_4_variables_with_note_captures_both_vars(self) -> None:
+        raw = _make_673_msb(variables="foo: the foo value\nNOTE: a developer note\nbar: the bar value")
+        spec = parse_msb(raw)
+        assert spec.variables.get("foo") == "the foo value"
+        assert spec.variables.get("bar") == "the bar value"
+
+    def test_r673_5_variables_with_todo_captures_both_vars(self) -> None:
+        raw = _make_673_msb(variables="foo: the foo value\nTODO: fix this\nbar: the bar value")
+        spec = parse_msb(raw)
+        assert spec.variables.get("foo") == "the foo value"
+        assert spec.variables.get("bar") == "the bar value"
+
+    def test_r673_6_limitations_with_warn_captures_all_content(self) -> None:
+        raw = _make_673_msb(limitations="limit line one\nWARN: important warning\nlimit line two")
+        spec = parse_msb(raw)
+        assert "WARN: important warning" in spec.limitations
+        assert "limit line two" in spec.limitations
+
+    # R-673-7..10: adjacent-header no-merge regression guards
+
+    def test_r673_7_adjacent_capabilities_limitations_splits_correctly(self) -> None:
+        raw = (
+            "TOOL: pkt673_test\nVERSION: 1.0\n\n"
+            "CAPABILITIES:\ncap content\n"
+            "LIMITATIONS:\nlim content\n\n"
+            "FAILURE MODES:\nfm\n\n"
+            "BEST PRACTICES:\nbp\n\n"
+            "EXECUTION ORDER:\n1. step\n\n"
+            "OUTPUT CONTRACT:\n{}\n\n"
+            "GENOME SECTIONS:\nIDENTITY: x\nEXECUTION: y\nBEHAVIOR: z\nCHECKSUM: w\n\n"
+            "VARIABLES:\ntask: the task\n"
+        )
+        spec = parse_msb(raw)
+        assert spec.capabilities == "cap content"
+        assert "lim content" in spec.limitations
+
+    def test_r673_8_adjacent_limitations_failure_modes_splits_correctly(self) -> None:
+        raw = (
+            "TOOL: pkt673_test\nVERSION: 1.0\n\n"
+            "CAPABILITIES:\ncap\n\n"
+            "LIMITATIONS:\nlim content\n"
+            "FAILURE MODES:\nfm content\n\n"
+            "BEST PRACTICES:\nbp\n\n"
+            "EXECUTION ORDER:\n1. step\n\n"
+            "OUTPUT CONTRACT:\n{}\n\n"
+            "GENOME SECTIONS:\nIDENTITY: x\nEXECUTION: y\nBEHAVIOR: z\nCHECKSUM: w\n\n"
+            "VARIABLES:\ntask: the task\n"
+        )
+        spec = parse_msb(raw)
+        assert spec.limitations == "lim content"
+        assert "fm content" in spec.failure_modes
+
+    def test_r673_9_adjacent_failure_modes_best_practices_splits_correctly(self) -> None:
+        raw = (
+            "TOOL: pkt673_test\nVERSION: 1.0\n\n"
+            "CAPABILITIES:\ncap\n\n"
+            "LIMITATIONS:\nlim\n\n"
+            "FAILURE MODES:\nfm content\n"
+            "BEST PRACTICES:\nbp content\n\n"
+            "EXECUTION ORDER:\n1. step\n\n"
+            "OUTPUT CONTRACT:\n{}\n\n"
+            "GENOME SECTIONS:\nIDENTITY: x\nEXECUTION: y\nBEHAVIOR: z\nCHECKSUM: w\n\n"
+            "VARIABLES:\ntask: the task\n"
+        )
+        spec = parse_msb(raw)
+        assert spec.failure_modes == "fm content"
+        assert "bp content" in spec.best_practices
+
+    def test_r673_10_adjacent_variables_parameter_schema_splits_correctly(self) -> None:
+        raw = _make_673_msb(
+            variables="foo: the foo value",
+            parameter_schema="max_attempts|0|1|5|1|lower|Maximum retry attempts",
+        )
+        spec = parse_msb(raw)
+        assert spec.variables.get("foo") == "the foo value"
+        assert "PARAMETER_SCHEMA" not in spec.variables
+        assert len(spec.parameter_schema) == 1
+        assert spec.parameter_schema[0].name == "max_attempts"
+
+    # R-673-11..12: edge-case regression guards
+
+    def test_r673_11_capabilities_with_important_does_not_truncate(self) -> None:
+        raw = _make_673_msb(capabilities="cap line\nIMPORTANT: read this\nLine two of capabilities.")
+        spec = parse_msb(raw)
+        assert "IMPORTANT: read this" in spec.capabilities
+        assert "Line two of capabilities." in spec.capabilities
+
+    def test_r673_12_section_at_end_of_string_returns_body_up_to_eof(self) -> None:
+        # VARIABLES is the last section with no trailing newline — exercises the \\Z path.
+        raw = (
+            "TOOL: pkt673_test\nVERSION: 1.0\n\n"
+            "CAPABILITIES:\ncap\n\n"
+            "LIMITATIONS:\nlim\n\n"
+            "FAILURE MODES:\nfm\n\n"
+            "BEST PRACTICES:\nbp\n\n"
+            "EXECUTION ORDER:\n1. step\n\n"
+            "OUTPUT CONTRACT:\n{}\n\n"
+            "GENOME SECTIONS:\nIDENTITY: x\nEXECUTION: y\nBEHAVIOR: z\nCHECKSUM: w\n\n"
+            "VARIABLES:\ntask: the task"  # no trailing newline
+        )
+        spec = parse_msb(raw)
+        assert spec.variables.get("task") == "the task"
+
+    def test_r673_13_all_canonical_seed_msb_files_parse_without_error(self) -> None:
+        import os
+        msb_dir = "seed/msb"
+        files = [f for f in os.listdir(msb_dir) if f.endswith(".msb")]
+        assert len(files) > 0
+        for fname in files:
+            path = os.path.join(msb_dir, fname)
+            with open(path, encoding="utf-8") as fh:
+                content = fh.read()
+            spec = parse_msb(content, path)
+            assert spec.tool, f"Empty tool in {path}"
+            assert spec.capabilities, f"Empty capabilities in {path}"
+
+    def test_r673_14_api_key_inside_capabilities_allowed_as_body_content(self) -> None:
+        raw = _make_673_msb(
+            capabilities="Requires API_KEY: env var to be set.\nSecond line of capabilities."
+        )
+        spec = parse_msb(raw)
+        assert "API_KEY:" in spec.capabilities
+        assert "Second line of capabilities." in spec.capabilities
