@@ -165,17 +165,26 @@ export class GovernanceLoop {
     if (goal.scheme) {
       // Scheme-based goal: reset any active campaigns to pending (mutate in-memory, single save)
       let dirty = false;
-      for (const c of goal.scheme.campaigns) {
+      const campaigns = Array.isArray(goal.scheme.campaigns)
+        ? goal.scheme.campaigns.filter((c): c is NonNullable<typeof c> => c !== null && typeof c === 'object')
+        : [];
+      for (const c of campaigns) {
         if (c.status === 'active') { c.status = 'pending'; dirty = true; }
       }
-      for (const sg of goal.subGoals) {
+      const subGoals = Array.isArray(goal.subGoals)
+        ? goal.subGoals.filter((sg): sg is NonNullable<typeof sg> => sg !== null && typeof sg === 'object')
+        : [];
+      for (const sg of subGoals) {
         if (sg.status === 'active') { sg.status = 'pending'; sg.taskId = undefined; dirty = true; }
       }
       if (dirty) await this.goalManager.save(file);
     } else {
       // Legacy sub-goal goal
       let dirty = false;
-      for (const sg of goal.subGoals) {
+      const subGoalsLegacy = Array.isArray(goal.subGoals)
+        ? goal.subGoals.filter((sg): sg is NonNullable<typeof sg> => sg !== null && typeof sg === 'object')
+        : [];
+      for (const sg of subGoalsLegacy) {
         if (sg.status === 'active') { sg.status = 'pending'; sg.taskId = undefined; dirty = true; }
       }
       if (dirty) await this.goalManager.save(file);
@@ -349,7 +358,7 @@ export class GovernanceLoop {
     // unknown or missing domains fail the campaign through the normal
     // JOB_FAILED path; without one, the legacy 'compute' default survives
     // for existing callers but is logged so it is never silent.
-    const rawDomain = campaign.subagents[0]?.martianTags[0];
+    const rawDomain = campaign.subagents?.[0]?.martianTags?.[0];
     let martianType: string;
     if (this.domainResolver) {
       try {
@@ -374,8 +383,11 @@ export class GovernanceLoop {
       }
       martianType = rawDomain ?? 'compute';
     }
-    const allowedMartians = [...new Set(campaign.subagents.flatMap(s => s.martianTags))];
-    const knowledgeBase   = campaign.subagents.map(s => s.knowledgeBase).filter(Boolean).join('\n\n');
+    const safeSubagents   = Array.isArray(campaign.subagents)
+      ? campaign.subagents.filter((s): s is NonNullable<typeof s> => s !== null && typeof s === 'object')
+      : [];
+    const allowedMartians = [...new Set(safeSubagents.flatMap(s => s.martianTags))];
+    const knowledgeBase   = safeSubagents.map(s => s.knowledgeBase).filter(Boolean).join('\n\n');
 
     const brief = makeSubagentBrief({
       campaignId:        campaign.id,
@@ -521,7 +533,9 @@ export class GovernanceLoop {
     } else {
       // Legacy sub-goal completion
       await this.goalManager.updateSubGoal(event.goalId, event.subGoalId, { status: 'complete' });
-      const subGoal = goal?.subGoals.find(s => s.id === event.subGoalId);
+      const subGoal = Array.isArray(goal?.subGoals)
+        ? goal.subGoals.find(s => s !== null && typeof s === 'object' && s.id === event.subGoalId)
+        : undefined;
       if (subGoal?.taskId) {
         this.advisorBot.destroyTaskSessions(subGoal.taskId);
         this.taskManager.deregister(subGoal.taskId);
@@ -583,7 +597,9 @@ export class GovernanceLoop {
     }
 
     // Legacy sub-goal failure path (preserved from Phase 2B)
-    const subGoal = goal?.subGoals.find(s => s.id === event.subGoalId);
+    const subGoal = Array.isArray(goal?.subGoals)
+      ? goal.subGoals.find(s => s !== null && typeof s === 'object' && s.id === event.subGoalId)
+      : undefined;
     if (!subGoal?.taskId) return;
     const task = this.taskManager.get(subGoal.taskId);
     if (!task) return;
