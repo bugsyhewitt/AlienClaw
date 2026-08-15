@@ -576,3 +576,75 @@ describe('AgentChannel — audit-filename uniqueness under same-ts', () => {
     expect(files).toHaveLength(2);
   });
 });
+
+describe('AgentChannel — content-length cap (PKT-676)', () => {
+  let tmpDir: string;
+  let ch: AgentChannel;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    ch = new AgentChannel(tmpDir);
+  });
+
+  afterEach(() => {
+    rmTmp(tmpDir);
+  });
+
+  // R-676-1: a content string exactly at the cap writes verbatim (no truncation)
+  it('content at exactly MAX_AUDIT_CONTENT_BYTES writes verbatim (no truncation)', async () => {
+    const exact = 'A'.repeat(65_536);
+    ch.send(makeMsg({ ts: 1700000000001, content: exact }));
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const safeDir = join(tmpDir, today, 'agent-channel');
+    const files = readdirSync(safeDir);
+    expect(files).toHaveLength(1);
+    const raw = readFileSync(join(safeDir, files[0]!), 'utf-8');
+    const parsed = JSON.parse(raw) as AgentMessage;
+    expect(parsed.content).toBe(exact);
+  });
+
+  // R-676-2: content 1 byte over the cap truncates to a sentinel
+  it('content 1 byte over MAX_AUDIT_CONTENT_BYTES is truncated to a sentinel', async () => {
+    const over = 'A'.repeat(65_537);
+    ch.send(makeMsg({ ts: 1700000000002, content: over }));
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const safeDir = join(tmpDir, today, 'agent-channel');
+    const files = readdirSync(safeDir);
+    expect(files).toHaveLength(1);
+    const raw = readFileSync(join(safeDir, files[0]!), 'utf-8');
+    const parsed = JSON.parse(raw) as AgentMessage;
+    expect(parsed.content).toMatch(/^\[\[truncated: 65537 bytes exceeded 65536 cap\]\]$/);
+    expect(parsed.content.length).toBeLessThan(over.length);
+  });
+
+  // R-676-3: 10MB content produces a small file (the ~50-char sentinel), not a 10MB file
+  it('10 MB content produces a small audit file, not a 10 MB file', async () => {
+    const huge = 'X'.repeat(10 * 1024 * 1024);
+    ch.send(makeMsg({ ts: 1700000000003, content: huge }));
+    await new Promise((r) => setTimeout(r, 50));
+    const today = new Date().toISOString().slice(0, 10);
+    const safeDir = join(tmpDir, today, 'agent-channel');
+    const files = readdirSync(safeDir);
+    expect(files).toHaveLength(1);
+    const auditFile = join(safeDir, files[0]!);
+    const stat = statSync(auditFile);
+    expect(stat.size).toBeLessThan(1024);
+  });
+
+  // R-676-4: in-memory log also has the truncated content (consumers see the sentinel)
+  it('in-memory log record also has the truncated content', () => {
+    const over = 'A'.repeat(100_000);
+    ch.send(makeMsg({ ts: 1700000000004, content: over }));
+    const record = ch.history('BossBot', 'AdvisorBot')[0]!;
+    expect(record.content).toMatch(/truncated: 100000 bytes exceeded 65536 cap/);
+  });
+
+  // R-676-5: non-string content (defensive — TS type says string but defense-in-depth)
+  it('non-string content (defensive type-bypass) is preserved verbatim', () => {
+    ch.send({ ...makeMsg({ ts: 1 }), content: 12345 as unknown as string });
+    const record = ch.history('BossBot', 'AdvisorBot')[0]!;
+    expect((record.content as unknown) as number).toBe(12345);
+  });
+});
