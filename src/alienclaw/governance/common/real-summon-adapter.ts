@@ -183,6 +183,7 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
     let stdout = '';
     let stderrBuf = '';
     let timedOut = false;
+    let sigkillTimer: NodeJS.Timeout | undefined;
 
     const result = await new Promise<MartianSummonResult>((resolve) => {
       const child = spawn(
