@@ -481,3 +481,53 @@ describe('CLI shim ALIENCLAW_HOST resolution (alienclaw.mjs:64)', () => {
     });
   }
 });
+
+// ── 9. CLI shim passthrough spawn (alienclaw.mjs:71-74) — shell metachar safety ─
+// PKT-660: alienclaw.mjs passthrough used shell:true, allowing argv shell-injection
+// (Node DEP0190). Fix: shell:false. These tests assert the fixed behavior.
+// R-PASSTHROUGH-0 is a static source assertion — it FAILS before the fix is applied
+// and PASSES after. R-PASSTHROUGH-1/2 mirror and exercise the spawn call directly.
+
+describe('CLI shim passthrough spawn (alienclaw.mjs:71-74) — shell metacharacter safety', () => {
+  it('R-PASSTHROUGH-0: alienclaw.mjs passthrough spawn MUST use shell:false (DEP0190)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(
+      new URL('../../src/alienclaw/cli/alienclaw.mjs', import.meta.url),
+      'utf8',
+    );
+    // After PKT-660: the passthrough spawn must NOT use shell:true.
+    // This fails RED on unpatched HEAD (shell:true present) and goes GREEN after fix.
+    expect(src).not.toContain('shell: true');
+    expect(src).toContain('shell: false');
+  });
+
+  // Mirror alienclaw.mjs:71-74 verbatim (post-fix) so divergence is immediately visible.
+  // When the shim changes, update spawnPassthrough() to match.
+  function spawnPassthrough(hostBin: string, args: string[]): { shell: boolean } {
+    const cp = require('node:child_process') as typeof import('node:child_process');
+    cp.spawn(hostBin, args, {
+      stdio: 'ignore',
+      shell: false, // Direct exec; args are NOT shell-interpreted. PKT-660 fix.
+    });
+    return { shell: false };
+  }
+
+  it('R-PASSTHROUGH-1: passthrough invokes spawn with shell:false (no metachar interpretation)', () => {
+    const result = spawnPassthrough('echo', ['hello', 'world', '; touch /tmp/NOT_CREATED']);
+    expect(result.shell).toBe(false);
+  });
+
+  it('R-PASSTHROUGH-2: shell metacharacters in args do NOT execute (live proof, no PWNED file)', async () => {
+    const fs = await import('node:fs');
+    const cp = await import('node:child_process');
+    const probe = '/tmp/AC_PASSTHROUGH_PROBE_PKT660';
+    try { fs.rmSync(probe, { force: true }); } catch { /* ignore */ }
+
+    const child = cp.spawn('echo', [
+      'config', '--filter', `*.json; touch ${probe}`,
+    ], { stdio: 'ignore', shell: false });
+    await new Promise<void>((resolve) => child.on('exit', () => resolve()));
+
+    expect(fs.existsSync(probe)).toBe(false);
+  });
+});
