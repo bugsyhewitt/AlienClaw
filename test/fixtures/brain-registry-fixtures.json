@@ -525,7 +525,7 @@
       "name": "param-schema-non-integer-rmin",
       "kind": "parse_param_schema_error",
       "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\np|0|abc|5|1|none|Bad rmin\n",
-      "expected_error_contains": "numeric field"
+      "expected_error_contains": "'abc'"
     },
     {
       "name": "param-schema-xcode-zero-range-1-5",
