@@ -661,12 +661,12 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry.*has \d+ fields \(expected 7/);
   });
 
-  it('R-502: PARAMETER_SCHEMA row with non-numeric field → throws "numeric field error"', () => {
+  it('R-502: PARAMETER_SCHEMA row with non-numeric xcode_index → throws "not a valid integer" (PKT-674: strict regex fires before isNaN)', () => {
     let captured: Error | null = null;
     try { parseMsbContent(NON_NUMERIC_PARAM_MSB); }
     catch (e) { captured = e as Error; }
     expect(captured).not.toBeNull();
-    expect(captured!.message).toContain("PARAMETER_SCHEMA entry 'name' in <string>: numeric field error");
+    expect(captured!.message).toContain("PARAMETER_SCHEMA entry 'name' in <string>: xcode_index 'not_a_number' is not a valid integer");
   });
 
   it('R-503: PARAMETER_SCHEMA row with invalid direction → throws "invalid direction \'sideways\'"', () => {
@@ -794,5 +794,52 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     expect(brain.parameterSchema).toHaveLength(2);
     expect(brain.parameterSchema[0]!.name).toBe('foo');
     expect(brain.parameterSchema[1]!.name).toBe('bar');
+  });
+
+  // --- PKT-674: strict integer regex pre-check (partial-coercion bypass) ---
+
+  it('R-515 (PKT-674): decimal xcode_index "3.5" → throws "not a valid integer" (was silent downcast to 3, passed [0,30] bounds)', () => {
+    const msb = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|3.5|1|5|2|lower|desc');
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toContain("xcode_index '3.5' is not a valid integer");
+  });
+
+  it('R-516 (PKT-674): trailing-junk range_max "10abc" → throws "not a valid integer" (was silent truncation to 10)', () => {
+    const msb = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|0|1|10abc|5|lower|desc');
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toContain("range_max '10abc' is not a valid integer");
+  });
+
+  it('R-517 (PKT-674): leading-alpha "abc1" as xcode_index → throws (parseInt returns NaN; regex also rejects; sanity that fix does not break pure-non-numeric rejection)', () => {
+    const msb = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|abc1|1|5|1|lower|desc');
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toContain("xcode_index 'abc1' is not a valid integer");
+  });
+
+  it('R-518 (PKT-674): scientific-notation xcode_index "1e2" → throws "not a valid integer" (parseInt("1e2",10)=1, was silent downcast)', () => {
+    const msb = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|1e2|1|5|1|lower|desc');
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toContain("xcode_index '1e2' is not a valid integer");
+  });
+
+  it('R-519 (PKT-674): negative-with-trailing-junk xcode_index "-3xyz" → throws "not a valid integer" (parseInt("-3xyz",10)=-3, was silent; R-507 would have caught -3 anyway but fix rejects earlier)', () => {
+    const msb = VALID_MSB.replace('max_attempts|0|1|5|1|lower|Maximum retry attempts', 'foo|-3xyz|1|5|1|lower|desc');
+    let captured: Error | null = null;
+    try { parseMsbContent(msb); }
+    catch (e) { captured = e as Error; }
+    expect(captured).not.toBeNull();
+    expect(captured!.message).toContain("xcode_index '-3xyz' is not a valid integer");
   });
 });
