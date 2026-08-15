@@ -363,6 +363,114 @@ describe('config/defaults.ts', () => {
 });
 
 // =============================================================================
+// loadOrCreate with VALID-but-non-object JSON (PKT-652)
+// =============================================================================
+//
+// ECMAScript spread of a non-object value:
+//   {...null} = {}   {...[]} = {}   {...42} = {}   {...true} = {}
+//   {..."hi"} = {0:"h",1:"i"} ← ACTUAL CORRUPTION
+// The guard in loadOrCreate must return defaults and emit a stderr warning for
+// ALL non-object values, not just the string case.
+
+describe('AlienClawConfigManager — loadOrCreate with VALID-but-non-object JSON', () => {
+  beforeEach(() => {
+    // Silence stderr in most tests so output stays clean.
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('R-701: file containing `null` returns defaults (does not poison the singleton)', async () => {
+    writeFileSync(join(tmpHome, 'preferences.json'), 'null', 'utf-8');
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const defaults = await loadDefaultsModule();
+    expect(cfg.preferences).toEqual(defaults.DEFAULT_PREFERENCES);
+    expect(Object.keys(cfg.preferences)).toEqual(Object.keys(defaults.DEFAULT_PREFERENCES));
+  });
+
+  it('R-702: file containing `[]` returns defaults (does not silently collapse to {} mid-spread)', async () => {
+    writeFileSync(join(tmpHome, 'preferences.json'), '[]', 'utf-8');
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const defaults = await loadDefaultsModule();
+    expect(cfg.preferences).toEqual(defaults.DEFAULT_PREFERENCES);
+    expect(Object.keys(cfg.preferences)).toEqual(Object.keys(defaults.DEFAULT_PREFERENCES));
+  });
+
+  it('R-703: file containing a JSON STRING does NOT spread string-iterables into the singleton', async () => {
+    writeFileSync(join(tmpHome, 'preferences.json'), '"hi"', 'utf-8');
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const defaults = await loadDefaultsModule();
+    // REGRESSION GUARD — the live defect documented in PKT-652
+    expect(cfg.preferences).toEqual(defaults.DEFAULT_PREFERENCES);
+    expect(Object.keys(cfg.preferences)).toEqual(Object.keys(defaults.DEFAULT_PREFERENCES));
+    expect((cfg.preferences as any)[0]).toBeUndefined();
+    expect((cfg.preferences as any)[1]).toBeUndefined();
+  });
+
+  it('R-704: file containing a JSON NUMBER returns defaults', async () => {
+    writeFileSync(join(tmpHome, 'preferences.json'), '42', 'utf-8');
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const defaults = await loadDefaultsModule();
+    expect(cfg.preferences).toEqual(defaults.DEFAULT_PREFERENCES);
+    expect(Object.keys(cfg.preferences)).toEqual(Object.keys(defaults.DEFAULT_PREFERENCES));
+  });
+
+  it('R-705: file containing a JSON BOOLEAN returns defaults', async () => {
+    writeFileSync(join(tmpHome, 'preferences.json'), 'true', 'utf-8');
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const defaults = await loadDefaultsModule();
+    expect(cfg.preferences).toEqual(defaults.DEFAULT_PREFERENCES);
+    expect(Object.keys(cfg.preferences)).toEqual(Object.keys(defaults.DEFAULT_PREFERENCES));
+  });
+
+  it('R-706: file containing a JSON FLOAT returns defaults', async () => {
+    writeFileSync(join(tmpHome, 'preferences.json'), '3.14', 'utf-8');
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const defaults = await loadDefaultsModule();
+    expect(cfg.preferences).toEqual(defaults.DEFAULT_PREFERENCES);
+    expect(Object.keys(cfg.preferences)).toEqual(Object.keys(defaults.DEFAULT_PREFERENCES));
+  });
+
+  it('R-707: file containing -1 (negative number) returns defaults', async () => {
+    writeFileSync(join(tmpHome, 'preferences.json'), '-1', 'utf-8');
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const defaults = await loadDefaultsModule();
+    expect(cfg.preferences).toEqual(defaults.DEFAULT_PREFERENCES);
+    expect(Object.keys(cfg.preferences)).toEqual(Object.keys(defaults.DEFAULT_PREFERENCES));
+  });
+
+  it('R-708: applies to BOTH preferences AND system config (same loadOrCreate chokepoint)', async () => {
+    writeFileSync(join(tmpHome, 'preferences.json'), '"poison"', 'utf-8');
+    writeFileSync(join(tmpHome, 'alienclaw.json'), '"poison"', 'utf-8');
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const defaults = await loadDefaultsModule();
+    expect(cfg.preferences).toEqual(defaults.DEFAULT_PREFERENCES);
+    expect(cfg.system).toEqual(defaults.DEFAULT_CONFIG);
+    expect(Object.keys(cfg.system)).toEqual(Object.keys(defaults.DEFAULT_CONFIG));
+    expect((cfg.system as any)[0]).toBeUndefined();
+  });
+
+  it('R-709: emits a stderr WARNING on non-object JSON so the user notices the bad file', async () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write');
+    writeFileSync(join(tmpHome, 'preferences.json'), '"hi"', 'utf-8');
+    await loadConfigModule();
+    expect(stderrSpy).toHaveBeenCalled();
+    const allCalls = stderrSpy.mock.calls.map(c => String(c[0])).join('');
+    expect(allCalls).toContain('preferences.json');
+    expect(allCalls).toContain('string');
+  });
+
+  it('R-710: empty object `{}` is still accepted (defaults fill — regression guard for the valid path)', async () => {
+    writeFileSync(join(tmpHome, 'preferences.json'), '{}', 'utf-8');
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const defaults = await loadDefaultsModule();
+    expect(cfg.preferences).toEqual(defaults.DEFAULT_PREFERENCES);
+    expect(Object.keys(cfg.preferences)).toEqual(Object.keys(defaults.DEFAULT_PREFERENCES));
+  });
+});
+
+// =============================================================================
 // Singleton identity — verifies the module exports ONE instance, not a class
 // =============================================================================
 
