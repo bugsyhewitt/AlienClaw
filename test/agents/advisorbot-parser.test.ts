@@ -108,14 +108,15 @@ describe('AdvisorBot.parseResponse (agents/advisorbot.ts:78)', () => {
     expect(out.blindspots).toEqual([]);
   });
 
-  it('parses an object with extra unknown fields without modification (passthrough)', () => {
+  it('parses an object with extra unknown fields (extra fields are dropped by shape coercion)', () => {
     const raw = JSON.stringify({
       verdict:        'ok',
       confidence:     'high',
       blindspots:     [],
       recommendation: '',
-      // AdvisorBot.parseResponse does not validate; it just JSON.parse casts.
-      extraField:     'should be silently ignored by TS cast',
+      // validateAdviceResponse constructs a new AdviceResponse object; extra
+      // fields are not copied through (not a bug — they were never part of the type).
+      extraField:     'silently dropped by shape coercion',
     });
     const out = AdvisorBot.parseResponse(raw);
     expect(out.verdict).toBe('ok');
@@ -252,6 +253,24 @@ describe('AdvisorBot.parseResponse — shape coercion (PKT-659)', () => {
     expect(out.confidence).not.toBeNull();
     expect(['low', 'medium', 'high'] as const).toContain(out.confidence);
     // Specifically 'medium' (not 'low'), consistent with non-JSON fallback default
+    expect(out.confidence).toBe('medium');
+  });
+
+  // ── AC3: top-level non-object JSON values ───────────────────────────────────
+  // JSON.parse can succeed with non-object top-level values (null, 42, []).
+  // validateAdviceResponse's first guard handles these: returns safe defaults.
+  it('handles top-level JSON array (falls back to safe defaults with raw as verdict)', () => {
+    const raw = '[1, 2, 3]';
+    const out = AdvisorBot.parseResponse(raw);
+    expect(out.verdict).toBe(raw);
+    expect(out.confidence).toBe('medium');
+    expect(out.blindspots).toEqual([]);
+    expect(out.recommendation).toBe('');
+  });
+
+  it('handles top-level JSON null (falls back to safe defaults with raw as verdict)', () => {
+    const out = AdvisorBot.parseResponse('null');
+    expect(out.verdict).toBe('null');
     expect(out.confidence).toBe('medium');
   });
 });
