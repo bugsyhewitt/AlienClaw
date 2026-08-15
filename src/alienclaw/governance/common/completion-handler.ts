@@ -66,14 +66,17 @@ export class CompletionHandler {
 
     // Fitness gate: short-circuit before calling the LLM when objective signal is clear.
     if (martianFitness !== undefined && (!Number.isFinite(martianFitness) || martianFitness < REVIEW_THRESHOLD)) {
-      const firstIncompleteSubGoal   = Array.isArray(goal.subGoals)
-        ? goal.subGoals.filter((s): s is NonNullable<typeof s> => s !== null && typeof s === 'object').find(s => s.status !== 'complete')
-        : undefined;
-      const firstIncompleteCampaign  = (goal.scheme?.campaigns ?? [])
-        .find(c => c.status !== 'complete');
+      const subGoals              = Array.isArray(goal.subGoals)
+        ? goal.subGoals.filter((s): s is NonNullable<typeof s> => s !== null && typeof s === 'object')
+        : [];
+      const campaigns             = Array.isArray(goal.scheme?.campaigns)
+        ? goal.scheme!.campaigns.filter((c): c is NonNullable<typeof c> => c !== null && typeof c === 'object')
+        : [];
+      const firstIncompleteSubGoal  = subGoals.find(s => s.status !== 'complete');
+      const firstIncompleteCampaign = campaigns.find(c => c.status !== 'complete');
       const reopenId = firstIncompleteSubGoal?.id
         ?? firstIncompleteCampaign?.id
-        ?? goal.subGoals[0]?.id;
+        ?? subGoals[0]?.id;
       return { proceed: false, reopenIds: reopenId ? [reopenId] : [] };
     }
 
@@ -109,14 +112,17 @@ export class CompletionHandler {
 
     // Low-confidence: flag the first incomplete item to re-exercise the state machine
     if (verdict.confidence === 'low') {
-      const firstIncompleteSubGoal = Array.isArray(goal.subGoals)
-        ? goal.subGoals.filter((s): s is NonNullable<typeof s> => s !== null && typeof s === 'object').find(s => s.status !== 'complete')
-        : undefined;
-      const firstIncompleteCampaign = (goal.scheme?.campaigns ?? [])
-        .find(c => c.status !== 'complete');
-      const reopenId = firstIncompleteSubGoal?.id
+      const subGoals                = Array.isArray(goal.subGoals)
+        ? goal.subGoals.filter((s): s is NonNullable<typeof s> => s !== null && typeof s === 'object')
+        : [];
+      const campaigns               = Array.isArray(goal.scheme?.campaigns)
+        ? goal.scheme!.campaigns.filter((c): c is NonNullable<typeof c> => c !== null && typeof c === 'object')
+        : [];
+      const firstIncompleteSubGoal  = subGoals.find(s => s.status !== 'complete');
+      const firstIncompleteCampaign = campaigns.find(c => c.status !== 'complete');
+      const reopenId                = firstIncompleteSubGoal?.id
         ?? firstIncompleteCampaign?.id
-        ?? goal.subGoals[0]?.id;
+        ?? subGoals[0]?.id;
       return { proceed: false, reopenIds: reopenId ? [reopenId] : [] };
     }
 
