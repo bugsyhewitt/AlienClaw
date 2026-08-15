@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from alienclaw.genome.alphabet import GENOME_LENGTH
+
 from .types import EvolutionConfig, GenerationStats, PopulationEntry
 
 
