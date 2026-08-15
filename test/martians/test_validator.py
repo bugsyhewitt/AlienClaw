@@ -1,5 +1,6 @@
 import pytest
 from alienclaw.martians.parser import parse_martian
+from alienclaw.martians.types import MartianSpec, SlotDeclaration
 from alienclaw.martians.validator import validate_martian
 from alienclaw.brains.registry import BrainRegistry
 
@@ -87,3 +88,57 @@ def test_malformed_substitution_token_invalid(real_brains):
     assert not result.valid
     assert any("malformed substitution token" in e for e in result.errors)
     assert any("malformed_placeholder" in e for e in result.errors)
+
+
+# PKT-648: finite-integer guard parity with validator.ts:34-39 (PKT-534).
+# Direct MartianSpec construction bypasses parse_martian; validator must never raise.
+
+def _pkt648_spec(slot_index):
+    return MartianSpec(
+        martian_type="probe-pkt648",
+        slots=(SlotDeclaration(slot_index=slot_index, tool_name="compute", inputs_from=None),),
+        description="",
+        use_cases=(),
+    )
+
+
+def test_validator_slot_index_nan_invalid(real_brains):
+    result = validate_martian(_pkt648_spec(float("nan")), real_brains)
+    assert not result.valid
+    assert any("finite integer" in e for e in result.errors), result.errors
+
+
+def test_validator_slot_index_inf_invalid(real_brains):
+    result = validate_martian(_pkt648_spec(float("inf")), real_brains)
+    assert not result.valid
+    assert any("finite integer" in e for e in result.errors), result.errors
+
+
+def test_validator_slot_index_neg_inf_invalid(real_brains):
+    result = validate_martian(_pkt648_spec(float("-inf")), real_brains)
+    assert not result.valid
+    assert any("finite integer" in e for e in result.errors), result.errors
+
+
+def test_validator_slot_index_string_never_raises(real_brains):
+    result = validate_martian(_pkt648_spec("foo"), real_brains)
+    assert not result.valid
+    assert any("integer" in e for e in result.errors), result.errors
+
+
+def test_validator_slot_index_float_invalid(real_brains):
+    result = validate_martian(_pkt648_spec(1.5), real_brains)
+    assert not result.valid
+    assert any("integer" in e for e in result.errors), result.errors
+
+
+def test_validator_slot_index_bool_invalid(real_brains):
+    result = validate_martian(_pkt648_spec(True), real_brains)
+    assert not result.valid
+    assert any("integer" in e for e in result.errors), result.errors
+
+
+def test_validator_slot_index_none_invalid(real_brains):
+    result = validate_martian(_pkt648_spec(None), real_brains)
+    assert not result.valid
+    assert any("integer" in e for e in result.errors), result.errors
