@@ -595,4 +595,52 @@ describe('CompletionHandler — PKT-658 null subGoal / null campaign element', (
     const handler = makeHandler(goal);
     await expect(handler.review('goal-1')).resolves.toEqual({ proceed: true });
   });
+
+  it('review survives null element in scheme.campaigns via fitness gate (enters firstIncompleteCampaign branch)', async () => {
+    // NaN fitness reliably trips the gate; null campaign element must not throw at firstIncompleteCampaign.find
+    const goal = makeGoalWithNulls({
+      subGoals: [{ id: 'sg-1', description: 'done', status: 'complete' }],
+      campaigns: [null, { id: 'c1', name: 'C', objective: 'o', status: 'pending' }],
+    });
+    const handler = makeHandler(goal);
+    const out = await handler.review('goal-1', NaN);
+    // firstIncompleteCampaign finds the pending campaign after filtering null
+    expect(out).toEqual({ proceed: false, reopenIds: ['c1'] });
+  });
+
+  it('review survives subGoals === null via fitness gate (subGoals[0]?.id fallback uses guarded array)', async () => {
+    // When subGoals is null the reopenId fallback must not crash on null[0]
+    const goal = makeGoalWithNulls({ subGoals: null as any });
+    const handler = makeHandler(goal);
+    const out = await handler.review('goal-1', NaN);
+    expect(out).toEqual({ proceed: false, reopenIds: [] });
+  });
+
+  it('review survives campaigns === null via fitness gate (campaigns array null)', async () => {
+    const goal = makeGoalWithNulls({
+      subGoals: [{ id: 'sg-1', description: 'done', status: 'complete' }],
+      campaigns: null,
+    });
+    const handler = makeHandler(goal);
+    const out = await handler.review('goal-1', NaN);
+    // No incomplete sub-goal, no campaigns → falls back to subGoals[0]?.id
+    expect(out).toEqual({ proceed: false, reopenIds: ['sg-1'] });
+  });
+
+  it('review survives null element in scheme.campaigns via low-confidence verdict (enters firstIncompleteCampaign branch)', async () => {
+    const goal = makeGoalWithNulls({
+      subGoals: [{ id: 'sg-1', description: 'done', status: 'complete' }],
+      campaigns: [null, { id: 'c2', name: 'C2', objective: 'o2', status: 'pending' }],
+    });
+    const handler = makeHandler(goal, { verdict: 'not sure', confidence: 'low' });
+    const out = await handler.review('goal-1');
+    expect(out).toEqual({ proceed: false, reopenIds: ['c2'] });
+  });
+
+  it('review survives subGoals === null via low-confidence verdict (subGoals[0]?.id fallback uses guarded array)', async () => {
+    const goal = makeGoalWithNulls({ subGoals: null as any });
+    const handler = makeHandler(goal, { verdict: 'not sure', confidence: 'low' });
+    const out = await handler.review('goal-1');
+    expect(out).toEqual({ proceed: false, reopenIds: [] });
+  });
 });
