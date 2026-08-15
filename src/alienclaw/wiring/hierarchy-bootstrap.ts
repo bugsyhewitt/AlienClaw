@@ -299,9 +299,10 @@ export function bootstrap(): BootstrapResult {
       const child = spawn('python3', ['-m', 'alienclaw.bridge'], { shell: false });
       let stdout = '';
       let stderrBuf = '';
+      let innerKillTimer: NodeJS.Timeout | undefined;
       const timer = setTimeout(() => {
         child.kill('SIGTERM');
-        setTimeout(() => { child.kill('SIGKILL'); }, 5000);
+        innerKillTimer = setTimeout(() => { child.kill('SIGKILL'); }, 5000);
       }, 30_000);
       child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
       child.stderr.on('data', (chunk: Buffer) => { stderrBuf += chunk.toString('utf8'); });
@@ -309,6 +310,10 @@ export function bootstrap(): BootstrapResult {
       child.stdin.end();
       child.on('close', (exitCode) => {
         clearTimeout(timer);
+        if (innerKillTimer !== undefined) {
+          clearTimeout(innerKillTimer);
+          innerKillTimer = undefined;
+        }
         handleLiveEvoResponse(martianType, exitCode, stdout, stderrBuf);
         resolve();
       });
