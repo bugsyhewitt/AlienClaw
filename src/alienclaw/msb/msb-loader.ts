@@ -34,6 +34,12 @@ const REQUIRED_SECTIONS = [
   'VARIABLES',
 ] as const;
 
+// Boundary alternation: only stop at a known section header, not any ALL-CAPS phrase.
+// Includes PARAMETER_SCHEMA (optional section that follows VARIABLES) as a boundary.
+const SECTION_BOUNDARY_ALT = [...REQUIRED_SECTIONS, 'PARAMETER_SCHEMA']
+  .map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  .join('|');
+
 function extractField(raw: string, fieldName: string): string {
   const re = new RegExp(`^${fieldName}:\\s*(.+)$`, 'm');
   const m  = raw.match(re);
@@ -41,9 +47,9 @@ function extractField(raw: string, fieldName: string): string {
 }
 
 function extractSection(raw: string, sectionName: string): string {
-  // Matches: SECTION NAME:\n<content until next ALL-CAPS heading or end>
+  const escapedName = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const re = new RegExp(
-    `^${sectionName}:\\s*\\n([\\s\\S]*?)(?=\\n[A-Z ]+:|(?![\\s\\S]))`,
+    `^${escapedName}:\\s*\\n([\\s\\S]*?)(?=\\n(?:${SECTION_BOUNDARY_ALT}):|(?![\\s\\S]))`,
     'm'
   );
   const m = raw.match(re);

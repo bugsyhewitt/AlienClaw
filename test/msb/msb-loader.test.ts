@@ -843,3 +843,190 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     expect(captured!.message).toContain("xcode_index '-3xyz' is not a valid integer");
   });
 });
+
+// ---------------------------------------------------------------------------
+// PKT-705 — extractSection ALL-CAPS phrase boundary defect
+//
+// The old boundary regex `\n[A-Z ]+:` matched any inline ALL-CAPS phrase,
+// silently truncating section content. The fix restricts the lookahead to
+// known required-section boundaries only.
+// ---------------------------------------------------------------------------
+
+const ALLCAPS_PHRASE_IN_LIMITATIONS_MSB = `\
+TOOL: web_search
+VERSION: 1.0
+
+CAPABILITIES:
+Searches the web for information.
+
+LIMITATIONS:
+Cannot access pages behind authentication.
+API KEYS: requires an API key in the environment.
+Cannot send request bodies.
+
+FAILURE MODES:
+Network timeout: retry with backoff.
+
+BEST PRACTICES:
+Keep queries specific and short.
+
+EXECUTION ORDER:
+1. Validate query
+2. Submit to backend
+3. Parse results
+
+OUTPUT CONTRACT:
+{"result":"string","url":"string"}
+
+GENOME SECTIONS:
+IDENTITY: search identity
+EXECUTION: search execution
+BEHAVIOR: search behavior
+CHECKSUM: 0xdeadbeef
+
+VARIABLES:
+task: the natural language task
+query: the search query string
+`;
+
+const ALLCAPS_PHRASE_IN_CAPABILITIES_MSB = `\
+TOOL: http_tool
+VERSION: 1.0
+
+CAPABILITIES:
+Sends HTTP requests.
+HTTP ERRORS: maps 4xx/5xx codes to structured error objects.
+Returns parsed JSON bodies.
+
+LIMITATIONS:
+Cannot follow more than 5 redirects.
+
+FAILURE MODES:
+TLS HANDSHAKE: fails on self-signed certs.
+
+BEST PRACTICES:
+AUTH HEADER: always include Authorization header.
+
+EXECUTION ORDER:
+1. Build request
+2. Send
+3. Parse response
+
+OUTPUT CONTRACT:
+{"status":"number","body":"any"}
+
+GENOME SECTIONS:
+IDENTITY: http identity
+EXECUTION: http execution
+BEHAVIOR: http behavior
+CHECKSUM: 0xcafe
+
+VARIABLES:
+url: the target URL
+`;
+
+const MULTI_ALLCAPS_MSB = `\
+TOOL: multi_tool
+VERSION: 2.0
+
+CAPABILITIES:
+Generic tool.
+RATE LIMIT: 100 requests per minute.
+MAX RETRIES: up to 3 retries.
+
+LIMITATIONS:
+URL REDIRECT: max 3 hops.
+GZIP ENCODING: automatic decompression.
+
+FAILURE MODES:
+JSON PARSE: fails on malformed UTF-8.
+
+BEST PRACTICES:
+Set a request timeout.
+
+EXECUTION ORDER:
+1. Validate
+2. Execute
+
+OUTPUT CONTRACT:
+{}
+
+GENOME SECTIONS:
+IDENTITY: multi identity
+EXECUTION: multi execution
+BEHAVIOR: multi behavior
+CHECKSUM: 0x1234
+
+VARIABLES:
+task: the task
+`;
+
+describe('msb/msb-loader — PKT-705: ALL-CAPS phrase in section body does not truncate content', () => {
+  it('R-601: LIMITATIONS with inline "API KEYS:" phrase → full content preserved, not truncated at the phrase', () => {
+    const brain = parseMsbContent(ALLCAPS_PHRASE_IN_LIMITATIONS_MSB);
+    expect(brain.limitations).toContain('Cannot access pages behind authentication.');
+    expect(brain.limitations).toContain('API KEYS: requires an API key in the environment.');
+    expect(brain.limitations).toContain('Cannot send request bodies.');
+  });
+
+  it('R-602: CAPABILITIES with inline "HTTP ERRORS:" phrase → full content preserved', () => {
+    const brain = parseMsbContent(ALLCAPS_PHRASE_IN_CAPABILITIES_MSB);
+    expect(brain.capabilities).toContain('Sends HTTP requests.');
+    expect(brain.capabilities).toContain('HTTP ERRORS: maps 4xx/5xx codes to structured error objects.');
+    expect(brain.capabilities).toContain('Returns parsed JSON bodies.');
+  });
+
+  it('R-603: FAILURE MODES with inline "TLS HANDSHAKE:" phrase → full content preserved', () => {
+    const brain = parseMsbContent(ALLCAPS_PHRASE_IN_CAPABILITIES_MSB);
+    expect(brain.failureModes).toContain('TLS HANDSHAKE: fails on self-signed certs.');
+  });
+
+  it('R-604: BEST PRACTICES with inline "AUTH HEADER:" phrase → full content preserved', () => {
+    const brain = parseMsbContent(ALLCAPS_PHRASE_IN_CAPABILITIES_MSB);
+    expect(brain.bestPractices).toContain('AUTH HEADER: always include Authorization header.');
+  });
+
+  it('R-605: CAPABILITIES with "RATE LIMIT:" and "MAX RETRIES:" multi-word ALL-CAPS phrases → both lines preserved', () => {
+    const brain = parseMsbContent(MULTI_ALLCAPS_MSB);
+    expect(brain.capabilities).toContain('RATE LIMIT: 100 requests per minute.');
+    expect(brain.capabilities).toContain('MAX RETRIES: up to 3 retries.');
+  });
+
+  it('R-606: LIMITATIONS with "URL REDIRECT:" and "GZIP ENCODING:" → both lines preserved', () => {
+    const brain = parseMsbContent(MULTI_ALLCAPS_MSB);
+    expect(brain.limitations).toContain('URL REDIRECT: max 3 hops.');
+    expect(brain.limitations).toContain('GZIP ENCODING: automatic decompression.');
+  });
+
+  it('R-607: FAILURE MODES with "JSON PARSE:" → line preserved', () => {
+    const brain = parseMsbContent(MULTI_ALLCAPS_MSB);
+    expect(brain.failureModes).toContain('JSON PARSE: fails on malformed UTF-8.');
+  });
+
+  it('R-608 (regression): legitimate section boundary still correctly terminates the prior section', () => {
+    // CAPABILITIES must stop at LIMITATIONS; must NOT bleed into LIMITATIONS content.
+    const brain = parseMsbContent(ALLCAPS_PHRASE_IN_LIMITATIONS_MSB);
+    expect(brain.capabilities).toBe('Searches the web for information.');
+    expect(brain.limitations).not.toContain('Searches the web for information.');
+  });
+
+  it('R-609 (regression): lowercase colon phrase does not truncate (control — already passing)', () => {
+    const msb = ALLCAPS_PHRASE_IN_LIMITATIONS_MSB.replace(
+      'API KEYS: requires an API key in the environment.',
+      'api keys: requires an API key in the environment.',
+    );
+    const brain = parseMsbContent(msb);
+    expect(brain.limitations).toContain('api keys: requires an API key in the environment.');
+    expect(brain.limitations).toContain('Cannot send request bodies.');
+  });
+
+  it('R-610 (regression): mixed-case colon phrase does not truncate (control — already passing)', () => {
+    const msb = ALLCAPS_PHRASE_IN_LIMITATIONS_MSB.replace(
+      'API KEYS: requires an API key in the environment.',
+      'Api Keys: requires an API key in the environment.',
+    );
+    const brain = parseMsbContent(msb);
+    expect(brain.limitations).toContain('Api Keys: requires an API key in the environment.');
+    expect(brain.limitations).toContain('Cannot send request bodies.');
+  });
+});
