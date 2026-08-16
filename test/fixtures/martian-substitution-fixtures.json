@@ -1,6 +1,6 @@
 {
   "$schema_version": "1.0",
-  "$schema_doc": "Martian substitution fixture cases — exercises the ${...} substitution engine. Expected values use Python json.dumps formatting (spaces after commas/colons).",
+  "$schema_doc": "Martian substitution fixture cases — exercises the ${...} substitution engine. Expected values use Python json.dumps formatting (spaces after commas/colons). Where JS JSON.stringify differs, expected_ts holds the TS-expected value.",
   "cases": [
     {
       "name": "campaign-string",
@@ -40,7 +40,8 @@
       "template": "${slot[0].output.matches}",
       "slot_outputs": [{"matches": [1, 2, 3]}],
       "campaign_inputs": {},
-      "expected": "[1, 2, 3]"
+      "expected": "[1, 2, 3]",
+      "expected_ts": "[1,2,3]"
     },
     {
       "name": "null-json-serialized",
@@ -72,7 +73,8 @@
       "template": "${slot[0].output.meta}",
       "slot_outputs": [{"meta": {"x": 1}}],
       "campaign_inputs": {},
-      "expected": "{\"x\": 1}"
+      "expected": "{\"x\": 1}",
+      "expected_ts": "{\"x\":1}"
     },
     {
       "name": "slot-1-from-slot-0",
@@ -128,7 +130,8 @@
       "template": "${slot[0].output.data}",
       "slot_outputs": [{"data": {"a": [1, 2], "b": true}}],
       "campaign_inputs": {},
-      "expected": "{\"a\": [1, 2], \"b\": true}"
+      "expected": "{\"a\": [1, 2], \"b\": true}",
+      "expected_ts": "{\"a\":[1,2],\"b\":true}"
     },
     {
       "name": "zero-int-json",
@@ -161,6 +164,14 @@
       "slot_outputs": [{"val": "x"}],
       "campaign_inputs": {},
       "expected": "x end"
+    },
+    {
+      "name": "arabic-indic-slot-index-passthrough",
+      "kind": "substitute",
+      "template": "${slot[٠].output.body}",
+      "slot_outputs": [{"body": "content"}],
+      "campaign_inputs": {},
+      "expected": "${slot[٠].output.body}"
     }
   ]
 }

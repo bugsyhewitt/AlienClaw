@@ -17,9 +17,12 @@ import type { InputWiring } from './types.js';
  * The substitution-token grammar, defined once per language. Exported as a
  * pattern source (not a compiled RegExp) so each consumer owns its own
  * lastIndex state. Mirrors _SUBST_PATTERN in Python substitution.py.
+ * [0-9] is written explicitly (not \d) because JS and Python interpret \d
+ * differently: JS \d is ASCII-only; Python \d matches all Unicode decimal digits.
+ * Both must reject non-ASCII digits consistently.
  */
 export const SUBST_PATTERN_SOURCE =
-  String.raw`\$\{(slot\[(\d+)\]\.output|campaign)\.([a-zA-Z_][a-zA-Z0-9_]*)\}`;
+  String.raw`\$\{(slot\[([0-9]+)\]\.output|campaign)\.([a-zA-Z_][a-zA-Z0-9_]*)\}`;
 
 const _PATTERN = new RegExp(SUBST_PATTERN_SOURCE, 'g');
 
