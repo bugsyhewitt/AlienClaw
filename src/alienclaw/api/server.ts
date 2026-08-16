@@ -269,13 +269,21 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
           const missing = (['genome', 'martian_type', 'fitness', 'leaderboard_name'] as const).filter(f => !(f in body));
           if (missing.length) return err(res, 400, 'MISSING_FIELDS', `Missing required fields: ${JSON.stringify(missing)}`, { missing });
           try {
+            const _rawFitness = body['fitness'];
             const req2: SubmissionRequest = {
               genome:           String(body['genome'] ?? ''),
               martian_type:     String(body['martian_type'] ?? ''),
-              fitness:          Number(body['fitness']),
+              fitness:          (typeof _rawFitness === 'number' && Number.isFinite(_rawFitness))
+                                ? _rawFitness
+                                : NaN,
               leaderboard_name: String(body['leaderboard_name'] ?? ''),
               run_metadata:     (body['run_metadata'] as Record<string, unknown>) ?? {},
             };
+            if (!Number.isFinite(req2.fitness)) {
+              return err(res, 422, 'INVALID_FITNESS_RANGE',
+                `fitness must be a finite number in [0, 1]; received type ${typeof _rawFitness}.`,
+                { received_type: typeof _rawFitness });
+            }
             const clientIp = req.socket.remoteAddress ?? 'unknown';
             const [s, b] = await handleSubmitGenome({
               req: req2, apiKeyHash: khash, store: _SUBMISSION,
