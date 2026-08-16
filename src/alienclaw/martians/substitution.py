@@ -54,9 +54,18 @@ def substitute(
         if slot_num_str is not None:
             slot_n = int(slot_num_str)
             if slot_n >= len(slot_outputs):
+                # slot_outputs holds only *prior* slots, so any index >= length
+                # is necessarily a forward or self reference, not a generic OOB.
+                valid_range = (
+                    "no prior slot outputs are available"
+                    if len(slot_outputs) == 0
+                    else f"valid indices are 0..{len(slot_outputs) - 1}"
+                )
                 raise ValueError(
                     f"Substitution references slot[{slot_n}].output.{field_name} "
-                    f"but only {len(slot_outputs)} prior slot(s) have output."
+                    f"but only {len(slot_outputs)} prior slot(s) have output. "
+                    f"This is a forward/self reference: a slot may only read outputs "
+                    f"of slots before it ({valid_range})."
                 )
             out = slot_outputs[slot_n]
             if field_name not in out:
