@@ -304,7 +304,6 @@ describe('pullTopGenomes — write-error resilience (packet 104)', () => {
     expect(byType['compute'].errors[0]).toMatch(/EISDIR/);
   });
 });
-
 // ── PKT-906 — sync/pull._writeEntry atomicity on crash ────────────────────
 
 describe('pullTopGenomes — _writeEntry atomicity (PKT-906)', () => {
@@ -353,6 +352,70 @@ describe('pullTopGenomes — _writeEntry atomicity (PKT-906)', () => {
       expect(raw.length).toBeGreaterThan(0);
       expect(() => JSON.parse(raw)).not.toThrow();
     }
+
+// ── PKT-690 — fitness guard on network→disk ingestion ───────────────────────
+//
+// _writeEntry must reject non-finite, out-of-range, and non-numeric fitness
+// values BEFORE writing to disk. Without this guard, JSON.stringify coerces
+// Infinity/NaN → null, which crashes Python's float(d["fitness"]) in
+// _entry_from_dict mid-loop, poisoning the entire martian_type population
+// directory until the file is manually removed.
+
+describe('pullTopGenomes — fitness validation (PKT-690)', () => {
+  const BAD_FITNESS_CASES: { label: string; fitness: unknown }[] = [
+    { label: 'Infinity',          fitness: Infinity },
+    { label: 'NaN',               fitness: NaN },
+    { label: 'string-typed',      fitness: '0.5' },
+    { label: 'null-typed',        fitness: null },
+    { label: 'out-of-range-high', fitness: 1.5 },
+    { label: 'out-of-range-low',  fitness: -0.1 },
+  ];
+
+  for (const { label, fitness } of BAD_FITNESS_CASES) {
+    it(`rejects submission with ${label} fitness before writing to disk (PKT-690)`, async () => {
+      const entry = makeGenomeEntry({ submission_id: `bad-${label}`, fitness: fitness as never });
+      const client = new StubClient({ top: { compute: topGenomes('compute', [entry]) } });
+
+      const [result] = await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+
+      expect(result.received).toBe(1);
+      expect(result.written).toBe(0);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toMatch(new RegExp(`bad-${label}`));
+      expect(result.errors[0]).toMatch(/non-canonical fitness/);
+      // Directory may be created, but no poisoned file must land on disk.
+      const entriesDir = join(root, 'compute', 'entries');
+      const files = existsSync(entriesDir) ? readdirSync(entriesDir) : [];
+      expect(files).toEqual([]);
+    });
+  }
+
+  it('mixed run: valid entries written, fitness-poisoned entries rejected (PKT-690)', async () => {
+    const client = new StubClient({
+      top: {
+        compute: topGenomes('compute', [
+          makeGenomeEntry({ submission_id: 'g1', fitness: 0.7 }),
+          makeGenomeEntry({ submission_id: 'p1', fitness: Infinity }),
+          makeGenomeEntry({ submission_id: 'g2', fitness: 0.42 }),
+          makeGenomeEntry({ submission_id: 'p2', fitness: NaN }),
+          makeGenomeEntry({ submission_id: 'p3', fitness: 1.5 }),
+        ]),
+      },
+    });
+
+    const [result] = await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+
+    expect(result.received).toBe(5);
+    expect(result.written).toBe(2);   // g1 and g2 only
+    expect(result.errors).toHaveLength(3);  // p1, p2, p3
+    for (const id of ['p1', 'p2', 'p3']) {
+      expect(result.errors.some(e => e.includes(id))).toBe(true);
+    }
+    expect(existsSync(join(root, 'compute', 'entries', 'network-g1.json'))).toBe(true);
+    expect(existsSync(join(root, 'compute', 'entries', 'network-g2.json'))).toBe(true);
+    expect(existsSync(join(root, 'compute', 'entries', 'network-p1.json'))).toBe(false);
+    expect(existsSync(join(root, 'compute', 'entries', 'network-p2.json'))).toBe(false);
+    expect(existsSync(join(root, 'compute', 'entries', 'network-p3.json'))).toBe(false);
   });
 });
 
