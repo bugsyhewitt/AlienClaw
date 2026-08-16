@@ -29,7 +29,7 @@
 import * as fs   from 'node:fs';
 import * as path from 'node:path';
 
-import { validateGenome, parseGenome } from './genome-codec.js';
+import { validateGenome, parseGenome, computeChecksum, SECTION_SIZE } from './genome-codec.js';
 import { MAX_MS_TOOLS }                from '../constants.js';
 import { errorMessage }                from '../utils.js';
 import type { MartianSpec, MartianStatus, GraveyardEntry } from './ms-types.js';
@@ -165,13 +165,13 @@ function parseGraveyard(graveyardSection: string | undefined): GraveyardEntry[] 
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const m = trimmed.match(/^([\d.]+)\s+G(\d+)\s+([0-9A-Za-z]{256})$/);
-    if (m) {
-      entries.push({
-        fitnessScore: parseFloat(m[1]!),
-        generation:   parseInt(m[2]!, 10),
-        genome:       m[3]!,
-      });
-    }
+    if (!m) continue;
+    const fitnessScore = parseFloat(m[1]!);
+    const generation   = parseInt(m[2]!, 10);
+    if (!Number.isFinite(fitnessScore) || fitnessScore < 0 || fitnessScore > 1) continue;
+    if (!Number.isFinite(generation)   || generation   < 0 || !Number.isInteger(generation)) continue;
+    if (computeChecksum(m[3]!.slice(0, SECTION_SIZE * 3)) !== m[3]!.slice(SECTION_SIZE * 3)) continue;
+    entries.push({ fitnessScore, generation, genome: m[3]! });
   }
   return entries;
 }
