@@ -45,6 +45,28 @@ export interface OnlineFitnessAggregate {
   mean_fitness: number;  // 0 when count === 0
 }
 
+// ── Runtime shape predicate ───────────────────────────────────────────────────
+
+/**
+ * Type guard that validates every field of a parsed MartianReport at runtime.
+ * Mirrors the analogous checks in aggregateOnlineFitness (L112-114) and the
+ * established pattern from online_fitness.py (referenced at L61 of that file).
+ *
+ * All three field defects are closed here:
+ *   A — outcome must be exactly one of the three enum literals (closes false-URGENT)
+ *   B — ts must be a finite number (closes silent telemetry loss on string ts)
+ *   C — martianId must be a non-empty string (closes silent aggregation keying loss)
+ */
+function isValidMartianReport(parsed: unknown): parsed is MartianReport {
+  if (typeof parsed !== 'object' || parsed === null) return false;
+  const p = parsed as Record<string, unknown>;
+  if (typeof p['ts'] !== 'number' || !Number.isFinite(p['ts'])) return false;          // Defect B
+  if (typeof p['martianId'] !== 'string' || p['martianId'].length === 0) return false;  // Defect C
+  if (typeof p['reportCode'] !== 'string') return false;
+  if (p['outcome'] !== 'SUCCESS' && p['outcome'] !== 'FAILURE' && p['outcome'] !== 'ESCALATED') return false; // Defect A
+  return true;
+}
+
 // ── Reader ────────────────────────────────────────────────────────────────────
 
 /**
@@ -77,8 +99,8 @@ export async function readRecentMartianReports(sinceMs: number): Promise<Martian
         if (entry.startsWith('agent-channel')) continue;
         try {
           const raw = await readFile(join(dirPath, entry), 'utf-8');
-          const parsed = JSON.parse(raw) as MartianReport;
-          if (parsed.ts >= sinceMs && parsed.martianId) {
+          const parsed: unknown = JSON.parse(raw);
+          if (isValidMartianReport(parsed) && parsed.ts >= sinceMs) {
             reports.push(parsed);
           }
         } catch {
