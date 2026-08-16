@@ -145,16 +145,18 @@ function extractParameterSchema(
     }
     seenNames.add(name);
 
+    const intRe = /^-?\d+$/;
+    const fail = (msg: string): never => {
+      throw new Error(`PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: ${msg}`);
+    };
+    if (!intRe.test(xcodeStr))   fail(`xcode_index '${xcodeStr}' is not a valid integer`);
+    if (!intRe.test(rminStr))    fail(`range_min '${rminStr}' is not a valid integer`);
+    if (!intRe.test(rmaxStr))    fail(`range_max '${rmaxStr}' is not a valid integer`);
+    if (!intRe.test(defaultStr)) fail(`default '${defaultStr}' is not a valid integer`);
     const xcodeIndex = parseInt(xcodeStr,   10);
     const rangeMin   = parseInt(rminStr,    10);
     const rangeMax   = parseInt(rmaxStr,    10);
     const defaultVal = parseInt(defaultStr, 10);
-
-    if ([xcodeIndex, rangeMin, rangeMax, defaultVal].some(v => isNaN(v))) {
-      throw new Error(
-        `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: numeric field error`
-      );
-    }
     if (!(xcodeIndex >= 0 && xcodeIndex <= 30)) {
       throw new Error(
         `PARAMETER_SCHEMA entry '${name}' in ${sourcePath}: xcode_index must be in [0,30]; got ${xcodeIndex}.`
