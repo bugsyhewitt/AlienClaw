@@ -517,4 +517,57 @@ describe('submitFromFile', () => {
     ).rejects.toThrow(/leaderboard_name violates/);
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  // ── PKT-702: client-side fitness validation (defense in depth — server re-validates) ──
+
+  it.each<[string, unknown]>([
+    ['NaN (JSON→null)',          NaN],
+    ['+Infinity (1e500→null)',   1e500],
+    ['-Infinity (-1e500→null)', -1e500],
+    ['negative -0.5',           -0.5],
+    ['out-of-range 2',           2],
+  ])('rejects artifact fitness=%s without calling fetch', async (_label, badFitness) => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ rank: 1, is_new_top: true }) });
+    const path = writeArtifact({ fitness: badFitness as number });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/Artifact fitness/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects artifact with string fitness without calling fetch', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ rank: 1, is_new_top: true }) });
+    const path = writeArtifact({ fitness: '0.95' as unknown as number });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/Artifact fitness/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects artifact with object fitness without calling fetch', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ rank: 1, is_new_top: true }) });
+    const path = writeArtifact({ fitness: {} as unknown as number });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).rejects.toThrow(/Artifact fitness/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('accepts fitness=0 as valid lower boundary (does not throw)', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ rank: 5, is_new_top: false }) });
+    const path = writeArtifact({ fitness: 0 });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).resolves.toEqual({ rank: 5, is_new_top: false });
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it('accepts fitness=1 as valid upper boundary (does not throw)', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ rank: 1, is_new_top: true }) });
+    const path = writeArtifact({ fitness: 1 });
+    await expect(
+      submitFromFile(path, 'apikey123', 'https://api.alienclaw.net/v1/genomes')
+    ).resolves.toEqual({ rank: 1, is_new_top: true });
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
 });

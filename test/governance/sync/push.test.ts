@@ -395,4 +395,44 @@ describe('pushTopGenomes — load-error resilience (packet 104)', () => {
       expect(hasOuterCatch).toBe(false);
     }
   });
+
+  // ── PKT-702: push must not submit entries with out-of-range fitness ──
+
+  it('does not submit entry with fitness > 1 (out-of-range high)', async () => {
+    writeGenome('compute', 'bad',  { genome: 'BBBB', fitness: 2.0 });
+    writeGenome('compute', 'good', { genome: 'GGGG', fitness: 0.8 });
+    const client = new StubClient({ submitDefault: submitNew() });
+    const [r] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
+    expect(client.submitCalls.map(c => c.fitness)).not.toContain(2.0);
+    expect(r!.pushed).toBe(1);
+  });
+
+  it('does not submit entry with fitness < 0 (out-of-range low)', async () => {
+    writeGenome('compute', 'bad',  { genome: 'BBBB', fitness: -0.5 });
+    writeGenome('compute', 'good', { genome: 'GGGG', fitness: 0.6 });
+    const client = new StubClient({ submitDefault: submitNew() });
+    const [r] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
+    expect(client.submitCalls.map(c => c.fitness)).not.toContain(-0.5);
+    expect(r!.pushed).toBe(1);
+  });
+
+  it('does not submit entry with null fitness (NaN/Infinity serialized by JSON.stringify)', async () => {
+    writeRaw('compute', 'null-fitness.json', JSON.stringify({ genome: 'NNNN', fitness: null }));
+    writeGenome('compute', 'good', { genome: 'GGGG', fitness: 0.5 });
+    const client = new StubClient({ submitDefault: submitNew() });
+    const [r] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
+    expect(client.submitCalls.every(c => c.genome !== 'NNNN')).toBe(true);
+    expect(r!.pushed).toBe(1);
+  });
+
+  it('still submits valid entry with fitness=0.7 after adding out-of-range peers', async () => {
+    writeGenome('compute', 'a', { genome: 'AAAA', fitness: 2.0 });
+    writeGenome('compute', 'b', { genome: 'BBBB', fitness: -0.5 });
+    writeGenome('compute', 'c', { genome: 'CCCC', fitness: 0.7 });
+    const client = new StubClient({ submitDefault: submitNew() });
+    const [r] = await pushTopGenomes(client.asClient(), root, 'ALIENBOT', 5);
+    expect(client.submitCalls).toHaveLength(1);
+    expect(client.submitCalls[0]!.fitness).toBe(0.7);
+    expect(r!.pushed).toBe(1);
+  });
 });

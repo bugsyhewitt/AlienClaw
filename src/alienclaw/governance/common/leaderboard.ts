@@ -258,6 +258,15 @@ export async function submitFromFile(
     throw new Error(`Artifact leaderboard_name violates ^[A-Z]{8}$`);
   }
 
+  // Client-side fitness validation (defense in depth — server re-validates)
+  if (typeof artifact.fitness !== 'number' || !Number.isFinite(artifact.fitness)
+      || artifact.fitness < 0 || artifact.fitness > 1) {
+    throw new Error(
+      `Artifact fitness must be a finite number in [0,1]; ` +
+      `got ${typeof artifact.fitness === 'number' ? artifact.fitness : typeof artifact.fitness}`,
+    );
+  }
+
   // Client-side genome validation (defense in depth — server re-validates)
   if (typeof artifact.genome !== 'string' || artifact.genome.length !== 256) {
     throw new Error(`Artifact genome must be a 256-char Base62 string (got ${typeof artifact.genome === 'string' ? artifact.genome.length : typeof artifact.genome} chars)`);
