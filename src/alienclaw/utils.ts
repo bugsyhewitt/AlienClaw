@@ -59,22 +59,35 @@ export function atomicWrite(filePath: string, content: string): void {
  * Scan `s` for the first JSON object or array and return that substring, or
  * null if none is found. Handles nested structures and string values containing
  * brackets or escaped quotes without false-closing.
+ *
+ * Tries each `[`/`{` position in order and returns the first candidate whose
+ * balanced substring round-trips through JSON.parse (PKT-703: first-balanced
+ * is not the same as first-parseable — leading `[NOTE]`/`{draft}` labels must
+ * be skipped, not returned).
  */
 export function extractJsonSubstring(s: string): string | null {
-  const start = s.search(/[\[{]/);
-  if (start === -1) return null;
-  let depth = 0, inString = false, escape = false;
-  for (let i = start; i < s.length; i++) {
-    const c = s[i];
-    if (escape)         { escape = false; continue; }
-    if (c === '\\')     { escape = true;  continue; }
-    if (c === '"')      { inString = !inString; continue; }
-    if (inString)       continue;
-    if (c === '{' || c === '[') depth++;
-    else if (c === '}' || c === ']') {
-      depth--;
-      if (depth === 0) return s.slice(start, i + 1);
+  let pos = 0;
+  while (pos < s.length) {
+    const rel = s.slice(pos).search(/[\[{]/);
+    if (rel === -1) return null;
+    const start = pos + rel;
+    let depth = 0, inString = false, escape = false, end = -1;
+    for (let i = start; i < s.length; i++) {
+      const c = s[i];
+      if (escape)         { escape = false; continue; }
+      if (c === '\\')     { escape = true;  continue; }
+      if (c === '"')      { inString = !inString; continue; }
+      if (inString)       continue;
+      if (c === '{' || c === '[') depth++;
+      else if (c === '}' || c === ']') {
+        depth--;
+        if (depth === 0) { end = i; break; }
+      }
     }
+    if (end === -1) { pos = start + 1; continue; }
+    const sub = s.slice(start, end + 1);
+    try { JSON.parse(sub); return sub; } catch { /* not parseable — try next */ }
+    pos = start + 1;
   }
   return null;
 }
