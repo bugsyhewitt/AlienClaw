@@ -113,6 +113,21 @@ function writeReport(
   writeFileSync(join(dir, filename), JSON.stringify(payload), 'utf-8');
 }
 
+/**
+ * Write an arbitrary payload as JSON, bypassing the typed writeReport helper.
+ * Required for PKT-704 shape-validation tests that must produce malformed-type fields.
+ */
+function writeRaw(
+  root: string,
+  dateDir: string,
+  filename: string,
+  payload: Record<string, unknown>,
+): void {
+  const dir = join(root, dateDir);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, filename), JSON.stringify(payload), 'utf-8');
+}
+
 // ─── readRecentMartianReports ─────────────────────────────────────────────────
 
 describe('readRecentMartianReports', () => {
@@ -400,5 +415,200 @@ describe('summarizeFitness', () => {
     expect(c.runs).toBe(1);
     expect(c.escalations).toBe(1);
     expect(c.rate).toBe(0);
+  });
+});
+
+// ─── Shape validation (PKT-704) ───────────────────────────────────────────────
+
+describe('readRecentMartianReports — shape validation (PKT-704)', () => {
+  // ── Defect A: outcome is not a string ──
+
+  it('skips reports whose outcome is a number (not a string)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: 'M-bad', domain: 'g', outcome: 1, summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  it('skips reports whose outcome is a boolean (true)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: 'M-bad', domain: 'g', outcome: true, summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  it('skips reports whose outcome is null', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: 'M-bad', domain: 'g', outcome: null, summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  it('skips reports whose outcome field is absent (undefined)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    // Omit outcome key entirely
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: 'M-bad', domain: 'g', summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  // ── Defect A: outcome is a string but not in the allowed enum ──
+
+  it('skips reports whose outcome is a string typo (SUCCESSS)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: 'M-bad', domain: 'g', outcome: 'SUCCESSS', summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  it('skips reports whose outcome is lowercase (success)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: 'M-bad', domain: 'g', outcome: 'success', summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  it('skips reports whose outcome is an empty string', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: 'M-bad', domain: 'g', outcome: '', summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  // ── Defect B: ts is not a finite number ──
+
+  it('skips reports whose ts is a string', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    // A numeric-looking string — NaN >= sinceMs is false under old code, skipped for wrong reason;
+    // new predicate skips it because typeof '...' !== 'number'.
+    writeFileSync(
+      join(root, date, 'bad.json'),
+      JSON.stringify({ reportCode: 'r', ts: '99999999999999', taskId: 't', subagentId: 's', martianId: 'M-bad', domain: 'g', outcome: 'SUCCESS', summary: 'ok' }),
+      'utf-8',
+    );
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  it('skips reports whose ts is null (what NaN/Infinity serialise to in JSON)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: null, taskId: 't', subagentId: 's', martianId: 'M-bad', domain: 'g', outcome: 'SUCCESS', summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  it('skips reports whose ts is Infinity (non-finite number)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    // 1e309 is parsed as Infinity by JavaScript's JSON.parse; Number.isFinite(Infinity) === false
+    writeFileSync(
+      join(root, date, 'bad.json'),
+      '{"reportCode":"r","ts":1e309,"taskId":"t","subagentId":"s","martianId":"M-bad","domain":"g","outcome":"SUCCESS","summary":"ok"}',
+      'utf-8',
+    );
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  // ── Defect C: martianId is not a non-empty string ──
+
+  it('skips reports whose martianId is a number', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: 42, domain: 'g', outcome: 'SUCCESS', summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  it('skips reports whose martianId is an object', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: { subvert: 'attempt' }, domain: 'g', outcome: 'SUCCESS', summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  it('skips reports whose martianId is an empty string', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'good.json', { ts: now, martianId: 'M-good' });
+    writeRaw(root, date, 'bad.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: '', domain: 'g', outcome: 'SUCCESS', summary: 'ok' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result.map(r => r.martianId)).toEqual(['M-good']);
+  });
+
+  // ── Regression guard: valid reports must not be dropped ──
+
+  it('does not drop well-formed reports (regression guard for the predicate)', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    writeReport(root, date, 'a.json', { ts: now,     martianId: 'M1', outcome: 'SUCCESS'   });
+    writeReport(root, date, 'b.json', { ts: now + 1, martianId: 'M1', outcome: 'FAILURE'   });
+    writeReport(root, date, 'c.json', { ts: now + 2, martianId: 'M1', outcome: 'ESCALATED' });
+    const { readRecentMartianReports } = await loadReader();
+    const result = await readRecentMartianReports(0);
+    expect(result).toHaveLength(3);
+  });
+});
+
+describe('summarizeFitness — shape validation (PKT-704)', () => {
+  it('returns zero-counts when ALL reports in window are malformed-shape', async () => {
+    const root = await telemetryRoot();
+    const date = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    // outcome is a number — old code: zeroed successes; new code: whole report skipped
+    writeRaw(root, date, 'bad1.json', { reportCode: 'r', ts: now,     taskId: 't', subagentId: 's', martianId: 'M-target', domain: 'g', outcome: 1,    summary: 'ok' });
+    writeRaw(root, date, 'bad2.json', { reportCode: 'r', ts: now + 1, taskId: 't', subagentId: 's', martianId: 'M-target', domain: 'g', outcome: true, summary: 'ok' });
+    const { summarizeFitness } = await loadReader();
+    const summary = await summarizeFitness('M-target', 60_000);
+    expect(summary).toEqual({ runs: 0, successes: 0, escalations: 0, failures: 0, rate: 0 });
   });
 });
