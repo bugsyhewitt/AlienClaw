@@ -85,6 +85,36 @@ describe('readTopEntries', () => {
     const [e] = readTopEntries(root, 'compute', 1);
     expect(e!.run_metadata).toEqual({});
   });
+
+  // ── PKT-702: readTopEntries must reject non-finite and out-of-range fitness entries ──
+
+  it('silently drops entry with fitness > 1 (out of range high)', () => {
+    seedEntry('compute', 'high.json', { genome: 'H'.repeat(16), fitness: 2.0, run_metadata: {} });
+    seedEntry('compute', 'ok.json',   { genome: 'O'.repeat(16), fitness: 0.7, run_metadata: {} });
+    const top = readTopEntries(root, 'compute', 10);
+    expect(top.map(e => e.fitness)).toEqual([0.7]);
+  });
+
+  it('silently drops entry with fitness < 0 (out of range low)', () => {
+    seedEntry('compute', 'low.json', { genome: 'L'.repeat(16), fitness: -0.5, run_metadata: {} });
+    seedEntry('compute', 'ok.json',  { genome: 'O'.repeat(16), fitness: 0.3, run_metadata: {} });
+    const top = readTopEntries(root, 'compute', 10);
+    expect(top.map(e => e.fitness)).toEqual([0.3]);
+  });
+
+  it('accepts valid boundary fitness=0 and fitness=1', () => {
+    seedEntry('compute', 'zero.json', { genome: 'Z'.repeat(16), fitness: 0, run_metadata: {} });
+    seedEntry('compute', 'one.json',  { genome: 'O'.repeat(16), fitness: 1, run_metadata: {} });
+    const top = readTopEntries(root, 'compute', 10);
+    expect(top.map(e => e.fitness)).toEqual([1, 0]);
+  });
+
+  it('does not regress on control fitness=0.7 after boundary checks', () => {
+    seedEntry('compute', 'ok.json', { genome: 'G'.repeat(16), fitness: 0.7, run_metadata: {} });
+    const top = readTopEntries(root, 'compute', 10);
+    expect(top).toHaveLength(1);
+    expect(top[0]!.fitness).toBe(0.7);
+  });
 });
 
 describe('readOperatorBest', () => {
