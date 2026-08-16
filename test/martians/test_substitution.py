@@ -43,6 +43,13 @@ class TestSubstitute:
         result = substitute("${slot[0].output.ok}", [{"ok": True}], {})
         assert result == "true"
 
+    def test_non_ascii_slot_index_passthrough(self):
+        # After fix: Python [0-9]+ won't match Arabic-Indic U+0660 '٠',
+        # so the token passes through unchanged (same as TS behavior).
+        # BEFORE fix this returns "content" and the assertion FAILS (RED).
+        result = substitute("${slot[٠].output.body}", [{"body": "content"}], {})
+        assert result == "${slot[٠].output.body}"
+
 
 class TestResolveInputs:
     def test_none_wiring_returns_campaign(self):

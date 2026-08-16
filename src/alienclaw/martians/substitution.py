@@ -14,9 +14,11 @@ from typing import Any
 
 # Grammar for input-wiring substitution tokens. Defined once here and reused by
 # the martian validator (see validator.py) so both stay in lockstep.
+# [0-9] is explicit (not \d) — Python \d matches all Unicode decimal digits,
+# which diverges from JS \d (ASCII-only). Both must reject non-ASCII digits.
 # Groups: 1=namespace, 2=slot index (None for campaign), 3=field name.
 SUBSTITUTION_TOKEN_RE = re.compile(
-    r"\$\{(slot\[(\d+)\]\.output|campaign)\.([a-zA-Z_][a-zA-Z0-9_]*)\}"
+    r"\$\{(slot\[([0-9]+)\]\.output|campaign)\.([a-zA-Z_][a-zA-Z0-9_]*)\}"
 )
 
 

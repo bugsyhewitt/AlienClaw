@@ -229,3 +229,13 @@ describe('resolveInputs()', () => {
       .toThrow("Campaign inputs has no field 'nope'.");
   });
 });
+
+describe('substitute() — non-ASCII digit passthrough (grammar parity with Python)', () => {
+  it('does not match a slot index containing an Arabic-Indic digit (U+0660 = ٠)', () => {
+    // TS \d is ASCII-only — Arabic-Indic numerals are never matched.
+    // This test pins that behavior so a future "simplify \d back to \d" regression is caught.
+    const template = '${slot[٠].output.body}';
+    const result = substitute(template, [{ body: 'content' }], {});
+    expect(result).toBe(template); // passes through unchanged
+  });
+});
