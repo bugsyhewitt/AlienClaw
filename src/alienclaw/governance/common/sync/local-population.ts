@@ -45,7 +45,8 @@ export function readTopEntries(
   for (const f of files) {
     try {
       const raw = JSON.parse(readFileSync(join(entriesDir, f), 'utf-8')) as Record<string, unknown>;
-      if (typeof raw['genome'] !== 'string' || typeof raw['fitness'] !== 'number') continue;
+      if (typeof raw['genome'] !== 'string') continue;
+      if (typeof raw['fitness'] !== 'number' || !Number.isFinite(raw['fitness'])) continue;
       parsed.push({
         genome:       raw['genome'],
         fitness:      raw['fitness'],
