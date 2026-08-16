@@ -24,6 +24,38 @@ class TestSubstitute:
         with pytest.raises(ValueError, match="slot"):
             substitute("${slot[1].output.x}", [{"y": 1}], {})
 
+    # PKT-708: cross-lang parity — 5 tests mirroring TS twin block at
+    # substitution.test.ts:88-140 ('forward / self / out-of-range slot references')
+
+    def test_forward_reference_message_contains_diagnostic(self):
+        """PKT-708: error must say 'forward/self reference'."""
+        with pytest.raises(ValueError, match=r"forward/self reference"):
+            substitute("${slot[2].output.x}", [{"a": 1}, {"b": 2}], {})
+
+    def test_forward_reference_message_names_valid_range(self):
+        """PKT-708: error must include 'valid indices are 0..N'."""
+        with pytest.raises(ValueError, match=r"valid indices are 0\.\.1"):
+            substitute("${slot[2].output.x}", [{"a": 1}, {"b": 2}], {})
+
+    def test_self_reference_empty_prior_uses_friendly_phrasing(self):
+        """PKT-708: empty prior list must say 'no prior slot outputs'; must NOT contain '0..-1'."""
+        with pytest.raises(ValueError, match=r"no prior slot outputs are available") as exc_info:
+            substitute("${slot[0].output.field}", [], {})
+        assert "0..-1" not in str(exc_info.value), (
+            f"empty-prior message must not contain '0..-1'; got: {exc_info.value!r}"
+        )
+
+    def test_far_out_of_range_uses_same_framing(self):
+        """PKT-708: far-out-of-range uses forward/self + valid-range framing."""
+        with pytest.raises(ValueError, match=r"forward/self reference"):
+            substitute("${slot[99].output.x}", [{"a": 1}], {})
+        with pytest.raises(ValueError, match=r"valid indices are 0\.\.0"):
+            substitute("${slot[99].output.x}", [{"a": 1}], {})
+
+    def test_pkt708_negative_valid_prior_slot_does_not_throw(self):
+        """PKT-708: negative control — valid prior slot succeeds, no error."""
+        assert substitute("${slot[0].output.a}", [{"a": "ok"}], {}) == "ok"
+
     def test_missing_slot_field_raises(self):
         with pytest.raises(ValueError, match="'x'"):
             substitute("${slot[0].output.x}", [{"y": 1}], {})
