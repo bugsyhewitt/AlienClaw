@@ -108,27 +108,92 @@ describe('AdvisorBot.parseResponse (agents/advisorbot.ts:78)', () => {
     expect(out.blindspots).toEqual([]);
   });
 
-  it('parses an object with extra unknown fields without modification (passthrough)', () => {
+  it('parses a validated object with extra unknown fields (extra fields are silently dropped)', () => {
+    // All required fields are valid — validation passes; extra fields are dropped. PKT-694 intentional update.
     const raw = JSON.stringify({
       verdict:        'ok',
       confidence:     'high',
       blindspots:     [],
       recommendation: '',
-      // AdvisorBot.parseResponse does not validate; it just JSON.parse casts.
-      extraField:     'should be silently ignored by TS cast',
+      extraField:     'silently dropped after shape validation',
     });
     const out = AdvisorBot.parseResponse(raw);
     expect(out.verdict).toBe('ok');
     expect(out.confidence).toBe('high');
   });
 
-  it('parses a JSON object missing optional fields (relies on type cast)', () => {
-    // The current implementation does NOT validate the AdviceResponse shape
-    // on the happy path; it just `JSON.parse(...) as AdviceResponse`. This
-    // test pins that behavior so a future refactor that adds validation is
-    // intentional (not silent).
+  it('returns malformed default when JSON object is missing required fields (PKT-694 intentional update)', () => {
+    // PKT-694: validateAdviceResponse returns null for missing required fields; parseResponse
+    // returns the safe malformed default instead of an AdviceResponse with undefined fields.
     const raw = JSON.stringify({ verdict: 'ok' });
     const out = AdvisorBot.parseResponse(raw);
-    expect(out.verdict).toBe('ok');
+    expect(out.verdict).toBe('<malformed LLM JSON>');
+    expect(out.confidence).toBe('low');
+    expect(out.blindspots).toEqual(['advisor_response_shape_mismatch']);
+    expect(out.recommendation).toBe('review AdvisorBot output shape');
+  });
+});
+
+describe('parseResponse — shape validation (PKT-694)', () => {
+  const MALFORMED = {
+    verdict:        '<malformed LLM JSON>',
+    confidence:     'low' as const,
+    blindspots:     ['advisor_response_shape_mismatch'],
+    recommendation: 'review AdvisorBot output shape',
+  };
+
+  it('returns malformed default when JSON is a bare string', () => {
+    const out = AdvisorBot.parseResponse(JSON.stringify('x'));
+    expect(out).toEqual(MALFORMED);
+  });
+
+  it('returns malformed default when JSON is a bare number', () => {
+    const out = AdvisorBot.parseResponse(JSON.stringify(42));
+    expect(out).toEqual(MALFORMED);
+  });
+
+  it('returns malformed default when JSON is bare null', () => {
+    const out = AdvisorBot.parseResponse(JSON.stringify(null));
+    expect(out).toEqual(MALFORMED);
+  });
+
+  it('returns malformed default when JSON is a bare array', () => {
+    const out = AdvisorBot.parseResponse(JSON.stringify([1, 2, 3]));
+    expect(out).toEqual(MALFORMED);
+  });
+
+  it('returns malformed default when JSON is an empty object', () => {
+    const out = AdvisorBot.parseResponse(JSON.stringify({}));
+    expect(out).toEqual(MALFORMED);
+  });
+
+  it('returns malformed default when confidence has wrong case ("High" not in literal union)', () => {
+    const out = AdvisorBot.parseResponse(JSON.stringify({
+      verdict:        'x',
+      confidence:     'High',
+      blindspots:     [],
+      recommendation: '',
+    }));
+    expect(out).toEqual(MALFORMED);
+  });
+
+  it('returns malformed default when blindspots is not an array (bare number)', () => {
+    const out = AdvisorBot.parseResponse(JSON.stringify({
+      verdict:        'x',
+      confidence:     'high',
+      blindspots:     42,
+      recommendation: '',
+    }));
+    expect(out).toEqual(MALFORMED);
+  });
+
+  it('returns malformed default when recommendation is null', () => {
+    const out = AdvisorBot.parseResponse(JSON.stringify({
+      verdict:        'x',
+      confidence:     'high',
+      blindspots:     [],
+      recommendation: null,
+    }));
+    expect(out).toEqual(MALFORMED);
   });
 });
