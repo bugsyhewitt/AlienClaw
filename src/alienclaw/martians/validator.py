@@ -31,6 +31,19 @@ def validate_martian(
     if not spec.slots:
         return MartianValidationResult.fail("MartianSpec must have at least one slot.")
 
+    # Finite-integer guard mirroring validator.ts:34-39 (PKT-534 parity).
+    # bool is a subclass of int in Python, so it must be excluded explicitly.
+    # NaN/±Inf are floats, caught by the isinstance(int) check; Python int has no
+    # non-finite values, so no math.isfinite needed (and it would OverflowError on 10**309).
+    for i, s in enumerate(spec.slots):
+        si = s.slot_index
+        if not isinstance(si, int) or isinstance(si, bool):
+            errors.append(
+                f"slot_index must be a finite integer, got {si!r} at slot {i}"
+            )
+    if errors:
+        return MartianValidationResult.fail(*errors)
+
     indices = [s.slot_index for s in spec.slots]
     if len(set(indices)) != len(indices):
         errors.append(f"Duplicate slot_index values: {sorted(indices)}")
