@@ -169,6 +169,9 @@ for (let i = 0; i < BASE62_ALPHABET.length; i++) {
  * xcodeIndex: 0..30 (which Xcode pair within bytes 1-62 of the slot)
  */
 export function decodeXcode(genome: string, slotIndex: number, xcodeIndex: number): number {
+  if (genome.length !== GENOME_LENGTH) {
+    throw new Error(`decodeXcode: genome must be exactly ${GENOME_LENGTH} chars; got ${genome.length}`);
+  }
   if (slotIndex < 0 || slotIndex > 3) throw new Error(`slotIndex out of range [0,3]: ${slotIndex}`);
   if (xcodeIndex < 0 || xcodeIndex > 30) throw new Error(`xcodeIndex out of range [0,30]: ${xcodeIndex}`);
   const base = slotIndex * 64 + 1 + xcodeIndex * 2;

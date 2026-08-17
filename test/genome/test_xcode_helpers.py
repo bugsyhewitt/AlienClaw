@@ -72,6 +72,18 @@ class TestDecodeXcode:
         with pytest.raises(ValueError):
             decode_xcode(_WEB_GENOME, 0, -1)
 
+    def test_genome_length_out_of_range(self) -> None:
+        with pytest.raises(ValueError, match="must be exactly 256"):
+            decode_xcode("", 0, 0)
+        with pytest.raises(ValueError, match="must be exactly 256"):
+            decode_xcode("0" * 100, 0, 0)
+        with pytest.raises(ValueError, match="must be exactly 256"):
+            decode_xcode("0" * 255, 0, 0)
+        with pytest.raises(ValueError, match="must be exactly 256"):
+            decode_xcode("0" * 257, 0, 0)
+        with pytest.raises(ValueError, match="must be exactly 256"):
+            decode_xcode("0" * 1024, 0, 0)
+
 
 class TestRoundTrip:
     @pytest.mark.parametrize("v", [0, 1, 1922, 3842, 3843])
