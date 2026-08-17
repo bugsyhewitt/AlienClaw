@@ -441,6 +441,159 @@ describe('SubmissionStore.save — submission_id entropy', () => {
   });
 });
 
+// ── parseRunMetadata — full type matrix (DB-free) ───────────────────────────
+
+describe('parseRunMetadata — full type matrix (DB-free)', () => {
+  const BASE_ROW = {
+    submission_id:    'sub_rm',
+    genome:           'A'.repeat(256),
+    martian_type:     'compute',
+    fitness:          0.5,
+    leaderboard_name: 'ALIENBOT',
+    api_key_hash:     'a'.repeat(64),
+    submitted_at:     '2026-01-01T00:00:00Z',
+  };
+
+  function poolWithMeta(value: unknown): mysql.Pool {
+    return {
+      execute: async () => [[{ ...BASE_ROW, run_metadata: value }]],
+    } as unknown as mysql.Pool;
+  }
+
+  async function metaVia(value: unknown): Promise<Record<string, unknown>> {
+    const store = new SubmissionStore(poolWithMeta(value));
+    const results = await store.topForType('compute', 1);
+    return results[0]!.run_metadata;
+  }
+
+  it('null run_metadata → {} (null guard arm)', async () => {
+    expect(await metaVia(null)).toEqual({});
+  });
+
+  it('undefined run_metadata → {} (undefined guard arm)', async () => {
+    expect(await metaVia(undefined)).toEqual({});
+  });
+
+  it('plain object run_metadata → returned as-is (object passthrough arm)', async () => {
+    expect(await metaVia({ generation: 5, tags: ['a'] })).toEqual({ generation: 5, tags: ['a'] });
+  });
+
+  it('array run_metadata → {} (array is object but Array.isArray → falls through to non-string guard)', async () => {
+    expect(await metaVia([1, 2, 3])).toEqual({});
+  });
+
+  it('number run_metadata → {} (non-string non-object guard arm)', async () => {
+    expect(await metaVia(42)).toEqual({});
+  });
+
+  it('boolean run_metadata → {} (non-string non-object guard arm)', async () => {
+    expect(await metaVia(true)).toEqual({});
+  });
+
+  it('valid JSON string run_metadata → parsed object (try-parse success arm)', async () => {
+    expect(await metaVia('{"version":3,"mode":"fast"}')).toEqual({ version: 3, mode: 'fast' });
+  });
+
+  it('valid JSON string run_metadata via findDuplicate() (same guard applies there)', async () => {
+    const store = new SubmissionStore(poolWithMeta('{"src":"findDup"}'));
+    const result = await store.findDuplicate({
+      genome: 'A'.repeat(256), martianType: 'compute', fitness: 0.5, apiKeyHash: 'a'.repeat(64),
+    });
+    expect(result!.run_metadata).toEqual({ src: 'findDup' });
+  });
+
+  it('null run_metadata via findDuplicate() → {}', async () => {
+    const store = new SubmissionStore(poolWithMeta(null));
+    const result = await store.findDuplicate({
+      genome: 'A'.repeat(256), martianType: 'compute', fitness: 0.5, apiKeyHash: 'a'.repeat(64),
+    });
+    expect(result!.run_metadata).toEqual({});
+  });
+});
+
+// ── SubmissionStore.isNewTop — branch coverage (DB-free) ────────────────────
+
+describe('SubmissionStore.isNewTop — branch coverage (DB-free)', () => {
+  function poolReturningTop(topValue: null | undefined | number): mysql.Pool {
+    const rows = topValue === undefined ? [] : [{ top: topValue }];
+    return {
+      execute: async () => [rows],
+    } as unknown as mysql.Pool;
+  }
+
+  it('top === null (MAX of empty table) → true', async () => {
+    const store = new SubmissionStore(poolReturningTop(null));
+    expect(await store.isNewTop('compute', 0.7)).toBe(true);
+  });
+
+  it('rows empty (rows[0] undefined → top === undefined) → true', async () => {
+    const store = new SubmissionStore(poolReturningTop(undefined));
+    expect(await store.isNewTop('compute', 0.7)).toBe(true);
+  });
+
+  it('fitness > existing top → true', async () => {
+    const store = new SubmissionStore(poolReturningTop(0.5));
+    expect(await store.isNewTop('compute', 0.9)).toBe(true);
+  });
+
+  it('fitness === existing top → true (>= is inclusive)', async () => {
+    const store = new SubmissionStore(poolReturningTop(0.7));
+    expect(await store.isNewTop('compute', 0.7)).toBe(true);
+  });
+
+  it('fitness < existing top → false', async () => {
+    const store = new SubmissionStore(poolReturningTop(0.9));
+    expect(await store.isNewTop('compute', 0.5)).toBe(false);
+  });
+});
+
+// ── GlobalStats.get() — DB-free ─────────────────────────────────────────────
+
+describe('GlobalStats.get() — DB-free', () => {
+  it('returns zero totals and empty topByType when all rows are empty', async () => {
+    const pool: mysql.Pool = {
+      execute: async () => [[]],
+    } as unknown as mysql.Pool;
+    const gs = new GlobalStats(pool);
+    const stats = await gs.get();
+    expect(stats.total_genomes).toBe(0);
+    expect(stats.total_installs).toBe(0);
+    expect(stats.total_fitness_evaluations).toBe(0);
+    expect(stats.top_fitness_by_type).toEqual({});
+  });
+
+  it('aggregates counts and builds topByType map from populated tables', async () => {
+    const pool: mysql.Pool = {
+      execute: async (sql: string) => {
+        if ((sql as string).includes('GROUP BY')) {
+          return [[
+            { martian_type: 'compute',    top_fitness: 0.9 },
+            { martian_type: 'web_search', top_fitness: 0.6 },
+          ]];
+        }
+        if ((sql as string).includes('installs')) return [[{ cnt: 3 }]];
+        return [[{ cnt: 7 }]];
+      },
+    } as unknown as mysql.Pool;
+    const gs = new GlobalStats(pool);
+    const stats = await gs.get();
+    expect(stats.total_genomes).toBe(7);
+    expect(stats.total_installs).toBe(3);
+    expect(stats.total_fitness_evaluations).toBe(7);
+    expect(stats.top_fitness_by_type['compute']).toBe(0.9);
+    expect(stats.top_fitness_by_type['web_search']).toBe(0.6);
+  });
+
+  it('total_fitness_evaluations equals total_genomes (both from leaderboard_entries)', async () => {
+    const pool: mysql.Pool = {
+      execute: async () => [[{ cnt: 42 }]],
+    } as unknown as mysql.Pool;
+    const gs = new GlobalStats(pool);
+    const stats = await gs.get();
+    expect(stats.total_fitness_evaluations).toBe(stats.total_genomes);
+  });
+});
+
 // ── run_metadata defensive parse (DB-free) ──────────────────────────────────
 //
 // Both topForType() and findDuplicate() row-mapping previously called JSON.parse
