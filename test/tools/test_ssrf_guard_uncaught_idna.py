@@ -64,15 +64,19 @@ def test_assert_safe_fetch_url_raises_ssrf_blocked_not_unicode_error(url: str) -
 
 
 @pytest.mark.parametrize("url", _IDNA_ILLEGAL_URLS)
-def test_assert_safe_fetch_url_does_not_raise_unicode_encode_error(url: str) -> None:
-    """Explicit: UnicodeEncodeError must NOT propagate from assert_safe_fetch_url."""
+def test_assert_safe_fetch_url_does_not_raise_unicode_error(url: str) -> None:
+    """Explicit: UnicodeError (base or subclass) must NOT propagate from assert_safe_fetch_url.
+
+    Python <=3.12 raises bare UnicodeError; 3.13+ raises UnicodeEncodeError
+    (a subclass). Catching the base covers both.
+    """
     try:
         assert_safe_fetch_url(url)
     except SsrfBlockedError:
         pass  # correct — this is the expected outcome
-    except UnicodeEncodeError as exc:
+    except UnicodeError as exc:
         pytest.fail(
-            f"UnicodeEncodeError leaked from assert_safe_fetch_url for {url!r}: {exc}"
+            f"UnicodeError leaked from assert_safe_fetch_url for {url!r}: {type(exc).__name__}: {exc}"
         )
 
 
