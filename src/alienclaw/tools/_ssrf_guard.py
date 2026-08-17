@@ -23,10 +23,16 @@ _ALLOWED_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
 
 
 def _resolve_host_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
-    """Resolve host (name or literal) to all IPs. Catches DNS and numeric obfuscation."""
+    """Resolve host (name or literal) to all IPs. Catches DNS and IDNA errors.
+
+    Catches ``socket.gaierror`` (DNS failure) and ``UnicodeEncodeError`` (idna
+    codec rejection of overlong / empty / IDNA-illegal labels). Both are
+    treated as unresolvable so the guard surfaces SsrfBlockedError instead of
+    crashing the tool layer and aborting the production Martian run.
+    """
     try:
         infos = socket.getaddrinfo(host, None)
-    except socket.gaierror:
+    except (socket.gaierror, UnicodeEncodeError):
         return []
     out: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
     for fam, *_rest, sockaddr in infos:
