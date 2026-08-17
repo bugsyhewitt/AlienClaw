@@ -139,6 +139,112 @@ class TestFiniteDefense:
         assert math.isnan(r.correctness), "Raw correctness field should remain NaN for traceability"
 
 
+class TestNonFiniteToolCalls:
+    """PKT-715: all 4 formulas must coerce non-finite tool_calls to a deterministic
+    default, not silently inflate fitness to correctness via max(1,NaN)=1 path."""
+
+    @pytest.mark.parametrize("formula,default", [
+        (option_current, 1),
+        (option_b, 1),
+        (option_c_prime, 1),
+        (option_d, 1),
+    ])
+    @pytest.mark.parametrize("bad_tc", [float('nan'), float('inf'), -float('inf')])
+    def test_non_finite_tool_calls_does_not_silently_inflate(self, formula, default, bad_tc):
+        """R-PKT715-001 to R-PKT715-012: 4 formulas × 3 non-finite = 12 cases.
+        After fix, fitness must equal what (1.0, default, 4) produces deterministically."""
+        r = formula(1.0, bad_tc, 4)
+        r_control = formula(1.0, default, 4)
+        assert r.fitness == pytest.approx(r_control.fitness, abs=1e-9), (
+            f"non-finite tool_calls={bad_tc} silently changed fitness={r.fitness} "
+            f"(expected {r_control.fitness} from default tc={default})"
+        )
+
+    @pytest.mark.parametrize("formula", [option_current, option_b, option_c_prime, option_d])
+    def test_tool_calls_nan_does_not_inflate_when_correctness_low(self, formula):
+        """tool_calls=NaN + correctness=0.3 must return fitness ≤ 0.3, not 1.0."""
+        r = formula(0.3, float('nan'), 4)
+        assert r.fitness <= 0.3, (
+            f"tool_calls=NaN + correctness=0.3 silently inflated fitness={r.fitness}"
+        )
+
+
+class TestNonFiniteSlotCount:
+    """PKT-715: option_c_prime/d must coerce non-finite slot_count."""
+
+    @pytest.mark.parametrize("formula", [option_c_prime, option_d])
+    @pytest.mark.parametrize("bad_sc", [float('nan'), float('inf'), -float('inf')])
+    def test_non_finite_slot_count_does_not_silently_inflate(self, formula, bad_sc):
+        """R-PKT715-013 to R-PKT715-018: 2 formulas × 3 non-finite = 6 cases."""
+        r = formula(1.0, 4, bad_sc)
+        assert r.fitness < 1.0, (
+            f"non-finite slot_count={bad_sc} silently inflated fitness={r.fitness}"
+        )
+
+
+class TestNonFiniteAlpha:
+    """PKT-715: option_c_prime must coerce non-finite alpha to 1.0 (not clamp01(NaN)=1.0)."""
+
+    @pytest.mark.parametrize("bad_alpha", [float('nan'), float('inf'), -float('inf')])
+    def test_non_finite_alpha_does_not_silently_inflate(self, bad_alpha):
+        """R-PKT715-019 to R-PKT715-021: 3 cases.
+        Non-finite alpha coerces to 1.0; excess=4, fitness = 1/(1+1*4) = 0.2."""
+        r = option_c_prime(1.0, 8, 4, alpha=bad_alpha)
+        assert r.fitness == pytest.approx(0.2, abs=1e-9), (
+            f"non-finite alpha={bad_alpha} silently inflated fitness={r.fitness} "
+            f"(expected 0.2 from alpha=1.0 default)"
+        )
+
+
+class TestNonFiniteBeta:
+    """PKT-715: option_d must coerce non-finite beta to 1.0."""
+
+    @pytest.mark.parametrize("bad_beta", [float('nan'), float('inf'), -float('inf')])
+    def test_non_finite_beta_does_not_silently_inflate(self, bad_beta):
+        """R-PKT715-022 to R-PKT715-024: 3 cases.
+        Non-finite beta coerces to 1.0; excess=4, penalty=1*4/4=1, fitness=clamp01(0)=0."""
+        r = option_d(1.0, 8, 4, beta=bad_beta)
+        assert r.fitness == pytest.approx(0.0, abs=1e-9), (
+            f"non-finite beta={bad_beta} silently inflated fitness={r.fitness} "
+            f"(expected 0.0 from beta=1.0 default)"
+        )
+
+
+class TestOptionBClamp01NaNViolation:
+    """PKT-715: option_b's dual-NaN PKT-617 clamp01(NaN)=1.0 violation."""
+
+    def test_dual_nan_in_option_b_returns_deterministic_fitness(self):
+        """R-PKT715-025: option_b(1.0, NaN, NaN) must be deterministic (not NaN-path dependent)."""
+        import math as _math
+        r = option_b(1.0, float('nan'), float('nan'))
+        r2 = option_b(1.0, float('nan'), float('nan'))
+        assert r.fitness == r2.fitness, (
+            f"dual-NaN must be deterministic: {r.fitness} vs {r2.fitness}"
+        )
+        assert _math.isnan(r.tool_calls), "Raw tool_calls field should remain NaN for traceability"
+        assert _math.isnan(r.slot_count), "Raw slot_count field should remain NaN for traceability"
+
+    def test_dual_nan_correctness_is_zero(self):
+        """R-PKT715-026: option_b(NaN, NaN, NaN) must return fitness=0.0 (PKT-617 correctness guard)."""
+        r = option_b(float('nan'), float('nan'), float('nan'))
+        assert r.fitness == 0.0, (
+            f"triple-NaN must produce fitness=0.0 (PKT-617 correctness guard), got {r.fitness}"
+        )
+
+
+class TestTypeErrors:
+    """PKT-715: type-unsafe inputs (None/str/list/dict) must coerce to defaults, not crash."""
+
+    @pytest.mark.parametrize("formula", [option_current, option_b, option_c_prime, option_d])
+    @pytest.mark.parametrize("bad_input", [None, '3', [1], {'a': 1}])
+    def test_type_unsafe_tool_calls_returns_default(self, formula, bad_input):
+        """R-PKT715-027 to R-PKT715-042: 4 formulas × 4 type-errors = 16 cases.
+        Previously raised TypeError; after fix returns deterministic default."""
+        r = formula(1.0, bad_input, 4)
+        r_control = formula(1.0, 1, 4)
+        assert r.fitness == pytest.approx(r_control.fitness, abs=1e-9)
+
+
 class TestLandscapeGrid:
     def test_grid_structure(self):
         rows = landscape_grid(slot_count=2)
