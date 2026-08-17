@@ -80,6 +80,25 @@ describe("TopologyAdapter.evaluate", () => {
     const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
     expect(batch.traces[0]!.correctness.score).toBe(0);
   });
+
+  // PKT-726: non-string editable.partition guard
+  it("non-string editable.partition (number) → correctness.score === 0 (NaN guarded)", async () => {
+    const genome = makeGenome({ subagents: '["a","b"]', partition: 42 } as any);
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+  });
+
+  it("non-string editable.partition (object) → correctness.score === 0 (NaN guarded)", async () => {
+    const genome = makeGenome({ subagents: '["a","b"]', partition: { key: "val" } } as any);
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+  });
+
+  it("non-string editable.partition (number) → batch.scores.legacyScalar is finite (not NaN)", async () => {
+    const genome = makeGenome({ subagents: '["a","b"]', partition: 42 } as any);
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(isFinite(batch.scores.legacyScalar)).toBe(true);
+  });
 });
 
 describe("TopologyAdapter.makeReflectiveDataset", () => {

@@ -44,8 +44,11 @@ export class TopologyAdapter implements GenomeAdapter {
 
     for (const task of batch) {
       // Correctness is a function of subagent count and partition quality
-      const partitionLen = (candidate.editable["partition"] ?? "").length;
-      const correctnessScore = Math.min(1, (partitionLen / 300) * (subagentCount / 2));
+      // PKT-726: typeof-guard before .length; non-strings (number/boolean/object) yield
+      // undefined.length → NaN via `?? ""` which only catches null/undefined.
+      const partitionLen = typeof candidate.editable["partition"] === "string" ? candidate.editable["partition"].length : 0;
+      const rawScore = (partitionLen / 300) * (subagentCount / 2);
+      const correctnessScore = Number.isFinite(rawScore) ? Math.max(0, Math.min(1, rawScore)) : 0;
       const wallMs = 300 + (opts.seed % 600);
       const dollars = subagentCount * 0.003;
       const slotCount = candidate.toolSlots.length || 1;
