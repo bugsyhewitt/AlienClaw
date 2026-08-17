@@ -87,3 +87,18 @@ def test_malformed_substitution_token_invalid(real_brains):
     assert not result.valid
     assert any("malformed substitution token" in e for e in result.errors)
     assert any("malformed_placeholder" in e for e in result.errors)
+
+
+def test_arabic_indic_slot_index_malformed_token(real_brains):
+    """After fix: Arabic-Indic digit not recognized as [0-9]+, so ${...} is malformed."""
+    yaml = (
+        "martian_type: x\nslots:\n"
+        "  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n"
+        "  - slot_index: 1\n    tool_name: extract_json\n"
+        "    inputs_from:\n      fields:\n"
+        '        json: "${slot[٠].output.result}"\n'
+    )
+    spec = parse_martian(yaml)
+    result = validate_martian(spec, real_brains)
+    assert not result.valid
+    assert any("malformed substitution token" in e for e in result.errors)
