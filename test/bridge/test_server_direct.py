@@ -202,7 +202,7 @@ class TestSummonValidation:
         assert available == sorted(available)
         assert "compute_alone" in available
 
-    @pytest.mark.parametrize("bad_timeout", [0, 600_001, "5000", None])
+    @pytest.mark.parametrize("bad_timeout", [0, 600_001, "5000", None, True, False])
     def test_timeout_ms_must_be_int_in_range(self, bad_timeout):
         resp = handle(_envelope(timeout_ms=bad_timeout))
         err = resp["response"]["error"]
@@ -578,7 +578,7 @@ class TestSummonFromPopulationShape:
         assert "ok" in resp["response"]
 
     @pytest.mark.parametrize("bad_timeout", [
-        "not an int", 1.5, {}, [1, 2, 3], None, 0, -1, 600_001, 10**9,
+        "not an int", 1.5, {}, [1, 2, 3], None, 0, -1, 600_001, 10**9, True, False,
     ])
     def test_sfp_timeout_ms_must_be_int_in_range(self, bad_timeout):
         resp = self._sfp({
