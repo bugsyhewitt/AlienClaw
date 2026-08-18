@@ -115,6 +115,11 @@ async function _pushType(
       continue;
     }
 
+    if (!Number.isFinite(entry.fitness) || entry.fitness < 0 || entry.fitness > 1) {
+      result.errors.push(`Skipping entry: non-finite or out-of-range fitness (${entry.fitness})`);
+      continue;
+    }
+
     const r = await client.submitGenome(
       entry.genome,
       martianType,
