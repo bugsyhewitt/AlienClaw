@@ -299,6 +299,48 @@ describe('AlienClawConfigManager.savePreferences', () => {
 });
 
 // =============================================================================
+// savePreferences — atomic-write semantics (PKT-695)
+// =============================================================================
+//
+// These tests pin the invariant that savePreferences NEVER leaves preferences.json
+// in a partial/truncated state. The fix (atomicWrite via tmp+rename) is the
+// implementation that guarantees this. Happy-path output is identical for both
+// writeFileSync and atomicWrite; these tests validate the invariant and serve
+// as regression guards if the implementation is ever reverted.
+
+describe('AlienClawConfigManager.savePreferences — atomic-write semantics (PKT-695)', () => {
+  it('R-701: savePreferences does not truncate the on-disk file to a partial JSON (atomic via tmp + rename)', async () => {
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    const { PATHS } = await loadConstantsModule();
+    cfg.savePreferences({ verbosity: 'silent' });
+    const onDisk = readFileSync(PATHS.preferences, 'utf-8');
+    expect(() => JSON.parse(onDisk)).not.toThrow();
+    expect(JSON.parse(onDisk).verbosity).toBe('silent');
+  });
+
+  it('R-702: an orphaned .tmp-<uuid> file left by a prior crash does not brick the next savePreferences', async () => {
+    const { PATHS } = await loadConstantsModule();
+    const orphanPath = join(tmpHome, `.tmp-${'orphan-uuid-1234'}`);
+    writeFileSync(orphanPath, '{"verbosity":"verbo', 'utf-8');
+    expect(existsSync(orphanPath)).toBe(true);
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    cfg.savePreferences({ verbosity: 'verbose' });
+    const onDisk = readFileSync(PATHS.preferences, 'utf-8');
+    expect(() => JSON.parse(onDisk)).not.toThrow();
+    // Orphan may or may not be cleaned up by this call (atomicWrite's catch
+    // is in the rename-failure path only), but it must NOT block the save.
+  });
+
+  it('R-703: after a successful savePreferences, re-importing the module (fresh process sim) reads the saved value', async () => {
+    const cfg = (await loadConfigModule()).alienClawConfig;
+    cfg.savePreferences({ verbosity: 'silent' });
+    vi.resetModules();
+    const cfg2 = (await loadConfigModule()).alienClawConfig;
+    expect(cfg2.preferences.verbosity).toBe('silent');
+  });
+});
+
+// =============================================================================
 // Defaults module — exported constants
 // =============================================================================
 

@@ -3,6 +3,7 @@ import { dirname } from 'path';
 import { PATHS } from '../constants.js';
 import { DEFAULT_CONFIG, DEFAULT_PREFERENCES } from './defaults.js';
 import type { AlienClawConfig, UserPreferences } from '../types.js';
+import { atomicWrite } from '../utils.js';
 
 function ensureDir(filePath: string): void {
   const dir = dirname(filePath);
@@ -31,7 +32,7 @@ export class AlienClawConfigManager {
 
   savePreferences(prefs: Partial<UserPreferences>): void {
     const updated = { ...this.preferences, ...prefs };
-    writeFileSync(PATHS.preferences, JSON.stringify(updated, null, 2), 'utf-8');
+    atomicWrite(PATHS.preferences, JSON.stringify(updated, null, 2));
   }
 }
 
