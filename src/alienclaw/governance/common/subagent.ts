@@ -12,7 +12,7 @@
  * Lifecycle: birth(brief) → execute() | runCampaign() → erase()
  */
 
-import { mkdirSync, rmSync, appendFileSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -453,10 +453,11 @@ export class Subagent {
   ): Promise<CampaignResult> {
     if (this._erased) throw new Error(`Subagent ${this.subagentId} has been erased`);
 
+    const campaignMdPath = this._filePath('CAMPAIGN.md');
     const yamlSource =
       transitionTableYaml
       ?? this._pendingTransitionTableYaml
-      ?? buildCampaignMd(brief);
+      ?? (existsSync(campaignMdPath) ? readFileSync(campaignMdPath, 'utf-8') : '');
 
     const parseResult = parseTransitionTable(yamlSource);
     if (!parseResult.ok || !parseResult.table) {
