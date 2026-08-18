@@ -272,3 +272,83 @@ describe('Subagent buildCampaignMd fallback text (L176/L184)', () => {
     expect(campaign).toContain('None');              // brief.constraints || 'None'
   });
 });
+
+// ── §4: workspace-recovery case-3 on-disk CAMPAIGN.md fallback (PKT-754) ───
+//
+// Regression test for the case where:
+//   - Instance A creates the workspace with valid transition YAML embedded.
+//   - Instance B is constructed for the same campaignId (same workspaceDir).
+//   - Instance B calls birth() without YAML — returns early (workspace exists),
+//     so _pendingTransitionTableYaml is never set.
+//   - Instance B calls runCampaign() without an explicit YAML argument.
+//
+// Before the fix: yamlSource falls through to buildCampaignMd(brief) which
+// produces markdown with no transition_table → parseTransitionTable fails →
+// termination_reason: 'decision_rule_error'.
+//
+// After the fix: yamlSource reads the on-disk CAMPAIGN.md which contains
+// the transition_table written by Instance A → campaign runs past parsing.
+
+const WORKSPACE_RECOVERY_YAML = `transition_table:
+  initial_state: step1
+  states:
+    step1:
+      martian_type: compute
+      inputs:
+        plan: "\${campaign.plan}"
+      transitions:
+        - when: { all: [{ kind: martian_succeeded }] }
+          goto: FINALIZE
+        - when: { any: [{ kind: error_present }] }
+          goto: "FAIL:martian_failed"
+`;
+
+describe('Subagent runCampaign workspace-recovery case-3 (PKT-754)', () => {
+  let baseDir: string;
+
+  beforeEach(() => {
+    baseDir = mkdtempSync(path.join(tmpdir(), 'alienclaw-754-recovery-'));
+  });
+
+  afterEach(() => {
+    if (existsSync(baseDir)) rmSync(baseDir, { recursive: true, force: true });
+  });
+
+  it('R-PKT754: Instance B reads on-disk CAMPAIGN.md when birth() returned early — no decision_rule_error', async () => {
+    // R-PKT754: Instance A creates the workspace with valid transition YAML.
+    const campaignId = 'CAMP_RECOVERY_PKT754';
+    const brief = makeBrief({ campaignId, allowedMartians: ['compute'] });
+
+    const instanceA = new Subagent(new MockMartianSummonAdapter(0.8, { result: 42 }), {
+      campaignId,
+      martianType:      'compute',
+      inputs:           { plan: 'go' },
+      timeoutMs:        5_000,
+      subagentsBaseDir: baseDir,
+    });
+    instanceA.birth(brief, WORKSPACE_RECOVERY_YAML);
+
+    // Confirm the workspace CAMPAIGN.md contains the transition_table.
+    const onDisk = readFileSync(path.join(instanceA.workspaceDir, 'CAMPAIGN.md'), 'utf-8');
+    expect(onDisk).toContain('transition_table:');
+
+    // Instance B: same campaignId → same workspaceDir. birth() will
+    // existsSync → true → return early → _pendingTransitionTableYaml stays undefined.
+    const instanceB = new Subagent(new MockMartianSummonAdapter(0.8, { result: 42 }), {
+      campaignId,
+      martianType:      'compute',
+      inputs:           { plan: 'go' },
+      timeoutMs:        5_000,
+      subagentsBaseDir: baseDir,
+    });
+    instanceB.birth(brief);  // no YAML — must rely on on-disk fallback
+
+    // runCampaign() without explicit YAML — case-3 must read on-disk CAMPAIGN.md.
+    const result = await instanceB.runCampaign(brief, { plan: 'go' });
+
+    // The critical assertion: parsing must succeed.
+    // Any termination_reason other than 'decision_rule_error' means case-3 worked.
+    expect(result.termination_reason).not.toBe('decision_rule_error');
+    expect(result.error ?? '').not.toMatch(/No transition_table section found/);
+  });
+});
