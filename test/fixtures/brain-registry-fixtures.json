@@ -528,6 +528,18 @@
       "expected_error_contains": "'abc'"
     },
     {
+      "name": "param-schema-plus-default",
+      "kind": "parse_param_schema_error",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\nfoo|0|1|5|+3|lower|TS rejects plus-prefixed default (PKT-756)\n",
+      "expected_error_contains": "'+3' is not a valid integer"
+    },
+    {
+      "name": "param-schema-plus-xcode",
+      "kind": "parse_param_schema_error",
+      "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\nfoo|+0|1|5|3|lower|TS rejects plus-prefixed xcode_index (PKT-756)\n",
+      "expected_error_contains": "'+0' is not a valid integer"
+    },
+    {
       "name": "param-schema-xcode-zero-range-1-5",
       "kind": "parse_param_schema",
       "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\nmax_attempts|0|1|5|1|lower|Retry attempts\n",
