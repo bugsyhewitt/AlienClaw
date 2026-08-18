@@ -282,3 +282,46 @@ describe("rawObjectiveVector — slot_count plumbing", () => {
     expect(raw.efficiency).toBeCloseTo(1.0);
   });
 });
+
+// PKT-680: guard clamp01 against NaN/±Infinity (TS mirror of PKT-588 fix in fitness/function.py)
+describe("computeLegacyScalar — non-finite correctness (PKT-680)", () => {
+  it("NaN correctness → 0.0, never NaN", () => {
+    const result = computeLegacyScalar([makeTrace(NaN)]);
+    expect(result).toBe(0);
+    expect(Number.isFinite(result)).toBe(true);
+  });
+
+  it("+Infinity correctness → 0.0 (failing-score contract, not 1.0 inflation)", () => {
+    const result = computeLegacyScalar([makeTrace(+Infinity)]);
+    expect(result).toBe(0);
+  });
+
+  it("-Infinity correctness → 0.0", () => {
+    const result = computeLegacyScalar([makeTrace(-Infinity)]);
+    expect(result).toBe(0);
+  });
+
+  it("NaN correctness mixed with valid trace → aggregate is finite", () => {
+    const result = computeLegacyScalar([makeTrace(NaN), makeTrace(0.8)]);
+    expect(Number.isFinite(result)).toBe(true);
+    // NaN trace contributes 0, valid trace contributes ~0.8; mean ≈ 0.4
+    expect(result).toBeCloseTo(0.4, 3);
+  });
+});
+
+describe("rawObjectiveVector — non-finite correctness (PKT-680)", () => {
+  it("NaN correctness → correctness field is finite", () => {
+    const raw = rawObjectiveVector(makeTrace(NaN));
+    expect(Number.isFinite(raw.correctness)).toBe(true);
+  });
+
+  it("+Infinity correctness → correctness field 0.0", () => {
+    const raw = rawObjectiveVector(makeTrace(+Infinity));
+    expect(raw.correctness).toBe(0);
+  });
+
+  it("-Infinity correctness → correctness field 0.0", () => {
+    const raw = rawObjectiveVector(makeTrace(-Infinity));
+    expect(raw.correctness).toBe(0);
+  });
+});

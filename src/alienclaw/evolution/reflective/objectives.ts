@@ -11,6 +11,21 @@ import type { ReflectiveEvolutionConfig } from "./config.js";
 const ALPHA = 0.1; // Bayesian-optimized in Packet 27; matches fitness/function.py
 
 /**
+ * Clamp a value into [0.0, 1.0]. Non-finite inputs (NaN, +Inf, -Inf) are coerced to 0.0,
+ * mirroring the PKT-588 fix in Python `fitness/function.py::clamp01` (PR #470).
+ * The unguarded `Math.max(0, Math.min(1, x))` pattern returns NaN for NaN input
+ * (NaN comparisons always false) and 1.0 for +Inf, which silently inflated
+ * `computeLegacyScalar` and `rawObjectiveVector.correctness` when a Martian's
+ * compute slot produced NaN correctness (PKT-572 reachability).
+ */
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+/**
  * Compute the legacy scalar fitness.
  * Exactly mirrors alienclaw.fitness.function.evaluate().
  */
@@ -18,7 +33,7 @@ export function computeLegacyScalar(traces: ExecutionTrace[]): number {
   if (traces.length === 0) return 0;
   let total = 0;
   for (const t of traces) {
-    const correctness = Math.max(0, Math.min(1, t.correctness.score));
+    const correctness = clamp01(t.correctness.score);
     const slotCount = t.cost.slotCount ?? 1;
     const excess = Math.max(0, t.cost.toolCalls - slotCount);
     const efficiency = 1.0 / (1.0 + ALPHA * excess);
@@ -38,7 +53,7 @@ export function rawObjectiveVector(trace: ExecutionTrace): {
   latencyInvRaw: number;
   confidence: number;
 } {
-  const correctness = Math.max(0, Math.min(1, trace.correctness.score));
+  const correctness = clamp01(trace.correctness.score);
   const slotCount = trace.cost.slotCount ?? 1;
   const excess = Math.max(0, trace.cost.toolCalls - slotCount);
   const efficiency = 1.0 / (1.0 + ALPHA * excess);
