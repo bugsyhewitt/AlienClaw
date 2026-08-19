@@ -364,3 +364,66 @@ describe('parseSchemeDraft — strict validation (packet 422)', () => {
     expect(out.campaigns[0]!.subagents[0]!.role).toBe('r');
   });
 });
+
+describe('parseSchemeDraft — duplicate-name rejection (PKT-771)', () => {
+  it('R-771-1: 2 campaigns with same name + 1 dependent → throws duplicate', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'Research', objective: 'topic A', dependsOn: [],         subagents: [] },
+        { name: 'Research', objective: 'topic B', dependsOn: [],         subagents: [] },
+        { name: 'Build',    objective: 'build',    dependsOn: ['Research'], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw))
+      .toThrow(/parseSchemeDraft: duplicate campaign name 'Research'/);
+  });
+
+  it('R-771-2: 2 independent campaigns with same name → throws duplicate', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'Research', objective: 'A', dependsOn: [], subagents: [] },
+        { name: 'Research', objective: 'B', dependsOn: [], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw))
+      .toThrow(/parseSchemeDraft: duplicate campaign name 'Research'/);
+  });
+
+  it('R-771-3: 3 campaigns where the duplicate is the LAST one → throws', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'A', objective: 'o', dependsOn: [], subagents: [] },
+        { name: 'B', objective: 'o', dependsOn: [], subagents: [] },
+        { name: 'A', objective: 'o', dependsOn: [], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw))
+      .toThrow(/parseSchemeDraft: duplicate campaign name 'A'/);
+  });
+
+  it('R-771-4: unique names across all campaigns parse successfully (regression)', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'ResearchA', objective: 'o', dependsOn: [],                       subagents: [] },
+        { name: 'ResearchB', objective: 'o', dependsOn: [],                       subagents: [] },
+        { name: 'Build',     objective: 'o', dependsOn: ['ResearchA', 'ResearchB'], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw)).not.toThrow();
+  });
+
+  it('R-771-5: case-sensitive duplicate (Research vs research) is ALLOWED', () => {
+    const raw = JSON.stringify({
+      rationale: 'r',
+      campaigns: [
+        { name: 'Research', objective: 'o', dependsOn: [], subagents: [] },
+        { name: 'research', objective: 'o', dependsOn: [], subagents: [] },
+      ],
+    });
+    expect(() => parseSchemeDraft('g', raw)).not.toThrow();
+  });
+});

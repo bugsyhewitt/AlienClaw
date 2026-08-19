@@ -149,6 +149,22 @@ export function parseSchemeDraft(goalId: string, raw: string): Scheme {
   if (campaigns.length === 0) {
     throw new Error('parseSchemeDraft: no valid campaigns after parsing');
   }
+  // PKT-771: reject duplicate campaign names before name→id resolution.
+  // Without this, the Map below silently keeps only the last entry per name —
+  // dependents wire to the wrong UUID and the first duplicate runs orphaned.
+  // Mirrors the duplicate-rejection pattern in brains/parser.py:149-173 and
+  // martians/registry.py:59-63.
+  const seenNames = new Set<string>();
+  for (const c of campaigns) {
+    if (seenNames.has(c.name)) {
+      throw new Error(
+        `parseSchemeDraft: duplicate campaign name '${c.name}'. ` +
+        `Each campaign must have a unique name so dependency resolution ` +
+        `and dispatch are unambiguous.`
+      );
+    }
+    seenNames.add(c.name);
+  }
   // Resolve dependsOn: names → IDs (post-filtering), then deduplicate (PKT-667)
   const nameToId = new Map(campaigns.map(c => [c.name, c.id]));
   for (const campaign of campaigns) {
