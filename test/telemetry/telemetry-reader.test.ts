@@ -442,7 +442,7 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.failures).toBe(1);
     expect(summary.rate).toBeCloseTo(2 / 3, 10);
     // No malformed outcomes → malformed_count absent or zero
-    expect((summary as Record<string, unknown>)['malformed_count'] ?? 0).toBe(0);
+    expect((summary as unknown as Record<string, unknown>)['malformed_count'] ?? 0).toBe(0);
   });
 
   it('PKT615-TR-T2: lowercase "unknown" outcome is rejected — runs counts only canonical records', async () => {
@@ -458,7 +458,7 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.runs).toBe(2);
     expect(summary.successes).toBe(2);
     expect(summary.rate).toBe(1);
-    expect((summary as Record<string, unknown>)['malformed_count']).toBe(1);
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(1);
   });
 
   it('PKT615-TR-T3: null outcome is rejected — only canonical records count', async () => {
@@ -473,7 +473,7 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.runs).toBe(2);
     expect(summary.successes).toBe(2);
     expect(summary.rate).toBe(1);
-    expect((summary as Record<string, unknown>)['malformed_count']).toBe(1);
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(1);
   });
 
   it('PKT615-TR-T4: undefined outcome (missing field) is rejected', async () => {
@@ -493,7 +493,7 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.runs).toBe(1);
     expect(summary.successes).toBe(1);
     expect(summary.rate).toBe(1);
-    expect((summary as Record<string, unknown>)['malformed_count']).toBe(1);
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(1);
   });
 
   it('PKT615-TR-T5: titlecase "Success" outcome is rejected', async () => {
@@ -508,7 +508,7 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.runs).toBe(2);
     expect(summary.successes).toBe(2);
     expect(summary.rate).toBe(1);
-    expect((summary as Record<string, unknown>)['malformed_count']).toBe(1);
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(1);
   });
 
   it('PKT615-TR-T6: all-malformed — runs=0, malformed_count=5, rate=0, distinguishable from "broken Martian"', async () => {
@@ -527,7 +527,7 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.escalations).toBe(0);
     expect(summary.rate).toBe(0);
     // malformed_count surfaces the ghost count — BossBot can distinguish
-    expect((summary as Record<string, unknown>)['malformed_count']).toBe(5);
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(5);
   });
 
   it('PKT615-TR-T7: empty relevant set — returns zeros without malformed_count', async () => {
@@ -542,7 +542,7 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.failures).toBe(0);
     expect(summary.escalations).toBe(0);
     expect(summary.rate).toBe(0);
-    expect((summary as Record<string, unknown>)['malformed_count'] ?? 0).toBe(0);
+    expect((summary as unknown as Record<string, unknown>)['malformed_count'] ?? 0).toBe(0);
   });
 
   it('PKT615-TR-T8: malformed_count absent (not zero) when all outcomes are canonical (backward-compat)', async () => {
