@@ -58,8 +58,17 @@ function parseMetadata(lines: string[], filePath?: string): Partial<MartianSpec>
     switch (key!.toLowerCase()) {
       case 'description': spec.description = val!.trim(); break;
       case 'generation': {
-        const n = parseInt(val!, 10);
-        if (Number.isNaN(n)) throw new MsParseError(`Invalid # generation: not an integer ("${val!.trim()}")`, filePath);
+        // PKT-774: reject non-canonical decimal integers at the parse boundary.
+        // Bare parseInt silently coerces "5abc" / "1e2" / "+5" / "5.7" to 5/1/5/5.
+        // Mirror of PKT-674's intRe pre-check (src/alienclaw/msb/msb-loader.ts:148).
+        const trimmed = val!.trim();
+        if (!/^-?\d+$/.test(trimmed)) {
+          throw new MsParseError(
+            `Invalid # generation: not a canonical integer (got "${trimmed}")`,
+            filePath,
+          );
+        }
+        const n = parseInt(trimmed, 10);
         if (n < 0) throw new MsParseError(`Invalid # generation: must be >= 0 (got ${n})`, filePath);
         spec.generation = n;
         break;
@@ -73,7 +82,17 @@ function parseMetadata(lines: string[], filePath?: string): Partial<MartianSpec>
         break;
       }
       case 'fitness': {
-        const f = parseFloat(val!);
+        // PKT-774: reject non-canonical decimal floats at the parse boundary.
+        // Bare parseFloat silently coerces "0.5abc" to 0.5 and "1e2" to 100.
+        // Mirror of PKT-674's strict integer regex, extended for finite floats.
+        const trimmed = val!.trim();
+        if (!/^-?(\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+          throw new MsParseError(
+            `Invalid # fitness: not a canonical decimal float (got "${trimmed}")`,
+            filePath,
+          );
+        }
+        const f = parseFloat(trimmed);
         if (!Number.isFinite(f)) throw new MsParseError(`Invalid # fitness: not a finite number ("${val!.trim()}")`, filePath);
         if (f < 0 || f > 1) throw new MsParseError(`Invalid # fitness: must be in [0, 1] (got ${f})`, filePath);
         spec.fitness = f;
