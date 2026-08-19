@@ -85,8 +85,10 @@ function makeStubs(classification: string): {
   const foldCalls: unknown[][] = [];
 
   const bossBot = makeNoop<BossBot>({
-    classifyUserInput: async (_msg: string) => classification,
-    generateSubGoals:  async (_msg: string) => [{ description: 'do-X', domain: 'web' }],
+    classifyUserInput: async (_msg: string) => classification as 'new_subgoal' | 'constraint' | 'direction_change',
+    generateSubGoals:  async (_msg: string) => [
+      { id: 's1', description: 'do-X', domain: 'web', status: 'pending', dependsOn: [] },
+    ],
   });
 
   const goalManager = makeNoop<GoalManager>({
