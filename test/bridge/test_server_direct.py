@@ -209,6 +209,32 @@ class TestSummonValidation:
         assert err["code"] == "MALFORMED_REQUEST"
         assert "timeout_ms" in err["message"]
 
+    # ── T40/T41: timeout_ms bool bypass (PKT-675) ────────────────────────────
+    @pytest.mark.parametrize("bool_timeout", [True, False])
+    def test_summon_timeout_ms_bool_returns_malformed(self, bool_timeout):
+        """T40/T41: bool True/False must not silently coerce to int 1/0; must be MALFORMED_REQUEST.
+
+        PKT-675: Python bool is a strict subclass of int; without the explicit
+        isinstance(_, bool) guard, True silently becomes int 1 and bypasses both
+        the type check and the range check (1 <= True <= 600_000 == True).
+        Mirrors PKT-519 T36 (live-evo threshold bool guard).
+        """
+        resp = handle(_envelope(timeout_ms=bool_timeout))
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "non-bool integer" in err["message"]
+
+    # ── T44: regression guard ─────────────────────────────────────────────────
+    def test_summon_timeout_ms_true_does_not_silently_downgrade_to_1ms(self):
+        """T44: timeout_ms=True must be rejected as MALFORMED_REQUEST, not run at 1ms.
+
+        PKT-675: pre-fix behavior was response.ok=True with the Martian dying
+        at 1ms; post-fix must be MALFORMED_REQUEST.
+        """
+        resp = handle(_envelope(timeout_ms=True))
+        assert resp["response"]["ok"] is False
+        assert resp["response"]["error"]["code"] == "MALFORMED_REQUEST"
+
     def test_tool_failure_is_structured_with_slot_index(self):
         resp = handle(_envelope(inputs={"input": "this is not math"}))
         response = resp["response"]
@@ -589,6 +615,24 @@ class TestSummonFromPopulationShape:
         err = resp["response"]["error"]
         assert err["code"] == "MALFORMED_REQUEST"
         assert "timeout_ms" in err["message"]
+
+    # ── T42/T43: sfp timeout_ms bool bypass (PKT-675) ─────────────────────────
+    @pytest.mark.parametrize("bool_timeout", [True, False])
+    def test_sfp_timeout_ms_bool_returns_malformed(self, bool_timeout):
+        """T42/T43: summon-from-population arm must reject bool timeout_ms.
+
+        PKT-675: same defect as T40/T41, second arm. summon-from-population had
+        no existing timeout_ms bool validation tests; this is the first coverage.
+        Mirrors PKT-519 T36 (live-evo threshold bool guard).
+        """
+        resp = self._sfp({
+            "martian_type": "compute",
+            "inputs": {"input": "2 + 2"},
+            "timeout_ms": bool_timeout,
+        })
+        err = resp["response"]["error"]
+        assert err["code"] == "MALFORMED_REQUEST"
+        assert "non-bool integer" in err["message"]
 
 
 class TestNonFiniteIpcSafety:
