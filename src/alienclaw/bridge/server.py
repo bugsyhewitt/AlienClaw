@@ -227,6 +227,17 @@ def handle(raw: bytes) -> dict:
         return _error_response(request_id, "INVALID_GENOME", f"Genome validation failed: {validation.errors[0]}", {"errors": validation.errors})
 
     martian_type = req["martian_type"]
+    # PKT-809: malformed martian_type (list/dict/bool/int/None/empty) must
+    # return MALFORMED_REQUEST, not crash the subprocess with TypeError
+    # (unhashable type) or silently fall through to UNKNOWN_MARTIAN_TYPE.
+    # Mirrors the live-evo guard at L261 and the summon-from-population
+    # guard at L322.
+    if not isinstance(martian_type, str) or not martian_type:
+        return _error_response(
+            request_id, "MALFORMED_REQUEST",
+            "martian_type must be a non-empty string",
+            {"missing_fields": ["martian_type"]},
+        )
     registry = _get_martian_registry()
     if not registry.has(martian_type):
         return _error_response(
