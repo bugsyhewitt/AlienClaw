@@ -70,7 +70,7 @@ alienclaw --help
   const args = process.argv.slice(2);
   const child = spawn(hostBin, args, {
     stdio: 'inherit',
-    shell: true,
+    shell: false,
   });
   child.on('exit', (code) => {
     process.exitCode = code ?? 0;
