@@ -46,6 +46,20 @@ REQUIRED_SECTIONS: tuple[str, ...] = (
 # Low-level extractors (mirror TS extractField / extractSection helpers)
 # ---------------------------------------------------------------------------
 
+# Whitelist of the 13 known section header names in the canonical seed/msb/ layout.
+# Only these names terminate a section body in the _extract_section lookahead —
+# embedded developer-comment patterns (NOTE:, TODO:, FIXME:, WARN:, IMPORTANT:, etc.)
+# are no longer treated as section terminators (PKT-673).
+_KNOWN_SECTION_HEADERS: tuple[str, ...] = (
+    # Top-level sections (canonical seed/msb/ layout)
+    "CAPABILITIES", "LIMITATIONS", "FAILURE MODES", "BEST PRACTICES",
+    "EXECUTION ORDER", "OUTPUT CONTRACT", "GENOME SECTIONS",
+    "PARAMETER_SCHEMA", "VARIABLES",
+    # Sub-headers inside GENOME SECTIONS
+    "IDENTITY", "EXECUTION", "BEHAVIOR", "CHECKSUM",
+)
+
+
 def _extract_field(raw: str, field_name: str) -> str:
     """Extract a single-line field value (e.g., 'TOOL: web_search' → 'web_search').
 
@@ -59,12 +73,14 @@ def _extract_field(raw: str, field_name: str) -> str:
 def _extract_section(raw: str, section_name: str) -> str:
     """Extract a multi-line section's content.
 
-    Matches 'SECTION NAME:\\n<content until next ALL-CAPS heading or end-of-string>'.
-    Mirrors the corrected TS extractSection() (bug fixed: use \\Z not $ to prevent
-    the multiline flag from stopping at every line end).
+    Whitelist-anchor lookahead: only the 13 known section names terminate the body.
+    Embedded developer-comment patterns (NOTE:, TODO:, FIXME:, WARN:, IMPORTANT:,
+    CAUTION:, HACK:, BUG:, etc.) no longer prematurely truncate sections (PKT-673).
+    Mirrors the corrected TS extractSection() whitelist-anchor pattern.
     """
+    header_alt = "|".join(re.escape(h) for h in _KNOWN_SECTION_HEADERS)
     pattern = re.compile(
-        rf"^{re.escape(section_name)}:\s*\n([\s\S]*?)(?=\n[A-Z ]+:|\Z)",
+        rf"^{re.escape(section_name)}:\s*\n([\s\S]*?)(?=\n(?:{header_alt}):|\Z)",
         re.MULTILINE,
     )
     m = pattern.search(raw)
