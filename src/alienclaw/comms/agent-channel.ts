@@ -31,6 +31,11 @@ export interface AgentMessage {
   taskId?: string;
 }
 
+// Defense cap on audit content length — mirrors api/server.ts:38 MAX_BODY_BYTES = 64 KiB.
+// A single audit file larger than this is almost certainly an unbounded LLM output;
+// cap it silently, per AgentChannel's structural invariant of NEVER writing to stdout.
+const MAX_AUDIT_CONTENT_BYTES = 64 * 1024; // 65,536
+
 // ── AgentChannel ──────────────────────────────────────────────────────────────
 
 export class AgentChannel {
@@ -63,6 +68,10 @@ export class AgentChannel {
     const record: AgentMessage = {
       ...msg,
       ts: Number.isFinite(ts) ? ts : Date.now(),
+      // PKT-676: cap content at MAX_AUDIT_CONTENT_BYTES to prevent unbounded audit-file growth.
+      content: typeof msg.content === 'string' && msg.content.length > MAX_AUDIT_CONTENT_BYTES
+        ? `[[truncated: ${msg.content.length} bytes exceeded ${MAX_AUDIT_CONTENT_BYTES} cap]]`
+        : msg.content,
     };
     this._log.push(record);
     void this._writeAuditFile(record);
