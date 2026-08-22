@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { ensembleOp, bestOfNOp, applyOperator, reviewReviseOp } from "../../../src/alienclaw/evolution/graph/operators.js";
 import type { MartianResult } from "../../../src/alienclaw/evolution/graph/types.js";
 
@@ -122,5 +122,77 @@ describe("operators — graph-safe within-subagent", () => {
     const r = ensembleOp(results, 2);
     expect(r.correct).toBe(false);
     expect(r.output).toEqual(results[0]!.output);
+  });
+
+  // ── logOnce dedupe (operators.ts:10) ───────────────────────────────────────
+  // The module-level helper is named `logOnce` ("log at most once") but the
+  // implementation as-shipped called console.warn on every invocation.
+  // The single caller is `bestOfNOp(results, n)` with no oracle supplied
+  // (L70), so a high-volume campaign can spam the warning channel.
+  // These tests pin the contract: identical messages dedupe to one emit.
+  //
+  // The dedupe is per-process (module-local Set), so each test that asserts
+  // on warn-count must isolate to a fresh module instance via vi.resetModules
+  // + dynamic import. Otherwise the earliest test's call would dedupe later
+  // tests' assertions.
+  describe("logOnce dedupe (operators.ts internal helper)", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.resetModules();
+    });
+
+    it("bestOfNOp without oracle warns exactly once across N invocations (regression)", async () => {
+      vi.resetModules();
+      const { bestOfNOp } = await import(
+        "../../../src/alienclaw/evolution/graph/operators.js"
+      );
+      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const results = [makeResult(true), makeResult(false)];
+
+      // First invocation must surface the warning so operators notice.
+      bestOfNOp(results, 2);
+      expect(spy.mock.calls.length).toBe(1);
+      const firstMsg = spy.mock.calls[0]![0] as string;
+      expect(firstMsg).toContain("best_of_n without oracle");
+
+      // Subsequent invocations with the SAME condition must NOT re-emit
+      // (the helper is named logOnce, not logAlways).
+      bestOfNOp(results, 2);
+      bestOfNOp(results, 2);
+      bestOfNOp(results, 2);
+      expect(spy.mock.calls.length).toBe(1);
+      expect(spy.mock.calls[0]![0]).toBe(firstMsg);
+    });
+
+    it("bestOfNOp with oracle does not warn (oracle present → no fallback message)", async () => {
+      vi.resetModules();
+      const { bestOfNOp } = await import(
+        "../../../src/alienclaw/evolution/graph/operators.js"
+      );
+      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const results = [makeResult(true), makeResult(false)];
+      const oracle = (r: MartianResult) => r.correct ? 1 : 0;
+      bestOfNOp(results, 2, oracle);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it("applyOperator best_of_n without oracle also dedupes via bestOfNOp", async () => {
+      vi.resetModules();
+      const { applyOperator } = await import(
+        "../../../src/alienclaw/evolution/graph/operators.js"
+      );
+      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const results = [makeResult(true), makeResult(false)];
+
+      applyOperator(results, { kind: "best_of_n", n: 2 });
+      applyOperator(results, { kind: "best_of_n", n: 2 });
+      applyOperator(results, { kind: "best_of_n", n: 2 });
+
+      // Three calls → exactly one emit thanks to the dedupe.
+      expect(spy.mock.calls.length).toBe(1);
+      expect(spy.mock.calls[0]![0] as string).toContain(
+        "best_of_n without oracle",
+      );
+    });
   });
 });
