@@ -13,6 +13,31 @@ import type { TierAAgent } from '../constants.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOUL_PATH  = join(__dirname, '..', 'prompts', 'advisorbot.soul.md');
 
+// ── Shape coercion for LLM JSON boundary (PKT-659) ───────────────────────────
+// LLMs occasionally emit well-formed JSON with wrong field types (e.g. null for
+// a string field, integer for a union literal). This helper coerces each field
+// to the declared AdviceResponse type, matching the non-JSON fallback defaults.
+
+function validateAdviceResponse(parsed: unknown, raw: string): AdviceResponse {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { verdict: raw.trim(), confidence: 'medium', blindspots: [], recommendation: '' };
+  }
+  const p = parsed as Record<string, unknown>;
+  const confidence = (typeof p['confidence'] === 'string' &&
+    (p['confidence'] === 'low' || p['confidence'] === 'medium' || p['confidence'] === 'high'))
+    ? p['confidence']
+    : 'medium';
+  const blindspots = Array.isArray(p['blindspots'])
+    ? (p['blindspots'] as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
+  return {
+    verdict:        typeof p['verdict'] === 'string' ? p['verdict'] : raw.trim(),
+    confidence,
+    blindspots,
+    recommendation: typeof p['recommendation'] === 'string' ? p['recommendation'] : '',
+  };
+}
+
 // ── AdvisorBot ────────────────────────────────────────────────────────────────
 
 export class AdvisorBot {
@@ -73,7 +98,7 @@ export class AdvisorBot {
   static parseResponse(raw: string): AdviceResponse {
     return parseModelJson(
       raw,
-      parsed => parsed as AdviceResponse,
+      parsed => validateAdviceResponse(parsed, raw),
       clean => ({
         verdict:        clean || raw.trim(),
         confidence:     'medium',
