@@ -351,3 +351,33 @@ class TestExtractParameterSchema:
         assert len(fields) == 2
         assert fields[0].name == "foo"
         assert fields[1].name == "bar"
+
+    # --- PKT-756: strict integer regex pre-check (+ prefix parity with TS) ---
+
+    def test_plus_sign_default_raises(self) -> None:
+        """TS rejects '+3' via /^-?\\d+$/; Python must mirror (PKT-756)."""
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|1|5|+3|lower|desc\n"
+        with pytest.raises(BrainParseError, match=r"default '\+3' is not a valid integer"):
+            _extract_parameter_schema(raw)
+
+    def test_plus_sign_xcode_raises(self) -> None:
+        """TS rejects '+0' on xcode_index; Python must mirror (PKT-756)."""
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|+0|1|5|3|lower|desc\n"
+        with pytest.raises(BrainParseError, match=r"xcode_index '\+0' is not a valid integer"):
+            _extract_parameter_schema(raw)
+
+    def test_plus_sign_rangemin_raises(self) -> None:
+        """TS rejects '+1' on range_min; Python must mirror (PKT-756)."""
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|+1|5|3|lower|desc\n"
+        with pytest.raises(BrainParseError, match=r"range_min '\+1' is not a valid integer"):
+            _extract_parameter_schema(raw)
+
+    def test_plus_sign_rangemax_raises(self) -> None:
+        """TS rejects '+5' on range_max; Python must mirror (PKT-756)."""
+        from alienclaw.brains.parser import BrainParseError, _extract_parameter_schema
+        raw = "PARAMETER_SCHEMA:\nfoo|0|1|+5|3|lower|desc\n"
+        with pytest.raises(BrainParseError, match=r"range_max '\+5' is not a valid integer"):
+            _extract_parameter_schema(raw)

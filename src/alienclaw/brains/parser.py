@@ -41,6 +41,10 @@ REQUIRED_SECTIONS: tuple[str, ...] = (
     "VARIABLES",
 )
 
+# Mirrors TS intRe = /^-?\d+$/ at msb-loader.ts:148 (PKT-674 parity, PKT-756).
+# int() accepts '+N' and strips whitespace; this pre-check rejects both.
+_INT_RE = re.compile(r"^-?[0-9]+$")
+
 
 # ---------------------------------------------------------------------------
 # Low-level extractors (mirror TS extractField / extractSection helpers)
@@ -171,6 +175,17 @@ def _extract_parameter_schema(
                 f"decode_params output)"
             )
         seen_names.add(name)
+        for _label, _val in (
+            ("xcode_index", xcode_s),
+            ("range_min", rmin_s),
+            ("range_max", rmax_s),
+            ("default", default_s),
+        ):
+            if not _INT_RE.match(_val):
+                raise BrainParseError(
+                    f"PARAMETER_SCHEMA entry '{name}' in {source_path}: "
+                    f"{_label} '{_val}' is not a valid integer"
+                )
         try:
             xcode_index = int(xcode_s)
             range_min = int(rmin_s)
