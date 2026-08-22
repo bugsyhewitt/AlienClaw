@@ -84,6 +84,20 @@ async function _pullType(
 }
 
 function _writeEntry(entriesDir: string, entry: GenomeEntry): void {
+  // PKT-690: guard against non-finite / non-numeric / out-of-range fitness before disk write.
+  // The upstream server validates at submission time, but MySQL FLOAT silently loses
+  // precision (and a poisoned/mirrored upstream can emit Infinity). Without this guard the
+  // poisoned JSON would reach disk as {"fitness": null} (JSON.stringify coerces Infinity/NaN
+  // → null), which crashes Python's float(d["fitness"]) in evolution/storage.py:79 mid-loop
+  // and silently poisons the local population for the entire martian_type. Reject the entry
+  // and let the per-call error collection surface it instead.
+  if (typeof entry.fitness !== 'number' || !Number.isFinite(entry.fitness)
+      || entry.fitness < 0 || entry.fitness > 1) {
+    throw new Error(
+      `non-canonical fitness from network (must be finite number in [0, 1]; ` +
+      `got ${typeof entry.fitness} ${String(entry.fitness)})`,
+    );
+  }
   const filename = `network-${sanitizeFilenameSegment(entry.submission_id, 'submission_id')}.json`;
   const path = join(entriesDir, filename);
   // Full PopulationEntry shape (mirrors evolution/storage.py _entry_to_dict).
