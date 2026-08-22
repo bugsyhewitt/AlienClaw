@@ -22,6 +22,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from alienclaw.genome.alphabet import GENOME_LENGTH
+
 from .types import EvolutionConfig, GenerationStats, PopulationEntry
 
 
@@ -73,9 +75,16 @@ def _entry_to_dict(entry: PopulationEntry) -> dict[str, Any]:
 
 
 def _entry_from_dict(d: dict[str, Any]) -> PopulationEntry:
+    genome = d["genome"]
+    if not isinstance(genome, str) or len(genome) != GENOME_LENGTH:
+        actual = len(genome) if isinstance(genome, str) else "non-string"
+        raise ValueError(
+            f"population entry {d.get('entry_id', '<unknown>')!r} has invalid genome length "
+            f"{actual}; expected {GENOME_LENGTH}"
+        )
     return PopulationEntry(
         entry_id=d["entry_id"],
-        genome=d["genome"],
+        genome=genome,
         fitness=float(d["fitness"]),
         generation=int(d["generation"]),
         parent_ids=tuple(d.get("parent_ids", [])),
