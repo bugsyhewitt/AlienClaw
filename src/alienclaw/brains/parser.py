@@ -41,6 +41,13 @@ REQUIRED_SECTIONS: tuple[str, ...] = (
     "VARIABLES",
 )
 
+# Boundary alternation: only stop at known section headers, not any ALL-CAPS phrase.
+# Includes PARAMETER_SCHEMA (optional section following VARIABLES) as a boundary.
+# Mirrors TS SECTION_BOUNDARY_ALT constant in msb-loader.ts.
+_SECTION_BOUNDARY_ALT = "|".join(
+    re.escape(s) for s in (*REQUIRED_SECTIONS, "PARAMETER_SCHEMA")
+)
+
 
 # ---------------------------------------------------------------------------
 # Low-level extractors (mirror TS extractField / extractSection helpers)
@@ -59,12 +66,13 @@ def _extract_field(raw: str, field_name: str) -> str:
 def _extract_section(raw: str, section_name: str) -> str:
     """Extract a multi-line section's content.
 
-    Matches 'SECTION NAME:\\n<content until next ALL-CAPS heading or end-of-string>'.
-    Mirrors the corrected TS extractSection() (bug fixed: use \\Z not $ to prevent
-    the multiline flag from stopping at every line end).
+    Matches 'SECTION NAME:\\n<content until next known section header or end-of-string>'.
+    Mirrors TS extractSection() — boundary restricted to known headers only so that
+    inline ALL-CAPS phrases (e.g. 'API KEYS:', 'HTTP ERRORS:') inside a section body
+    do not silently truncate the content (PKT-705).
     """
     pattern = re.compile(
-        rf"^{re.escape(section_name)}:\s*\n([\s\S]*?)(?=\n[A-Z ]+:|\Z)",
+        rf"^{re.escape(section_name)}:\s*\n([\s\S]*?)(?=\n(?:{_SECTION_BOUNDARY_ALT}):|\Z)",
         re.MULTILINE,
     )
     m = pattern.search(raw)

@@ -552,6 +552,16 @@
       }
     },
     {
+      "name": "parse-pkt705-allcaps-phrase-in-section-body",
+      "kind": "parse_inline",
+      "input_content": "TOOL: pkt705_test\nVERSION: 1.0\n\nCAPABILITIES:\nSends HTTP requests.\nHTTP ERRORS: maps 4xx and 5xx codes to error objects.\nReturns parsed JSON bodies.\n\nLIMITATIONS:\nCannot follow more than five redirects.\nAPI KEYS: requires an API key from environment.\nCannot send multipart form data.\n\nFAILURE MODES:\nTLS HANDSHAKE: fails on self-signed certificates.\n\nBEST PRACTICES:\nAUTH HEADER: always include Authorization header.\n\nEXECUTION ORDER:\n1. Build request\n2. Send request\n3. Parse response\n\nOUTPUT CONTRACT:\n{\"status\":\"number\",\"body\":\"any\"}\n\nGENOME SECTIONS:\nIDENTITY: pkt705 identity\nEXECUTION: pkt705 execution\nBEHAVIOR: pkt705 behavior\nCHECKSUM: pkt705 checksum\n\nVARIABLES:\ntask: the natural language task\nurl: the target URL\n",
+      "expected": {
+        "tool": "pkt705_test",
+        "capabilities_line_count": 3,
+        "limitations_line_count": 3
+      }
+    },
+    {
       "name": "param-schema-comments-and-blanks",
       "kind": "parse_param_schema",
       "input_content": "TOOL: test_tool\nVERSION: 1.0\n\nCAPABILITIES:\nDoes something useful.\n\nLIMITATIONS:\nHas limits.\n\nFAILURE MODES:\nMay fail.\n\nBEST PRACTICES:\nBe careful.\n\nEXECUTION ORDER:\n1. Step one\n2. Step two\n\nOUTPUT CONTRACT:\n{\"result\": \"string\"}\n\nGENOME SECTIONS:\nIDENTITY: ID tag.\nEXECUTION: Retry encoding.\nBEHAVIOR: Escalation.\nCHECKSUM: Hash.\n\nVARIABLES:\ntask: Task description\ninput: Input value\n\nPARAMETER_SCHEMA:\n# This is a comment\n\na|0|1|5|1|lower|First\n# Another comment\nb|1|0|1|0|none|Second\n\n",
