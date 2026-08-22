@@ -693,3 +693,100 @@ describe('loadMsDirectory() — error paths', () => {
     expect(() => loadMsDirectory(missingDir, { strict: true })).toThrow(/Registry directory not found/);
   });
 });
+
+// ─── 6. parseGraveyard — PKT-688 validation gaps ─────────────────────────────
+
+describe('parseGraveyard — PKT-688 validation gaps', () => {
+  function writeWithGraveyard(filename: string, graveyardLines: string[]): string {
+    const filePath = join(tmpDir, filename);
+    const content = [
+      `# MS_TEST0001`,
+      `# description: pkt-688 test`,
+      `# generation: 1`,
+      `# status: active`,
+      `# fitness: 0.5`,
+      ``,
+      `[GENOME]`,
+      VALID_GENOME_A,
+      ``,
+      `[TOOLS]`,
+      `web_search → web_search.msb`,
+      ``,
+      `[GRAVEYARD]`,
+      ...graveyardLines,
+      ``,
+    ].join('\n');
+    writeFileSync(filePath, content);
+    return filePath;
+  }
+
+  const BOGUS_CHECKSUM_GENOME = (() => {
+    const body = VALID_GENOME_A.slice(0, 192);
+    const realChecksum = VALID_GENOME_A.slice(192);
+    const lastCharIdx = BASE62_ALPHABET.indexOf(realChecksum[63]!);
+    const corruptedChar = BASE62_ALPHABET[(lastCharIdx + 1) % 62]!;
+    return body + realChecksum.slice(0, 63) + corruptedChar;
+  })();
+
+  it('regression: valid graveyard entry (0.50 G1) is still accepted', () => {
+    const p = writeWithGraveyard('valid.ms', [`0.50 G1 ${VALID_GENOME_A}`]);
+    const spec = loadMsFile(p);
+    expect(spec.graveyard).toHaveLength(1);
+    expect(spec.graveyard[0]).toEqual({ fitnessScore: 0.50, generation: 1, genome: VALID_GENOME_A });
+  });
+
+  it('rejects out-of-range fitness > 1 (1.5)', () => {
+    const p = writeWithGraveyard('fitness-hi.ms', [`1.5 G1 ${VALID_GENOME_A}`]);
+    const spec = loadMsFile(p);
+    expect(spec.graveyard).toHaveLength(0);
+  });
+
+  it('rejects NaN fitness (. → parseFloat(".") = NaN)', () => {
+    const p = writeWithGraveyard('fitness-nan.ms', [`. G1 ${VALID_GENOME_A}`]);
+    const spec = loadMsFile(p);
+    expect(spec.graveyard).toHaveLength(0);
+  });
+
+  it('rejects multi-dot fitness token (1.2.3 → parseFloat = 1.2, out-of-range)', () => {
+    const p = writeWithGraveyard('fitness-multidot.ms', [`1.2.3 G1 ${VALID_GENOME_A}`]);
+    const spec = loadMsFile(p);
+    expect(spec.graveyard).toHaveLength(0);
+  });
+
+  it('rejects negative fitness token (-0.5 — regex-blocked, end-to-end guard)', () => {
+    const p = writeWithGraveyard('fitness-neg.ms', [`-0.5 G1 ${VALID_GENOME_A}`]);
+    const spec = loadMsFile(p);
+    expect(spec.graveyard).toHaveLength(0);
+  });
+
+  it('rejects negative generation (G-5 — regex-blocked, end-to-end guard)', () => {
+    const p = writeWithGraveyard('gen-neg.ms', [`0.5 G-5 ${VALID_GENOME_A}`]);
+    const spec = loadMsFile(p);
+    expect(spec.graveyard).toHaveLength(0);
+  });
+
+  it('rejects non-integer generation (G1.5 — regex-blocked, end-to-end guard)', () => {
+    const p = writeWithGraveyard('gen-float.ms', [`0.5 G1.5 ${VALID_GENOME_A}`]);
+    const spec = loadMsFile(p);
+    expect(spec.graveyard).toHaveLength(0);
+  });
+
+  it('rejects entry with invalid-checksum genome (bogus last checksum char)', () => {
+    const p = writeWithGraveyard('bad-checksum.ms', [`0.5 G1 ${BOGUS_CHECKSUM_GENOME}`]);
+    const spec = loadMsFile(p);
+    expect(spec.graveyard).toHaveLength(0);
+  });
+
+  it('keeps valid entries when mixed with invalid ones', () => {
+    const p = writeWithGraveyard('mixed.ms', [
+      `0.50 G1 ${VALID_GENOME_A}`,
+      `1.5 G1 ${VALID_GENOME_B}`,
+      `0.65 G2 ${VALID_GENOME_B}`,
+      `0.5 G1 ${BOGUS_CHECKSUM_GENOME}`,
+    ]);
+    const spec = loadMsFile(p);
+    expect(spec.graveyard).toHaveLength(2);
+    expect(spec.graveyard[0]).toEqual({ fitnessScore: 0.50, generation: 1, genome: VALID_GENOME_A });
+    expect(spec.graveyard[1]).toEqual({ fitnessScore: 0.65, generation: 2, genome: VALID_GENOME_B });
+  });
+});
