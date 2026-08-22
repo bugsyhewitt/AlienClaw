@@ -97,7 +97,7 @@
  *   - isCampaignSubGoal: true when subGoalId matches a campaign id, false otherwise
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GovernanceLoop } from '../../../src/alienclaw/governance/common/governance-loop.js';
 import type { BossBot }            from '../../../src/alienclaw/agents/bossbot.js';
 import type { AdvisorBot }         from '../../../src/alienclaw/agents/advisorbot.js';
@@ -321,5 +321,209 @@ describe('GovernanceLoop.isCampaignSubGoal — campaign vs legacy disambiguation
     };
     const isCampaign = (loop as unknown as { isCampaignSubGoal: (f: GoalsFile, id: string) => boolean }).isCampaignSubGoal;
     expect(isCampaign(file, 'sg-1')).toBe(false);
+  });
+});
+
+// ── 5. PKT-658 — null element iteration guards ──────────────────────────────
+
+describe('GovernanceLoop — PKT-658 null subGoal / null campaign / null subagent element on disk', () => {
+
+  // Helper: make a GovernanceLoop with a GoalManager that returns the given GoalsFile,
+  // stubs save() + attachScheme(), and spies on dispatchReadyCampaigns / dispatchReadySubGoals.
+  function makeLoopForResume(file: GoalsFile): GovernanceLoop {
+    const goalManager = {
+      load:         () => file,
+      save:         vi.fn().mockResolvedValue(undefined),
+      attachScheme: vi.fn().mockResolvedValue(undefined),
+    } as unknown as GoalManager;
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot:        noopAdvisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+    vi.spyOn(loop as any, 'dispatchReadyCampaigns').mockResolvedValue(undefined);
+    vi.spyOn(loop as any, 'dispatchReadySubGoals').mockResolvedValue(undefined);
+    return loop;
+  }
+
+  // Helper: make a GovernanceLoop for spawnCampaign tests.
+  // Provides a stubbed campaignCreatorBot and spies on runJob to prevent full execution.
+  function makeLoopForSpawnCampaign(): GovernanceLoop {
+    const goalManager = {
+      load:           vi.fn().mockReturnValue({ version: '1', activeGoalId: null, goals: [] }),
+      updateCampaign: vi.fn().mockResolvedValue(undefined),
+    } as unknown as GoalManager;
+    const userChannel: UserChannel = {
+      required: () => {},
+      verbose:  () => {},
+      status:   () => {},
+      close:    () => {},
+    } as unknown as UserChannel;
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot:        noopAdvisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel,
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+      campaignCreatorBot: { buildSubagent: vi.fn().mockReturnValue({ id: 'fake-sa' }) } as any,
+    });
+    vi.spyOn(loop as any, 'runJob').mockReturnValue(Promise.resolve());
+    return loop;
+  }
+
+  // Helper: make a GovernanceLoop for handleJobComplete / handleJobFailed tests
+  // with a goal whose subGoals array contains null elements.
+  function makeLoopForJobEvent(subGoals: unknown[]): GovernanceLoop {
+    const file = {
+      version:      '1',
+      activeGoalId: 'g1',
+      goals: [{
+        id: 'g1', description: 'test goal', status: 'active', createdAt: 0,
+        subGoals,
+        // No scheme → isCampaignSubGoal returns false for any subGoalId
+      }],
+    };
+    const goalManager = {
+      load:           vi.fn(() => file),
+      updateSubGoal:  vi.fn().mockResolvedValue(undefined),
+      isGoalComplete: vi.fn(() => false),
+    } as unknown as GoalManager;
+    const loop = new GovernanceLoop({
+      bossBot:           noopBossBot,
+      advisorBot:        noopAdvisorBot,
+      creatorBot:        noopCreatorBot,
+      agentRegistry:     noopAgentRegistry,
+      goalManager,
+      taskManager:       noopTaskManager,
+      escalationHandler: noopEscalationHandler,
+      completionHandler: noopCompletionHandler,
+      userChannel:       makeUserChannel(),
+      agentChannel:      noopAgentChannel,
+      adapter:           noopAdapter,
+    });
+    vi.spyOn(loop as any, 'dispatchReadySubGoals').mockResolvedValue(undefined);
+    return loop;
+  }
+
+  // ── resumeGoal ────────────────────────────────────────────────────────────
+
+  it('resumeGoal survives null element in scheme.campaigns', async () => {
+    const file: GoalsFile = {
+      version: '1', activeGoalId: 'g1',
+      goals: [{
+        id: 'g1', description: 'scheme goal', status: 'active', createdAt: 0,
+        subGoals: [{ id: 'sg1', description: 'd', domain: 'general', status: 'pending', dependsOn: [] }],
+        scheme: {
+          goalId: 'g1', rationale: '', advisorEndorsement: '', createdAt: 0,
+          campaigns: [null as any, { id: 'c1', name: 'C', objective: 'o', subagents: [], dependsOn: [], status: 'active' }],
+        },
+      }],
+    };
+    const loop = makeLoopForResume(file);
+    await expect((loop as any).resumeGoal('g1')).resolves.toBeUndefined();
+  });
+
+  it('resumeGoal survives null element in subGoals (scheme branch)', async () => {
+    const file: GoalsFile = {
+      version: '1', activeGoalId: 'g1',
+      goals: [{
+        id: 'g1', description: 'scheme goal', status: 'active', createdAt: 0,
+        subGoals: [null as any, { id: 'sg1', description: 'd', domain: 'general', status: 'active', dependsOn: [] }],
+        scheme: {
+          goalId: 'g1', rationale: '', advisorEndorsement: '', createdAt: 0,
+          campaigns: [{ id: 'c1', name: 'C', objective: 'o', subagents: [], dependsOn: [], status: 'pending' }],
+        },
+      }],
+    };
+    const loop = makeLoopForResume(file);
+    await expect((loop as any).resumeGoal('g1')).resolves.toBeUndefined();
+  });
+
+  it('resumeGoal survives null element in subGoals (legacy branch)', async () => {
+    const file: GoalsFile = {
+      version: '1', activeGoalId: 'g1',
+      goals: [{
+        id: 'g1', description: 'legacy goal', status: 'active', createdAt: 0,
+        subGoals: [null as any, { id: 'sg1', description: 'd', domain: 'general', status: 'active', dependsOn: [] }],
+      }],
+    };
+    const loop = makeLoopForResume(file);
+    await expect((loop as any).resumeGoal('g1')).resolves.toBeUndefined();
+  });
+
+  it('resumeGoal survives goal.subGoals === null', async () => {
+    const file = {
+      version: '1', activeGoalId: 'g1',
+      goals: [{ id: 'g1', description: 'legacy goal', status: 'active', createdAt: 0, subGoals: null }],
+    } as unknown as GoalsFile;
+    const loop = makeLoopForResume(file);
+    await expect((loop as any).resumeGoal('g1')).resolves.toBeUndefined();
+  });
+
+  it('resumeGoal survives goal.scheme.campaigns === null (whole-array null)', async () => {
+    const file = {
+      version: '1', activeGoalId: 'g1',
+      goals: [{
+        id: 'g1', description: 'scheme goal', status: 'active', createdAt: 0,
+        subGoals: [],
+        scheme: { goalId: 'g1', rationale: '', advisorEndorsement: '', createdAt: 0, campaigns: null },
+      }],
+    } as unknown as GoalsFile;
+    const loop = makeLoopForResume(file);
+    await expect((loop as any).resumeGoal('g1')).resolves.toBeUndefined();
+  });
+
+  // ── spawnCampaign ─────────────────────────────────────────────────────────
+
+  it('spawnCampaign survives null element in campaign.subagents', async () => {
+    const loop = makeLoopForSpawnCampaign();
+    const campaign = {
+      id: 'c1', name: 'Campaign', objective: 'do the thing',
+      subagents: [null as any, { martianTags: ['compute'], knowledgeBase: 'kb' }],
+      dependsOn: [], status: 'pending',
+    };
+    await expect((loop as any).spawnCampaign('g1', campaign)).resolves.toBeUndefined();
+  });
+
+  it('spawnCampaign survives campaign.subagents === null', async () => {
+    const loop = makeLoopForSpawnCampaign();
+    const campaign = {
+      id: 'c1', name: 'Campaign', objective: 'do the thing',
+      subagents: null as any,
+      dependsOn: [], status: 'pending',
+    };
+    await expect((loop as any).spawnCampaign('g1', campaign)).resolves.toBeUndefined();
+  });
+
+  // ── handleJobComplete / handleJobFailed ──────────────────────────────────
+
+  it('handleJobComplete survives null subGoal in goal.subGoals', async () => {
+    const loop = makeLoopForJobEvent([null]);
+    const event = {
+      type: 'JOB_COMPLETE' as const,
+      goalId: 'g1', subGoalId: 'sg-missing',
+      result: { taskId: 't1', subagentId: 'sa1', outcome: 'SUCCESS' as const, summary: 'done', ts: 0 },
+    };
+    await expect((loop as any).handleJobComplete(event)).resolves.toBeUndefined();
+  });
+
+  it('handleJobFailed survives null subGoal in goal.subGoals', async () => {
+    const loop = makeLoopForJobEvent([null]);
+    const event = { type: 'JOB_FAILED' as const, goalId: 'g1', subGoalId: 'sg-missing', error: 'timeout' };
+    await expect((loop as any).handleJobFailed(event)).resolves.toBeUndefined();
   });
 });
