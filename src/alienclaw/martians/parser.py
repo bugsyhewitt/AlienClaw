@@ -1,7 +1,9 @@
 """Parse a .martian YAML file into a MartianSpec."""
 from __future__ import annotations
-from pathlib import Path
+
+import re
 from typing import Any
+
 import yaml
 
 from .types import InputWiring, MartianSpec, SlotDeclaration
@@ -9,6 +11,28 @@ from .types import InputWiring, MartianSpec, SlotDeclaration
 
 class MartianParseError(ValueError):
     """Raised when a .martian file cannot be parsed."""
+
+
+_STRICT_SLOT_INDEX_RE = re.compile(r"-?\d+$")
+
+
+def _parse_strict_slot_index(raw: Any, source_path: str, slot_num: int) -> int:
+    """Mirror TS _parseStrictSlotIndex (parser.ts:242-258). Accept native int,
+    reject bool, else accept digit-string via re.fullmatch(r"-?\\d+", s)."""
+    if isinstance(raw, bool):
+        raise MartianParseError(
+            f"{source_path}: slot {slot_num} slot_index must be a finite integer, "
+            f"got {type(raw).__name__} ({raw!r})"
+        )
+    if isinstance(raw, int):
+        return raw
+    s = str(raw).strip()
+    if not _STRICT_SLOT_INDEX_RE.fullmatch(s):
+        raise MartianParseError(
+            f"{source_path}: slot {slot_num} slot_index must be a finite integer, "
+            f"got {type(raw).__name__} ({raw!r})"
+        )
+    return int(s)
 
 
 def parse_martian(content: str, source_path: str = "<string>") -> MartianSpec:
@@ -61,7 +85,7 @@ def parse_martian(content: str, source_path: str = "<string>") -> MartianSpec:
         for req in ("slot_index", "tool_name"):
             if req not in slot_raw:
                 raise MartianParseError(f"{source_path}: slot {i} missing '{req}'")
-        slot_index = int(slot_raw["slot_index"])
+        slot_index = _parse_strict_slot_index(slot_raw["slot_index"], source_path, i)
         raw_tool_name = slot_raw["tool_name"]
         if isinstance(raw_tool_name, bool) or not isinstance(raw_tool_name, str):
             raise MartianParseError(

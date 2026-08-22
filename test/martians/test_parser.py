@@ -141,3 +141,86 @@ class TestParseMartian:
             "martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: \"42\"\n"
         )
         assert spec.slots[0].tool_name == "42"
+
+
+class TestParseMartianSlotIndexTypeGuard:
+    """Mirrors the TS describe block at parser.test.ts:772-828 (PKT-534).
+    Verifies parser.py:64 rejects non-finite-integer slot_index with MartianParseError
+    (not silently truncating, coercing, or leaking TypeError/ValueError/OverflowError)."""
+
+    def test_slot_index_float_truncates_raises(self):
+        """Case 1: slot_index: 1.5 must NOT silently truncate to 1."""
+        with pytest.raises(MartianParseError, match="slot_index must be a finite integer"):
+            parse_martian(
+                "martian_type: x\nslots:\n  - slot_index: 1.5\n    tool_name: compute\n    inputs_from: null\n"
+            )
+
+    def test_slot_index_integer_valued_float_raises(self):
+        """Case 2: slot_index: 2.0 must NOT silently coerce to 2."""
+        with pytest.raises(MartianParseError, match="slot_index must be a finite integer"):
+            parse_martian(
+                "martian_type: x\nslots:\n  - slot_index: 2.0\n    tool_name: compute\n    inputs_from: null\n"
+            )
+
+    def test_slot_index_quoted_integer_string_accepts(self):
+        """Case 3: slot_index: "0" (quoted string) MUST accept — preserves TS parity."""
+        spec = parse_martian(
+            "martian_type: x\nslots:\n  - slot_index: \"0\"\n    tool_name: compute\n    inputs_from: null\n"
+        )
+        assert spec.slots[0].slot_index == 0
+
+    def test_slot_index_quoted_integer_string_seven_accepts(self):
+        """Case 3 (extended): slot_index: "7" — explicitly required by TS twin parity test."""
+        spec = parse_martian(
+            "martian_type: x\nslots:\n  - slot_index: \"7\"\n    tool_name: compute\n    inputs_from: null\n"
+        )
+        assert spec.slots[0].slot_index == 7
+
+    def test_slot_index_null_raises_martianparseerror_not_typeerror(self):
+        """Case 4: slot_index: null must wrap TypeError as MartianParseError (contract)."""
+        with pytest.raises(MartianParseError, match="slot_index must be a finite integer"):
+            parse_martian(
+                "martian_type: x\nslots:\n  - slot_index: null\n    tool_name: compute\n    inputs_from: null\n"
+            )
+
+    def test_slot_index_true_raises_martianparseerror_not_silent_coerce(self):
+        """Case 5: slot_index: true must NOT silently coerce to 1 (Python bool is int subclass)."""
+        with pytest.raises(MartianParseError, match="slot_index must be a finite integer"):
+            parse_martian(
+                "martian_type: x\nslots:\n  - slot_index: true\n    tool_name: compute\n    inputs_from: null\n"
+            )
+
+    def test_slot_index_huge_float_raises_martianparseerror_not_valueerror(self):
+        """Case 6: slot_index: 1e100 must wrap ValueError as MartianParseError (contract)."""
+        with pytest.raises(MartianParseError, match="slot_index must be a finite integer"):
+            parse_martian(
+                "martian_type: x\nslots:\n  - slot_index: 1e100\n    tool_name: compute\n    inputs_from: null\n"
+            )
+
+    def test_slot_index_inf_raises_martianparseerror_not_overflowerror(self):
+        """Case 8: slot_index: .inf must wrap OverflowError as MartianParseError (contract)."""
+        with pytest.raises(MartianParseError, match="slot_index must be a finite integer"):
+            parse_martian(
+                "martian_type: x\nslots:\n  - slot_index: .inf\n    tool_name: compute\n    inputs_from: null\n"
+            )
+
+    def test_slot_index_nan_raises_martianparseerror_not_valueerror(self):
+        """Case 9: slot_index: .nan must wrap ValueError as MartianParseError (contract)."""
+        with pytest.raises(MartianParseError, match="slot_index must be a finite integer"):
+            parse_martian(
+                "martian_type: x\nslots:\n  - slot_index: .nan\n    tool_name: compute\n    inputs_from: null\n"
+            )
+
+    def test_slot_index_negative_accepted_at_parse_caught_by_validator(self):
+        """Case 7: slot_index: -1 — matches TS twin, caught downstream by validator."""
+        spec = parse_martian(
+            "martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n  - slot_index: -1\n    tool_name: extract_json\n    inputs_from: null\n"
+        )
+        assert spec.slots[1].slot_index == -1
+
+    def test_slot_index_valid_non_negative_int_accepts(self):
+        """Regression guard: slot_index: 0 (canonical valid) — preserved."""
+        spec = parse_martian(
+            "martian_type: x\nslots:\n  - slot_index: 0\n    tool_name: compute\n    inputs_from: null\n"
+        )
+        assert spec.slots[0].slot_index == 0
