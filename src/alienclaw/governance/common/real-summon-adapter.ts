@@ -55,10 +55,11 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
         { shell: false, env: { ...process.env, PYTHONPATH: 'src' } },
       );
 
+      let sigkillTimer: NodeJS.Timeout | null = null;
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill('SIGTERM');
-        setTimeout(() => { child.kill('SIGKILL'); }, 5000);
+        sigkillTimer = setTimeout(() => { child.kill('SIGKILL'); }, 5000);
       }, timeoutMs);
 
       child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
@@ -74,6 +75,7 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
 
       child.on('close', (exitCode) => {
         clearTimeout(timer);
+        if (sigkillTimer) clearTimeout(sigkillTimer);
 
         if (timedOut) {
           resolve({

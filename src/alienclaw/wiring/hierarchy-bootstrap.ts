@@ -317,9 +317,10 @@ export function bootstrap(): BootstrapResult {
       const child = spawn('python3', ['-m', 'alienclaw.bridge'], { shell: false });
       let stdout = '';
       let stderrBuf = '';
+      let sigkillTimer: NodeJS.Timeout | null = null;
       const timer = setTimeout(() => {
         child.kill('SIGTERM');
-        setTimeout(() => { child.kill('SIGKILL'); }, 5000);
+        sigkillTimer = setTimeout(() => { child.kill('SIGKILL'); }, 5000);
       }, 30_000);
       child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
       child.stderr.on('data', (chunk: Buffer) => { stderrBuf += chunk.toString('utf8'); });
@@ -327,11 +328,13 @@ export function bootstrap(): BootstrapResult {
       child.stdin.end();
       child.on('close', (exitCode) => {
         clearTimeout(timer);
+        if (sigkillTimer) clearTimeout(sigkillTimer);
         handleLiveEvoResponse(martianType, exitCode, stdout, stderrBuf);
         resolve();
       });
       child.on('error', (err) => {
         clearTimeout(timer);
+        if (sigkillTimer) clearTimeout(sigkillTimer);
         creatorBot.enqueue('NOTABLE',
           `live-evo spawn failed for ${martianType}: ${err.message}`,
           'live-evo-check');

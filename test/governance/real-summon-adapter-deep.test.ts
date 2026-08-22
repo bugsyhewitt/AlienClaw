@@ -583,6 +583,44 @@ describe('RealMartianSummonAdapter — timeout path', () => {
     expect(result.ok).toBe(false);
     expect(result.error).toBe('TIMEOUT after 20ms');
   }, 8000);
+
+  it('clears the 5s SIGKILL timer when child closes after SIGTERM (PKT-753)', async () => {
+    const origSetTimeout = globalThis.setTimeout;
+    const origClear = globalThis.clearTimeout;
+    const handles: { id: NodeJS.Timeout; cleared: boolean }[] = [];
+
+    globalThis.setTimeout = vi.fn((cb: any, ms?: number, ...args: any[]) => {
+      const id = origSetTimeout(cb, ms, ...args);
+      handles.push({ id, cleared: false });
+      return id;
+    }) as any;
+    globalThis.clearTimeout = vi.fn((id: any) => {
+      const h = handles.find(h => h.id === id);
+      if (h) h.cleared = true;
+      return origClear(id);
+    }) as any;
+
+    try {
+      const adapter = new RealMartianSummonAdapter();
+      const promise = adapter.summon(makeRequest({ timeout_ms: 10 }));
+
+      // Wait for outer 10ms SIGTERM timer to fire and arm inner 5s SIGKILL timer
+      await new Promise<void>(r => origSetTimeout(r, 40));
+
+      const child = fakeChildAt(0);
+      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+
+      // Child responds to SIGTERM by closing — fix must clear BOTH timers
+      child.emit('close', 143);
+      await promise;
+
+      const uncleared = handles.filter(h => !h.cleared);
+      expect(uncleared, 'no timers should remain armed after child close (PKT-753)').toEqual([]);
+    } finally {
+      globalThis.setTimeout = origSetTimeout;
+      globalThis.clearTimeout = origClear;
+    }
+  });
 });
 
 // ── 8. stderr truncation ─────────────────────────────────────────────────
