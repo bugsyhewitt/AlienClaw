@@ -58,9 +58,12 @@ export class SubagentAdapter implements GenomeAdapter {
     const raws: ReturnType<typeof rawObjectiveVector>[] = [];
 
     for (const task of batch) {
-      const roleLen = (candidate.editable["role"] ?? "").length;
-      const decompLen = (candidate.editable["decomposition"] ?? "").length;
-      const correctnessScore = Math.min(1, (roleLen + decompLen) / 500);
+      // PKT-726: typeof-guard before .length; non-strings (number/boolean/object) yield
+      // undefined.length → NaN via `?? ""` which only catches null/undefined.
+      const roleLen   = typeof candidate.editable["role"]          === "string" ? candidate.editable["role"].length          : 0;
+      const decompLen = typeof candidate.editable["decomposition"] === "string" ? candidate.editable["decomposition"].length : 0;
+      const rawScore = (roleLen + decompLen) / 500;
+      const correctnessScore = Number.isFinite(rawScore) ? Math.max(0, Math.min(1, rawScore)) : 0;
       const wallMs = 200 + (opts.seed % 800);
       const dollars = 0.002;
       const slotCount = candidate.toolSlots.length || 1;
