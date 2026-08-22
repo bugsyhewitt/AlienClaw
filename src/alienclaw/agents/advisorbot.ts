@@ -13,6 +13,25 @@ import type { TierAAgent } from '../constants.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOUL_PATH  = join(__dirname, '..', 'prompts', 'advisorbot.soul.md');
 
+// ── Shape validator (PKT-694) ─────────────────────────────────────────────────
+
+const CONFIDENCE_LITERALS = ['low', 'medium', 'high'] as const;
+
+function validateAdviceResponse(parsed: unknown): AdviceResponse | null {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+  const r = parsed as Record<string, unknown>;
+  if (typeof r.verdict        !== 'string') return null;
+  if (typeof r.confidence     !== 'string' || !CONFIDENCE_LITERALS.includes(r.confidence as never)) return null;
+  if (!Array.isArray(r.blindspots) || r.blindspots.some((b: unknown) => typeof b !== 'string')) return null;
+  if (typeof r.recommendation !== 'string') return null;
+  return {
+    verdict:        r.verdict        as string,
+    confidence:     r.confidence     as 'low' | 'medium' | 'high',
+    blindspots:     r.blindspots     as string[],
+    recommendation: r.recommendation as string,
+  };
+}
+
 // ── AdvisorBot ────────────────────────────────────────────────────────────────
 
 export class AdvisorBot {
@@ -73,7 +92,12 @@ export class AdvisorBot {
   static parseResponse(raw: string): AdviceResponse {
     return parseModelJson(
       raw,
-      parsed => parsed as AdviceResponse,
+      parsed => validateAdviceResponse(parsed) ?? {
+        verdict:        '<malformed LLM JSON>',
+        confidence:     'low',
+        blindspots:     ['advisor_response_shape_mismatch'],
+        recommendation: 'review AdvisorBot output shape',
+      },
       clean => ({
         verdict:        clean || raw.trim(),
         confidence:     'medium',
