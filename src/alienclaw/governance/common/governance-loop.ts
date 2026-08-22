@@ -393,7 +393,16 @@ export class GovernanceLoop {
       success_criteria: campaign.objective,
     };
 
-    const subagent = this.campaignCreatorBot!.buildSubagent(rawDomain ?? martianType, {
+    if (!this.campaignCreatorBot) {
+      this.pushEvent({
+        type:      'JOB_FAILED',
+        subGoalId: campaign.id,
+        goalId,
+        error:     `Campaign "${campaign.name}" rejected: campaignCreatorBot is not wired`,
+      });
+      return;
+    }
+    const subagent = this.campaignCreatorBot.buildSubagent(rawDomain ?? martianType, {
       campaignId:        campaign.id,
       objective:         campaign.objective,
       successCriteria:   campaign.objective,
@@ -646,7 +655,16 @@ export class GovernanceLoop {
       const retryInputs: Record<string, unknown> = {
         plan: task.description, success_criteria: task.description,
       };
-      const retrySubagent = this.campaignCreatorBot!.buildSubagent(subGoal.domain, {
+      if (!this.campaignCreatorBot) {
+        this.pushEvent({
+          type:      'JOB_FAILED',
+          subGoalId: event.subGoalId,
+          goalId:    event.goalId,
+          error:     `Sub-goal retry "${subGoal.description}" rejected: campaignCreatorBot is not wired`,
+        });
+        return;
+      }
+      const retrySubagent = this.campaignCreatorBot.buildSubagent(subGoal.domain, {
         campaignId:      subGoal.id,
         objective:       task.description,
         allowedMartians: [subGoal.domain],
@@ -787,7 +805,16 @@ export class GovernanceLoop {
     const campaignInputs: Record<string, unknown> = {
       plan: subGoal.description, success_criteria: subGoal.description,
     };
-    const subagent = this.campaignCreatorBot!.buildSubagent(subGoal.domain, {
+    if (!this.campaignCreatorBot) {
+      this.pushEvent({
+        type:      'JOB_FAILED',
+        subGoalId: subGoal.id,
+        goalId,
+        error:     `Sub-goal "${subGoal.description}" rejected: campaignCreatorBot is not wired`,
+      });
+      return;
+    }
+    const subagent = this.campaignCreatorBot.buildSubagent(subGoal.domain, {
       campaignId:      subGoal.id,
       objective:       subGoal.description,
       allowedMartians: [subGoal.domain],
