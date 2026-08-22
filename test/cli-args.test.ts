@@ -293,13 +293,43 @@ describe('parseCliArgs — non-integer flag values (PKT-629)', () => {
     expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', 'Infinity')).type).toBe('unknown');
   });
 
-  it('R-106: --generations 1e100 returns evolve (documented decision: isInteger passes; Python argparse is second defense)', () => {
-    const r = parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', '1e100'));
-    expect(r.type).toBe('evolve');
-    if (r.type === 'evolve') expect(r.args.generations).toBe(1e100);
+  it('R-106: --generations 1e100 returns unknown (PKT-903 fix: unsafe-integer rejected at TS boundary; supersedes pre-fix R-106)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', '1e100')).type).toBe('unknown');
   });
 
   it('R-107: --seed -5 returns unknown (negative seed rejected)', () => {
     expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--seed', '-5')).type).toBe('unknown');
+  });
+
+  // PKT-903 — additional regression tests for the unsafe-integer (MAX_SAFE_INT+) gap.
+  // The pre-fix code used `Number.isInteger` which is true for any integer-valued
+  // JS number including values > MAX_SAFE_INTEGER (2^53 - 1). String(N) of those
+  // values survives the Python argparse `type=int` boundary, and `experiment.py:46`
+  // enters `range(generations)` — a multi-billion-year DoS loop.
+
+  it('R-108: --generations 9007199254740992 (MAX_SAFE_INT+1) returns unknown (PKT-903 fix)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', '9007199254740992')).type).toBe('unknown');
+  });
+
+  it('R-109: --generations 9007199254740993 (MAX_SAFE_INT+2, precision-loss) returns unknown (PKT-903 fix)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', '9007199254740993')).type).toBe('unknown');
+  });
+
+  it('R-110: --generations 100000000000000000000 (10^20) returns unknown (PKT-903 fix — the DoS surface)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', '100000000000000000000')).type).toBe('unknown');
+  });
+
+  it('R-111: --population 9007199254740993 returns unknown (PKT-903 fix — symmetric with generations)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--population', '9007199254740993')).type).toBe('unknown');
+  });
+
+  it('R-112: --seed 9007199254740993 returns unknown (PKT-903 fix — symmetric with generations)', () => {
+    expect(parseCliArgs(cli('evolve', '--type', 'compute_alone', '--seed', '9007199254740993')).type).toBe('unknown');
+  });
+
+  it('R-113: --generations 9007199254740991 (MAX_SAFE_INT boundary) STILL accepted (regression guard, PKT-903 fix)', () => {
+    const r = parseCliArgs(cli('evolve', '--type', 'compute_alone', '--generations', '9007199254740991'));
+    expect(r.type).toBe('evolve');
+    if (r.type === 'evolve') expect(r.args.generations).toBe(9007199254740991);
   });
 });
