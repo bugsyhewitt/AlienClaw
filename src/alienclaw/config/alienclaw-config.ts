@@ -11,14 +11,34 @@ function ensureDir(filePath: string): void {
 }
 
 function loadOrCreate<T>(path: string, defaults: T): T {
+  let raw: string;
   try {
-    return { ...defaults, ...JSON.parse(readFileSync(path, 'utf-8')) as T };
+    raw = readFileSync(path, 'utf-8');
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     ensureDir(path);
     writeFileSync(path, JSON.stringify(defaults, null, 2), 'utf-8');
     return defaults;
   }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (syntaxErr) {
+    // PKT-088 / R-301 — malformed JSON re-thrown with file-path context.
+    throw new Error(`Malformed JSON at ${path}: ${(syntaxErr as Error).message}`);
+  }
+  // PKT-652 — non-object JSON is a silent corruption vector.
+  // {..."hi"} → {0:"h",1:"i",...} poisons the singleton with character-index keys.
+  // Return defaults and warn so the user notices the bad file.
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    const kind = parsed === null ? 'null' : Array.isArray(parsed) ? 'array' : typeof parsed;
+    process.stderr.write(
+      `[AlienClaw] WARNING: ${path} contains valid JSON but not an object (got ${kind}). ` +
+      `Falling back to defaults; please repair or delete ${path}.\n`,
+    );
+    return defaults;
+  }
+  return { ...defaults, ...parsed as Partial<T> };
 }
 
 export class AlienClawConfigManager {
