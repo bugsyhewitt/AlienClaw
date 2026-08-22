@@ -202,6 +202,31 @@ describe('extractJsonSubstring', () => {
     const arr = '[{"id":1},{"id":2}]';
     expect(extractJsonSubstring('prefix ' + arr + ' suffix')).toBe(arr);
   });
+
+  // PKT-703: leading-bracket-prose patterns — first balanced ≠ first parseable
+  it('pkt703: skips [NOTE] label, returns the JSON object that follows', () => {
+    expect(extractJsonSubstring('[NOTE]\n{"x":1}')).toBe('{"x":1}');
+  });
+
+  it('pkt703: skips {note} label, returns the JSON object that follows', () => {
+    expect(extractJsonSubstring('{note}\n{"x":1}')).toBe('{"x":1}');
+  });
+
+  it('pkt703: skips conversational [here we go] preamble bracket', () => {
+    expect(extractJsonSubstring('Sure, [here we go]\n{"x":1}')).toBe('{"x":1}');
+  });
+
+  it('pkt703: multiple non-JSON brackets before JSON — returns first parseable', () => {
+    expect(extractJsonSubstring('prose {draft} {"x":1} trailing')).toBe('{"x":1}');
+  });
+
+  it('pkt703: unbalanced leading bracket skipped — extracts JSON nested inside', () => {
+    expect(extractJsonSubstring('[invalid {"x":1}')).toBe('{"x":1}');
+  });
+
+  it('pkt703: [bracket with no body] label skipped, JSON object returned', () => {
+    expect(extractJsonSubstring('[bracket with no body]\n{"x":1}')).toBe('{"x":1}');
+  });
 });
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -302,6 +327,29 @@ describe('parseModelJson', () => {
   it('falls to text path when onJson callback throws', () => {
     const r = parseModelJson('{"a":1}', () => { throw new Error('nope'); }, textCb);
     expect(r.path).toBe('text');
+  });
+
+  // PKT-703: LLM prose + bracketed label + JSON — must route to json path
+  it('pkt703 shape A: prose + [NOTE] + JSON object routes to json path', () => {
+    const raw = 'Sure, here is the analysis.\n[NOTE]\n{"verdict": "go", "confidence": "high"}';
+    const r = parseModelJson(raw, jsonCb, textCb);
+    expect(r.path).toBe('json');
+    expect((r.val as { verdict: string }).verdict).toBe('go');
+  });
+
+  it('pkt703 shape B: prose + {draft} + JSON object routes to json path', () => {
+    const raw = 'OK {draft}\n{"verdict": "go", "confidence": "high"}';
+    const r = parseModelJson(raw, jsonCb, textCb);
+    expect(r.path).toBe('json');
+    expect((r.val as { verdict: string }).verdict).toBe('go');
+  });
+
+  it('pkt703 shape C: prose + [NOTE] + JSON array routes to json path', () => {
+    const raw = 'Here is the breakdown.\n[NOTE]\n[{"description": "d1", "domain": "x"}, {"description": "d2", "domain": "y"}]';
+    const r = parseModelJson(raw, jsonCb, textCb);
+    expect(r.path).toBe('json');
+    expect(Array.isArray(r.val)).toBe(true);
+    expect((r.val as unknown[]).length).toBe(2);
   });
 });
 
