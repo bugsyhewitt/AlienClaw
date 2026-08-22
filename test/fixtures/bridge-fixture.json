@@ -426,7 +426,7 @@
       "expected_request_id_echoed": true
     },
     {
-      "description": "protocol: fitness scales with tool_calls (validation_count=3, slot_count=1, excess=2 \u2192 1/1.2\u22480.833 under Option C-prime)",
+      "description": "protocol: fitness = graded correctness \u00d7 efficiency (validation_count=3, slot_count=1, excess=2 \u2192 efficiency 1/1.2\u22480.833; this genome emits output_format=4 \u2192 correctness 4/6; fitness \u2248 0.556)",
       "request": {
         "bridge_version": "1.0",
         "request_id": "550e8400-e29b-41d4-a716-000000000023",
@@ -441,7 +441,7 @@
         }
       },
       "expected_ok": true,
-      "expected_fitness": 0.8333333333333334
+      "expected_fitness": 0.5555555555555556
     },
     {
       "description": "protocol: run_metadata.tool_calls present",
