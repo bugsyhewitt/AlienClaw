@@ -47,6 +47,7 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
     let stdout = '';
     let stderrBuf = '';
     let timedOut = false;
+    let sigkillTimer: NodeJS.Timeout | undefined;
 
     const result = await new Promise<MartianSummonResult>((resolve) => {
       const child = spawn(
@@ -58,7 +59,7 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill('SIGTERM');
-        setTimeout(() => { child.kill('SIGKILL'); }, 5000);
+        sigkillTimer = setTimeout(() => { child.kill('SIGKILL'); }, 5000);
       }, timeoutMs);
 
       child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
@@ -74,6 +75,7 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
 
       child.on('close', (exitCode) => {
         clearTimeout(timer);
+        if (sigkillTimer !== undefined) clearTimeout(sigkillTimer);
 
         if (timedOut) {
           resolve({
