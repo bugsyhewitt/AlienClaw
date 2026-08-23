@@ -305,6 +305,57 @@ describe('pullTopGenomes — write-error resilience (packet 104)', () => {
   });
 });
 
+// ── PKT-906 — sync/pull._writeEntry atomicity on crash ────────────────────
+
+describe('pullTopGenomes — _writeEntry atomicity (PKT-906)', () => {
+  it('produces a complete, parse-valid JSON file (no truncation) (pull.ts:107)', async () => {
+    const client = new StubClient({
+      top: { compute: topGenomes('compute', [
+        makeGenomeEntry({ submission_id: 'atomic-1', fitness: 0.77, generation: 4 }),
+      ])},
+    });
+    await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+
+    const entriesDir = join(root, 'compute', 'entries');
+    const files = readdirSync(entriesDir);
+    expect(files).toEqual(['network-atomic-1.json']);
+
+    const record = JSON.parse(readFileSync(join(entriesDir, 'network-atomic-1.json'), 'utf-8'));
+    expect(record).toMatchObject({
+      entry_id:   'network-atomic-1',
+      fitness:    0.77,
+      generation: 4,
+      parent_ids: [],
+      run_metadata: expect.objectContaining({ source: 'network', submission_id: 'atomic-1' }),
+    });
+    expect(typeof record.created_at).toBe('string');
+    expect(typeof record.genome).toBe('string');
+  });
+
+  it('leaves zero .tmp-* leftovers in the entries dir after a successful pull (atomicity invariant)', async () => {
+    const entries = [
+      makeGenomeEntry({ submission_id: 'a1' }),
+      makeGenomeEntry({ submission_id: 'a2' }),
+      makeGenomeEntry({ submission_id: 'a3' }),
+    ];
+    const client = new StubClient({
+      top: { compute: topGenomes('compute', entries) },
+    });
+    const [result] = await pullTopGenomes(client.asClient(), ['compute'], root, 10);
+    expect(result.written).toBe(3);
+
+    const entriesDir = join(root, 'compute', 'entries');
+    const all = readdirSync(entriesDir);
+    const tmpLeftovers = all.filter(f => f.startsWith('.tmp-'));
+    expect(tmpLeftovers).toEqual([]);
+    for (const f of all) {
+      const raw = readFileSync(join(entriesDir, f), 'utf-8');
+      expect(raw.length).toBeGreaterThan(0);
+      expect(() => JSON.parse(raw)).not.toThrow();
+    }
+  });
+});
+
 // ── PKT-561 — submission_id path-traversal rejection ────────────────────────
 
 describe('pullTopGenomes — submission_id path-traversal rejection (PKT-561)', () => {

@@ -6,10 +6,11 @@
  * can use them as seeds.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { NetworkAPIClient, GenomeEntry } from './client.js';
 import { sanitizeFilenameSegment } from '../../../telemetry/telemetry-writer.js';
+import { atomicWrite } from '../../../utils.js';
 
 export interface PullResult {
   martianType: string;
@@ -102,7 +103,9 @@ function _writeEntry(entriesDir: string, entry: GenomeEntry): void {
     },
     created_at: entry.submitted_at || new Date().toISOString(),
   };
-  // Atomic-ish write: write to temp then rename not available in pure Node without tmp lib,
-  // so write directly — population files are append-only seeds, not transactional.
-  writeFileSync(path, JSON.stringify(record, null, 2), { encoding: 'utf-8', flag: 'w' });
+  // PKT-906: atomic write — partial writes (mid-rename SIGKILL, ENOSPC, EIO)
+  // leave zero-length / parse-failing files that poison Population.load for the
+  // entire martian type. atomicWrite uses tmp+rename so the destination is
+  // either the previous valid entry or the new complete entry, never partial.
+  atomicWrite(path, JSON.stringify(record, null, 2));
 }
