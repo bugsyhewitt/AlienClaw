@@ -528,6 +528,50 @@ describe('GoalManager.markGoalComplete()', () => {
     await gm.addGoal(makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })]));
     await expect(gm.markGoalComplete('g-missing')).rejects.toThrow('Goal g-missing not found');
   });
+
+  // PKT-905: hybrid-shape guard tests
+  it('throws when goal has a complete scheme AND pending legacy subGoals (hybrid shape)', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    await gm.addGoal(makeGoal('g1', [makeSubGoal('sg1', { status: 'pending' })], {
+      scheme: makeScheme([makeCampaign('c1', { status: 'complete' })]),
+    }));
+    await expect(gm.markGoalComplete('g1'))
+      .rejects.toThrow(/pending subGoal/);
+  });
+
+  it('throws when goal has a complete scheme AND mixed legacy subGoals (some pending)', async () => {
+    const { GoalManager } = await loadGoalManager();
+    const gm = new GoalManager();
+    await gm.addGoal(makeGoal('g1',
+      [makeSubGoal('sg1', { status: 'complete' }), makeSubGoal('sg2', { status: 'pending' })],
+      { scheme: makeScheme([makeCampaign('c1', { status: 'complete' })]) },
+    ));
+    await expect(gm.markGoalComplete('g1'))
+      .rejects.toThrow(/pending subGoal/);
+  });
+
+  it('succeeds for scheme-only goal (subGoals:[]) — primary production path preserved', async () => {
+    const { GoalManager, PATHS } = await loadGoalManager();
+    const gm = new GoalManager();
+    await gm.addGoal(makeGoal('g1', [], {
+      scheme: makeScheme([makeCampaign('c1', { status: 'complete' })]),
+    }));
+    await gm.markGoalComplete('g1');
+    const onDisk = JSON.parse(readFileSync(PATHS.goals, 'utf-8'));
+    expect(onDisk.goals[0].status).toBe('complete');
+  });
+
+  it('succeeds for hybrid goal where all legacy subGoals are also complete', async () => {
+    const { GoalManager, PATHS } = await loadGoalManager();
+    const gm = new GoalManager();
+    await gm.addGoal(makeGoal('g1', [makeSubGoal('sg1', { status: 'complete' })], {
+      scheme: makeScheme([makeCampaign('c1', { status: 'complete' })]),
+    }));
+    await gm.markGoalComplete('g1');
+    const onDisk = JSON.parse(readFileSync(PATHS.goals, 'utf-8'));
+    expect(onDisk.goals[0].status).toBe('complete');
+  });
 });
 
 // ─── 10. attachScheme() ─────────────────────────────────────────────────────

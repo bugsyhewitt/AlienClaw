@@ -138,6 +138,21 @@ export class GoalManager {
     const file = this.load();
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) throw new Error(`Goal ${goalId} not found`);
+    // PKT-905: refuse completion when legacy subGoals are still pending.
+    // Scheme-only goals (subGoals:[]) and goals with all-complete subGoals
+    // pass through; the dominant production completion path (scheme-based
+    // goals, governance-loop.ts:515-516 → runCompletionFlow → :740) is
+    // unaffected. Pending subGoals in a hybrid shape (foldUserInput path,
+    // governance-loop.ts:750) would otherwise be silently dropped.
+    const pendingSubs = (goal.subGoals ?? []).filter(
+      (s) => s !== null && typeof s === 'object' && s.status !== 'complete'
+    );
+    if (pendingSubs.length > 0) {
+      throw new Error(
+        `Goal ${goalId} has ${pendingSubs.length} pending subGoal(s); ` +
+        `mark all subGoals complete before marking goal complete`
+      );
+    }
     goal.status       = 'complete';
     goal.completedAt  = Date.now();
     file.activeGoalId = null;
