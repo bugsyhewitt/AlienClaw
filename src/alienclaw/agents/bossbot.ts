@@ -2,7 +2,7 @@ import { readFileSync }                             from 'fs';
 import { join, dirname }                            from 'path';
 import { fileURLToPath }                            from 'url';
 import { AGENT_MODELS }                             from '../constants.js';
-import { normalizeInput, parseModelJson }           from '../utils.js';
+import { normalizeInput, parseModelJson, extractJsonSubstring } from '../utils.js';
 import { selectHost }                               from '../wiring/host-select.js';
 import type {
   TaskEnvelope, AdviceRequest, SubGoal,
@@ -71,7 +71,24 @@ export function parseSchemeDraft(goalId: string, raw: string): Scheme {
     json = JSON.parse(clean);
     jsonParsed = true;
   } catch {
-    // genuine non-JSON output from LLM — fall through to text fallback
+    // PKT-931: parseSchemeDraft prose-wrap silent-loss.
+    // Real LLMs (GPT-4, Claude, Sonnet) frequently wrap JSON in leading/trailing
+    // prose despite system-prompt instructions ("Respond ONLY with a valid JSON
+    // object...no prose, no markdown fences"). Sister parseSubGoals uses
+    // parseModelJson which internally retries with extractJsonSubstring; without
+    // parity here, a well-formed multi-campaign scheme is silently dropped and
+    // substituted with a 1-campaign "Main Campaign" fallback, losing the entire
+    // LLM-designed multi-campaign structure on every non-trivial user goal.
+    // Mirrors parseModelJson (utils.ts:111-116) — same defense, sister parser.
+    const sub = extractJsonSubstring(clean);
+    if (sub !== null) {
+      try {
+        json = JSON.parse(sub);
+        jsonParsed = true;
+      } catch {
+        // genuinely non-JSON output from LLM — fall through to text fallback
+      }
+    }
   }
 
   if (!jsonParsed) {

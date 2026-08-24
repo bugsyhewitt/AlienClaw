@@ -427,3 +427,119 @@ describe('parseSchemeDraft — duplicate-name rejection (PKT-771)', () => {
     expect(() => parseSchemeDraft('g', raw)).not.toThrow();
   });
 });
+
+describe('parseSchemeDraft — prose-wrapped extraction (PKT-931)', () => {
+  // R-931-1: extracts multi-campaign scheme from JSON with leading + trailing prose.
+  // Mirrors parseSubGoals' parseModelJson prose-wrap path (utils.ts:111-116).
+  // Defect: without PKT-931 fix, returns single "Main Campaign" fallback.
+  it('R-931-1: extracts scheme from JSON with leading + trailing prose', () => {
+    const validScheme = {
+      rationale: 'multi-campaign plan',
+      campaigns: [
+        { name: 'research',  objective: 'find sources',     dependsOn: [], subagents: [
+          { role: 'Researcher', domain: 'web', knowledgeBase: '', martianTags: ['web_search'] }
+        ]},
+        { name: 'synthesis', objective: 'combine findings', dependsOn: ['research'], subagents: [
+          { role: 'Writer', domain: 'writing', knowledgeBase: '', martianTags: ['file_write'] }
+        ]},
+      ],
+    };
+    const proseWrapped = `Sure! Here is the plan:\n${JSON.stringify(validScheme)}\nLet me know.`;
+    const out = parseSchemeDraft('goal-1', proseWrapped);
+    expect(out.campaigns).toHaveLength(2);
+    expect(out.campaigns.map(c => c.name)).toEqual(['research', 'synthesis']);
+  });
+
+  // R-931-2: extracts scheme from JSON with leading prose only.
+  it('R-931-2: extracts scheme from JSON with leading prose only', () => {
+    const validScheme = {
+      rationale: 'r',
+      campaigns: [
+        { name: 'a', objective: 'oa', dependsOn: [], subagents: [] },
+        { name: 'b', objective: 'ob', dependsOn: ['a'], subagents: [] },
+      ],
+    };
+    const leadingOnly = `Here is the JSON you requested:\n${JSON.stringify(validScheme)}`;
+    const out = parseSchemeDraft('goal-2', leadingOnly);
+    expect(out.campaigns).toHaveLength(2);
+    expect(out.campaigns.map(c => c.name)).toEqual(['a', 'b']);
+  });
+
+  // R-931-3: extracts scheme from JSON with trailing prose only.
+  it('R-931-3: extracts scheme from JSON with trailing prose only', () => {
+    const validScheme = {
+      rationale: 'r',
+      campaigns: [
+        { name: 'a', objective: 'oa', dependsOn: [], subagents: [] },
+        { name: 'b', objective: 'ob', dependsOn: ['a'], subagents: [] },
+      ],
+    };
+    const trailingOnly = `${JSON.stringify(validScheme)}\nHope that helps!`;
+    const out = parseSchemeDraft('goal-3', trailingOnly);
+    expect(out.campaigns).toHaveLength(2);
+  });
+
+  // R-931-4: dependsOn resolution still works after prose extraction.
+  it('R-931-4: dependsOn name → UUID resolution still works after prose extraction', () => {
+    const validScheme = {
+      rationale: 'r',
+      campaigns: [
+        { name: 'research',  objective: 'find',    dependsOn: [],           subagents: [] },
+        { name: 'synthesis', objective: 'combine', dependsOn: ['research'], subagents: [] },
+      ],
+    };
+    const wrapped = `Here you go:\n${JSON.stringify(validScheme)}\nDone.`;
+    const out = parseSchemeDraft('goal-4', wrapped);
+    expect(out.campaigns[1]!.dependsOn).toEqual([out.campaigns[0]!.id]);
+  });
+
+  // R-931-5: cycle detection (PKT-667) still throws after prose extraction.
+  it('R-931-5: cycle detection still throws after prose extraction', () => {
+    const cyclic = {
+      rationale: 'cyclic',
+      campaigns: [
+        { name: 'A', objective: 'a', dependsOn: ['B'], subagents: [] },
+        { name: 'B', objective: 'b', dependsOn: ['A'], subagents: [] },
+      ],
+    };
+    const wrapped = `Prose: ${JSON.stringify(cyclic)} end.`;
+    expect(() => parseSchemeDraft('goal-5', wrapped)).toThrow(/cyclic/);
+  });
+
+  // R-931-6: PKT-771 duplicate-name rejection still throws after prose extraction.
+  it('R-931-6: PKT-771 duplicate-name rejection still throws after prose extraction', () => {
+    const dup = {
+      rationale: 'dup',
+      campaigns: [
+        { name: 'X', objective: 'x', dependsOn: [], subagents: [] },
+        { name: 'X', objective: 'y', dependsOn: [], subagents: [] },
+      ],
+    };
+    const wrapped = `${JSON.stringify(dup)} trailing`;
+    expect(() => parseSchemeDraft('goal-6', wrapped)).toThrow(/duplicate/);
+  });
+
+  // R-931-7: PKT-422 strict validation throws still work after prose extraction.
+  it('R-931-7: PKT-422 strict validation still throws on prose-wrapped wrong-root array', () => {
+    const wrongRoot = JSON.stringify(['this', 'is', 'an', 'array']);
+    const wrapped = `Leading: ${wrongRoot}`;
+    expect(() => parseSchemeDraft('goal-7', wrapped)).toThrow(/expected JSON object/);
+  });
+
+  // R-931-8: fast path unchanged — clean JSON parses with same structure.
+  it('R-931-8: fast path unchanged — clean JSON parses with same structure', () => {
+    const validScheme = {
+      rationale: 'r',
+      campaigns: [
+        { name: 'a', objective: 'oa', dependsOn: [], subagents: [] },
+        { name: 'b', objective: 'ob', dependsOn: ['a'], subagents: [] },
+      ],
+    };
+    const raw = JSON.stringify(validScheme);
+    const out = parseSchemeDraft('goal-a', raw);
+    expect(out.campaigns).toHaveLength(2);
+    expect(out.campaigns.map(c => c.name)).toEqual(['a', 'b']);
+    // dependsOn resolves to first-campaign's UUID
+    expect(out.campaigns[1]!.dependsOn).toEqual([out.campaigns[0]!.id]);
+  });
+});
