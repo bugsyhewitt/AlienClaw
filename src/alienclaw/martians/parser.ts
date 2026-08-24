@@ -58,14 +58,21 @@ function _stripQuotes(value: string): string {
     const first = v[0];
     const last  = v[v.length - 1];
     if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      // Naive unescape of double-quoted strings: handle \" \\ \n \t.
+      // Unescape of double-quoted strings: single-pass regex handles \X as a unit
+      // so that "\\n" (literal \, \, n) unescapes to \n (literal \, n) rather
+      // than collapsing \n → newline on the trailing 2 chars. (PKT-923)
       const inner = v.slice(1, -1);
       if (first === '"') {
-        return inner
-          .replace(/\\"/g, '"')
-          .replace(/\\\\/g, '\\')
-          .replace(/\\n/g, '\n')
-          .replace(/\\t/g, '\t');
+        return inner.replace(/\\(.)/g, (_match, c: string) => {
+          switch (c) {
+            case 'n':  return '\n';
+            case 't':  return '\t';
+            case 'r':  return '\r';
+            case '"':  return '"';
+            case '\\': return '\\';
+            default:   return '\\' + c; // preserve unknown escapes verbatim
+          }
+        });
       }
       return inner; // single-quoted: take literal
     }
