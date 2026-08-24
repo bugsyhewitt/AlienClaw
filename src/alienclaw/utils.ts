@@ -2,7 +2,7 @@
  * Shared utilities for the AlienClaw runtime.
  */
 
-import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, fsyncSync, mkdirSync, openSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join }                                    from 'node:path';
 import { randomUUID }               from 'node:crypto';
 import type { AssistantMessage, TextContent } from '@mariozechner/pi-ai';
@@ -46,7 +46,22 @@ export function validateLeaderboardName(name: string): boolean {
 export function atomicWrite(filePath: string, content: string): void {
   mkdirSync(dirname(filePath), { recursive: true });
   const tmpPath = join(dirname(filePath), `.tmp-${randomUUID()}`);
-  writeFileSync(tmpPath, content, { encoding: 'utf-8' });
+  // PKT-921-fsync: fsync the tmp file before rename so a power-loss after
+  // rename returns doesn't leave a zero-byte or partially-written destination.
+  // POSIX rename is atomic at the directory-entry level but durability depends
+  // on the data being on platter first. Sister audit-log.ts:78 and
+  // storage.py:197 both fsync — this helper dropped the pattern.
+  // The catch unlinks the tmp on any write/fsync failure to prevent orphans.
+  const fd = openSync(tmpPath, 'w');
+  try {
+    writeFileSync(fd, content, { encoding: 'utf-8' });
+    fsyncSync(fd);
+  } catch (err) {
+    try { unlinkSync(tmpPath); } catch { /* best-effort */ }
+    try { closeSync(fd); } catch { /* fd may already be closed */ }
+    throw err;
+  }
+  try { closeSync(fd); } catch { /* best-effort */ }
   try {
     renameSync(tmpPath, filePath);
   } catch (err) {
