@@ -55,10 +55,17 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
         { shell: false, env: { ...process.env, PYTHONPATH: 'src' } },
       );
 
+      // PKT-938: track the inner SIGKILL grace timer so the 'close' handler
+      // can cancel it. Without this, when SIGTERM is sent at t=timeoutMs and
+      // the child exits cleanly within 5s, the inner 5s SIGKILL timer still
+      // fires on the already-dead PID. Node swallows kill() on dead PIDs
+      // (returns false) so production impact is silent — but the child ref +
+      // closure leak for 5s and there is a PID-reuse race window.
+      let sigkillTimer: ReturnType<typeof setTimeout> | null = null;
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill('SIGTERM');
-        setTimeout(() => { child.kill('SIGKILL'); }, 5000);
+        sigkillTimer = setTimeout(() => { child.kill('SIGKILL'); }, 5000);
       }, timeoutMs);
 
       child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
@@ -74,6 +81,10 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
 
       child.on('close', (exitCode) => {
         clearTimeout(timer);
+        if (sigkillTimer !== null) {
+          clearTimeout(sigkillTimer);
+          sigkillTimer = null;
+        }
 
         if (timedOut) {
           resolve({
