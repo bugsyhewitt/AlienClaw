@@ -106,6 +106,24 @@ export function decide(input: DecisionInput): Action {
     };
   }
 
+  // PKT-909: reject NaN-supplied numeric fields at the decision boundary.
+  // evalCondition (below) uses `>` / `<` comparisons, which IEEE-754 returns
+  // `false` for against NaN. Without this reject, a NaN-supplied result
+  // silently degenerates every numeric gate to false; downstream success-
+  // shape branches (`martian_succeeded` is `error === null && fitness > 0`)
+  // then fire on poison data, Finalizing the campaign with no caller-
+  // visible signal. Source of NaN: subagent.ts:587 reads `run_metadata
+  // ?.correctness as number | undefined ?? 1.0` with no isFinite guard.
+  // ±Infinity is intentionally preserved (already produces the correct
+  // success-/failure-shape answer under IEEE-754 > / <).
+  if (
+    Number.isNaN(input.last_result.correctness) ||
+    Number.isNaN(input.last_result.fitness) ||
+    Number.isNaN(input.last_result.tool_calls)
+  ) {
+    return { kind: 'Fail', reason: 'poisoned_result_nan' };
+  }
+
   // Evaluate transitions in declared order; first match wins
   for (const transition of state.transitions) {
     if (evalGroup(transition.when, input.last_result)) {
