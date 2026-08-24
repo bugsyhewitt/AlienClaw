@@ -317,9 +317,17 @@ export function bootstrap(): BootstrapResult {
       const child = spawn('python3', ['-m', 'alienclaw.bridge'], { shell: false });
       let stdout = '';
       let stderrBuf = '';
+      // PKT-912: track the inner SIGKILL grace timer so the 'close' handler can
+      // cancel it. Without this, when SIGTERM is sent at t=30s and the child
+      // exits cleanly at t=30.5s, the inner 5s SIGKILL timer still fires at
+      // t=35s on the already-dead PID. Node swallows kill() on dead PIDs
+      // (returns false) so production impact is silent, but it (a) leaks the
+      // child ref + closure for 5s, and (b) is a near-miss for PID-reuse
+      // races if an OS PID is recycled in that window.
+      let sigkillTimer: ReturnType<typeof setTimeout> | null = null;
       const timer = setTimeout(() => {
         child.kill('SIGTERM');
-        setTimeout(() => { child.kill('SIGKILL'); }, 5000);
+        sigkillTimer = setTimeout(() => { child.kill('SIGKILL'); }, 5000);
       }, 30_000);
       child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
       child.stderr.on('data', (chunk: Buffer) => { stderrBuf += chunk.toString('utf8'); });
@@ -327,11 +335,19 @@ export function bootstrap(): BootstrapResult {
       child.stdin.end();
       child.on('close', (exitCode) => {
         clearTimeout(timer);
+        if (sigkillTimer !== null) {
+          clearTimeout(sigkillTimer);
+          sigkillTimer = null;
+        }
         handleLiveEvoResponse(martianType, exitCode, stdout, stderrBuf);
         resolve();
       });
       child.on('error', (err) => {
         clearTimeout(timer);
+        if (sigkillTimer !== null) {
+          clearTimeout(sigkillTimer);
+          sigkillTimer = null;
+        }
         creatorBot.enqueue('NOTABLE',
           `live-evo spawn failed for ${martianType}: ${err.message}`,
           'live-evo-check');
