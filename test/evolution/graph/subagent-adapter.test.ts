@@ -103,6 +103,32 @@ describe("SubagentAdapter.evaluate", () => {
     const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
     expect(batch.traces[0]!.correctness.score).toBe(0);
   });
+
+  // PKT-726: non-string editable.role / editable.decomposition guard
+  // Both fields are non-string so roleLen=0 and decompLen=0, making correctnessScore exactly 0.
+  it("non-string editable.role (number) → correctness.score === 0 (NaN guarded)", async () => {
+    const genome = makeGenome({ role: 123, decomposition: 456 } as any);
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+  });
+
+  it("non-string editable.role (boolean) → correctness.score === 0 (NaN guarded)", async () => {
+    const genome = makeGenome({ role: true, decomposition: false } as any);
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+  });
+
+  it("non-string editable.role (plain object) → correctness.score === 0 (NaN guarded)", async () => {
+    const genome = makeGenome({ role: { anything: 1 }, decomposition: { other: 2 } } as any);
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(batch.traces[0]!.correctness.score).toBe(0);
+  });
+
+  it("non-string editable.role (number) → batch.scores.legacyScalar is finite (not NaN)", async () => {
+    const genome = makeGenome({ role: 123, decomposition: 456 } as any);
+    const batch = await adapter.evaluate(genome, makeTasks(1), { seed: 0, captureTraces: true });
+    expect(isFinite(batch.scores.legacyScalar)).toBe(true);
+  });
 });
 
 describe("SubagentAdapter.makeReflectiveDataset", () => {
