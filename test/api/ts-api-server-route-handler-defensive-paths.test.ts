@@ -471,4 +471,54 @@ describe('API server: route-handler defensive paths', () => {
     expect(b.error.code).toBe('INVALID_API_KEY_FORMAT');
     expect(b.error.details.received_type).toBe('null');
   });
+
+  // ── (L275) /v1/genomes router fitness-coercion defense (PKT-696) ───────────
+  // server.ts:275 used `Number(body['fitness'])` which silently coerces
+  // null/true/false/[]/string to numbers, bypassing the validator's
+  // `typeof req.fitness !== 'number'` guard. Fix: require typeof === 'number'
+  // && Number.isFinite() at the router boundary and pre-flight reject NaN.
+
+  it.each([
+    { label: 'null',   raw: null,  shouldReject: true },
+    { label: 'true',   raw: true,  shouldReject: true },
+    { label: 'false',  raw: false, shouldReject: true },
+    { label: '[]',     raw: [],    shouldReject: true },
+    { label: '{}',     raw: {},    shouldReject: true },
+    { label: '"0.5"',  raw: '0.5', shouldReject: true },
+    { label: '"0"',    raw: '0',   shouldReject: true },
+    { label: '"abc"',  raw: 'abc', shouldReject: true },
+  ])('POST /v1/genomes with fitness:$label (PKT-696 router-coercion defense) returns 422 INVALID_FITNESS_RANGE', async (c) => {
+    installState.exists = true;
+    throwMode = null;
+    const key = generateApiKey();
+    const { status, body } = await post('/v1/genomes',
+      { genome: validGenome(), martian_type: 'compute', fitness: c.raw,
+        leaderboard_name: 'TESTBOTA' },
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(422);
+    expect((body as { error: { code: string } }).error.code).toBe('INVALID_FITNESS_RANGE');
+  });
+
+  it('POST /v1/genomes with fitness:0.5 (intended number) still returns 201 (PKT-696 regression)', async () => {
+    installState.exists = true;
+    throwMode = null;
+    const key = generateApiKey();
+    const { status, body } = await post('/v1/genomes',
+      { genome: validGenome(), martian_type: 'compute', fitness: 0.5,
+        leaderboard_name: 'TESTBOTA' },
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(201);
+    expect((body as { submission_id: string }).submission_id).toBe('sub-mock-id');
+  });
+
+  it('POST /v1/genomes with fitness:0 (intended zero) still returns 201 (PKT-696 regression)', async () => {
+    installState.exists = true;
+    throwMode = null;
+    const key = generateApiKey();
+    const { status } = await post('/v1/genomes',
+      { genome: validGenome(), martian_type: 'compute', fitness: 0,
+        leaderboard_name: 'TESTBOTA' },
+      { Authorization: `Bearer ${key}` });
+    expect(status).toBe(201);
+  });
 });
