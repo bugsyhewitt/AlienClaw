@@ -137,3 +137,7 @@ alienclaw-phase*.zip
 
 # Plan-mode working files
 /Plans/
+
+# Pre-commit probe cycle scratch dirs (auto-generated, self-contained)
+test/_probe_cycle_*/
+test/_probe/
