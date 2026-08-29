@@ -268,27 +268,40 @@ export function bootstrap(): BootstrapResult {
       const reports = await readRecentMartianReports(sinceMs);
       if (reports.length === 0) return;
 
-      // Find worst performer (lowest success rate with at least 3 runs)
-      const byMartian = new Map<string, { total: number; successes: number }>();
+      // PKT-756: find worst performer using valid-only count — malformed outcomes excluded from
+      // denominator to prevent rate deflation and sub-threshold promotion (mirror of PKT-615).
+      const byMartian = new Map<string, { valid: number; successes: number; malformed: number }>();
       for (const r of reports) {
-        const e = byMartian.get(r.martianId) ?? { total: 0, successes: 0 };
-        e.total++;
-        if (r.outcome === 'SUCCESS') e.successes++;
+        const e = byMartian.get(r.martianId) ?? { valid: 0, successes: 0, malformed: 0 };
+        if (r.outcome === 'SUCCESS' || r.outcome === 'FAILURE' || r.outcome === 'ESCALATED') {
+          e.valid++;
+          if (r.outcome === 'SUCCESS') e.successes++;
+        } else {
+          e.malformed++;
+        }
         byMartian.set(r.martianId, e);
       }
 
-      let worst: { id: string; rate: number } | null = null;
-      for (const [id, { total, successes }] of byMartian) {
-        if (total < 3) continue;
-        const rate = successes / total;
-        if (!worst || rate < worst.rate) worst = { id, rate };
+      let worst: { id: string; rate: number; valid: number } | null = null;
+      for (const [id, e] of byMartian) {
+        // PKT-756: surface malformed-outcome count via NOTABLE enqueue, one-shot per Martian per tick.
+        if (e.malformed > 0) {
+          creatorBot.enqueue(
+            'NOTABLE',
+            `advise-from-telemetry: martian ${id} had ${e.malformed} report(s) with non-canonical outcome enum values; rejected before advisor surface`,
+            'advise-from-telemetry',
+          );
+        }
+        if (e.valid < 3) continue;
+        const rate = e.successes / e.valid;
+        if (!worst || rate < worst.rate) worst = { id, rate, valid: e.valid };
       }
 
       if (!worst) return;
 
       const adviceReq: AdviceRequest = {
         requesterId: 'CreatorBot',
-        context: `Over the last hour, Martian ${worst.id} ran ${byMartian.get(worst.id)?.total ?? 0} times with a ${(worst.rate * 100).toFixed(0)}% success rate.`,
+        context: `Over the last hour, Martian ${worst.id} ran ${worst.valid} times with a ${(worst.rate * 100).toFixed(0)}% success rate.`,
         question: `What might be causing ${worst.id} to underperform? Should we evolve its genome or adjust its tools?`,
       };
 

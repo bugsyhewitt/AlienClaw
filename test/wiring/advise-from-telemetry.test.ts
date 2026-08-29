@@ -137,7 +137,7 @@ function captureAdviseFn(): () => Promise<void> {
   return hit[0]!.fn;
 }
 
-function makeReport(martianId: string, outcome: 'SUCCESS' | 'FAILURE', index = 0): MartianReport {
+function makeReport(martianId: string, outcome: string, index = 0): MartianReport {
   return {
     reportCode: `r${index}`,
     ts:         1000 + index,
@@ -145,8 +145,8 @@ function makeReport(martianId: string, outcome: 'SUCCESS' | 'FAILURE', index = 0
     subagentId: 's1',
     martianId,
     domain:     'compute',
-    outcome,
-    summary:    outcome === 'SUCCESS' ? 'ok' : 'fail',
+    outcome:    outcome as MartianReport['outcome'],
+    summary:    outcome === 'SUCCESS' ? 'ok' : outcome === 'FAILURE' ? 'fail' : 'malformed',
   };
 }
 
@@ -224,6 +224,101 @@ describe('advise-from-telemetry scheduled job (hierarchy-bootstrap.ts)', () => {
     const req = vi.mocked(advisorBot.advise).mock.calls[0]![0] as AdviceRequest;
     expect(req.context).toContain('compute_a');
     expect(req.context).not.toContain('compute_b');
+    shutdown();
+  });
+});
+
+describe('advise-from-telemetry — malformed outcome filter (PKT-756)', () => {
+
+  beforeEach(() => {
+    vi.mocked(creatorBot.registerScheduledJob).mockClear();
+    vi.mocked(advisorBot.advise).mockClear();
+    vi.mocked(agentChannel.send).mockClear();
+    vi.mocked(creatorBot.enqueue).mockClear();
+    vi.mocked(readRecentMartianReports).mockReset();
+    vi.mocked(readRecentMartianReports).mockResolvedValue([]);
+  });
+
+  it('AFT-105: malformed outcome excluded from denominator — rate computed on valid-only (PKT-756)', async () => {
+    // 3 SUCCESS + 1 GHOST: only 3 valid → rate=1.0, "ran 3 times" (not 4 at 75%)
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      makeReport('compute_a', 'SUCCESS', 0),
+      makeReport('compute_a', 'SUCCESS', 1),
+      makeReport('compute_a', 'SUCCESS', 2),
+      makeReport('compute_a', 'GHOST',   3),
+    ]);
+    const { shutdown } = bootstrap();
+    await captureAdviseFn()();
+    // 3 valid ≥ 3 → advise IS called
+    expect(advisorBot.advise).toHaveBeenCalledOnce();
+    const req = vi.mocked(advisorBot.advise).mock.calls[0]![0] as AdviceRequest;
+    expect(req.context).toMatch(/ran 3 times/);
+    expect(req.context).toMatch(/100%/);
+    shutdown();
+  });
+
+  it('AFT-106: sub-threshold promotion blocked — 2 valid < 3, no advise despite 4 unfiltered reports (PKT-756)', async () => {
+    // 2 SUCCESS + 2 GHOST: only 2 valid < 3 → worst stays null, no advise
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      makeReport('compute_a', 'SUCCESS', 0),
+      makeReport('compute_a', 'SUCCESS', 1),
+      makeReport('compute_a', 'GHOST',   2),
+      makeReport('compute_a', 'GHOST',   3),
+    ]);
+    const { shutdown } = bootstrap();
+    await captureAdviseFn()();
+    expect(advisorBot.advise).not.toHaveBeenCalled();
+    shutdown();
+  });
+
+  it('AFT-107: 1 valid + 3 malformed — valid < 3, no advise call (PKT-756)', async () => {
+    // 1 SUCCESS + 3 GHOST: only 1 valid < 3 → no advise
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      makeReport('compute_a', 'SUCCESS', 0),
+      makeReport('compute_a', 'GHOST',   1),
+      makeReport('compute_a', 'GHOST',   2),
+      makeReport('compute_a', 'GHOST',   3),
+    ]);
+    const { shutdown } = bootstrap();
+    await captureAdviseFn()();
+    expect(advisorBot.advise).not.toHaveBeenCalled();
+    shutdown();
+  });
+
+  it('AFT-108: ESCALATED is canonical — included in valid count, rate=3/4=75% (PKT-756 regression guard)', async () => {
+    // 3 SUCCESS + 1 ESCALATED: all 4 canonical → rate=0.75, "ran 4 times"
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      makeReport('compute_a', 'SUCCESS',   0),
+      makeReport('compute_a', 'SUCCESS',   1),
+      makeReport('compute_a', 'SUCCESS',   2),
+      makeReport('compute_a', 'ESCALATED', 3),
+    ]);
+    const { shutdown } = bootstrap();
+    await captureAdviseFn()();
+    expect(advisorBot.advise).toHaveBeenCalledOnce();
+    const req = vi.mocked(advisorBot.advise).mock.calls[0]![0] as AdviceRequest;
+    expect(req.context).toMatch(/ran 4 times/);
+    expect(req.context).toMatch(/75%/);
+    shutdown();
+  });
+
+  it('AFT-109: NOTABLE diagnostic enqueued for martian with malformed outcomes (PKT-756)', async () => {
+    // 3 SUCCESS + 1 GHOST → NOTABLE must fire with martianId + malformed/non-canonical in msg
+    vi.mocked(readRecentMartianReports).mockResolvedValueOnce([
+      makeReport('compute_a', 'SUCCESS', 0),
+      makeReport('compute_a', 'SUCCESS', 1),
+      makeReport('compute_a', 'SUCCESS', 2),
+      makeReport('compute_a', 'GHOST',   3),
+    ]);
+    const { shutdown } = bootstrap();
+    await captureAdviseFn()();
+    const notableCalls = vi.mocked(creatorBot.enqueue).mock.calls.filter(
+      ([pri]) => pri === 'NOTABLE',
+    );
+    expect(notableCalls.length).toBeGreaterThanOrEqual(1);
+    const notableMsg = notableCalls.find(([, msg]) => (msg as string).includes('compute_a'))?.[1] as string | undefined;
+    expect(notableMsg).toBeDefined();
+    expect(notableMsg).toMatch(/malformed|non-canonical/i);
     shutdown();
   });
 });
