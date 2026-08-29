@@ -141,3 +141,9 @@ alienclaw-phase*.zip
 # Pre-commit probe cycle scratch dirs (auto-generated, self-contained)
 test/_probe_cycle_*/
 test/_probe/
+
+# Probe and scratch test files (session-generated, not stable tests)
+test/probe/
+test/scratch/
+test/telemetry/zz_*
+test/zz_*
