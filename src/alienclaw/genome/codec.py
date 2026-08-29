@@ -134,6 +134,10 @@ def decode_xcode(genome: str, slot_index: int, xcode_index: int) -> int:
     xcode_index: 0..30 (which Xcode pair within bytes 1-62 of the slot)
     Returns: int in [0, XCODE_MAX]
     """
+    if len(genome) != GENOME_LENGTH:
+        raise ValueError(
+            f"decode_xcode: genome must be exactly {GENOME_LENGTH} chars; got {len(genome)}"
+        )
     if not (0 <= slot_index <= 3):
         raise ValueError(f"slot_index out of range [0,3]: {slot_index}")
     if not (0 <= xcode_index <= 30):

@@ -167,6 +167,14 @@ describe('decodeXcode', () => {
     expect(() => decodeXcode(g, 0, -1)).toThrow(/xcodeIndex out of range/);
   });
 
+  it('throws when genome length is not 256', () => {
+    expect(() => decodeXcode('', 0, 0)).toThrow(/must be exactly 256/);
+    expect(() => decodeXcode('0'.repeat(100), 0, 0)).toThrow(/must be exactly 256/);
+    expect(() => decodeXcode('0'.repeat(255), 0, 0)).toThrow(/must be exactly 256/);
+    expect(() => decodeXcode('0'.repeat(257), 0, 0)).toThrow(/must be exactly 256/);
+    expect(() => decodeXcode('0'.repeat(1024), 0, 0)).toThrow(/must be exactly 256/);
+  });
+
   it('silently maps non-Base62 first char to 0 via ?? 0 (arm1 of branch 13)', () => {
     // genome[base] = '!' (non-Base62): _xcodeIndex['!'] = undefined → ?? 0 → 0
     // genome[base+1] = '0' (valid, index 0): _xcodeIndex['0'] = 0
