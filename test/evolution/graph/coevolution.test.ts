@@ -129,4 +129,113 @@ describe("Alternating-phase co-evolution — e2e (mocked)", () => {
     expect(result.completed).toBe(true);
     expect(result.rounds).toBe(1);
   });
+
+  it("rounds=0: returns immediately with zero run counts and no log calls", async () => {
+    const tasks = makeSyntheticTasks(5) as TaskInstance[];
+    const seed = makeTestGenome([0.5, 0.5], "ZERO");
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(seed.id, seed);
+    const genomeStore = new Map([[seed.id, seed]]);
+    const logCalls: string[] = [];
+
+    const result = await runAlternatingCoevolution({
+      subagentAdapter: new MockGenomeAdapter(),
+      topologyAdapter: new MockGenomeAdapter(),
+      subagentSeeds: [seed],
+      topologySeeds: [seed],
+      trainset: tasks,
+      reflector: new MockReflector(),
+      proposer: new MockProposer(genomeStore),
+      store,
+      baseConfig: { ...DEFAULT_CONFIG, maxMetricCalls: 10 },
+      coevolutionConfig: {
+        rounds: 0,
+        subagentMetricCallsPerRound: 5,
+        topologyMetricCallsPerRound: 5,
+        minibatchSize: 2,
+        valsetFraction: 0.25,
+        rng: makeRng(1),
+      },
+      log: msg => logCalls.push(msg),
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.rounds).toBe(0);
+    expect(result.subagentEvolutionRuns).toBe(0);
+    expect(result.topologyEvolutionRuns).toBe(0);
+    // No phase announcements should be emitted when rounds=0
+    expect(logCalls.filter(m => m.startsWith("coevolution: round"))).toHaveLength(0);
+  });
+
+  it("log callback receives phase-announcement strings in round order", async () => {
+    const tasks = makeSyntheticTasks(10) as TaskInstance[];
+    const seed = makeTestGenome([0.4, 0.4], "LOGFMT");
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(seed.id, seed);
+    const genomeStore = new Map([[seed.id, seed]]);
+    const logCalls: string[] = [];
+
+    await runAlternatingCoevolution({
+      subagentAdapter: new MockGenomeAdapter(),
+      topologyAdapter: new MockGenomeAdapter(),
+      subagentSeeds: [seed],
+      topologySeeds: [seed],
+      trainset: tasks,
+      reflector: new MockReflector(),
+      proposer: new MockProposer(genomeStore),
+      store,
+      baseConfig: { ...DEFAULT_CONFIG, maxMetricCalls: 20 },
+      coevolutionConfig: {
+        rounds: 1,
+        subagentMetricCallsPerRound: 8,
+        topologyMetricCallsPerRound: 5,
+        minibatchSize: 2,
+        valsetFraction: 0.25,
+        rng: makeRng(3),
+      },
+      log: msg => logCalls.push(msg),
+    });
+
+    const phaseLines = logCalls.filter(m => m.startsWith("coevolution: round"));
+    expect(phaseLines[0]).toBe("coevolution: round 1/1 — subagent phase");
+    expect(phaseLines[1]).toBe("coevolution: round 1/1 — topology phase");
+  });
+
+  it("asymmetric validate: subagentValidate set, topologyValidate omitted", async () => {
+    const tasks = makeSyntheticTasks(8) as TaskInstance[];
+    const seed = makeTestGenome([0.5, 0.5], "ASYM");
+    const store = new InMemoryEvolutionStore();
+    store.genomes.set(seed.id, seed);
+    const genomeStore = new Map([[seed.id, seed]]);
+
+    const rejectAll = (_c: { id: string; editable: Record<string, string> }) =>
+      ({ ok: false as const, violation: "subagent: all rejected" });
+
+    const result = await runAlternatingCoevolution({
+      subagentAdapter: new MockGenomeAdapter(),
+      topologyAdapter: new MockGenomeAdapter(),
+      subagentSeeds: [seed],
+      topologySeeds: [seed],
+      trainset: tasks,
+      reflector: new MockReflector(),
+      proposer: new MockProposer(genomeStore),
+      store,
+      baseConfig: { ...DEFAULT_CONFIG, maxMetricCalls: 15 },
+      coevolutionConfig: {
+        rounds: 1,
+        subagentMetricCallsPerRound: 8,
+        topologyMetricCallsPerRound: 5,
+        minibatchSize: 2,
+        valsetFraction: 0.25,
+        rng: makeRng(5),
+      },
+      subagentValidate: rejectAll,
+      // topologyValidate intentionally omitted — topology phase runs unguarded
+      log: () => {},
+    });
+
+    expect(result.completed).toBe(true);
+    // Topology phase evaluations proceed (no topologyValidate to block them)
+    expect(store.evaluations.length).toBeGreaterThan(0);
+  });
 });
