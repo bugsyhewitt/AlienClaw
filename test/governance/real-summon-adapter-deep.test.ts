@@ -24,7 +24,7 @@
  *   6. ok=false path: parse envelope, return error code:message
  *   7. parse-fail path: stdout is not JSON → resolve parse-failed result
  *   8. stderr truncation: stderrBuf > STDERR_TAIL_BYTES * 2 → slice to tail
- *   9. run_metadata fallback: missing meta.tool_calls defaults to 1
+ *   9. run_metadata validation: missing tool_calls/wall_clock_ms → validation error (PKT-666)
  *
  * Source: src/alienclaw/governance/common/real-summon-adapter.ts
  *   - spawn call:          lines 54-58
@@ -161,6 +161,7 @@ describe('RealMartianSummonAdapter — spawn() argument pinning', () => {
     // Resolve with ok=true envelope so the promise settles
     const child = fakeChildAt(0);
     child.stdout.emit('data', Buffer.from(JSON.stringify({
+      bridge_version: '1.0',
       response: {
         ok: true,
         output: { result: 42 },
@@ -182,7 +183,8 @@ describe('RealMartianSummonAdapter — spawn() argument pinning', () => {
 
     const child = fakeChildAt(0);
     child.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: {}, fitness: 1, run_metadata: { tool_calls: 0 } },
+      bridge_version: '1.0',
+      response: { ok: true, output: {}, fitness: 1, run_metadata: { tool_calls: 0, wall_clock_ms: 0 } },
     })));
     child.emit('close', 0);
 
@@ -197,7 +199,7 @@ describe('RealMartianSummonAdapter — spawn() argument pinning', () => {
 
     const child = fakeChildAt(0);
     child.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: {}, fitness: 1, run_metadata: {} },
+      bridge_version: '1.0', response: { ok: true, output: {}, fitness: 1, run_metadata: { tool_calls: 0, wall_clock_ms: 0 } },
     })));
     child.emit('close', 0);
 
@@ -249,7 +251,7 @@ describe('RealMartianSummonAdapter — bridgeRequest shape', () => {
     expect(body['request']).not.toHaveProperty('fromPopulation');
 
     child.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: {}, fitness: 1, run_metadata: {} },
+      bridge_version: '1.0', response: { ok: true, output: {}, fitness: 1, run_metadata: { tool_calls: 0, wall_clock_ms: 0 } },
     })));
     child.emit('close', 0);
     await promise;
@@ -271,7 +273,7 @@ describe('RealMartianSummonAdapter — bridgeRequest shape', () => {
     expect(body['request']).not.toHaveProperty('genome');
 
     child.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: {}, fitness: 1, run_metadata: {} },
+      bridge_version: '1.0', response: { ok: true, output: {}, fitness: 1, run_metadata: { tool_calls: 0, wall_clock_ms: 0 } },
     })));
     child.emit('close', 0);
     await promise;
@@ -286,7 +288,7 @@ describe('RealMartianSummonAdapter — bridgeRequest shape', () => {
     expect(child.stdin.end).toHaveBeenCalledTimes(1);
 
     child.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: {}, fitness: 1, run_metadata: {} },
+      bridge_version: '1.0', response: { ok: true, output: {}, fitness: 1, run_metadata: { tool_calls: 0, wall_clock_ms: 0 } },
     })));
     child.emit('close', 0);
     await promise;
@@ -297,7 +299,7 @@ describe('RealMartianSummonAdapter — bridgeRequest shape', () => {
     const p1 = adapter.summon(makeRequest({ summon_id: 'a' }));
     const c1 = fakeChildAt(0);
     c1.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: {}, fitness: 1, run_metadata: {} },
+      bridge_version: '1.0', response: { ok: true, output: {}, fitness: 1, run_metadata: { tool_calls: 0, wall_clock_ms: 0 } },
     })));
     c1.emit('close', 0);
     await p1;
@@ -307,7 +309,7 @@ describe('RealMartianSummonAdapter — bridgeRequest shape', () => {
     // index 1 = c1.
     const c2 = fakeChildAt(0);
     c2.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: {}, fitness: 1, run_metadata: {} },
+      bridge_version: '1.0', response: { ok: true, output: {}, fitness: 1, run_metadata: { tool_calls: 0, wall_clock_ms: 0 } },
     })));
     c2.emit('close', 0);
     await p2;
@@ -327,6 +329,7 @@ describe('RealMartianSummonAdapter — ok=true response path', () => {
 
     const child = fakeChildAt(0);
     const envelope = {
+      bridge_version: '1.0',
       response: {
         ok: true,
         output: { result: 'hello', count: 3 },
@@ -352,44 +355,52 @@ describe('RealMartianSummonAdapter — ok=true response path', () => {
     expect(result.error).toBeUndefined();
   });
 
-  it('falls back tool_calls to 1 when run_metadata.tool_calls is missing', async () => {
+  // PKT-666: missing tool_calls is no longer silently defaulted to 1 —
+  // validateBridgeResponse throws, which the adapter maps to ok=false (R-666-12).
+  it('missing run_metadata.tool_calls → validation error → ok=false parse-failed', async () => {
     const adapter = new RealMartianSummonAdapter();
     const promise = adapter.summon(makeRequest());
 
     const child = fakeChildAt(0);
     child.stdout.emit('data', Buffer.from(JSON.stringify({
+      bridge_version: '1.0',
       response: {
         ok: true,
         output: {},
         fitness: 0.5,
-        run_metadata: { wall_clock_ms: 100 }, // tool_calls absent
+        run_metadata: { wall_clock_ms: 100 }, // tool_calls absent — now a validation error
       },
     })));
     child.emit('close', 0);
 
     const result = await promise;
-    expect(result.run_metadata['tool_calls']).toBe(1);
-    expect(result.run_metadata['wall_clock_ms']).toBe(100);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/Bridge response parse failed/);
+    expect(result.error).toMatch(/run_metadata\.tool_calls/);
   });
 
-  it('falls back wall_clock_ms to 0 when run_metadata.wall_clock_ms is missing', async () => {
+  // PKT-666: missing wall_clock_ms is no longer silently defaulted to 0 —
+  // validateBridgeResponse throws, which the adapter maps to ok=false (R-666-13 class).
+  it('missing run_metadata.wall_clock_ms → validation error → ok=false parse-failed', async () => {
     const adapter = new RealMartianSummonAdapter();
     const promise = adapter.summon(makeRequest());
 
     const child = fakeChildAt(0);
     child.stdout.emit('data', Buffer.from(JSON.stringify({
+      bridge_version: '1.0',
       response: {
         ok: true,
         output: {},
         fitness: 0.5,
-        run_metadata: { tool_calls: 5 }, // wall_clock_ms absent
+        run_metadata: { tool_calls: 5 }, // wall_clock_ms absent — now a validation error
       },
     })));
     child.emit('close', 0);
 
     const result = await promise;
-    expect(result.run_metadata['tool_calls']).toBe(5);
-    expect(result.run_metadata['wall_clock_ms']).toBe(0);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/Bridge response parse failed/);
+    expect(result.error).toMatch(/run_metadata\.wall_clock_ms/);
   });
 
   it('handles stdout data arriving in multiple chunks (concatenation)', async () => {
@@ -399,7 +410,8 @@ describe('RealMartianSummonAdapter — ok=true response path', () => {
     const child = fakeChildAt(0);
     // Split the envelope across 3 chunks
     const full = JSON.stringify({
-      response: { ok: true, output: { x: 1 }, fitness: 0.5, run_metadata: {} },
+      bridge_version: '1.0',
+      response: { ok: true, output: { x: 1 }, fitness: 0.5, run_metadata: { tool_calls: 0, wall_clock_ms: 0 } },
     });
     child.stdout.emit('data', Buffer.from(full.slice(0, 30)));
     child.stdout.emit('data', Buffer.from(full.slice(30, 60)));
@@ -421,6 +433,7 @@ describe('RealMartianSummonAdapter — ok=false response path', () => {
 
     const child = fakeChildAt(0);
     child.stdout.emit('data', Buffer.from(JSON.stringify({
+      bridge_version: '1.0',
       response: {
         ok: false,
         error: { code: 'BRAIN_FAULT', message: 'out of cheese' },
@@ -619,7 +632,7 @@ describe('RealMartianSummonAdapter — summon_id echo', () => {
 
     const child = fakeChildAt(0);
     child.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: {}, fitness: 1, run_metadata: {} },
+      bridge_version: '1.0', response: { ok: true, output: {}, fitness: 1, run_metadata: { tool_calls: 0, wall_clock_ms: 0 } },
     })));
     child.emit('close', 0);
 
@@ -633,6 +646,7 @@ describe('RealMartianSummonAdapter — summon_id echo', () => {
 
     const child = fakeChildAt(0);
     child.stdout.emit('data', Buffer.from(JSON.stringify({
+      bridge_version: '1.0',
       response: {
         ok: false,
         error: { code: 'X', message: 'y' },
@@ -655,7 +669,8 @@ describe('RealMartianSummonAdapter — state isolation between summons', () => {
     const p1 = adapter.summon(makeRequest({ summon_id: 's1' }));
     const c1 = fakeChildAt(0);
     c1.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: { tag: 'one' }, fitness: 1, run_metadata: {} },
+      bridge_version: '1.0',
+      response: { ok: true, output: { tag: 'one' }, fitness: 1, run_metadata: { tool_calls: 1, wall_clock_ms: 0 } },
     })));
     c1.emit('close', 0);
     const r1 = await p1;
@@ -663,7 +678,8 @@ describe('RealMartianSummonAdapter — state isolation between summons', () => {
     const p2 = adapter.summon(makeRequest({ summon_id: 's2' }));
     const c2 = fakeChildAt(0);
     c2.stdout.emit('data', Buffer.from(JSON.stringify({
-      response: { ok: true, output: { tag: 'two' }, fitness: 0.5, run_metadata: {} },
+      bridge_version: '1.0',
+      response: { ok: true, output: { tag: 'two' }, fitness: 0.5, run_metadata: { tool_calls: 1, wall_clock_ms: 0 } },
     })));
     c2.emit('close', 0);
     const r2 = await p2;
