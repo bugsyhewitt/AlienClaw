@@ -17,6 +17,7 @@ from typing import Any
 
 from alienclaw.genome.validation import validate as validate_genome
 from alienclaw.fitness import evaluate, FitnessInputs
+from alienclaw.fitness.conformance import conformance_for
 from alienclaw.brains.registry import BrainRegistry
 from alienclaw.brains.decoder import decode_params
 from alienclaw.tools import TOOL_REGISTRY
@@ -140,7 +141,14 @@ def _execute_martian(
             )
 
         total_tool_calls += run_result.tool_calls
-        slot_correctnesses.append(run_result.correctness if run_result.ok else 0.0)
+        # Graded correctness: a successful slot scores its output-contract conformance
+        # (fraction of MSB OUTPUT CONTRACT fields present + type-valid) when the tool
+        # has a registered contract, else its binary correctness. Errored slot → 0.0.
+        if run_result.ok:
+            graded = conformance_for(slot_decl.tool_name, run_result.output or {})
+            slot_correctnesses.append(graded if graded is not None else run_result.correctness)
+        else:
+            slot_correctnesses.append(0.0)
         slot_outputs.append(run_result.output or {})
 
         # Slot failure → Martian fails
