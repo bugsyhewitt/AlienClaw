@@ -34,6 +34,19 @@ const REQUIRED_SECTIONS = [
   'VARIABLES',
 ] as const;
 
+// Whitelist of the 13 known section header names in the canonical seed/msb/ layout.
+// Only these names terminate a section body in the extractSection lookahead —
+// embedded developer-comment patterns (NOTE:, TODO:, FIXME:, WARN:, IMPORTANT:, etc.)
+// are no longer treated as section terminators (PKT-673).
+const KNOWN_SECTION_HEADERS = new Set([
+  // Top-level sections (canonical seed/msb/ layout)
+  'CAPABILITIES', 'LIMITATIONS', 'FAILURE MODES', 'BEST PRACTICES',
+  'EXECUTION ORDER', 'OUTPUT CONTRACT', 'GENOME SECTIONS',
+  'PARAMETER_SCHEMA', 'VARIABLES',
+  // Sub-headers inside GENOME SECTIONS
+  'IDENTITY', 'EXECUTION', 'BEHAVIOR', 'CHECKSUM',
+]);
+
 function extractField(raw: string, fieldName: string): string {
   const re = new RegExp(`^${fieldName}:\\s*(.+)$`, 'm');
   const m  = raw.match(re);
@@ -41,9 +54,12 @@ function extractField(raw: string, fieldName: string): string {
 }
 
 function extractSection(raw: string, sectionName: string): string {
-  // Matches: SECTION NAME:\n<content until next ALL-CAPS heading or end>
+  // Whitelist-anchor lookahead: only the 13 known section names terminate the body.
+  // Embedded developer-comment patterns (NOTE:, TODO:, FIXME:, WARN:, IMPORTANT:,
+  // CAUTION:, HACK:, BUG:, etc.) no longer prematurely truncate sections.
+  const headerAlt = [...KNOWN_SECTION_HEADERS].join('|');
   const re = new RegExp(
-    `^${sectionName}:\\s*\\n([\\s\\S]*?)(?=\\n[A-Z ]+:|(?![\\s\\S]))`,
+    `^${sectionName}:\\s*\\n([\\s\\S]*?)(?=\\n(?:${headerAlt}):|(?![\\s\\S]))`,
     'm'
   );
   const m = raw.match(re);

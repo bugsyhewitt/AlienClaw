@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -841,5 +841,221 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     catch (e) { captured = e as Error; }
     expect(captured).not.toBeNull();
     expect(captured!.message).toContain("xcode_index '-3xyz' is not a valid integer");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PKT-673: extractSection embedded-heading premature-termination (R-673-1..14)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a minimal valid .msb string for PKT-673 tests.
+ * Default bodies are single lines; pass overrides to inject embedded headers.
+ * PARAMETER_SCHEMA is omitted unless parameterSchema is provided.
+ */
+function make673Msb(opts: {
+  capabilities?:   string;
+  limitations?:    string;
+  failureModes?:   string;
+  bestPractices?:  string;
+  variables?:      string;
+  parameterSchema?: string;
+} = {}): string {
+  const cap  = opts.capabilities  ?? 'cap line';
+  const lim  = opts.limitations   ?? 'lim line';
+  const fm   = opts.failureModes  ?? 'fm line';
+  const bp   = opts.bestPractices ?? 'bp line';
+  const vars = opts.variables     ?? 'task: the task';
+  let out = `TOOL: pkt673_test
+VERSION: 1.0
+
+CAPABILITIES:
+${cap}
+
+LIMITATIONS:
+${lim}
+
+FAILURE MODES:
+${fm}
+
+BEST PRACTICES:
+${bp}
+
+EXECUTION ORDER:
+1. step
+
+OUTPUT CONTRACT:
+{}
+
+GENOME SECTIONS:
+IDENTITY: x
+EXECUTION: y
+BEHAVIOR: z
+CHECKSUM: w
+
+VARIABLES:
+${vars}
+`;
+  if (opts.parameterSchema !== undefined) {
+    out += `\nPARAMETER_SCHEMA:\n${opts.parameterSchema}\n`;
+  }
+  return out;
+}
+
+describe('msb/msb-loader — extractSection embedded-heading premature-termination (PKT-673)', () => {
+  // R-673-1..6: embedded developer-comment patterns must NOT truncate section body
+
+  it('R-673-1: CAPABILITIES body with NOTE: does not truncate', () => {
+    const raw = make673Msb({ capabilities: 'cap line\nNOTE: this should not terminate\nLine two of capabilities.' });
+    const brain = parseMsbContent(raw);
+    expect(brain.capabilities).toContain('NOTE: this should not terminate');
+    expect(brain.capabilities).toContain('Line two of capabilities.');
+  });
+
+  it('R-673-2: CAPABILITIES body with TODO: does not truncate', () => {
+    const raw = make673Msb({ capabilities: 'cap line\nTODO: fix this later\nLine two of capabilities.' });
+    const brain = parseMsbContent(raw);
+    expect(brain.capabilities).toContain('TODO: fix this later');
+    expect(brain.capabilities).toContain('Line two of capabilities.');
+  });
+
+  it('R-673-3: CAPABILITIES body with FIXME: does not truncate', () => {
+    const raw = make673Msb({ capabilities: 'cap line\nFIXME: broken edge case\nLine two of capabilities.' });
+    const brain = parseMsbContent(raw);
+    expect(brain.capabilities).toContain('FIXME: broken edge case');
+    expect(brain.capabilities).toContain('Line two of capabilities.');
+  });
+
+  it('R-673-4: VARIABLES body with NOTE: between two vars captures both vars', () => {
+    const raw = make673Msb({ variables: 'foo: the foo value\nNOTE: a developer note\nbar: the bar value' });
+    const brain = parseMsbContent(raw);
+    expect(brain.variables).toHaveProperty('foo', 'the foo value');
+    expect(brain.variables).toHaveProperty('bar', 'the bar value');
+  });
+
+  it('R-673-5: VARIABLES body with TODO: captures both vars', () => {
+    const raw = make673Msb({ variables: 'foo: the foo value\nTODO: fix this\nbar: the bar value' });
+    const brain = parseMsbContent(raw);
+    expect(brain.variables).toHaveProperty('foo', 'the foo value');
+    expect(brain.variables).toHaveProperty('bar', 'the bar value');
+  });
+
+  it('R-673-6: LIMITATIONS body with WARN: captures all content', () => {
+    const raw = make673Msb({ limitations: 'limit line one\nWARN: important warning\nlimit line two' });
+    const brain = parseMsbContent(raw);
+    expect(brain.limitations).toContain('WARN: important warning');
+    expect(brain.limitations).toContain('limit line two');
+  });
+
+  // R-673-7..10: adjacent-header no-merge regression guards
+  // Whitelist must still split at REAL section boundaries even with no blank line.
+
+  it('R-673-7: adjacent CAPABILITIES→LIMITATIONS (no blank line) splits correctly', () => {
+    const raw = [
+      'TOOL: pkt673_test', 'VERSION: 1.0', '',
+      'CAPABILITIES:', 'cap content',
+      'LIMITATIONS:', 'lim content', '',
+      'FAILURE MODES:', 'fm', '',
+      'BEST PRACTICES:', 'bp', '',
+      'EXECUTION ORDER:', '1. step', '',
+      'OUTPUT CONTRACT:', '{}', '',
+      'GENOME SECTIONS:', 'IDENTITY: x', 'EXECUTION: y', 'BEHAVIOR: z', 'CHECKSUM: w', '',
+      'VARIABLES:', 'task: the task',
+    ].join('\n') + '\n';
+    const brain = parseMsbContent(raw);
+    expect(brain.capabilities).toBe('cap content');
+    expect(brain.limitations).toContain('lim content');
+  });
+
+  it('R-673-8: adjacent LIMITATIONS→FAILURE MODES (no blank line) splits correctly', () => {
+    const raw = [
+      'TOOL: pkt673_test', 'VERSION: 1.0', '',
+      'CAPABILITIES:', 'cap', '',
+      'LIMITATIONS:', 'lim content',
+      'FAILURE MODES:', 'fm content', '',
+      'BEST PRACTICES:', 'bp', '',
+      'EXECUTION ORDER:', '1. step', '',
+      'OUTPUT CONTRACT:', '{}', '',
+      'GENOME SECTIONS:', 'IDENTITY: x', 'EXECUTION: y', 'BEHAVIOR: z', 'CHECKSUM: w', '',
+      'VARIABLES:', 'task: the task',
+    ].join('\n') + '\n';
+    const brain = parseMsbContent(raw);
+    expect(brain.limitations).toBe('lim content');
+    expect(brain.failureModes).toContain('fm content');
+  });
+
+  it('R-673-9: adjacent FAILURE MODES→BEST PRACTICES (no blank line) splits correctly', () => {
+    const raw = [
+      'TOOL: pkt673_test', 'VERSION: 1.0', '',
+      'CAPABILITIES:', 'cap', '',
+      'LIMITATIONS:', 'lim', '',
+      'FAILURE MODES:', 'fm content',
+      'BEST PRACTICES:', 'bp content', '',
+      'EXECUTION ORDER:', '1. step', '',
+      'OUTPUT CONTRACT:', '{}', '',
+      'GENOME SECTIONS:', 'IDENTITY: x', 'EXECUTION: y', 'BEHAVIOR: z', 'CHECKSUM: w', '',
+      'VARIABLES:', 'task: the task',
+    ].join('\n') + '\n';
+    const brain = parseMsbContent(raw);
+    expect(brain.failureModes).toBe('fm content');
+    expect(brain.bestPractices).toContain('bp content');
+  });
+
+  it('R-673-10: adjacent VARIABLES→PARAMETER_SCHEMA splits correctly (underscore in whitelist)', () => {
+    const raw = make673Msb({
+      variables:       'foo: the foo value',
+      parameterSchema: 'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+    });
+    const brain = parseMsbContent(raw);
+    expect(brain.variables).toHaveProperty('foo', 'the foo value');
+    // PARAMETER_SCHEMA key must NOT bleed into the variables dict
+    expect(brain.variables).not.toHaveProperty('PARAMETER_SCHEMA');
+    expect(brain.parameterSchema).toHaveLength(1);
+    expect(brain.parameterSchema[0]?.name).toBe('max_attempts');
+  });
+
+  // R-673-11..12: edge-case regression guards
+
+  it('R-673-11: CAPABILITIES body with IMPORTANT: does not truncate', () => {
+    const raw = make673Msb({ capabilities: 'cap line\nIMPORTANT: read this\nLine two of capabilities.' });
+    const brain = parseMsbContent(raw);
+    expect(brain.capabilities).toContain('IMPORTANT: read this');
+    expect(brain.capabilities).toContain('Line two of capabilities.');
+  });
+
+  it('R-673-12: section at end-of-string returns body up to EOF', () => {
+    // VARIABLES is the last section (no trailing newline) — exercises the \\Z / (?![\\s\\S]) path.
+    const raw = [
+      'TOOL: pkt673_test', 'VERSION: 1.0', '',
+      'CAPABILITIES:', 'cap', '',
+      'LIMITATIONS:', 'lim', '',
+      'FAILURE MODES:', 'fm', '',
+      'BEST PRACTICES:', 'bp', '',
+      'EXECUTION ORDER:', '1. step', '',
+      'OUTPUT CONTRACT:', '{}', '',
+      'GENOME SECTIONS:', 'IDENTITY: x', 'EXECUTION: y', 'BEHAVIOR: z', 'CHECKSUM: w', '',
+      'VARIABLES:', 'task: the task',
+    ].join('\n'); // intentionally no trailing newline
+    const brain = parseMsbContent(raw);
+    expect(brain.variables).toHaveProperty('task', 'the task');
+  });
+
+  it('R-673-13: all canonical seed/msb/ files parse without error', () => {
+    const msbDir = 'seed/msb';
+    const files = readdirSync(msbDir).filter(f => f.endsWith('.msb'));
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const raw = readFileSync(`${msbDir}/${file}`, 'utf-8');
+      expect(() => parseMsbContent(raw, `${msbDir}/${file}`)).not.toThrow();
+    }
+  });
+
+  it('R-673-14: API_KEY: inside CAPABILITIES body is allowed (underscore not in whitelist)', () => {
+    const raw = make673Msb({
+      capabilities: 'Requires API_KEY: env var to be set.\nSecond line of capabilities.',
+    });
+    const brain = parseMsbContent(raw);
+    expect(brain.capabilities).toContain('API_KEY:');
+    expect(brain.capabilities).toContain('Second line of capabilities.');
   });
 });
