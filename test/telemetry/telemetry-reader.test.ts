@@ -570,6 +570,8 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.runs).toBe(2);
     // malformed_count key must NOT be present when count is zero
     expect('malformed_count' in summary).toBe(false);
+  });
+});
 
 // ─── Shape validation (PKT-704) ───────────────────────────────────────────────
 
