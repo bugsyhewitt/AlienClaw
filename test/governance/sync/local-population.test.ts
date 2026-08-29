@@ -87,6 +87,50 @@ describe('readTopEntries', () => {
   });
 });
 
+describe('readTopEntries non-finite fitness defense', () => {
+  it('skips entry with 1e500 fitness (parses to Infinity)', () => {
+    seedEntry('compute', 'good.json', { genome: 'G'.repeat(16), fitness: 0.7, run_metadata: {} });
+    // Manual JSON to bypass JSON.stringify's null-coercion of Infinity
+    writeFileSync(
+      join(root, 'compute', 'entries', 'poisoned-pos.json'),
+      `{"genome":"${'P'.repeat(16)}","fitness":1e500,"run_metadata":{}}`,
+      'utf-8'
+    );
+    const top = readTopEntries(root, 'compute', 10);
+    expect(top).toHaveLength(1);
+    expect(top[0]!.genome).toBe('G'.repeat(16));
+  });
+
+  it('skips entry with -1e500 fitness (parses to -Infinity)', () => {
+    seedEntry('compute', 'good.json', { genome: 'G'.repeat(16), fitness: 0.7, run_metadata: {} });
+    writeFileSync(
+      join(root, 'compute', 'entries', 'poisoned-neg.json'),
+      `{"genome":"${'N'.repeat(16)}","fitness":-1e500,"run_metadata":{}}`,
+      'utf-8'
+    );
+    const top = readTopEntries(root, 'compute', 10);
+    expect(top).toHaveLength(1);
+    expect(top[0]!.genome).toBe('G'.repeat(16));
+  });
+
+  it('accepts entry with Number.MAX_VALUE fitness (boundary correctness)', () => {
+    seedEntry('compute', 'max.json', { genome: 'M'.repeat(16), fitness: 1.7976931348623157e+308, run_metadata: {} });
+    const top = readTopEntries(root, 'compute', 10);
+    expect(top).toHaveLength(1);
+    expect(Number.isFinite(top[0]!.fitness)).toBe(true);
+  });
+
+  it('readOperatorBest returns null when the only entry file has 1e500 fitness', () => {
+    mkdirSync(join(root, 'compute', 'entries'), { recursive: true });
+    writeFileSync(
+      join(root, 'compute', 'entries', 'only-poisoned.json'),
+      `{"genome":"${'O'.repeat(16)}","fitness":1e500,"run_metadata":{}}`,
+      'utf-8'
+    );
+    expect(readOperatorBest(root, 'compute')).toBeNull();
+  });
+});
+
 describe('readOperatorBest', () => {
   it('returns the best entry in GenomeResult shape with a sha256 hash', () => {
     const genome = 'Z'.repeat(16);
