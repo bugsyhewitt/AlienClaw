@@ -70,7 +70,9 @@ alienclaw --help
   const args = process.argv.slice(2);
   const child = spawn(hostBin, args, {
     stdio: 'inherit',
-    shell: false,
+    shell: false, // Direct exec; args are NOT shell-interpreted. PKT-660.
+                  // hostBin is validated against 'openclaw'|'hermes' (L65-68);
+                  // no shell features needed. Avoids Node DEP0190 (argv injection).
   });
   child.on('exit', (code) => {
     process.exitCode = code ?? 0;
