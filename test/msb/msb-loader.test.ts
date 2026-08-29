@@ -661,12 +661,12 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry.*has \d+ fields \(expected 7/);
   });
 
-  it('R-502: PARAMETER_SCHEMA row with non-numeric xcode_index → throws "not a valid integer" (PKT-674: strict regex fires before isNaN)', () => {
+  it('R-502: PARAMETER_SCHEMA row with non-numeric field → throws "numeric field must be an integer"', () => {
     let captured: Error | null = null;
     try { parseMsbContent(NON_NUMERIC_PARAM_MSB); }
     catch (e) { captured = e as Error; }
     expect(captured).not.toBeNull();
-    expect(captured!.message).toContain("PARAMETER_SCHEMA entry 'name' in <string>: xcode_index 'not_a_number' is not a valid integer");
+    expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry 'name' in <string>: numeric field must be an integer/);
   });
 
   it('R-503: PARAMETER_SCHEMA row with invalid direction → throws "invalid direction \'sideways\'"', () => {
@@ -1243,5 +1243,63 @@ describe('msb/msb-loader — PKT-705: ALL-CAPS phrase in section body does not t
     const brain = parseMsbContent(msb);
     expect(brain.limitations).toContain('Api Keys: requires an API key in the environment.');
     expect(brain.limitations).toContain('Cannot send request bodies.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PKT-662: strict integer parsing — silent truncation / overflow guard
+// ---------------------------------------------------------------------------
+
+describe('msb/msb-loader — extractParameterSchema — PKT-662 strict-int parsing', () => {
+  it('R-662-1: float-shaped xcode_index "3.7" → throws "numeric field must be an integer"', () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      'foo|3.7|1|5|1|lower|desc'
+    );
+    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*3\.7/);
+  });
+
+  it('R-662-2: partial-digit default "5abc999" → throws "numeric field must be an integer"', () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      'foo|0|1|10|5abc999|lower|desc'
+    );
+    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*5abc999/);
+  });
+
+  it('R-662-3: scientific-notation range_max "5e10" → throws "numeric field must be an integer"', () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      'foo|0|1|5e10|5|lower|desc'
+    );
+    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*5e10/);
+  });
+
+  it('R-662-4: integer-overflow range_max "99999999999999999999999999" → throws "out of range"', () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      'foo|0|1|99999999999999999999999999|5|lower|desc'
+    );
+    expect(() => parseMsbContent(msb)).toThrow(/out of range/);
+  });
+
+  it('R-662-5: float default "7.7" → throws "numeric field must be an integer"', () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      'foo|0|1|10|7.7|lower|desc'
+    );
+    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*7\.7/);
+  });
+
+  it('R-662-6: leading-plus "+5" still accepted (parity with Python int())', () => {
+    const msb = VALID_MSB.replace(
+      'max_attempts|0|1|5|1|lower|Maximum retry attempts',
+      'foo|0|+1|+5|+1|lower|desc'
+    );
+    expect(() => parseMsbContent(msb)).not.toThrow();
+    const brain = parseMsbContent(msb);
+    expect(brain.parameterSchema[0]!.rangeMin).toBe(1);
+    expect(brain.parameterSchema[0]!.rangeMax).toBe(5);
+    expect(brain.parameterSchema[0]!.default).toBe(1);
   });
 });
