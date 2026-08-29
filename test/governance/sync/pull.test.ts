@@ -352,6 +352,8 @@ describe('pullTopGenomes — _writeEntry atomicity (PKT-906)', () => {
       expect(raw.length).toBeGreaterThan(0);
       expect(() => JSON.parse(raw)).not.toThrow();
     }
+  });
+});
 
 // ── PKT-690 — fitness guard on network→disk ingestion ───────────────────────
 //
