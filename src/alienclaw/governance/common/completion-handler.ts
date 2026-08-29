@@ -17,18 +17,28 @@ export type SignoffOutcome =
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
 function goalStatusLines(goal: { subGoals: SubGoal[]; scheme?: { campaigns: Array<{ name: string; objective: string; status: string }> } }): string[] {
-  const subGoalLines = goal.subGoals
-    .map(s => `  [${s.status.toUpperCase()}] ${s.description}`);
-  const campaignLines = (goal.scheme?.campaigns ?? [])
-    .map(c => `  [${c.status.toUpperCase()}] Campaign "${c.name}": ${c.objective}`);
+  const subGoals      = Array.isArray(goal.subGoals)
+    ? goal.subGoals.filter((s): s is NonNullable<typeof s> => s !== null && typeof s === 'object')
+    : [];
+  const campaigns     = Array.isArray(goal.scheme?.campaigns)
+    ? goal.scheme!.campaigns.filter((c): c is NonNullable<typeof c> => c !== null && typeof c === 'object')
+    : [];
+  const subGoalLines  = subGoals.map(s => `  [${s.status.toUpperCase()}] ${s.description}`);
+  const campaignLines = campaigns.map(c => `  [${c.status.toUpperCase()}] Campaign "${c.name}": ${c.objective}`);
   return [...subGoalLines, ...campaignLines];
 }
 
 function goalDoneLines(goal: { subGoals: SubGoal[]; scheme?: { campaigns: Array<{ name: string; objective: string; status: string }> } }): string[] {
-  const subGoalLines = goal.subGoals
+  const subGoals      = Array.isArray(goal.subGoals)
+    ? goal.subGoals.filter((s): s is NonNullable<typeof s> => s !== null && typeof s === 'object')
+    : [];
+  const campaigns     = Array.isArray(goal.scheme?.campaigns)
+    ? goal.scheme!.campaigns.filter((c): c is NonNullable<typeof c> => c !== null && typeof c === 'object')
+    : [];
+  const subGoalLines  = subGoals
     .filter(s => s.status === 'complete')
     .map((s: SubGoal) => `  ✓ ${s.description}`);
-  const campaignLines = (goal.scheme?.campaigns ?? [])
+  const campaignLines = campaigns
     .filter(c => c.status === 'complete')
     .map(c => `  ✓ Campaign "${c.name}": ${c.objective}`);
   return [...subGoalLines, ...campaignLines];
@@ -56,12 +66,17 @@ export class CompletionHandler {
 
     // Fitness gate: short-circuit before calling the LLM when objective signal is clear.
     if (martianFitness !== undefined && (!Number.isFinite(martianFitness) || martianFitness < REVIEW_THRESHOLD)) {
-      const firstIncompleteSubGoal   = goal.subGoals.find(s => s.status !== 'complete');
-      const firstIncompleteCampaign  = (goal.scheme?.campaigns ?? [])
-        .find(c => c.status !== 'complete');
+      const subGoals              = Array.isArray(goal.subGoals)
+        ? goal.subGoals.filter((s): s is NonNullable<typeof s> => s !== null && typeof s === 'object')
+        : [];
+      const campaigns             = Array.isArray(goal.scheme?.campaigns)
+        ? goal.scheme!.campaigns.filter((c): c is NonNullable<typeof c> => c !== null && typeof c === 'object')
+        : [];
+      const firstIncompleteSubGoal  = subGoals.find(s => s.status !== 'complete');
+      const firstIncompleteCampaign = campaigns.find(c => c.status !== 'complete');
       const reopenId = firstIncompleteSubGoal?.id
         ?? firstIncompleteCampaign?.id
-        ?? goal.subGoals[0]?.id;
+        ?? subGoals[0]?.id;
       return { proceed: false, reopenIds: reopenId ? [reopenId] : [] };
     }
 
@@ -97,12 +112,17 @@ export class CompletionHandler {
 
     // Low-confidence: flag the first incomplete item to re-exercise the state machine
     if (verdict.confidence === 'low') {
-      const firstIncompleteSubGoal = goal.subGoals.find(s => s.status !== 'complete');
-      const firstIncompleteCampaign = (goal.scheme?.campaigns ?? [])
-        .find(c => c.status !== 'complete');
-      const reopenId = firstIncompleteSubGoal?.id
+      const subGoals                = Array.isArray(goal.subGoals)
+        ? goal.subGoals.filter((s): s is NonNullable<typeof s> => s !== null && typeof s === 'object')
+        : [];
+      const campaigns               = Array.isArray(goal.scheme?.campaigns)
+        ? goal.scheme!.campaigns.filter((c): c is NonNullable<typeof c> => c !== null && typeof c === 'object')
+        : [];
+      const firstIncompleteSubGoal  = subGoals.find(s => s.status !== 'complete');
+      const firstIncompleteCampaign = campaigns.find(c => c.status !== 'complete');
+      const reopenId                = firstIncompleteSubGoal?.id
         ?? firstIncompleteCampaign?.id
-        ?? goal.subGoals[0]?.id;
+        ?? subGoals[0]?.id;
       return { proceed: false, reopenIds: reopenId ? [reopenId] : [] };
     }
 
