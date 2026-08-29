@@ -41,6 +41,26 @@ class FitnessFormulaResult:
     formula_name: str    # identifying label
 
 
+def _finite_int_or_default(value: object, default: int) -> int:
+    """PKT-715: coerce a non-finite or type-unsafe numeric value to a finite int default.
+
+    Mirrors the PKT-617 finite-guard pattern for correctness. Non-numeric types
+    (str/list/dict/None), non-finite floats (NaN/+Inf/-Inf), and any value that
+    fails float() coerce to `default` (fail-closed at the type boundary). Only
+    int/float values that are also finite are accepted; finite floats are
+    truncated to int via int().
+    """
+    if not isinstance(value, (int, float)):
+        return default
+    try:
+        as_float = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(as_float):
+        return default
+    return int(as_float)
+
+
 def option_current(
     correctness: float,
     tool_calls: int,
@@ -51,7 +71,8 @@ def option_current(
     Caps k-slot compositions at 1/k for perfect execution.
     """
     safe_correctness = 0.0 if not math.isfinite(correctness) else correctness  # PKT-617
-    fitness = clamp01(safe_correctness * (1.0 / max(1, tool_calls)))
+    safe_tc = _finite_int_or_default(tool_calls, 1)  # PKT-715: NaN/Inf/-Inf → 1
+    fitness = clamp01(safe_correctness * (1.0 / max(1, safe_tc)))
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
@@ -70,7 +91,9 @@ def option_b(
     No ceiling for perfect compositions.
     """
     safe_correctness = 0.0 if not math.isfinite(correctness) else correctness  # PKT-617
-    fitness = clamp01(safe_correctness * (slot_count / max(1, tool_calls)))
+    safe_sc = _finite_int_or_default(slot_count, 1)  # PKT-715
+    safe_tc = _finite_int_or_default(tool_calls, safe_sc)  # PKT-715: NaN→safe_sc (no inflation)
+    fitness = clamp01(safe_correctness * (safe_sc / max(1, safe_tc)))
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
@@ -90,8 +113,11 @@ def option_c_prime(
     No penalty when tool_calls = slot_count. Multiplicative excess penalty.
     """
     safe_correctness = 0.0 if not math.isfinite(correctness) else correctness  # PKT-617
-    excess = max(0, tool_calls - slot_count)
-    fitness = clamp01(safe_correctness / (1.0 + alpha * excess))
+    safe_alpha = 1.0 if not math.isfinite(alpha) else alpha  # PKT-715: alpha=NaN/Inf → 1.0
+    safe_sc = _finite_int_or_default(slot_count, 1)  # PKT-715
+    safe_tc = _finite_int_or_default(tool_calls, safe_sc)  # PKT-715: NaN→safe_sc (no excess)
+    excess = max(0, safe_tc - safe_sc)
+    fitness = clamp01(safe_correctness / (1.0 + safe_alpha * excess))
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
         tool_calls=tool_calls, slot_count=slot_count,
@@ -111,8 +137,11 @@ def option_d(
     No penalty when tool_calls = slot_count. Additive excess penalty.
     """
     safe_correctness = 0.0 if not math.isfinite(correctness) else correctness  # PKT-617
-    excess = max(0, tool_calls - slot_count)
-    penalty = beta * excess / max(1, slot_count)
+    safe_beta = 1.0 if not math.isfinite(beta) else beta  # PKT-715: beta=NaN/Inf → 1.0
+    safe_sc = _finite_int_or_default(slot_count, 1)  # PKT-715
+    safe_tc = _finite_int_or_default(tool_calls, safe_sc)  # PKT-715: NaN→safe_sc (no excess)
+    excess = max(0, safe_tc - safe_sc)
+    penalty = safe_beta * excess / max(1, safe_sc)
     fitness = clamp01(safe_correctness - penalty)
     return FitnessFormulaResult(
         fitness=fitness, correctness=correctness,
