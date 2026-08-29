@@ -452,4 +452,65 @@ describe('hierarchy-bootstrap — OnlineFitnessLog wiring (E2 item 1)', () => {
     result.shutdown();
   });
 
+  it('HB-113: SIGKILL timer cleared when child closes after SIGTERM (PKT-753)', async () => {
+    let idSeq = 9000;
+    const captured = new Map<number, () => void>();
+    const cleared  = new Set<number>();
+
+    const origST = globalThis.setTimeout;
+    const origCT = globalThis.clearTimeout;
+
+    // Replace with fake — capture callbacks, return synthetic IDs, no real delay
+    globalThis.setTimeout = vi.fn((cb: any) => {
+      const id = ++idSeq as unknown as NodeJS.Timeout;
+      captured.set(idSeq, cb);
+      return id;
+    }) as any;
+    globalThis.clearTimeout = vi.fn((id: any) => { cleared.add(Number(id)); }) as any;
+
+    try {
+      const fakeChild = new EventEmitter() as any;
+      fakeChild.stdin  = { write: vi.fn(), end: vi.fn() };
+      fakeChild.stdout = new EventEmitter();
+      fakeChild.stderr = new EventEmitter();
+      fakeChild.kill   = vi.fn();
+      vi.mocked(spawn).mockReturnValueOnce(fakeChild);
+
+      const reg = {
+        load: vi.fn(),
+        list: vi.fn(() => [{ id: 'mt-hb753', fitness: 0.5 }] as any[]),
+        get:  vi.fn(),
+      };
+      vi.mocked(getRegistry).mockReturnValue(reg as any);
+
+      const result = bootstrap();
+      const fn = getRegisteredFn('live-evo-check');
+
+      // fn() → callLiveEvoBridge → setTimeout(SIGTERM, 30_000) captured as id=9001
+      const fnPromise = fn();
+
+      const outerTimerId = 9001;
+      const outerCb = captured.get(outerTimerId);
+      expect(outerCb, 'outer SIGTERM timer should be registered').toBeDefined();
+
+      // Manually fire outer timer — arms inner SIGKILL timer (id=9002)
+      outerCb!();
+
+      const innerTimerId = 9002;
+      expect(captured.has(innerTimerId), 'inner SIGKILL timer should be registered').toBe(true);
+
+      // Child responds to SIGTERM by closing
+      fakeChild.emit('close', 143);
+      await fnPromise;
+
+      expect(cleared.has(outerTimerId), 'outer SIGTERM timer must be cleared').toBe(true);
+      expect(cleared.has(innerTimerId), 'inner SIGKILL timer must be cleared (PKT-753 fix)').toBe(true);
+
+      result.shutdown();
+    } finally {
+      globalThis.setTimeout = origST;
+      globalThis.clearTimeout = origCT;
+    }
+  });
+
 });
