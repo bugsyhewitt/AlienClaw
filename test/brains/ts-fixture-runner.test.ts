@@ -90,6 +90,8 @@ describe('brain registry spec compliance — cross-language fixture', () => {
           expect(Boolean(spec.capabilities)).toBe(exp['capabilities_nonempty']);
         if ('limitations_nonempty' in exp)
           expect(Boolean(spec.limitations)).toBe(exp['limitations_nonempty']);
+        if ('limitations_line_count' in exp)
+          expect(spec.limitations.split('\n').length).toBe(exp['limitations_line_count']);
         if ('failure_modes_nonempty' in exp)
           expect(Boolean(spec.failureModes)).toBe(exp['failure_modes_nonempty']);
         if ('best_practices_nonempty' in exp)

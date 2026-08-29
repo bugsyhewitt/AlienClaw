@@ -64,6 +64,8 @@ def test_fixture_case(case: dict[str, Any]) -> None:  # noqa: C901
             assert bool(spec.capabilities) == exp["capabilities_nonempty"]
         if "limitations_nonempty" in exp:
             assert bool(spec.limitations) == exp["limitations_nonempty"]
+        if "limitations_line_count" in exp:
+            assert len(spec.limitations.split("\n")) == exp["limitations_line_count"]
         if "failure_modes_nonempty" in exp:
             assert bool(spec.failure_modes) == exp["failure_modes_nonempty"]
         if "best_practices_nonempty" in exp:

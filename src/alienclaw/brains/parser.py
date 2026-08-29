@@ -41,6 +41,13 @@ REQUIRED_SECTIONS: tuple[str, ...] = (
     "VARIABLES",
 )
 
+# Boundary alternation: only stop at known section headers, not any ALL-CAPS phrase.
+# Includes PARAMETER_SCHEMA (optional section following VARIABLES) as a boundary.
+# Mirrors TS SECTION_BOUNDARY_ALT constant in msb-loader.ts.
+_SECTION_BOUNDARY_ALT = "|".join(
+    re.escape(s) for s in (*REQUIRED_SECTIONS, "PARAMETER_SCHEMA")
+)
+
 
 # ---------------------------------------------------------------------------
 # Low-level extractors (mirror TS extractField / extractSection helpers)
