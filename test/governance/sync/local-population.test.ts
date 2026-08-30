@@ -143,11 +143,13 @@ describe('readTopEntries non-finite fitness defense', () => {
     expect(top[0]!.genome).toBe('G'.repeat(16));
   });
 
-  it('accepts entry with Number.MAX_VALUE fitness (boundary correctness)', () => {
+  it('drops entry with Number.MAX_VALUE fitness (finite but out of the 0..1 range)', () => {
+    // Number.MAX_VALUE is finite, so it survives the Number.isFinite() check,
+    // but PKT-654 (f5c17f71) additionally constrains fitness to 0 <= fit <= 1.
+    // 1.79e308 > 1, so it is dropped for the same reason 1.5 is dropped by the
+    // sibling case 'drops out-of-range finite fitness entries (> 1)'.
     seedEntry('compute', 'max.json', { genome: 'M'.repeat(16), fitness: 1.7976931348623157e+308, run_metadata: {} });
-    const top = readTopEntries(root, 'compute', 10);
-    expect(top).toHaveLength(1);
-    expect(Number.isFinite(top[0]!.fitness)).toBe(true);
+    expect(readTopEntries(root, 'compute', 10)).toHaveLength(0);
   });
 
   it('readOperatorBest returns null when the only entry file has 1e500 fitness', () => {
