@@ -136,7 +136,7 @@ function parseStrictInt(
   if (!m) {
     throw new Error(
       `PARAMETER_SCHEMA entry '${entryName}' in ${sourcePath}: ` +
-      `numeric field must be an integer; got ${JSON.stringify(s)} (field "${fieldName}")`
+      `${fieldName} '${s}' is not a valid integer`
     );
   }
   const n = Number(m[1]);

@@ -666,7 +666,7 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     try { parseMsbContent(NON_NUMERIC_PARAM_MSB); }
     catch (e) { captured = e as Error; }
     expect(captured).not.toBeNull();
-    expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry 'name' in <string>: numeric field must be an integer/);
+    expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry 'name' in <string>: xcode_index 'not_a_number' is not a valid integer/);
   });
 
   it('R-503: PARAMETER_SCHEMA row with invalid direction → throws "invalid direction \'sideways\'"', () => {
@@ -1256,7 +1256,7 @@ describe('msb/msb-loader — extractParameterSchema — PKT-662 strict-int parsi
       'max_attempts|0|1|5|1|lower|Maximum retry attempts',
       'foo|3.7|1|5|1|lower|desc'
     );
-    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*3\.7/);
+    expect(() => parseMsbContent(msb)).toThrow(/xcode_index '3\.7' is not a valid integer/);
   });
 
   it('R-662-2: partial-digit default "5abc999" → throws "numeric field must be an integer"', () => {
@@ -1264,7 +1264,7 @@ describe('msb/msb-loader — extractParameterSchema — PKT-662 strict-int parsi
       'max_attempts|0|1|5|1|lower|Maximum retry attempts',
       'foo|0|1|10|5abc999|lower|desc'
     );
-    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*5abc999/);
+    expect(() => parseMsbContent(msb)).toThrow(/default '5abc999' is not a valid integer/);
   });
 
   it('R-662-3: scientific-notation range_max "5e10" → throws "numeric field must be an integer"', () => {
@@ -1272,7 +1272,7 @@ describe('msb/msb-loader — extractParameterSchema — PKT-662 strict-int parsi
       'max_attempts|0|1|5|1|lower|Maximum retry attempts',
       'foo|0|1|5e10|5|lower|desc'
     );
-    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*5e10/);
+    expect(() => parseMsbContent(msb)).toThrow(/range_max '5e10' is not a valid integer/);
   });
 
   it('R-662-4: integer-overflow range_max "99999999999999999999999999" → throws "out of range"', () => {
@@ -1288,7 +1288,7 @@ describe('msb/msb-loader — extractParameterSchema — PKT-662 strict-int parsi
       'max_attempts|0|1|5|1|lower|Maximum retry attempts',
       'foo|0|1|10|7.7|lower|desc'
     );
-    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*7\.7/);
+    expect(() => parseMsbContent(msb)).toThrow(/default '7\.7' is not a valid integer/);
   });
 
   it('R-662-6: leading-plus "+5" still accepted (parity with Python int())', () => {
