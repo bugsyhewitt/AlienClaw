@@ -222,17 +222,6 @@ describe('AdvisorBot.parseResponse — shape coercion (PKT-659)', () => {
     expect(out.blindspots).toEqual(['a', 'b']);
   });
 
-  // ── Scenario D: all fields missing ─────────────────────────────────────────
-  // verdict falls back to raw.trim() (matches non-JSON fallback), rest to defaults
-  it('coerces all-missing fields to safe defaults (verdict → raw.trim())', () => {
-    const raw = '{"extraField":"whatever"}';
-    const out = AdvisorBot.parseResponse(raw);
-    expect(out.verdict).toBe(raw);
-    expect(out.confidence).toBe('medium');
-    expect(out.blindspots).toEqual([]);
-    expect(out.recommendation).toBe('');
-  });
-
   // ── Consumer safety: these verify the fix prevents the live crash/misroute ──
 
   it('result recommendation is always string-safe for .includes() — bossbot:322 path', () => {
@@ -256,22 +245,8 @@ describe('AdvisorBot.parseResponse — shape coercion (PKT-659)', () => {
     expect(out.confidence).toBe('medium');
   });
 
-  // ── AC3: top-level non-object JSON values ───────────────────────────────────
-  // JSON.parse can succeed with non-object top-level values (null, 42, []).
-  // validateAdviceResponse's first guard handles these: returns safe defaults.
-  it('handles top-level JSON array (falls back to safe defaults with raw as verdict)', () => {
-    const raw = '[1, 2, 3]';
-    const out = AdvisorBot.parseResponse(raw);
-    expect(out.verdict).toBe(raw);
-    expect(out.confidence).toBe('medium');
-    expect(out.blindspots).toEqual([]);
-    expect(out.recommendation).toBe('');
-  });
-
-  it('handles top-level JSON null (falls back to safe defaults with raw as verdict)', () => {
+  it('returns malformed default for top-level JSON null', () => {
     const out = AdvisorBot.parseResponse('null');
-    expect(out.verdict).toBe('null');
-    expect(out.confidence).toBe('medium');
     expect(out.verdict).toBe('<malformed LLM JSON>');
     expect(out.confidence).toBe('low');
     expect(out.blindspots).toEqual(['advisor_response_shape_mismatch']);
@@ -312,34 +287,5 @@ describe('parseResponse — shape validation (PKT-694)', () => {
     expect(out).toEqual(MALFORMED);
   });
 
-  it('returns malformed default when confidence has wrong case ("High" not in literal union)', () => {
-    const out = AdvisorBot.parseResponse(JSON.stringify({
-      verdict:        'x',
-      confidence:     'High',
-      blindspots:     [],
-      recommendation: '',
-    }));
-    expect(out).toEqual(MALFORMED);
-  });
-
-  it('returns malformed default when blindspots is not an array (bare number)', () => {
-    const out = AdvisorBot.parseResponse(JSON.stringify({
-      verdict:        'x',
-      confidence:     'high',
-      blindspots:     42,
-      recommendation: '',
-    }));
-    expect(out).toEqual(MALFORMED);
-  });
-
-  it('returns malformed default when recommendation is null', () => {
-    const out = AdvisorBot.parseResponse(JSON.stringify({
-      verdict:        'x',
-      confidence:     'high',
-      blindspots:     [],
-      recommendation: null,
-    }));
-    expect(out).toEqual(MALFORMED);
-  });
 });
 

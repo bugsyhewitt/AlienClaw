@@ -18,11 +18,14 @@ const SOUL_PATH  = join(__dirname, '..', 'prompts', 'advisorbot.soul.md');
 // a string field, integer for a union literal). This helper coerces each field
 // to the declared AdviceResponse type, matching the non-JSON fallback defaults.
 
-function validateAdviceResponse(parsed: unknown, raw: string): AdviceResponse {
+function validateAdviceResponse(parsed: unknown): AdviceResponse | null {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return { verdict: raw.trim(), confidence: 'medium', blindspots: [], recommendation: '' };
+    return null;
   }
   const p = parsed as Record<string, unknown>;
+  if (typeof p['verdict'] !== 'string') {
+    return null;
+  }
   const confidence = (typeof p['confidence'] === 'string' &&
     (p['confidence'] === 'low' || p['confidence'] === 'medium' || p['confidence'] === 'high'))
     ? p['confidence']
@@ -31,12 +34,19 @@ function validateAdviceResponse(parsed: unknown, raw: string): AdviceResponse {
     ? (p['blindspots'] as unknown[]).filter((x): x is string => typeof x === 'string')
     : [];
   return {
-    verdict:        typeof p['verdict'] === 'string' ? p['verdict'] : raw.trim(),
+    verdict:        p['verdict'],
     confidence,
     blindspots,
     recommendation: typeof p['recommendation'] === 'string' ? p['recommendation'] : '',
   };
 }
+
+const MALFORMED_RESPONSE: AdviceResponse = {
+  verdict:        '<malformed LLM JSON>',
+  confidence:     'low',
+  blindspots:     ['advisor_response_shape_mismatch'],
+  recommendation: 'review AdvisorBot output shape',
+};
 
 // ── AdvisorBot ────────────────────────────────────────────────────────────────
 
@@ -98,7 +108,7 @@ export class AdvisorBot {
   static parseResponse(raw: string): AdviceResponse {
     return parseModelJson(
       raw,
-      parsed => validateAdviceResponse(parsed, raw),
+      parsed => validateAdviceResponse(parsed) ?? MALFORMED_RESPONSE,
       clean => ({
         verdict:        clean || raw.trim(),
         confidence:     'medium',
