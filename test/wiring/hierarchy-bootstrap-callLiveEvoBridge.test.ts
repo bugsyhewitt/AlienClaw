@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { EventEmitter } from 'node:events';
 
 // ── Stubs for heavy deps ──────────────────────────────────────────────────────
 
@@ -123,13 +124,22 @@ import { spawn }      from 'node:child_process';
 
 // ── Helper: minimal controllable fake ChildProcess ───────────────────────────
 function makeFakeChild() {
-  const listeners: Record<string, (() => void)[]> = {};
+  const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
   return {
     stdin: { write: vi.fn(), end: vi.fn() },
-    on: vi.fn((event: string, cb: () => void) => {
+    // PKT-998: source at hierarchy-bootstrap.ts:345-346 reads child.stdout and
+    // child.stderr (added by PKT-636, PR #494, 2026-08-13). Original PKT-320
+    // mock omitted these surfaces; without them the source throws
+    // "Cannot read properties of undefined (reading 'on')" before reaching the
+    // close/error handlers at L349/L358 that this test was authored to cover.
+    stdout: new EventEmitter(),
+    stderr: new EventEmitter(),
+    on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
       (listeners[event] ??= []).push(cb);
     }),
-    emit(event: string) { listeners[event]?.forEach(cb => cb()); },
+    emit(event: string, ...args: unknown[]) {
+      listeners[event]?.forEach(cb => cb(...args));
+    },
   };
 }
 
@@ -155,7 +165,7 @@ describe('callLiveEvoBridge — close + error arms (hierarchy-bootstrap.ts L277-
 
   it('HB-LEVO-1: callLiveEvoBridge resolves when child emits "close" (L277)', async () => {
     const fakeChild = makeFakeChild();
-    vi.mocked(spawn).mockReturnValueOnce(fakeChild as ReturnType<typeof spawn>);
+    vi.mocked(spawn).mockReturnValueOnce(fakeChild as unknown as ReturnType<typeof spawn>);
 
     const p = liveEvoFn();
     // Handlers are registered synchronously inside callLiveEvoBridge before
@@ -168,10 +178,10 @@ describe('callLiveEvoBridge — close + error arms (hierarchy-bootstrap.ts L277-
 
   it('HB-LEVO-2: callLiveEvoBridge resolves when child emits "error" — L278 not dead code', async () => {
     const fakeChild = makeFakeChild();
-    vi.mocked(spawn).mockReturnValueOnce(fakeChild as ReturnType<typeof spawn>);
+    vi.mocked(spawn).mockReturnValueOnce(fakeChild as unknown as ReturnType<typeof spawn>);
 
     const p = liveEvoFn();
-    fakeChild.emit('error');
+    fakeChild.emit('error', new Error('test spawn failure'));
     // If L278 were missing the Promise would never resolve and this await would hang.
     await p;
 
