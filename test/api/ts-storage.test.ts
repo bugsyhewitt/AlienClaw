@@ -9,7 +9,7 @@
  * In CI: MySQL service container provides the URL.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import mysql from 'mysql2/promise';
 import { SubmissionStore, InstallStore, GlobalStats, initPool } from '../../src/alienclaw/api/storage.js';
 import { BASE62_ALPHABET } from '../../src/alienclaw/registry/genome-codec.js';
@@ -937,13 +937,26 @@ describe('pool() null-guard and initPool() success path — DB-free', () => {
   });
 
   it('pool() throws "Database pool not initialized" when initPool() was never called', async () => {
-    // _pool is null here: the initPool-guard tests above only exercise the guard
-    // (throw-before-assignment) paths, and LIMIT-boundary tests inject their own
-    // pool via the constructor. So _pool remains null.
+    // The PKT-883 initPool-success test above calls
+    //   initPool('mysql://user:***@127.0.0.1:1/db')
+    // which assigns the module-level _pool singleton in storage.ts. That
+    // singleton persists across describes, so without a module reset this
+    // assertion would observe a non-null _pool and surface a downstream
+    // ECONNREFUSED instead of the null-guard sentinel we are trying to
+    // exercise.
+    //
+    // vi.resetModules() drops the storage.ts module from the require cache so
+    // the next import re-evaluates it with _pool = null. Dynamic import returns
+    // the freshly-initialized SubmissionStore class bound to the new module
+    // instance.
     //
     // new SubmissionStore() with no arg → _given is undefined →
     //   this._pool getter → this._given ?? pool() → pool() → !_pool → throws.
-    const store = new SubmissionStore();
+    vi.resetModules();
+    const { SubmissionStore: FreshSubmissionStore } = await import(
+      '../../src/alienclaw/api/storage.js'
+    );
+    const store = new FreshSubmissionStore();
     await expect(store.topForType('compute')).rejects.toThrow(
       /Database pool not initialized/
     );
