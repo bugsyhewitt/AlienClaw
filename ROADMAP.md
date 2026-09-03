@@ -33,23 +33,42 @@ Legend:
 - Subagent build entry point: CreatorBot.buildSubagent with strict
   domain→martian_type resolution and population-backed summons
   (fromPopulation), replacing silent 'compute' defaults (2026-07-02).
+- Genome specification lockdown: encoding, operators, decode procedure, and the
+  companion file-format/API contracts are written and locked
+  (`docs/specs/GENOME_SPEC.md`, `MARTIANBRAIN_SPEC.md`, `SUBAGENT_SPEC.md` +
+  v1.3/v1.4 addenda, `LEADERBOARD_API_SPEC.md`, `SUMMON_BRIDGE_SPEC.md`).
+- Genome core implementation: encode/decode/mutate/crossover live in
+  `src/alienclaw/genome/{codec,operators}.py` (`GENOME_LENGTH = 256`), with
+  round-trip and operator coverage in `test/genome/` (test_codec, test_operators,
+  test_fixtures, plus the cross-language ts-fixture-runner).
+- Martianbrain library: 8 static brain files in `seed/msb/` mapped through
+  `BrainRegistry.load()` (`src/alienclaw/brains/registry.py`).
+- Governance scaffolding end-to-end: full BossBot/AdvisorBot/CreatorBot loop
+  exercised headlessly in `test/integration/governance-live-fitness.test.ts`
+  against the real summon adapter and a seeded population.
+- E2 — Live Fitness Drives Population (verified complete 2026-09-03). All five
+  items landed and covered by tests:
+  1. `OnlineFitnessLog` wired into `GovernanceLoop` —
+     `src/alienclaw/wiring/hierarchy-bootstrap.ts:100,115`
+     (test `test/wiring/hierarchy-bootstrap-online-fitness.test.ts`, HB-101)
+  2. Population pool capped at `population_size` —
+     `src/alienclaw/bridge/server.py:373-375`
+     (test `test/bridge/test_server_direct.py:549`)
+  3. `live_evo.py` + threshold-gated scheduled job — `LIVE_EVO_THRESHOLD = 10` in
+     `src/alienclaw/evolution/live_evo.py:16`; `live-evo-check` job registered at
+     `hierarchy-bootstrap.ts:409-417`
+  4. Live-fitness integration test —
+     `test/integration/governance-live-fitness.test.ts:140-241`
+  5. `live-fitness-summary.json` written each `fitness-update` tick —
+     `hierarchy-bootstrap.ts:248-258`, path at `constants.ts:90`
+     (test `test/wiring/fitness-update-summary.test.ts`)
 
 ---
 
 ## In flight
 
-- Genome specification lockdown: encoding details, mutation and crossover
-  operators, decode procedure, martianbrain file format, Specialist file format,
-  leaderboard API contract
-- Genome core implementation: Genome class with encode/decode/mutate/crossover,
-  round-trip tests
-- Martianbrain library: static brain files for initial tool set, registry mapping
-  decoded genome sections to tool calls
-- Governance scaffolding end-to-end: full BossBot/AdvisorBot/CreatorBot loop
-  exercised against a fixed-genome Martian
-- E2 — Live Fitness Drives Population: OnlineFitnessLog wired at bootstrap,
-  population pool bounded at population_size, live_evo.py + scheduled threshold
-  evolution, full integration test, live-fitness-summary.json per tick (2026-07-14)
+- Nothing currently in flight. The E2 epic closed 2026-09-03; the next scoped
+  item is under "Next" below.
 
 ---
 
