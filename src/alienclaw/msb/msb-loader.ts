@@ -132,11 +132,11 @@ function parseStrictInt(
   entryName:  string,
   sourcePath: string,
 ): number {
-  const m = /^([-+]?\d+)$/.exec(s.trim());
+  const m = /^(-?[0-9]+)$/.exec(s.trim()); // PKT-756: no + prefix, no \d (aligns with Python intRe)
   if (!m) {
     throw new Error(
       `PARAMETER_SCHEMA entry '${entryName}' in ${sourcePath}: ` +
-      `numeric field must be an integer; got ${JSON.stringify(s)} (field "${fieldName}")`
+      `${fieldName} '${s}' is not a valid integer`
     );
   }
   const n = Number(m[1]);

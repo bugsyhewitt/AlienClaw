@@ -472,7 +472,9 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.runs).toBe(2);
     expect(summary.successes).toBe(2);
     expect(summary.rate).toBe(1);
-    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(1);
+    // PKT-704 closes the same ghost-outcome defect at the READER (isValidMartianReport),
+    // so malformed records never reach summarizeFitness — malformed_count is intentionally absent.
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBeUndefined();
   });
 
   it('PKT615-TR-T3: null outcome is rejected — only canonical records count', async () => {
@@ -487,7 +489,8 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.runs).toBe(2);
     expect(summary.successes).toBe(2);
     expect(summary.rate).toBe(1);
-    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(1);
+    // PKT-704 reader-level predicate drops non-canonical records before counting (defense-in-depth).
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBeUndefined();
   });
 
   it('PKT615-TR-T4: undefined outcome (missing field) is rejected', async () => {
@@ -507,7 +510,9 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.runs).toBe(1);
     expect(summary.successes).toBe(1);
     expect(summary.rate).toBe(1);
-    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(1);
+    // PKT-704 reader-level predicate requires outcome to be one of the three enum literals,
+    // so missing-key records are dropped upstream — malformed_count is absent.
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBeUndefined();
   });
 
   it('PKT615-TR-T5: titlecase "Success" outcome is rejected', async () => {
@@ -522,10 +527,11 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.runs).toBe(2);
     expect(summary.successes).toBe(2);
     expect(summary.rate).toBe(1);
-    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(1);
+    // PKT-704 case-sensitive enum check rejects 'Success' at read time — malformed_count is absent.
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBeUndefined();
   });
 
-  it('PKT615-TR-T6: all-malformed — runs=0, malformed_count=5, rate=0, distinguishable from "broken Martian"', async () => {
+  it('PKT615-TR-T6: all-malformed — runs=0, rate=0 — now shares "broken Martian" zero-run signature; distinguish only via telemetry-file presence (malformed_count retired)', async () => {
     const root = await telemetryRoot();
     const date = new Date().toISOString().slice(0, 10);
     const now = Date.now();
@@ -540,8 +546,10 @@ describe('summarizeFitness — malformed outcome enum (PKT-615)', () => {
     expect(summary.failures).toBe(0);
     expect(summary.escalations).toBe(0);
     expect(summary.rate).toBe(0);
-    // malformed_count surfaces the ghost count — BossBot can distinguish
-    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBe(5);
+    // All-malformed now returns runs=0 (PKT-704 upstream drop), matching the 'broken Martian'
+    // signature. BossBot can still distinguish via the telemetry writer: no writes at all →
+    // true 'broken Martian'; writes but all rejected → 'all-malformed'. malformed_count absent.
+    expect((summary as unknown as Record<string, unknown>)['malformed_count']).toBeUndefined();
   });
 
   it('PKT615-TR-T7: empty relevant set — returns zeros without malformed_count', async () => {

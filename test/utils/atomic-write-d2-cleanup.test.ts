@@ -49,33 +49,63 @@ function setup(): string {
  * throw with the given errCode for any path matching '.tmp-'. Non-.tmp-
  * paths pass through to the real writeFileSync (so readdirSync, etc. work).
  *
+ * src/alienclaw/utils.ts (post PKT-935 fsync) opens the tmp file with
+ * openSync(tmpPath, 'w') and writes via writeFileSync(fd, ...) — i.e. the
+ * write target is a numeric file descriptor, not a path string. The mock
+ * therefore also intercepts openSync so it can record which fds were opened
+ * from a '.tmp-*' path; writeFileSync then fails any call whose first arg
+ * is one of those fds. Path-string writes whose string contains '.tmp-' are
+ * intercepted the same way for forward compatibility.
+ *
  * Imports of src/alienclaw/utils.js via dynamic import() pick up the mock.
  */
 function mockFailingWriteFileSync(errCode: 'ENOSPC' | 'EIO' | 'EMFILE'): void {
-  // Capture the real writeFileSync via require() before vi.doMock registers.
-  // The wrapper below delegates to this captured reference for the
-  // partial-write commit (10 bytes) and for non-.tmp-* pass-through.
-  const realWriteFileSync = require('node:fs').writeFileSync;
+  // Capture the real fs fns via require() before vi.doMock registers. The
+  // wrapper below delegates to these captured references for the partial-
+  // write commit (10 bytes) and for non-.tmp-* pass-through.
+  const realFs = require('node:fs') as {
+    writeFileSync: (path: string | number, data: string | Uint8Array, options?: unknown) => unknown;
+    openSync: (path: string, flags: string) => number;
+  };
+  const realWriteFileSync = realFs.writeFileSync;
+  const realOpenSync = realFs.openSync;
+
+  // Set of file descriptors opened from a '.tmp-*' path. Populated by the
+  // mocked openSync; consulted by the mocked writeFileSync.
+  const tmpFds = new Set<number>();
 
   vi.doMock('node:fs', () => {
     const nodeFs = require('node:fs') as Record<string, unknown>;
     return {
       ...nodeFs,
+      openSync: ((path: string, flags: string): number => {
+        const fd = realOpenSync(path, flags);
+        if (String(path).includes('.tmp-')) tmpFds.add(fd);
+        return fd;
+      }) as typeof nodeFs['openSync'],
       writeFileSync: ((
-        path: string,
+        path: string | number,
         data: string | Buffer,
-        options?: { encoding?: BufferEncoding },
-      ) => {
-        const pathStr = String(path);
-        if (pathStr.includes('.tmp-')) {
-          const str = typeof data === 'string' ? data : (data as Buffer).toString();
-          realWriteFileSync(path, str.slice(0, 10), options);
+        options?: { encoding?: BufferEncoding } | BufferEncoding,
+      ): unknown => {
+        const isTmp = (typeof path === 'number' && tmpFds.has(path))
+          || String(path).includes('.tmp-');
+        if (isTmp) {
+          const str = typeof data === 'string' ? data : Buffer.from(data).toString('utf-8');
+          const opts = typeof options === 'string'
+            ? { encoding: options as BufferEncoding }
+            : (options as { encoding?: BufferEncoding });
+          realWriteFileSync(path, str.slice(0, 10), opts);
           const err = new Error(`${errCode}: simulated partial write`) as NodeJS.ErrnoException;
           err.code = errCode;
           throw err;
         }
-        return realWriteFileSync(path, data as string, options);
-      }),
+        return realWriteFileSync(
+          path,
+          data as string,
+          options as { encoding?: BufferEncoding },
+        );
+      }) as typeof nodeFs['writeFileSync'],
     };
   });
 }

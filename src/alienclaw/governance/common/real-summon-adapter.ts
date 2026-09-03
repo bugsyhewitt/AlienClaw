@@ -216,11 +216,42 @@ export class RealMartianSummonAdapter implements MartianSummonAdapter {
       child.stdin.write(bridgeRequest + '\n');
       child.stdin.end();
 
+      // F-201: spawn-failure error handler (mirror of hierarchy-bootstrap.ts:358
+      // PKT-912). Without this, if `spawn()` fails at the OS layer (ENOENT if
+      // python3 is missing from PATH, EACCES, EMFILE, etc.), Node fires 'error'
+      // on the child and the Promise NEVER settles — the caller's `await` hangs
+      // forever and Node raises the 'error' as an uncaught exception.
+      // Mirrors PKT-938 cleanup: clear both timers so the inner SIGKILL timer
+      // cannot fire on a PID that never existed.
+      let spawnError: Error | undefined;
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        if (sigkillTimer !== null) {
+          clearTimeout(sigkillTimer);
+          sigkillTimer = null;
+        }
+        spawnError = err;
+        resolve({
+          summon_id: request.summon_id,
+          ok: false,
+          error: `Spawn failed: ${err.message}`,
+          fitness: 0.0,
+          run_metadata: { tool_calls: 0, wall_clock_ms: 0 },
+        });
+      });
+
       child.on('close', (exitCode) => {
         clearTimeout(timer);
         if (sigkillTimer !== null) {
           clearTimeout(sigkillTimer);
           sigkillTimer = null;
+        }
+
+        // If the 'error' handler already resolved with a spawn-failure
+        // result, ignore the subsequent 'close' (Node may still fire 'close'
+        // even when spawn itself failed, depending on the failure mode).
+        if (spawnError !== undefined) {
+          return;
         }
 
         if (timedOut) {

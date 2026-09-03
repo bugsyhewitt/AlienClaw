@@ -50,7 +50,12 @@ function readConfigModel(path: string): string | undefined {
   }
   const m = text.match(/^model:[ \t]*(.+?)[ \t]*$/m);
   if (!m) return undefined;
-  let v = m[1].replace(/[ \t]+#.*$/, '').trim();
+  // Per YAML 1.2 spec, an inline `#` comment may begin at start-of-line OR after
+  // whitespace. Use `[ \t]*` (zero-or-more) instead of `[ \t]+` (one-or-more) so a
+  // `#` comment directly attached to the model value (e.g. `openrouter/qwen#note`)
+  // is also stripped — otherwise the entire `#note` suffix is passed downstream
+  // as part of the model id and the LLM call fails on an unknown model id.
+  let v = m[1].replace(/[ \t]*#.*$/, '').trim();
   if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
     v = v.slice(1, -1);
   }

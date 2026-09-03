@@ -552,7 +552,7 @@ describe('CompletionHandler — PKT-658 null subGoal / null campaign element', (
     };
   }
 
-  function makeHandler(goal: ReturnType<typeof makeGoalWithNulls>, advisorVerdict = { verdict: 'ok', confidence: 'high' as const }) {
+  function makeHandler(goal: ReturnType<typeof makeGoalWithNulls>, advisorVerdict: { verdict: string; confidence: 'low' | 'medium' | 'high' } = { verdict: 'ok', confidence: 'high' }) {
     const advisor    = makeAdvisorBot(advisorVerdict);
     const goalMgr    = { load: vi.fn().mockReturnValue({ goals: [goal] }) } as any;
     const userCh     = makeUserChannel('yes');

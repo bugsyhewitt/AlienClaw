@@ -96,7 +96,7 @@ describe('generateApiKey distribution uniformity (PKT-486)', () => {
     expect(yCount).toBeGreaterThanOrEqual(0.8 * uniformShare);
   }, 30_000);
 
-  it('position 0 has chi-square < 100 (df=61, alpha=0.001) — no positional bias', () => {
+  it('position 0 has chi-square < 125 (df=61, alpha=0.001) — no positional bias', () => {
     const counts: Record<string, number> = {};
     for (let i = 0; i < N; i++) {
       const ch = generateApiKey()[0]!;
@@ -112,7 +112,7 @@ describe('generateApiKey distribution uniformity (PKT-486)', () => {
     expect(chi2).toBeLessThan(125);
   }, 30_000);
 
-  it('positions 1-42 remain uniform after fix (regression guard, chi-square < 100)', () => {
+  it('positions 1-42 remain uniform after fix (regression guard, chi-square < 125)', () => {
     const checkPositions = [1, 10, 21, 42];
     const counts: Record<number, Record<string, number>> = {};
     for (const pos of checkPositions) counts[pos] = {};
@@ -130,7 +130,14 @@ describe('generateApiKey distribution uniformity (PKT-486)', () => {
         const observed = counts[pos][ch] ?? 0;
         chi2 += (observed - expected) ** 2 / expected;
       }
-      expect(chi2, `position ${pos} chi-square`).toBeLessThan(100);
+      // Threshold 125 matches the position-0 sibling gate at L112. At df=61 a correct
+      // uniform generator exceeds 100 with p=0.1214% per position; across the 4 positions
+      // checked here that is a 0.485%/run false-failure rate (~1 in 206 CI runs), observed
+      // live on 2026-08-16 (pos 42, 105.54), 2026-08-17 (pos 42, 100.78) and 2026-09-01
+      // (pos 10, 101.77). generateApiKey() is CSPRNG-backed (auth.ts:21) so the flake cannot
+      // be removed by seeding. 125 drops the rate to 0.001%/run while still catching the
+      // PKT-486 bias (chi2 ~1783) with ~14x margin.
+      expect(chi2, `position ${pos} chi-square`).toBeLessThan(125);
     }
   }, 30_000);
 });

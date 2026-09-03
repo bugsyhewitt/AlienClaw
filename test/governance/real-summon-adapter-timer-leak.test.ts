@@ -130,6 +130,7 @@ describe('RealMartianSummonAdapter — inner SIGKILL timer hygiene (PKT-670)', (
   it('T3: no spurious SIGKILL when subprocess exits cleanly before timeout', async () => {
     const adapter = new RealMartianSummonAdapter();
     const validEnvelope = JSON.stringify({
+      bridge_version: '1.0',  // required by validateBridgeResponse (PKT-b version check)
       response: {
         ok:           true,
         output:       { answer: 42 },

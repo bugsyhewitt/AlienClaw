@@ -442,7 +442,9 @@ class TestExtractSectionEmbeddedHeading:
         assert "Line two of capabilities." in spec.capabilities
 
     def test_r673_4_variables_with_note_captures_both_vars(self) -> None:
-        raw = _make_673_msb(variables="foo: the foo value\nNOTE: a developer note\nbar: the bar value")
+        raw = _make_673_msb(
+            variables="foo: the foo value\nNOTE: a developer note\nbar: the bar value"
+        )
         spec = parse_msb(raw)
         assert spec.variables.get("foo") == "the foo value"
         assert spec.variables.get("bar") == "the bar value"
@@ -523,7 +525,9 @@ class TestExtractSectionEmbeddedHeading:
     # R-673-11..12: edge-case regression guards
 
     def test_r673_11_capabilities_with_important_does_not_truncate(self) -> None:
-        raw = _make_673_msb(capabilities="cap line\nIMPORTANT: read this\nLine two of capabilities.")
+        raw = _make_673_msb(
+            capabilities="cap line\nIMPORTANT: read this\nLine two of capabilities."
+        )
         spec = parse_msb(raw)
         assert "IMPORTANT: read this" in spec.capabilities
         assert "Line two of capabilities." in spec.capabilities
