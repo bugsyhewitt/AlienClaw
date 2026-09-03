@@ -1,5 +1,9 @@
 # Epic E2 — Live Fitness Drives Population
 
+> **STATUS: COMPLETE (verified 2026-09-03).** All five items below landed and are
+> covered by tests. See the "Done" section of `ROADMAP.md` for per-item file:line
+> evidence. This document is retained as the design record for the epic.
+
 Online fitness is recorded but isolated. The `OnlineFitnessLog` exists, the bridge
 `summon-from-population` path already feeds individual Martian fitness back to
 Population via `pop.add()`, and telemetry exposes aggregates. But three gaps remain:
@@ -48,4 +52,4 @@ Five concrete items; one per wake. Ordered by dependency:
 - No LLM calls in Martian execution path — Martians are pure genome-symbolic
 - No genome length changes (256 chars, live leaderboard)
 - No direct DigitalOcean deploys (Hostinger only)
-- Ship gate: `pnpm test` green (1,220 tests)
+- Ship gate: `pnpm test` green (3,046 TS + 1,306 Python as of 2026-09-03)
