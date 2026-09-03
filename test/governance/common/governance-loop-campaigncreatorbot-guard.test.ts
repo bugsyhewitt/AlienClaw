@@ -59,12 +59,12 @@ function makeCampaign(override: Partial<Campaign> = {}): Campaign {
     objective: 'test objective',
     subagents: [{
       role:          'Compute Worker',
+      domain:        'compute',
       martianTags:   ['compute'],
       knowledgeBase: '',
     }],
     status:     'pending',
     dependsOn:  [],
-    createdAt:  0,
     ...override,
   };
 }

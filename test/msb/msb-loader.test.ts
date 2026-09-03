@@ -666,7 +666,7 @@ describe('msb/msb-loader — extractParameterSchema (via parseMsbContent) — er
     try { parseMsbContent(NON_NUMERIC_PARAM_MSB); }
     catch (e) { captured = e as Error; }
     expect(captured).not.toBeNull();
-    expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry 'name' in <string>: numeric field must be an integer/);
+    expect(captured!.message).toMatch(/PARAMETER_SCHEMA entry 'name' in <string>: xcode_index 'not_a_number' is not a valid integer/);
   });
 
   it('R-503: PARAMETER_SCHEMA row with invalid direction → throws "invalid direction \'sideways\'"', () => {
@@ -1256,7 +1256,7 @@ describe('msb/msb-loader — extractParameterSchema — PKT-662 strict-int parsi
       'max_attempts|0|1|5|1|lower|Maximum retry attempts',
       'foo|3.7|1|5|1|lower|desc'
     );
-    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*3\.7/);
+    expect(() => parseMsbContent(msb)).toThrow(/xcode_index '3\.7' is not a valid integer/);
   });
 
   it('R-662-2: partial-digit default "5abc999" → throws "numeric field must be an integer"', () => {
@@ -1264,7 +1264,7 @@ describe('msb/msb-loader — extractParameterSchema — PKT-662 strict-int parsi
       'max_attempts|0|1|5|1|lower|Maximum retry attempts',
       'foo|0|1|10|5abc999|lower|desc'
     );
-    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*5abc999/);
+    expect(() => parseMsbContent(msb)).toThrow(/default '5abc999' is not a valid integer/);
   });
 
   it('R-662-3: scientific-notation range_max "5e10" → throws "numeric field must be an integer"', () => {
@@ -1272,7 +1272,7 @@ describe('msb/msb-loader — extractParameterSchema — PKT-662 strict-int parsi
       'max_attempts|0|1|5|1|lower|Maximum retry attempts',
       'foo|0|1|5e10|5|lower|desc'
     );
-    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*5e10/);
+    expect(() => parseMsbContent(msb)).toThrow(/range_max '5e10' is not a valid integer/);
   });
 
   it('R-662-4: integer-overflow range_max "99999999999999999999999999" → throws "out of range"', () => {
@@ -1288,18 +1288,19 @@ describe('msb/msb-loader — extractParameterSchema — PKT-662 strict-int parsi
       'max_attempts|0|1|5|1|lower|Maximum retry attempts',
       'foo|0|1|10|7.7|lower|desc'
     );
-    expect(() => parseMsbContent(msb)).toThrow(/numeric field must be an integer.*7\.7/);
+    expect(() => parseMsbContent(msb)).toThrow(/default '7\.7' is not a valid integer/);
   });
 
-  it('R-662-6: leading-plus "+5" still accepted (parity with Python int())', () => {
+  it('R-662-6: leading-plus "+5" rejected (PKT-756 TS parity — Python _INT_RE also rejects +N)', () => {
+    // PKT-756 updated the spec: Python now rejects + prefix via _INT_RE = re.compile(r"^-?[0-9]+$").
+    // TS parseStrictInt mirrors that with /^(-?[0-9]+)$/ — so +1, +5 in any PARAMETER_SCHEMA
+    // field must throw. Fixture cases param-schema-plus-default and param-schema-plus-xcode
+    // enforce cross-language parity via ts-fixture-runner.test.ts.
     const msb = VALID_MSB.replace(
       'max_attempts|0|1|5|1|lower|Maximum retry attempts',
       'foo|0|+1|+5|+1|lower|desc'
     );
-    expect(() => parseMsbContent(msb)).not.toThrow();
-    const brain = parseMsbContent(msb);
-    expect(brain.parameterSchema[0]!.rangeMin).toBe(1);
-    expect(brain.parameterSchema[0]!.rangeMax).toBe(5);
-    expect(brain.parameterSchema[0]!.default).toBe(1);
+    // First + prefix encountered is range_min (+1)
+    expect(() => parseMsbContent(msb)).toThrow(/range_min '\+1' is not a valid integer/);
   });
 });

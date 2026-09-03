@@ -3,6 +3,7 @@
   "version": "2026.4.10",
   "description": "AlienClaw — governed multi-agent overlay on OpenClaw",
   "private": true,
+  "packageManager": "pnpm@11.15.1",
   "type": "module",
   "scripts": {
     "setup": "bash install.sh",

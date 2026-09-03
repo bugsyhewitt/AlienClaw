@@ -73,6 +73,7 @@ async function loadShim(
     runAlienClaw: vi.fn().mockResolvedValue(undefined),
   }));
 
+  // @ts-expect-error -- alienclaw.mjs has no .d.ts; dynamic module under test
   await import('../../src/alienclaw/cli/alienclaw.mjs');
 }
 

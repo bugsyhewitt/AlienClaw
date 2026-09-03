@@ -25,13 +25,14 @@ jobs:
           --health-retries=3
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: 'package.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Cross-language genome spec compliance (TypeScript side)
@@ -89,13 +90,14 @@ jobs:
           --health-retries=3
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: 'package.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
       - name: Run migrations
         run: for f in migrations/*.sql; do mysql -h 127.0.0.1 -u root -ptest alienclaw_test < "$f"; done
       - name: Run tests
