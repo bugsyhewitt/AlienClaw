@@ -242,7 +242,13 @@ def _audit_runner(
         tool_calls_sensitivity=pairs_tool_calls / n,
         fitness_sensitivity=pairs_fitness / n,
         genome_ever_passed_to_runner=genome_ever_passed,
-        classification=_classify(output_sens),
+        # Classify on fitness_sensitivity — the SELECTION-relevant field — to match
+        # the composition auditor below (Packet 20). Classifying runners on
+        # output_sensitivity measured output *diversity*, not fitness health: two
+        # genomes could produce different-but-equally-scoring outputs and still read
+        # "OK" while contributing no selection gradient. output_sensitivity remains
+        # reported in the result for analysis; it is just not the headline.
+        classification=_classify(pairs_fitness / n),
         traces=traces,
     )
 
