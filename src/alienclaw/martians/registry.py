@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .parser import parse_martian, MartianParseError
+from .parser import parse_martian
 from .types import MartianSpec
 from .validator import validate_martian
 

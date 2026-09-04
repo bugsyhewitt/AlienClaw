@@ -1,6 +1,5 @@
 import os
 import uuid
-from pathlib import Path
 from typing import Any
 from .types import RunResult
 from ._boundary import assert_inside_boundary, file_write_root
