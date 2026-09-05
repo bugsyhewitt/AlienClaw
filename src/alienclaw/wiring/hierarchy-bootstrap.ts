@@ -38,6 +38,9 @@ import * as fsSync            from 'node:fs';
 import { writeFile, mkdir }   from 'node:fs/promises';
 import { join }               from 'node:path';
 import { spawn }              from 'node:child_process';
+import { seedEmptyPopulations }  from '../governance/common/sync/pull.js';
+import { NetworkAPIClient }       from '../governance/common/sync/client.js';
+import { ensureApiKey }           from '../governance/common/sync/credentials.js';
 
 export interface BootstrapResult {
   /** The BossBot governance loop — call loop.start() to begin processing goals */
@@ -89,6 +92,11 @@ export function bootstrap(): BootstrapResult {
   const adapter = new RealMartianSummonAdapter();
 
   const knownMartianTypes    = registry.list().map(ms => ms.id);
+  const _seedApiUrl  = (process.env['ALIENCLAW_API_URL'] ?? 'https://api.alienclaw.net').replace(/\/$/, '');
+  const _seedPopRoot = process.env['ALIENCLAW_POPULATIONS_ROOT'] ?? join(PATHS.home, 'populations');
+  Promise.resolve()
+    .then(() => seedEmptyPopulations(new NetworkAPIClient(_seedApiUrl, ensureApiKey()), knownMartianTypes, _seedPopRoot))
+    .catch((e: unknown) => console.error('[Bootstrap] Cold-start seeding failed:', e));
   const commonLogger         = new Logger(new JsonStdoutSink(), 'creator-bot-common');
   const commonDomainResolver = new DomainResolver(
     knownMartianTypes.length > 0 ? knownMartianTypes : ['compute'],

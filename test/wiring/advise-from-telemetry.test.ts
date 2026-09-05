@@ -67,6 +67,16 @@ vi.mock('../../src/alienclaw/registry/registry.js', () => ({
 vi.mock('../../src/alienclaw/registry/genome-codec.js', () => ({
   validateGenome: vi.fn(() => ({ valid: true, errors: [] })),
 }));
+vi.mock('../../src/alienclaw/governance/common/sync/pull.js', () => ({
+  seedEmptyPopulations: vi.fn(async function() { return []; }),
+  pullTopGenomes:        vi.fn(async function() { return []; }),
+}));
+vi.mock('../../src/alienclaw/governance/common/sync/client.js', () => ({
+  NetworkAPIClient: vi.fn(function() { return {}; }),
+}));
+vi.mock('../../src/alienclaw/governance/common/sync/credentials.js', () => ({
+  ensureApiKey: vi.fn(function() { return 'test-api-key'; }),
+}));
 vi.mock('../../src/alienclaw/registry/seed-installer.js', () => ({
   installSeeds: vi.fn(),
 }));

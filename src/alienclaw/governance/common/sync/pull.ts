@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import type { NetworkAPIClient, GenomeEntry } from './client.js';
 import { sanitizeFilenameSegment } from '../../../telemetry/telemetry-writer.js';
 import { atomicWrite } from '../../../utils.js';
+import { readTopEntries } from './local-population.js';
 
 export interface PullResult {
   martianType: string;
@@ -40,6 +41,30 @@ export async function pullTopGenomes(
     results.push(result);
   }
 
+  return results;
+}
+
+/**
+ * Pull top genomes for each martian type that has no local entries yet.
+ *
+ * Safe to call on every bootstrap — types with existing entries are skipped
+ * without a network call. Types with empty directories are seeded from the
+ * leaderboard's top-N genomes.
+ */
+export async function seedEmptyPopulations(
+  client: NetworkAPIClient,
+  martianTypes: string[],
+  populationsRoot: string,
+  topN = 10,
+): Promise<PullResult[]> {
+  const results: PullResult[] = [];
+  for (const martianType of martianTypes) {
+    if (readTopEntries(populationsRoot, martianType, 1).length > 0) {
+      results.push({ martianType, received: 0, written: 0, errors: [] });
+      continue;
+    }
+    results.push(await _pullType(client, martianType, populationsRoot, topN));
+  }
   return results;
 }
 
