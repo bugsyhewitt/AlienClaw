@@ -16,6 +16,9 @@ export function registerEvolveCommand(program: Command): void {
     .option('--population <n>',  'Population size', '32')
     .option('--seed <n>',        'RNG seed for reproducibility')
     .option('--inputs <json>',   'JSON inputs forwarded to the Martian')
+    .option('--selection <strategy>', 'Selection strategy: tournament, roulette_wheel, truncation')
+    .option('--tournament-k <n>',     'Tournament size (tournament strategy; default 3)')
+    .option('--top-fraction <f>',     'Top fraction to keep (truncation strategy; default 0.5)')
     .addHelpText('after', `
 Examples:
   alienclaw evolve --type compute_alone --generations 10
@@ -26,6 +29,7 @@ Submit your best genome afterwards with: alienclaw submit --type <martianType>
 `)
     .action(async (opts: {
       type: string; generations: string; population: string; seed?: string; inputs?: string;
+      selection?: string; tournamentK?: string; topFraction?: string;
     }) => {
       const { runEvolve } = await import('./evolve.js');
       process.exitCode = await runEvolve({
@@ -34,6 +38,9 @@ Submit your best genome afterwards with: alienclaw submit --type <martianType>
         population:  Number(opts.population),
         seed:        opts.seed !== undefined ? Number(opts.seed) : undefined,
         inputs:      opts.inputs,
+        selection:   opts.selection,
+        tournamentK: opts.tournamentK !== undefined ? Number(opts.tournamentK) : undefined,
+        topFraction: opts.topFraction !== undefined ? Number(opts.topFraction) : undefined,
       });
     });
 }
