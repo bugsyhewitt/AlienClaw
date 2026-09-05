@@ -97,7 +97,6 @@ def resolve_inputs(
     If wiring is None, returns campaign_inputs directly (slot uses campaign).
     Otherwise, returns a dict of resolved field values.
     """
-    from .types import InputWiring  # avoid circular
     if wiring is None:
         return dict(campaign_inputs)
     return {
