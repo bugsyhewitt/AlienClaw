@@ -79,6 +79,20 @@ def main() -> int:
         "--inputs", type=json.loads, default={},
         help="JSON inputs forwarded to the Martian (e.g. '{\"input\": \"2+2\"}')",
     )
+    run.add_argument(
+        "--selection",
+        choices=["tournament", "roulette_wheel", "truncation"],
+        default="tournament",
+        help="Selection strategy (default: tournament)",
+    )
+    run.add_argument(
+        "--tournament-k", type=int, default=3,
+        help="Tournament size for tournament selection (default: 3)",
+    )
+    run.add_argument(
+        "--top-fraction", type=float, default=0.5,
+        help="Top fraction to keep for truncation selection (default: 0.5)",
+    )
 
     args = parser.parse_args()
 
@@ -138,6 +152,9 @@ def main() -> int:
             martian_type=args.martian_type,
             population_size=args.population_size,
             seed=args.seed,
+            selection_strategy=args.selection,
+            tournament_k=args.tournament_k,
+            truncation_top_fraction=args.top_fraction,
         )
 
         run_martian = make_bridge_runner(args.martian_type, args.inputs)

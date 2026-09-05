@@ -20,6 +20,9 @@ export interface EvolveCommandArgs {
   population:  number;
   seed?:       number;
   inputs?:     string;
+  selection?:   string;
+  tournamentK?: number;
+  topFraction?: number;
 }
 
 export interface SubmitCommandArgs {
@@ -85,7 +88,10 @@ export function parseCliArgs(argv: string[]): CliCommand {
         case '--generations': args.generations = Number(value); i++; break;
         case '--population':  args.population  = Number(value); i++; break;
         case '--seed':        args.seed        = Number(value); i++; break;
-        case '--inputs':      args.inputs      = value; i++; break;
+        case '--inputs':       args.inputs      = value; i++; break;
+        case '--selection':   args.selection   = value ?? ''; i++; break;
+        case '--tournament-k': args.tournamentK = Number(value); i++; break;
+        case '--top-fraction': args.topFraction = Number(value); i++; break;
         default:
           return { type: 'unknown', raw };
       }
@@ -94,7 +100,14 @@ export function parseCliArgs(argv: string[]): CliCommand {
       Number.isSafeInteger(args.generations) && args.generations >= 1 &&
       Number.isSafeInteger(args.population)  && args.population  >= 1 &&
       (args.seed === undefined || (Number.isSafeInteger(args.seed) && args.seed >= 0));
-    if (!args.martianType || !numbersOk || !isValidMartianType(args.martianType)) {
+    const VALID_SELECTIONS = new Set(['tournament', 'roulette_wheel', 'truncation']);
+    const selectionOk   = args.selection   === undefined || VALID_SELECTIONS.has(args.selection);
+    const tournamentKOk = args.tournamentK === undefined ||
+      (Number.isSafeInteger(args.tournamentK) && args.tournamentK >= 1);
+    const topFractionOk = args.topFraction === undefined ||
+      (Number.isFinite(args.topFraction) && args.topFraction > 0 && args.topFraction <= 1);
+    if (!args.martianType || !numbersOk || !isValidMartianType(args.martianType) ||
+        !selectionOk || !tournamentKOk || !topFractionOk) {
       return { type: 'unknown', raw };
     }
     try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }

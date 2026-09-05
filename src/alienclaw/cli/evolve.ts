@@ -55,6 +55,9 @@ export function buildRunnerArgs(args: EvolveCommandArgs): string[] {
     '--population-size', String(args.population),
     ...(args.seed !== undefined ? ['--seed', String(args.seed)] : []),
     ...(args.inputs !== undefined ? ['--inputs', args.inputs] : []),
+    ...(args.selection   !== undefined ? ['--selection',    args.selection]           : []),
+    ...(args.tournamentK !== undefined ? ['--tournament-k', String(args.tournamentK)] : []),
+    ...(args.topFraction !== undefined ? ['--top-fraction', String(args.topFraction)] : []),
   ];
 }
 
