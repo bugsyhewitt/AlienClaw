@@ -39,4 +39,20 @@ describe('selection-strategy CLI levers', () => {
     expect(argv).not.toContain('--tournament-k');
     expect(argv).not.toContain('--top-fraction');
   });
+
+  it('R-004: parseCliArgs rejects invalid --selection value', () => {
+    const cmd = parseCliArgs(['evolve', '--type', 'compute_alone', '--selection', 'bogus_strategy']);
+    expect(cmd.type).toBe('unknown');
+  });
+
+  it('R-005: parseCliArgs rejects --tournament-k 0 and non-integer', () => {
+    expect(parseCliArgs(['evolve', '--type', 'compute_alone', '--tournament-k', '0']).type).toBe('unknown');
+    expect(parseCliArgs(['evolve', '--type', 'compute_alone', '--tournament-k', '2.5']).type).toBe('unknown');
+  });
+
+  it('R-006: parseCliArgs rejects --top-fraction outside (0, 1]', () => {
+    expect(parseCliArgs(['evolve', '--type', 'compute_alone', '--top-fraction', '0']).type).toBe('unknown');
+    expect(parseCliArgs(['evolve', '--type', 'compute_alone', '--top-fraction', '1.5']).type).toBe('unknown');
+    expect(parseCliArgs(['evolve', '--type', 'compute_alone', '--top-fraction', '1']).type).toBe('evolve');
+  });
 });
