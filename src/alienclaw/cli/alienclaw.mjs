@@ -26,6 +26,10 @@ if (cmd.type === 'run') {
   // ── Explicit leaderboard submission ──────────────────────────────────────
   const { runSubmit } = await import('./submit.js');
   process.exitCode = await runSubmit(cmd.args);
+} else if (cmd.type === 'status') {
+  // ── Live-fitness status summary ──────────────────────────────────────────
+  const { runStatus } = await import('./status.js');
+  process.exitCode = await runStatus();
 } else if (cmd.type === 'version') {
   const pkg = await import('./package.json', { assert: { type: 'json' } });
   console.log(`AlienClaw ${pkg.default.version}`);
@@ -47,6 +51,10 @@ alienclaw submit --type <martianType> [options]
   --name <handle>    Public handle (8 uppercase letters); persisted
   --yes              Skip the confirmation prompt
   --force            Submit even when not beating the public top
+
+alienclaw status
+  Print live-fitness trends per martian_type (observation count + max fitness).
+  Reads ~/.alienclaw/online_fitness.jsonl and live-fitness-summary.json.
 
 Options:
   --verbose   Enable verbose output

@@ -32,10 +32,13 @@ export interface SubmitCommandArgs {
   force:       boolean;
 }
 
+export interface StatusCommandArgs {}
+
 export type CliCommand =
   | { type: 'run';     args: RunCommandArgs }
   | { type: 'evolve';  args: EvolveCommandArgs }
   | { type: 'submit';  args: SubmitCommandArgs }
+  | { type: 'status';  args: StatusCommandArgs }
   | { type: 'version' }
   | { type: 'help' }
   | { type: 'unknown'; raw: string[] };
@@ -134,6 +137,10 @@ export function parseCliArgs(argv: string[]): CliCommand {
     }
     try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }
     return { type: 'submit', args };
+  }
+
+  if (raw[0] === 'status') {
+    return { type: 'status', args: {} };
   }
 
   const flags       = raw.filter(a => a.startsWith('-'));
