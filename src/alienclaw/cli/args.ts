@@ -34,11 +34,17 @@ export interface SubmitCommandArgs {
 
 export interface StatusCommandArgs {}
 
+export interface LeaderboardCommandArgs {
+  martianType: string;
+  topN:        number;
+}
+
 export type CliCommand =
-  | { type: 'run';     args: RunCommandArgs }
-  | { type: 'evolve';  args: EvolveCommandArgs }
-  | { type: 'submit';  args: SubmitCommandArgs }
-  | { type: 'status';  args: StatusCommandArgs }
+  | { type: 'run';         args: RunCommandArgs }
+  | { type: 'evolve';      args: EvolveCommandArgs }
+  | { type: 'submit';      args: SubmitCommandArgs }
+  | { type: 'status';      args: StatusCommandArgs }
+  | { type: 'leaderboard'; args: LeaderboardCommandArgs }
   | { type: 'version' }
   | { type: 'help' }
   | { type: 'unknown'; raw: string[] };
@@ -137,6 +143,25 @@ export function parseCliArgs(argv: string[]): CliCommand {
     }
     try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }
     return { type: 'submit', args };
+  }
+
+  if (raw[0] === 'leaderboard') {
+    const args: LeaderboardCommandArgs = { martianType: '', topN: 10 };
+    for (let i = 1; i < raw.length; i++) {
+      const token = raw[i]!;
+      const value = raw[i + 1];
+      switch (token) {
+        case '--martian-type': args.martianType = value ?? ''; i++; break;
+        case '--top':          args.topN = Number(value); i++; break;
+        default:               return { type: 'unknown', raw };
+      }
+    }
+    const topNOk = Number.isSafeInteger(args.topN) && args.topN >= 1 && args.topN <= 100;
+    if (!args.martianType || !isValidMartianType(args.martianType) || !topNOk) {
+      return { type: 'unknown', raw };
+    }
+    try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }
+    return { type: 'leaderboard', args };
   }
 
   if (raw[0] === 'status') {

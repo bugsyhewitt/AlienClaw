@@ -26,6 +26,10 @@ if (cmd.type === 'run') {
   // ── Explicit leaderboard submission ──────────────────────────────────────
   const { runSubmit } = await import('./submit.js');
   process.exitCode = await runSubmit(cmd.args);
+} else if (cmd.type === 'leaderboard') {
+  // ── Public leaderboard read (no credentials required) ─────────────────────
+  const { runLeaderboard } = await import('./leaderboard.js');
+  process.exitCode = await runLeaderboard(cmd.args);
 } else if (cmd.type === 'status') {
   // ── Live-fitness status summary ──────────────────────────────────────────
   const { runStatus } = await import('./status.js');
@@ -51,6 +55,10 @@ alienclaw submit --type <martianType> [options]
   --name <handle>    Public handle (8 uppercase letters); persisted
   --yes              Skip the confirmation prompt
   --force            Submit even when not beating the public top
+
+alienclaw leaderboard --martian-type <type> [--top <n>]
+  Show the public top-N for a martian type (read-only, no credentials needed).
+  --top <n>  Number of entries to show (1–100, default 10)
 
 alienclaw status
   Print live-fitness trends per martian_type (observation count + max fitness).
