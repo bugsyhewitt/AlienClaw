@@ -17,6 +17,7 @@ Or programmatically:
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import random
@@ -102,6 +103,31 @@ class AuditResults:
             runners_audited=d["runners_audited"],
             sensitivities=sensitivities,
         )
+
+
+@contextlib.contextmanager
+def _file_boundary(tmpdir: Path):
+    """Point file-tool workspace boundaries at tmpdir for the duration of the audit.
+
+    Without this, file_read/file_write fixtures written into TemporaryDirectory
+    are rejected by the boundary check ("Path traversal rejected"), scoring 0.0
+    and falsely appearing BLIND.
+    """
+    old_root = os.environ.get("ALIENCLAW_FILE_WORKSPACE_ROOT")
+    old_write = os.environ.get("ALIENCLAW_FILE_WRITE_WORKSPACE")
+    os.environ["ALIENCLAW_FILE_WORKSPACE_ROOT"] = str(tmpdir)
+    os.environ["ALIENCLAW_FILE_WRITE_WORKSPACE"] = str(tmpdir)
+    try:
+        yield
+    finally:
+        if old_root is None:
+            os.environ.pop("ALIENCLAW_FILE_WORKSPACE_ROOT", None)
+        else:
+            os.environ["ALIENCLAW_FILE_WORKSPACE_ROOT"] = old_root
+        if old_write is None:
+            os.environ.pop("ALIENCLAW_FILE_WRITE_WORKSPACE", None)
+        else:
+            os.environ["ALIENCLAW_FILE_WRITE_WORKSPACE"] = old_write
 
 
 def _id_tag_for(martian_type: str) -> str:
@@ -299,14 +325,15 @@ def run_audit(seed: int = 42) -> AuditResults:
         os.environ["ALIENCLAW_SEARCH_URL"] = stub_url + "/search"
         with tempfile.TemporaryDirectory(prefix="alienclaw-diag-") as tmpdir_str:
             tmpdir = Path(tmpdir_str)
-            sensitivities = []
-            for martian_type in sorted(single_slot_types):
-                # Each runner gets its own sub-RNG seeded from main RNG.
-                # This isolates runners from each other — changing PAIRS_PER_RUNNER
-                # does not affect the genome pairs generated for other runners.
-                runner_rng = random.Random(rng.randint(0, 2**32))
-                result = _audit_runner(martian_type, runner_rng, stub_url, tmpdir)
-                sensitivities.append(result)
+            with _file_boundary(tmpdir):
+                sensitivities = []
+                for martian_type in sorted(single_slot_types):
+                    # Each runner gets its own sub-RNG seeded from main RNG.
+                    # This isolates runners from each other — changing PAIRS_PER_RUNNER
+                    # does not affect the genome pairs generated for other runners.
+                    runner_rng = random.Random(rng.randint(0, 2**32))
+                    result = _audit_runner(martian_type, runner_rng, stub_url, tmpdir)
+                    sensitivities.append(result)
 
     os.environ.pop("ALIENCLAW_DIAGNOSTICS", None)
     os.environ.pop("ALIENCLAW_SEARCH_URL", None)
@@ -488,12 +515,13 @@ def run_martian_audit(seed: int = 42, pairs_per_martian: int = 20) -> MartianAud
         os.environ["ALIENCLAW_SEARCH_URL"] = stub_url + "/search"
         with tempfile.TemporaryDirectory(prefix="alienclaw-p19-") as tmpdir_str:
             tmpdir = Path(tmpdir_str)
-            for martian_type in sorted(composition_martians):
-                runner_rng = random.Random(rng.randint(0, 2**32))
-                result = _audit_composition_martian(
-                    martian_type, runner_rng, stub_url, tmpdir, pairs_per_martian
-                )
-                sensitivities.append(result)
+            with _file_boundary(tmpdir):
+                for martian_type in sorted(composition_martians):
+                    runner_rng = random.Random(rng.randint(0, 2**32))
+                    result = _audit_composition_martian(
+                        martian_type, runner_rng, stub_url, tmpdir, pairs_per_martian
+                    )
+                    sensitivities.append(result)
 
     os.environ.pop("ALIENCLAW_DIAGNOSTICS", None)
     os.environ.pop("ALIENCLAW_SEARCH_URL", None)

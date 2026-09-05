@@ -9,6 +9,7 @@
  * NAMING (AGENTS.md wall): "Subagent", never "Subagent".
  */
 import { randomUUID } from "node:crypto";
+import { defaultMakeReflectiveDataset } from "../reflective/adapter.js";
 import type { GenomeAdapter } from "../reflective/adapter.js";
 import type {
   Genome,
@@ -93,15 +94,6 @@ export class TopologyAdapter implements GenomeAdapter {
     batch: EvaluationBatch,
     components: string[],
   ): ReflectiveDataset {
-    const dataset: ReflectiveDataset = {};
-    for (const comp of components) {
-      dataset[comp] = batch.traces.map(t => ({
-        taskId: t.taskId,
-        input: t.toolCalls[0]?.args ?? {},
-        feedback: t.correctness.evidence,
-        score: t.correctness.score,
-      }));
-    }
-    return dataset;
+    return defaultMakeReflectiveDataset(batch, components);
   }
 }
