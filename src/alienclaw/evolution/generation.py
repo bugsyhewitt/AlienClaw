@@ -25,7 +25,7 @@ from alienclaw.fitness.function import clamp01
 from alienclaw.genome.operators import crossover, mutate, mutate_directed
 
 from .population import Population
-from .selection import roulette_wheel, tournament, truncation
+from .selection import rank_selection, roulette_wheel, tournament, truncation
 from .stats import compute_from_entries
 from .types import EvolutionConfig, PopulationEntry
 
@@ -155,7 +155,9 @@ def _make_selector(config: EvolutionConfig):
         return lambda pop, rng: roulette_wheel(pop, rng)
     if config.selection_strategy == "truncation":
         return lambda pop, rng: truncation(pop, config.truncation_top_fraction, rng)
+    if config.selection_strategy == "rank":
+        return lambda pop, rng: rank_selection(pop, rng)
     raise ValueError(
         f"Unknown selection_strategy '{config.selection_strategy}' — "
-        "valid: tournament, roulette_wheel, truncation"
+        "valid: tournament, roulette_wheel, truncation, rank"
     )

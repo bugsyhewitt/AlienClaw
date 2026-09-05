@@ -48,7 +48,7 @@ class EvolutionConfig:
     - crossover_rate=0.5: equal mix of mutation-only and crossover children
     - elitism_count=2: top-2 always survive each generation
     - selection_strategy='tournament': the v1.0 production path;
-      'roulette_wheel' and 'truncation' opt into the v1.x algorithms
+      'roulette_wheel', 'truncation', and 'rank' opt into the v1.x algorithms
     """
     martian_type: str
     population_size: int = 32
