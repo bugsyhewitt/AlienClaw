@@ -64,3 +64,22 @@ def truncation(pop: Population, top_fraction: float, rng: random.Random) -> Popu
     cutoff = max(1, math.ceil(len(entries) * top_fraction))
     ranked = sorted(entries, key=lambda e: (-e.fitness, e.entry_id))
     return rng.choice(ranked[:cutoff])
+
+
+def rank_selection(pop: Population, rng: random.Random) -> PopulationEntry:
+    """Rank-based (linear) selection.
+
+    Entries are sorted by fitness ascending and assigned weights 1..N
+    (weight 1 for the lowest-fitness entry, N for the highest). Selection
+    pressure is proportional to rank, not raw fitness — useful when all
+    entries converge to similar fitness values and roulette_wheel would
+    degenerate to near-uniform sampling.
+
+    Fitness ties are broken by entry_id (stable sort across calls).
+    """
+    entries = pop.all()
+    if not entries:
+        return pop.sample(rng)  # raises canonical RuntimeError on empty pool
+    ranked = sorted(entries, key=lambda e: (e.fitness, e.entry_id))
+    weights = list(range(1, len(ranked) + 1))
+    return rng.choices(ranked, weights=weights, k=1)[0]

@@ -1,9 +1,10 @@
 import random
+from collections import Counter
 
 import pytest
 
 from alienclaw.evolution.population import Population
-from alienclaw.evolution.selection import roulette_wheel, tournament, truncation
+from alienclaw.evolution.selection import rank_selection, roulette_wheel, tournament, truncation
 from alienclaw.evolution.types import EvolutionConfig
 
 
@@ -150,3 +151,44 @@ class TestTruncation:
         pop.replace_pool([])
         with pytest.raises(RuntimeError, match="empty population"):
             truncation(pop, 0.5, random.Random(1))
+
+
+class TestRankSelection:
+    def test_acceptance_top_chosen_more_than_bottom_all_eligible(self):
+        """A-001: backlog acceptance criterion — 1000 samples, seed=42, top ≥380."""
+        pop = _make_pop_with_fitness([0.1, 0.4, 0.7, 0.9])
+        rng = random.Random(42)
+        picks = [rank_selection(pop, rng) for _ in range(1000)]
+        counts = Counter(round(e.fitness, 1) for e in picks)
+        assert counts[0.9] >= 380, f"Top chosen only {counts[0.9]}/1000 times"
+
+    def test_seeded_rng_is_reproducible(self):
+        """A-002: same seed produces the same sequence of entry_ids."""
+        pop = _make_pop_with_fitness([0.1, 0.3, 0.7, 0.9])
+        results1 = [rank_selection(pop, random.Random(11)).entry_id for _ in range(10)]
+        results2 = [rank_selection(pop, random.Random(11)).entry_id for _ in range(10)]
+        assert results1 == results2
+
+    def test_all_equal_fitness_all_entries_eligible(self):
+        """A-003: equal fitness → all 3 entries reachable (ranks differ by entry_id)."""
+        pop = _make_pop_with_fitness([0.5, 0.5, 0.5])
+        rng = random.Random(42)
+        seen = {rank_selection(pop, rng).entry_id for _ in range(300)}
+        assert len(seen) == 3, "All 3 equal-fitness entries must be reachable"
+
+    def test_dispatch_via_make_selector(self):
+        """A-004: _make_selector dispatches 'rank' to rank_selection without raising."""
+        from alienclaw.evolution.generation import _make_selector
+        pop = _make_pop_with_fitness([0.2, 0.8])
+        config = EvolutionConfig(martian_type="compute", selection_strategy="rank")
+        select = _make_selector(config)
+        result = select(pop, random.Random(5))
+        assert result.fitness in {0.2, 0.8}
+
+    def test_empty_pool_raises_canonical_error(self):
+        """A-005: empty pool raises RuntimeError (delegates to pop.sample)."""
+        config = EvolutionConfig(martian_type="compute", population_size=2, seed=7)
+        pop = Population.create(config)
+        pop.replace_pool([])
+        with pytest.raises(RuntimeError, match="empty population"):
+            rank_selection(pop, random.Random(1))
