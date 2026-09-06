@@ -7,13 +7,13 @@
  *
  * Default: off (safe to apply migrations ahead of enabling)
  */
+import { readEvolutionFlag } from "../make-evolution-flag.js";
+import type { EvolutionFlagMode } from "../make-evolution-flag.js";
 
-export type ReflectiveMode = "off" | "shadow" | "on";
+export type ReflectiveMode = EvolutionFlagMode;
 
 export function getReflectiveMode(): ReflectiveMode {
-  const raw = process.env["REFLECTIVE_EVOLUTION"] ?? "off";
-  if (raw === "shadow" || raw === "on") return raw;
-  return "off";
+  return readEvolutionFlag("REFLECTIVE_EVOLUTION");
 }
 
 export function isReflectiveActive(): boolean {

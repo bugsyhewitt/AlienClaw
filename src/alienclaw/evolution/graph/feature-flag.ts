@@ -5,12 +5,13 @@
  * the evolved graph alongside the static team for comparison; "on" lets it
  * drive real campaigns. Rollback is a single env var.
  */
-export type EvolveTopologyMode = "off" | "shadow" | "on";
+import { readEvolutionFlag } from "../make-evolution-flag.js";
+import type { EvolutionFlagMode } from "../make-evolution-flag.js";
+
+export type EvolveTopologyMode = EvolutionFlagMode;
 
 export function getEvolveTopologyMode(): EvolveTopologyMode {
-  const raw = process.env["EVOLVE_TOPOLOGY"] ?? "off";
-  if (raw === "shadow" || raw === "on") return raw;
-  return "off";
+  return readEvolutionFlag("EVOLVE_TOPOLOGY");
 }
 
 export function isEvolveTopologyActive(): boolean {
