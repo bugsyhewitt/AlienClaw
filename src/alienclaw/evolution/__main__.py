@@ -93,6 +93,18 @@ def main() -> int:
         "--top-fraction", type=float, default=0.5,
         help="Top fraction to keep for truncation selection (default: 0.5)",
     )
+    run.add_argument(
+        "--mutation-rate", type=float, default=None,
+        help="Per-character mutation probability [0, 1] (default: 1/256≈0.0039)",
+    )
+    run.add_argument(
+        "--crossover-rate", type=float, default=None,
+        help="Fraction of children produced by crossover [0, 1] (default: 0.5)",
+    )
+    run.add_argument(
+        "--elitism", type=int, default=None,
+        help="Number of elite genomes preserved per generation (default: 2)",
+    )
 
     args = parser.parse_args()
 
@@ -148,7 +160,7 @@ def main() -> int:
         from alienclaw.evolution.experiment import run_experiment
         from alienclaw.evolution.types import EvolutionConfig
 
-        config = EvolutionConfig(
+        config_kwargs: dict = dict(
             martian_type=args.martian_type,
             population_size=args.population_size,
             seed=args.seed,
@@ -156,6 +168,13 @@ def main() -> int:
             tournament_k=args.tournament_k,
             truncation_top_fraction=args.top_fraction,
         )
+        if args.mutation_rate is not None:
+            config_kwargs['mutation_rate'] = args.mutation_rate
+        if args.crossover_rate is not None:
+            config_kwargs['crossover_rate'] = args.crossover_rate
+        if args.elitism is not None:
+            config_kwargs['elitism_count'] = args.elitism
+        config = EvolutionConfig(**config_kwargs)
 
         run_martian = make_bridge_runner(args.martian_type, args.inputs)
         results: list[dict] = []
