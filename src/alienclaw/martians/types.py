@@ -1,6 +1,6 @@
 """Martian composition types for Packet 16."""
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 # ARCHITECTURE §Packet 16 — Tool ID table. Assigned alphabetically.

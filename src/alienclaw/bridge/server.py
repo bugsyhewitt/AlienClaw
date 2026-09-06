@@ -146,7 +146,10 @@ def _execute_martian(
         # has a registered contract, else its binary correctness. Errored slot → 0.0.
         if run_result.ok:
             graded = conformance_for(slot_decl.tool_name, run_result.output or {})
-            slot_correctnesses.append(graded if graded is not None else run_result.correctness)
+            if graded is None:
+                slot_correctnesses.append(run_result.correctness)
+            else:
+                slot_correctnesses.append(min(graded, run_result.correctness))
         else:
             slot_correctnesses.append(0.0)
         slot_outputs.append(run_result.output or {})

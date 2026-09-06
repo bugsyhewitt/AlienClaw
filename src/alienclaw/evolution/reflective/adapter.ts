@@ -34,3 +34,23 @@ export interface GenomeAdapter {
     components: string[],
   ): ReflectiveDataset;
 }
+
+/**
+ * Default implementation of makeReflectiveDataset shared by all stub adapters.
+ * Real adapters may override if they need domain-specific shaping.
+ */
+export function defaultMakeReflectiveDataset(
+  batch: EvaluationBatch,
+  components: string[],
+): ReflectiveDataset {
+  const dataset: ReflectiveDataset = {};
+  for (const comp of components) {
+    dataset[comp] = batch.traces.map(t => ({
+      taskId: t.taskId,
+      input: t.toolCalls[0]?.args ?? {},
+      feedback: t.correctness.evidence,
+      score: t.correctness.score,
+    }));
+  }
+  return dataset;
+}

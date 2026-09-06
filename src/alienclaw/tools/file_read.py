@@ -1,6 +1,5 @@
 import math
 import os
-from pathlib import Path
 from typing import Any
 from .types import RunResult
 from ._boundary import assert_inside_boundary, workspace_root
