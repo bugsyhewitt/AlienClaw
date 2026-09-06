@@ -30,6 +30,10 @@ if (cmd.type === 'run') {
   // ── Public leaderboard read (no credentials required) ─────────────────────
   const { runLeaderboard } = await import('./leaderboard.js');
   process.exitCode = await runLeaderboard(cmd.args);
+} else if (cmd.type === 'show') {
+  // ── Local top-N genome listing (read-only) ────────────────────────────────
+  const { runShow } = await import('./show.js');
+  process.exitCode = await runShow(cmd.args);
 } else if (cmd.type === 'status') {
   // ── Live-fitness status summary ──────────────────────────────────────────
   const { runStatus } = await import('./status.js');
@@ -62,6 +66,10 @@ alienclaw submit --type <martianType> [options]
 
 alienclaw leaderboard --martian-type <type> [--top <n>]
   Show the public top-N for a martian type (read-only, no credentials needed).
+  --top <n>  Number of entries to show (1–100, default 10)
+
+alienclaw show --martian-type <type> [--top <n>]
+  Print the top-N genomes of a persisted local population. Options:
   --top <n>  Number of entries to show (1–100, default 10)
 
 alienclaw status
