@@ -34,6 +34,10 @@ if (cmd.type === 'run') {
   // ── Live-fitness status summary ──────────────────────────────────────────
   const { runStatus } = await import('./status.js');
   process.exitCode = await runStatus();
+} else if (cmd.type === 'runs') {
+  // ── Local populations listing (read-only) ─────────────────────────────
+  const { runRuns } = await import('./runs.js');
+  process.exitCode = await runRuns();
 } else if (cmd.type === 'version') {
   const pkg = await import('./package.json', { assert: { type: 'json' } });
   console.log(`AlienClaw ${pkg.default.version}`);
@@ -63,6 +67,10 @@ alienclaw leaderboard --martian-type <type> [--top <n>]
 alienclaw status
   Print live-fitness trends per martian_type (observation count + max fitness).
   Reads ~/.alienclaw/online_fitness.jsonl and live-fitness-summary.json.
+
+alienclaw runs
+  List persisted local populations (martian_type, generations, latest max_fitness).
+  Reads ALIENCLAW_POPULATIONS_ROOT (default ~/.alienclaw/populations/).
 
 Options:
   --verbose   Enable verbose output

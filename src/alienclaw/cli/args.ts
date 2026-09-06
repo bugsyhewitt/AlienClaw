@@ -37,6 +37,8 @@ export interface SubmitCommandArgs {
 
 export interface StatusCommandArgs {}
 
+export interface RunsCommandArgs {}
+
 export interface LeaderboardCommandArgs {
   martianType: string;
   topN:        number;
@@ -47,6 +49,7 @@ export type CliCommand =
   | { type: 'evolve';      args: EvolveCommandArgs }
   | { type: 'submit';      args: SubmitCommandArgs }
   | { type: 'status';      args: StatusCommandArgs }
+  | { type: 'runs';        args: RunsCommandArgs }
   | { type: 'leaderboard'; args: LeaderboardCommandArgs }
   | { type: 'version' }
   | { type: 'help' }
@@ -179,6 +182,10 @@ export function parseCliArgs(argv: string[]): CliCommand {
 
   if (raw[0] === 'status') {
     return { type: 'status', args: {} };
+  }
+
+  if (raw[0] === 'runs') {
+    return { type: 'runs', args: {} };
   }
 
   const flags       = raw.filter(a => a.startsWith('-'));
