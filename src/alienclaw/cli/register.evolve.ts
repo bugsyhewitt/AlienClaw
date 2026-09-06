@@ -19,6 +19,9 @@ export function registerEvolveCommand(program: Command): void {
     .option('--selection <strategy>', 'Selection strategy: tournament, roulette_wheel, truncation')
     .option('--tournament-k <n>',     'Tournament size (tournament strategy; default 3)')
     .option('--top-fraction <f>',     'Top fraction to keep (truncation strategy; default 0.5)')
+    .option('--elitism <n>',          'Elite genomes to preserve per generation (default 2)')
+    .option('--crossover-rate <f>',   'Crossover fraction [0, 1] (default 0.5)')
+    .option('--mutation-rate <f>',    'Per-character mutation probability [0, 1] (default 1/256)')
     .addHelpText('after', `
 Examples:
   alienclaw evolve --type compute_alone --generations 10
@@ -30,6 +33,7 @@ Submit your best genome afterwards with: alienclaw submit --type <martianType>
     .action(async (opts: {
       type: string; generations: string; population: string; seed?: string; inputs?: string;
       selection?: string; tournamentK?: string; topFraction?: string;
+      elitism?: string; crossoverRate?: string; mutationRate?: string;
     }) => {
       const { runEvolve } = await import('./evolve.js');
       process.exitCode = await runEvolve({
@@ -41,6 +45,9 @@ Submit your best genome afterwards with: alienclaw submit --type <martianType>
         selection:   opts.selection,
         tournamentK: opts.tournamentK !== undefined ? Number(opts.tournamentK) : undefined,
         topFraction: opts.topFraction !== undefined ? Number(opts.topFraction) : undefined,
+        elitism:      opts.elitism       !== undefined ? Number(opts.elitism)       : undefined,
+        crossoverRate: opts.crossoverRate !== undefined ? Number(opts.crossoverRate) : undefined,
+        mutationRate:  opts.mutationRate  !== undefined ? Number(opts.mutationRate)  : undefined,
       });
     });
 }

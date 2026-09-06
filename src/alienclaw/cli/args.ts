@@ -23,6 +23,9 @@ export interface EvolveCommandArgs {
   selection?:   string;
   tournamentK?: number;
   topFraction?: number;
+  elitism?:       number;
+  crossoverRate?: number;
+  mutationRate?:  number;
 }
 
 export interface SubmitCommandArgs {
@@ -101,6 +104,9 @@ export function parseCliArgs(argv: string[]): CliCommand {
         case '--selection':   args.selection   = value ?? ''; i++; break;
         case '--tournament-k': args.tournamentK = Number(value); i++; break;
         case '--top-fraction': args.topFraction = Number(value); i++; break;
+        case '--elitism':        args.elitism      = Number(value); i++; break;
+        case '--crossover-rate': args.crossoverRate = Number(value); i++; break;
+        case '--mutation-rate':  args.mutationRate  = Number(value); i++; break;
         default:
           return { type: 'unknown', raw };
       }
@@ -115,8 +121,15 @@ export function parseCliArgs(argv: string[]): CliCommand {
       (Number.isSafeInteger(args.tournamentK) && args.tournamentK >= 1);
     const topFractionOk = args.topFraction === undefined ||
       (Number.isFinite(args.topFraction) && args.topFraction > 0 && args.topFraction <= 1);
+    const elitismOk      = args.elitism      === undefined ||
+      (Number.isSafeInteger(args.elitism) && args.elitism >= 0);
+    const crossoverRateOk = args.crossoverRate === undefined ||
+      (Number.isFinite(args.crossoverRate) && args.crossoverRate >= 0 && args.crossoverRate <= 1);
+    const mutationRateOk  = args.mutationRate  === undefined ||
+      (Number.isFinite(args.mutationRate) && args.mutationRate >= 0 && args.mutationRate <= 1);
     if (!args.martianType || !numbersOk || !isValidMartianType(args.martianType) ||
-        !selectionOk || !tournamentKOk || !topFractionOk) {
+        !selectionOk || !tournamentKOk || !topFractionOk ||
+        !elitismOk || !crossoverRateOk || !mutationRateOk) {
       return { type: 'unknown', raw };
     }
     try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }

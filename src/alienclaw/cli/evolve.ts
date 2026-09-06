@@ -58,6 +58,9 @@ export function buildRunnerArgs(args: EvolveCommandArgs): string[] {
     ...(args.selection   !== undefined ? ['--selection',    args.selection]           : []),
     ...(args.tournamentK !== undefined ? ['--tournament-k', String(args.tournamentK)] : []),
     ...(args.topFraction !== undefined ? ['--top-fraction', String(args.topFraction)] : []),
+    ...(args.elitism       !== undefined ? ['--elitism',       String(args.elitism)]       : []),
+    ...(args.crossoverRate !== undefined ? ['--crossover-rate', String(args.crossoverRate)] : []),
+    ...(args.mutationRate  !== undefined ? ['--mutation-rate',  String(args.mutationRate)]  : []),
   ];
 }
 
