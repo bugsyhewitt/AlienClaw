@@ -135,3 +135,113 @@ class TestMainCliSeedsIntegration:
     def test_scientific_seeds_exits_2(self, monkeypatch, tmp_path):
         code, _ = self._call_main_expect_exit(monkeypatch, "42,1e5,44", tmp_path)
         assert code == 2
+
+
+# ---------------------------------------------------------------------------
+# PKT-1041: --target-fitness validation and emission (R-005, R-006)
+# ---------------------------------------------------------------------------
+
+class TestTargetFitnessValidation:
+    """R-005: --target-fitness outside (0,1] must return exit 2 (before bridge import)."""
+
+    def _call_main_with_argv(self, monkeypatch, argv):
+        monkeypatch.setattr(sys, "argv", argv)
+        stderr_capture = io.StringIO()
+        monkeypatch.setattr(sys, "stderr", stderr_capture)
+        code = main()
+        return code, stderr_capture.getvalue()
+
+    def test_target_fitness_zero_returns_exit_2(self, monkeypatch):
+        code, err = self._call_main_with_argv(monkeypatch, [
+            "prog", "run-experiment", "--martian-type", "compute",
+            "--target-fitness", "0",
+        ])
+        assert code == 2
+        assert "--target-fitness" in err
+
+    def test_target_fitness_above_one_returns_exit_2(self, monkeypatch):
+        code, err = self._call_main_with_argv(monkeypatch, [
+            "prog", "run-experiment", "--martian-type", "compute",
+            "--target-fitness", "1.5",
+        ])
+        assert code == 2
+        assert "--target-fitness" in err
+
+    def test_target_fitness_negative_returns_exit_2(self, monkeypatch):
+        code, err = self._call_main_with_argv(monkeypatch, [
+            "prog", "run-experiment", "--martian-type", "compute",
+            "--target-fitness", "-0.1",
+        ])
+        assert code == 2
+
+
+class TestTargetFitnessEmission:
+    """R-006: target-halted run must emit target_reached JSON with unrounded fitness."""
+
+    def test_emits_target_reached_when_halted(self, monkeypatch, tmp_path):
+        import json as _json
+        from unittest.mock import MagicMock
+        from alienclaw.evolution.generation import FitnessReport
+
+        def make_fixed_runner(martian_type, inputs):
+            def runner(mtype, genome):
+                return FitnessReport(fitness=1.0, run_metadata={"tool_calls": 1})
+            return runner
+
+        mock_module = MagicMock()
+        mock_module.make_bridge_runner = make_fixed_runner
+        monkeypatch.setitem(sys.modules, "alienclaw.evolution.bridge_runner", mock_module)
+
+        monkeypatch.setattr(sys, "argv", [
+            "prog", "run-experiment",
+            "--martian-type", "compute",
+            "--target-fitness", "0.5",
+            "--generations", "10",
+            "--population-size", "4",
+        ])
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", stdout_capture)
+        monkeypatch.setattr(sys, "stderr", stderr_capture)
+
+        main()
+
+        lines = [l for l in stdout_capture.getvalue().splitlines() if l.strip()]
+        target_lines = [l for l in lines if '"target_reached"' in l]
+        assert len(target_lines) == 1, f"Expected 1 target_reached line, got: {lines}"
+        data = _json.loads(target_lines[0])
+        assert data["type"] == "target_reached"
+        assert data["fitness"] >= 0.5
+        assert isinstance(data["generation"], int)
+
+    def test_no_target_reached_when_never_halted(self, monkeypatch, tmp_path):
+        import json as _json
+        from unittest.mock import MagicMock
+        from alienclaw.evolution.generation import FitnessReport
+
+        def make_zero_runner(martian_type, inputs):
+            def runner(mtype, genome):
+                return FitnessReport(fitness=0.0, run_metadata={"tool_calls": 1})
+            return runner
+
+        mock_module = MagicMock()
+        mock_module.make_bridge_runner = make_zero_runner
+        monkeypatch.setitem(sys.modules, "alienclaw.evolution.bridge_runner", mock_module)
+
+        monkeypatch.setattr(sys, "argv", [
+            "prog", "run-experiment",
+            "--martian-type", "compute",
+            "--target-fitness", "0.5",
+            "--generations", "3",
+            "--population-size", "4",
+        ])
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", stdout_capture)
+        monkeypatch.setattr(sys, "stderr", stderr_capture)
+
+        main()
+
+        lines = stdout_capture.getvalue().splitlines()
+        target_lines = [l for l in lines if '"target_reached"' in l]
+        assert len(target_lines) == 0, f"Expected no target_reached line, got: {target_lines}"

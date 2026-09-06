@@ -26,6 +26,7 @@ export interface EvolveCommandArgs {
   elitism?:       number;
   crossoverRate?: number;
   mutationRate?:  number;
+  targetFitness?: number;
 }
 
 export interface SubmitCommandArgs {
@@ -116,6 +117,7 @@ export function parseCliArgs(argv: string[]): CliCommand {
         case '--elitism':        args.elitism      = Number(value); i++; break;
         case '--crossover-rate': args.crossoverRate = Number(value); i++; break;
         case '--mutation-rate':  args.mutationRate  = Number(value); i++; break;
+        case '--target-fitness': args.targetFitness = Number(value); i++; break;
         default:
           return { type: 'unknown', raw };
       }
@@ -136,9 +138,11 @@ export function parseCliArgs(argv: string[]): CliCommand {
       (Number.isFinite(args.crossoverRate) && args.crossoverRate >= 0 && args.crossoverRate <= 1);
     const mutationRateOk  = args.mutationRate  === undefined ||
       (Number.isFinite(args.mutationRate) && args.mutationRate >= 0 && args.mutationRate <= 1);
+    const targetFitnessOk = args.targetFitness === undefined ||
+      (Number.isFinite(args.targetFitness) && args.targetFitness > 0 && args.targetFitness <= 1);
     if (!args.martianType || !numbersOk || !isValidMartianType(args.martianType) ||
         !selectionOk || !tournamentKOk || !topFractionOk ||
-        !elitismOk || !crossoverRateOk || !mutationRateOk) {
+        !elitismOk || !crossoverRateOk || !mutationRateOk || !targetFitnessOk) {
       return { type: 'unknown', raw };
     }
     try { sanitizeFilenameSegment(args.martianType, 'martianType'); } catch { return { type: 'unknown', raw }; }
