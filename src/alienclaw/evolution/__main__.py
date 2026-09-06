@@ -190,6 +190,18 @@ def main() -> int:
             args.output.write_text(json.dumps(results, indent=2))
             print(f"Results written to {args.output}", file=sys.stderr)
 
+        from alienclaw.evolution.diagnostics.plateau_detector import detect_plateaus
+        curve = [row["max_fitness"] for row in results]
+        plateaus = detect_plateaus(curve)
+        print(json.dumps({
+            "type": "plateau_summary",
+            "total_generations": args.generations,
+            "plateaus": [
+                {"start_generation": p.start_generation, "length": p.length}
+                for p in plateaus
+            ],
+        }))
+
     return 0
 
 

@@ -31,6 +31,22 @@ function repoRoot(): string {
 export function formatGenerationLine(line: string, totalGenerations: number): string {
   try {
     const row = JSON.parse(line) as Record<string, unknown>;
+    if (row['type'] === 'plateau_summary') {
+      const plateaus = row['plateaus'];
+      if (Array.isArray(plateaus)) {
+        if (plateaus.length === 0) {
+          return 'Convergence: no plateau detected';
+        }
+        if (plateaus.length === 1) {
+          const p = plateaus[0] as Record<string, unknown>;
+          return `Convergence: plateau at gen ${p['start_generation']} (${p['length']} flat gens, Δ<0.01)`;
+        }
+        const parts = (plateaus as Record<string, unknown>[]).map(p =>
+          `gen ${p['start_generation']} len ${p['length']}`
+        );
+        return `Convergence: ${plateaus.length} plateaus (at ${parts.join(', ')})`;
+      }
+    }
     const gen  = row['generation'];
     const max  = row['max_fitness'];
     const mean = row['mean_fitness'];
