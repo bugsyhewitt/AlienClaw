@@ -84,6 +84,110 @@ per-section layout in comments.
 
 ---
 
+## Layout (resolved)
+
+**Resolution of the 4×64 vs 192+64 ambiguity:** Both descriptions are correct; they
+describe the same physical layout from different angles.
+
+- The genome is **4 sections × 64 chars each = 256 chars**.
+- Sections 0, 1, and 2 are the **192-char mutable body** (identity, execution, behavior).
+- Section 3 (chars 192–255) is a **64-char checksum computed over the 192-char body** —
+  it is NOT a tool slot. There is no "fifth section" and there is no tool-slot at position 3.
+
+`MAX_MS_TOOLS=4` is a separate constant from a different layer (the `.ms` file `[TOOLS]`
+section) and refers to the maximum number of tool slots a Martian may declare, not to
+genome sections. The genome does **not** select tools. Tool selection is handled in the
+`.ms` file's `[TOOLS]` section (see GENOME_SPEC Purpose section above).
+
+**Evidence:**
+- `src/alienclaw/registry/genome-codec.ts:20-22` defines `GENOME_LENGTH = 256`,
+  `SECTION_SIZE = 64`, `SECTION_COUNT = 4`.
+- `src/alienclaw/registry/genome-codec.ts:60-87` implements `computeChecksum()` which
+  accepts exactly 192 chars (sections 0–2) and produces 64 chars (section 3).
+- `src/alienclaw/genome/alphabet.py:32-40` (GENOME_LENGTH, SECTION_LENGTH constants)
+  confirms the same numbers in the Python mirror.
+- `src/alienclaw/genome/codec.py:130-172` shows `decode_xcode` and related helpers working
+  within individual 64-char sections.
+
+## Codec authority
+
+**TypeScript is the canonical codec.** The Python implementation at
+`src/alienclaw/genome/codec.py` explicitly states in its module docstring (lines 2–4):
+"Mirrors the TypeScript canonical codec at src/alienclaw/registry/genome-codec.ts".
+
+Any discrepancy between the two implementations is a bug in the Python mirror. The
+shared fixture file `test/fixtures/genome-spec-fixtures.json` is the cross-language
+contract: any genome that one codec accepts or rejects must be accepted or rejected
+identically by the other.
+
+## Xcode encoding (ARCHITECTURE §3)
+
+Xcode is a 2-character Base62 pair that encodes a single integer parameter in the
+range [0, 3843] (= 62×62 − 1 = XCODE_MAX). It appears within sections 0–2, starting
+at byte 1 of each slot (byte 0 is the section discriminant; bytes 63 is reserved for
+future use). Each section can hold up to 31 Xcode pairs (bytes 1–62 = 62 bytes = 31
+pairs).
+
+**Encoding:**
+
+```
+encode_xcode(value):  # value in [0, 3843]
+    hi = value // 62     # high Base62 digit (0..61)
+    lo = value  % 62     # low  Base62 digit (0..61)
+    return BASE62_ALPHABET[hi] + BASE62_ALPHABET[lo]
+```
+
+**Decoding:**
+
+```
+decode_xcode(genome, slot_index, xcode_index):
+    base = slot_index * 64 + 1 + xcode_index * 2
+    hi = ALPHABET_INDEX[genome[base]]
+    lo = ALPHABET_INDEX[genome[base+1]]
+    return hi * 62 + lo                 # int in [0, 3843]
+```
+
+**Linear parameter mapping:**
+
+An Xcode value is mapped to a parameter range [range_min, range_max] by:
+
+```
+param_value = (xcode_value * span) // (XCODE_MAX + 1) + range_min
+    where span = range_max - range_min + 1
+```
+
+This is a uniform mapping: the 3844 Xcode values tile the parameter range as evenly as
+possible. The inverse (parameter → minimum Xcode) uses ceiling division.
+
+Evidence: `src/alienclaw/genome/codec.py:130-172` implements `decode_xcode`,
+`encode_xcode`, `xcode_to_param_value`, and `param_value_to_xcode`. The identical
+logic appears in `src/alienclaw/registry/genome-codec.ts:159-210` (`decodeXcode`,
+`encodeXcode`, `xcodeToParamValue`, `paramValueToXcode`).
+
+## Error taxonomy
+
+The following error identifiers are raised by both codecs on invalid input:
+
+| Condition | Python raises | TypeScript raises |
+|---|---|---|
+| Length ≠ 256 | `ValueError("Genome must be exactly 256 chars...")` | `Error("Genome must be exactly 256 chars...")` |
+| Non-Base62 character | `ValueError("Genome contains non-Base62 characters: ...")` | via `validateGenome` errors array |
+| Checksum mismatch | `ValueError("Checksum mismatch: stored=... expected=...")` | via `validateGenome` errors array |
+| Invalid section length in assemble | `ValueError("Section X must be exactly 64 chars")` | `Error("Section N (name) must be exactly 64 chars...")` |
+| Non-Base62 in section | `ValueError("Section X contains non-Base62 characters")` | `Error("Section N (name) contains non-Base62 characters")` |
+| Xcode slot_index OOB | `ValueError("slot_index out of range [0,3]...")` | `Error("slotIndex out of range [0,3]...")` |
+| Xcode xcode_index OOB | `ValueError("xcode_index out of range [0,30]...")` | `Error("xcodeIndex out of range [0,30]...")` |
+| Xcode value OOB | `ValueError("xcode value out of range [0,3843]...")` | `Error("xcode value out of range [0,3843]...")` |
+
+**Vocabulary:** The five conceptual error classes in the test vector schema are:
+- `INVALID_LENGTH` — genome length ≠ 256 (checked first)
+- `INVALID_CHARACTER` — any char outside BASE62_ALPHABET
+- `CHECKSUM_MISMATCH` — stored checksum ≠ recomputed checksum
+- `UNKNOWN_CODON` — codon value outside a field's declared range (treated as safe default at runtime; not rejected at codec level)
+- `INVALID_CHAIN` — composition-level error (adjacent output/input type incompatible; detected post-decode by T5 composition checker, not by the codec itself)
+
+---
+
 ## Per-section encoding
 
 ### Section 0 — IDENTITY (chars 0–63)
@@ -139,7 +243,7 @@ Encodes the Martian's failure and output contract. Mutable by evolution.
 
 **Escalation mode**:
 
-- `'E'` (EscalateStd): on failure after max retries, escalate to the Specialist that summoned the Martian. `failForward = false`.
+- `'E'` (EscalateStd): on failure after max retries, escalate to the Subagent that summoned the Martian. `failForward = false`.
 - `'F'` (FailForward): on failure after max retries, continue with a placeholder result and report the failure in the fitness log. `failForward = true`.
 
 Any char other than `'E'` or `'F'` in position 128 MUST default to `'E'` (safer behavior).
@@ -444,8 +548,8 @@ Key defaults relevant to this spec:
 
 ## What is NOT in this spec
 
-- **Specialist genomes**: Specialists do not carry a genome in current scope
-  (512-char Specialist evolution is explicitly far-future, per ROADMAP.md Future section)
+- **Subagent genomes**: Subagent-tier genomes (512-char) do not carry a genome in current scope
+  (512-char Subagent evolution is explicitly far-future, per ROADMAP.md Future section)
 - **Genome lineage tracking**: which parent(s) produced a given genome; deferred to
   leaderboard v1.x or a future evolution spec
 - **Fitness function**: how fitness is computed; that is the evolution implementation

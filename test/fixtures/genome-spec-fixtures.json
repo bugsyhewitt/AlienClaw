@@ -1,7 +1,7 @@
 {
   "$schema_version": "1.0",
   "$schema_doc": "Cross-language genome spec compliance fixture. Kinds: checksum, assemble, parse, round_trip, validate, mutate_invariant, crossover_invariant.",
-  "$generated": "2026-05-05 by packet-04 (corrected checksum algorithm)",
+  "$generated": "2026-09-07 by scripts/gen-testvectors.py (PKT-P1 T2)",
   "$genome_spec_version": "1.0",
   "cases": [
     {
@@ -966,6 +966,210 @@
       },
       "expected_xcode": 3806,
       "expected_decoded_value": 100
+    },
+    {
+      "name": "adversarial-invalid-length-255",
+      "kind": "validate",
+      "input": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected_pass": false,
+      "expected_error": "INVALID_LENGTH"
+    },
+    {
+      "name": "adversarial-invalid-length-257",
+      "kind": "validate",
+      "input": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected_pass": false,
+      "expected_error": "INVALID_LENGTH"
+    },
+    {
+      "name": "adversarial-invalid-length-0",
+      "kind": "validate",
+      "input": "",
+      "expected_pass": false,
+      "expected_error": "INVALID_LENGTH"
+    },
+    {
+      "name": "adversarial-invalid-char-exclamation",
+      "kind": "validate",
+      "input": "!AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAJcWvemxeshCWnAa5I4vO6dOY7089M4tKs5IEH4qRi41MsfMQxQMnkQzY41kA5O",
+      "expected_pass": false,
+      "expected_error": "INVALID_CHARACTER"
+    },
+    {
+      "name": "adversarial-invalid-char-at",
+      "kind": "validate",
+      "input": "@AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAJcWvemxeshCWnAa5I4vO6dOY7089M4tKs5IEH4qRi41MsfMQxQMnkQzY41kA5O",
+      "expected_pass": false,
+      "expected_error": "INVALID_CHARACTER"
+    },
+    {
+      "name": "adversarial-invalid-char-space",
+      "kind": "validate",
+      "input": " AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAJcWvemxeshCWnAa5I4vO6dOY7089M4tKs5IEH4qRi41MsfMQxQMnkQzY41kA5O",
+      "expected_pass": false,
+      "expected_error": "INVALID_CHARACTER"
+    },
+    {
+      "name": "adversarial-confusable-0-to-O",
+      "kind": "validate",
+      "input": "WEBO0001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error": "CHECKSUM_MISMATCH"
+    },
+    {
+      "name": "adversarial-confusable-1-to-l",
+      "kind": "validate",
+      "input": "WEB0000lG1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error": "CHECKSUM_MISMATCH"
+    },
+    {
+      "name": "adversarial-bad-checksum-last-char",
+      "kind": "validate",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJg",
+      "expected_pass": false,
+      "expected_error": "CHECKSUM_MISMATCH"
+    },
+    {
+      "name": "adversarial-bad-checksum-first-char",
+      "kind": "validate",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000uJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error": "CHECKSUM_MISMATCH"
+    },
+    {
+      "name": "adversarial-all-minimum",
+      "kind": "validate",
+      "input": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000k0HIgFGKReu5AgRwYDyInsMpUErCKBGQZY6Fye3cOfK830UXQKbssnKSXecRKohS",
+      "expected_pass": true
+    },
+    {
+      "name": "adversarial-all-maximum",
+      "kind": "validate",
+      "input": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz84DWex6mZK6xaU1669WOhGk3WkZsGhQS7iiJ8OnAKF22TsG500LEAjE6TqYJmmdI",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-00",
+      "kind": "validate",
+      "input": "e71lHFE8l6hlvY5bR215DEWc1ZCjfiYQESbHpt0mpAiRLH9DzmL65O6MsMcGp2kTY7xO5ZIredutNaCj42gEnI5sEt6OHTerNANMDgHixhf4ceAYkFATOHxeiZEhKrnn3Eq2pKPH4DwyaujKDfVPuwfT9G8FlZYGlbRvbPNE8WV5m3t79eAohRc4OOcTXGZtgjyiNwOpImZAqvaQVeIlawrIS1umZmAVMI92w9c8XKW1M4HEUvMupAUriivOq3QW",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-01",
+      "kind": "validate",
+      "input": "y0hk7huYmHnfL7IRAT0zkukGWmBWw6teJreWcC9NmAYznxXw0cKV17xNurpJF3Fuay55kVq4mYn88gUyZAGXtcRzDxYmkiCjJPgfNSvXS7FE4L1bZEbE04je3E4v2tL4WFHgVDY8kxuaaUFoUpQC66gRMRQTtk3hff63PkLpt6FCCYS8RBHTFtx4SptsZ63fO0LU0Z6An6CxG6rYUfYoduWTusVauj4MjYC52YjC4N6wzuCRWmFsYh84JMANko1c",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-02",
+      "kind": "validate",
+      "input": "Yr05xmsFAQVUDtPv3AO0OGxooTIRizkoZgjV9CIDz3blY3lK33bUWwsXA3zW5sB4c4htFP7yuaFbc2d5QgbaXKxGDgjKFGP8gfJTKxmx40Tda64YDWG8xMu4uFNIASrYjJdpfX0gqZJxg6yu8G7u6lZ9HIcDjLDhesGWVGvws35eRrH20Ln8eGAlSZjRZ074w4NWsBi4lOSVkMtWerAcRQOhcapmahKwJaCbeA7kShIaVUspICPyA1Uoh4aD2MJs",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-03",
+      "kind": "validate",
+      "input": "yuiv9Y2rNbZ9R82JNvxot2vMDhFg6MnZutQdl9xxFtAppBuQ1BlxLoxQpgtlpFHAoi6Ot2sUECqwTMJqotEE1gCPLHt4znHMfWPhrYLy17uGBbzG26cRMkoKRcW7OvaCG2jR0XxpYhkyllgCNR4ygwLdKgs7kvJWJgQKPiIZ8CQgyOhlvBdaJPZr0JIDRobc3Cwl4kj4eBKcbQulAejeMjeizO0V62jusT2ctm4pAyXQgHYEVYOXEetogVaMTuaF",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-04",
+      "kind": "validate",
+      "input": "fKTSShDWUovzolAg5IWgedL5qymFhJEpC912FUdsn4TQueaCjiOVPF9fi0vmtnu6nREBpziXT3ZFws7T8pTgXZcKymvSdqkvWRrwZSvAltUSGmFreHnnXVeFHS4jIFHLKvY589EOi9jD4QQLYTQ3DrQOvnbyi1sumaOU0yMJmOsvzrQYllYpcvEVEHRV1OLgtaUJAkfeAJIQd4ArcIpsCFIwHogRIaDc0R2SF8ARwGze63oebE4j4U9o6NiG7OKn",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-05",
+      "kind": "validate",
+      "input": "hpPkArTw8dY1wPbag15fR8tTB3GOKDTKLmuOHmyrQGr5U1lY3yMEf4nzf2m1yFCr1d9F8Ug7ayDTiGnNAcczlj7nqAzJ6b1xJahwzOPyjC4bireF6inJshcp7oao2MYRgN4WfL0sQqV6RzNevrTj9RBkXzfHdpwYnUTRqkbHKsFrx5HuSFmTadgOL1VsKBVD89yGHiqJ0GzCS3S4Bqe50MLQC10uLsI7467q2rUIPMGNQcLCGriSNssVSuLk6DWw",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-06",
+      "kind": "validate",
+      "input": "MpGLHuciuHZ0XyC5FkQVZmFiUfjVSo15IEPiFJgbNUZXMRlZLMiTHJGE7kCK7lYymiBCDlUHkbmXcI6rCIENBJ0jY8H23ZIiy8etmV6t0aIUUSLBz3GytU7q4PV4aeh399payJ5F7ZmQccodEnXOSwSJtbRJad3dzl6ymDeDGg5AFBZ4A0QSicUI2EIjIitTg5wQ3GqDeq9e4NkQXUgJwQZA07Sc3myD86xGUpa01aOvAsTkirq8tqmHg2RModoM",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-07",
+      "kind": "validate",
+      "input": "4hExGooebgpxCR7YEf9wHq943AoJclqawIS7TiJiPyHWYVS5c2uRlKcG15Ezhrtaby1mhqHa2mmBUXfSwHBbReqV5UMQLKg6sALQiVIgyPqmZ2T5KGK7nPtWq0gtYTQ3CXNdmVeSm3DHZ8xISuiV71ecpFjAJZ0ZQ5Erw7Ty7fr9VxjIWjHQrUUFTZ9OCwcWjhJhfJTHHZpt5PjVxZvdpDz5tzDVbvLtpf9nRdpFDP5Lbp5PzPVLVd9BJZ77nvDz",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-08",
+      "kind": "validate",
+      "input": "lu8t4HnosQLxoWHq0IkJrbbgVt9SYUMLZmYOTxKtCiFaOEsnQ2KlUjwpOOgoqf9Vz28WzbLt6tsS6XwT0k9Qtf94UoGLdiPf5sLshsYOzKejumVtY2d4FehwIEl5R6mejt6SAiJv12Ko3IMNR9FXQahoBAB5dtOdhFVwb9ETeGTGg0vpTvIhYA4SyMbJezRiyMViANoiVQ4L4Sj8SHSy3oQFcy7GeF6wlcy72gl8wdeIVc0jgW1K4FKmb0A1aOn4",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-09",
+      "kind": "validate",
+      "input": "GTsJCOsU6FOaMaIiI1rgPH0athnl3wclVrvvInpEcpMEeCdGhmknghr8e6vef2JoS2bNk85wIKlQBC8oYuNXWwHrAGwqyUzpIltLp7Tz49mzEthkhPzspZN5oP0GY7TNhlhGbOqeyN6hEU1duyZKwdEf4eqTwiJfQ782y2JV76FuY8OTNgyliyYQblk9uQf62WJkYDu2bKuboKdqG9UOPmu3wgNmshK4fOGNsSP2ODMKtcarukF2CF8YTSoVAwHM",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-10",
+      "kind": "validate",
+      "input": "rVdQyyH2iNDSSyFsN6hNYvfM3PHCz7ysqT5gDfec13oLF8oaD4rmZDbDqtELn9ovc0Hs98YGpB7gt180MooFbK1BG38lQX7l4USnNWb6SWEyd2kowtgXJTfz13UsPRh6VjwS4v5Kc948HdebZjKOcXITWcR6oi7sffunZktDRSuEQLqTPQk6KRKgGNz9hxU4FZBfTvFDL3pHtLTfjFNhBhhfV53n9l53t3pJBNXv3llZHDFxfFzpJfDdfjV5tFzV",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-11",
+      "kind": "validate",
+      "input": "5r55R6llNp8Z3bzZZLg7QMtgymRtwk3zIcJM6aWD9gUEs6MsZN7mHaEpRsZnqddhfZ1cxgriH1BHimJwLM0Bt9agP49le15lXDOQTLANJkKnyac5u39Amd3h5HSgRVcSQHDmW7MR7IhhbVXgJ2EPc30DJyDn8mGIK70VlRB8OYjEWZrgpM4Ptl2R1Tw4tKaRxMOpweFi8L2A7akDsKZe4PkGbYqdgeJAYpMyVyQdKcTe0RG65S0nMqNSidsMdWkR",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-12",
+      "kind": "validate",
+      "input": "aPjeQI7P1zKApydTriwN5Rs6FRbPX5PtJlLELnA4We7XWCvnMMkzqfq9F69GCBc9mmf4ByneVTmambShxuafedKteK9S4USeJoHb3MW4JTS23NrI4fts5dcWOTbZzolv2SwpafCKcUW9z3S6pvrLj5WfB2FjSSXXdANNwIOQnLhc3oefL4L6ZhOIGksgzwctPjHpZ9ttVBhv7dt3P7bPdpbX3PHd17LZLTHJt9BfnPPtxbp9JZlFXzj9fTt1LxPv",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-13",
+      "kind": "validate",
+      "input": "9L5bg9wMJzfigP8cjy5JZOfoLq8girylhwX5fgRWN1NJByDLynVCE894Iso6WnYrluX2gLund8cO9ABrindpvAkS2QNhkFSdImloSEYFJzpoUvrCNhyaSTnInOWXQzAqCpc8tG3fUtNZx6jsXs7I5mAHSvW9rR5ywEqSuMx1Q3PWNFO5NE1Kx6rjfLo982Iw803UgxSuLM4nicpUS1c8zAEbCcv4kB8GzcihIwxQEheYNuATESRGUXcsBkkbKyzA",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-14",
+      "kind": "validate",
+      "input": "rUir8mjUSd0v51GDr9ZykcXR7nIFJ73FQeodT47rvVcY1eWaFj9IR0dMFaQBgg5XN4zXYWoWZ1OtU2eONGl1Mo4MFkge6nblmL82MYLqfBrnhTiUeBp84jnyT2IC2oCu2KxJWPqYUG2mfCIMtn3tfLH7pNRuPlSvzOLBViVNxpXHp5kR5RcqBYIK65KgIJSceWt06PWExoONWaHQAzkmD4cv0O1s450adIulum5iGRIEBcQvmK50IHaSFS6hMSpA",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-15",
+      "kind": "validate",
+      "input": "jRAiSMS2ktwMdRHeoy34gePNWplhAy19schoS284FnfNNOya2c9hSyNNSm4a8XNPKfHFz71lBVXOwZ7GnGjSDdIiwVC78s4SBvjS5phzsKgMj4ZYIvJsAjjxieBoNWE7Co8FoV1NZaNTpZ8du54JPjkUXQnQqa48Kf4SThXM8urnZebBnz8RWwt3r7X9JAAKWZCofg41kEHu2z04Fw8fqePqEvKSnWy5i4luOTsORaKlG2RKSDuypCwBekR8Yvkq",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-16",
+      "kind": "validate",
+      "input": "xjEMyyXvIs5GCezZH8eJdY5WfAbyb9AgdkvcLrxa2qt152yfnaGfDnaQde1VueYIfzJUFpphPJT4i3ASQUTDLc9KtjKktMP8mNWZ6KFT7HSF963IyOtdQFztvAqKxakKCmAVWTVuJV15yPWTzFDbM33IVcurfhUIY0s6R8uGkNmPN2P3aZCNZI4OWSmZHqdh7T5dhd9FlHBRDpTPXp7xTDpbpFFFJPrRL5RlbV3RnDhtRjf1Tfp9JNBjb5l35FTd",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-17",
+      "kind": "validate",
+      "input": "d786PNoLZyNm9CcWPW2228jLpUXT9cvW8KxdKAPdlrJbLWrWYVjaJUq1NLh7QbJovktie1cUGzfonbaEk3bUAXekdnrO9qhF2ayi7C1SKQ9QiDQWndwUtslk3j8XDZKgUXOKzBTwYLYMhntkhfpiGdUCzFHZJEyJnIjDijVKUMZxxokHI7ahYOvPqMznp9I2bNnJlrpdtv7VP1rLTV3vz1tD9p9Tl5xjjNF1HvLpNFDBTxfr9vD157fpFbbtNXvJ",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-18",
+      "kind": "validate",
+      "input": "Izj5MxSfGlUDCqYHxZiH86dlbFF3gvXEeE36QLjU6hn80zZxAQfxuuUUfCmzIKIf3wn5faEYlksx2wwBQurBxw2rPoVBxlztxIu20Jac6xLITfYXVuy8sWTHCp7LAkTfGjB0lLoIahmCBdsevPqRWK5Pg6B8UKxF0GOFSmHzLJbka0GfNiF3g7TJAPhWxvujqeNIYrYg3eGDIMdaETgKJowpEYVs4nMMhAcRUMt48lIInG0b0AVgMNeExaedAw3C",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-19",
+      "kind": "validate",
+      "input": "nJi7ewyINdEEz8U9TlcNQiZwUmYpgqDmFhmcto5XSXjN4wa73rZvWCaY9AKsXS7hDjbV5vWSp3T8WQTa3ZThpJk1PGq0lDb42RMi4Y3xv4xU2IQBn8nfkfzQNvOStwwOO5hzgtY8ftM7BYPX8kEr0m1JThkYRYOqEFTM9HCxukm72pgQdnxuu1FD46c2Schjr4ytO6xAofcerwUHmE3ukvMkFaExUkD42f42jciFUSTuyVuo3wcHGCnsCdIWneMN",
+      "expected_pass": true
     }
-  ]
+  ],
+  "$adversarial_count": 12,
+  "$seeded_random_count": 20
 }

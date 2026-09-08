@@ -1,9 +1,15 @@
 import re
+import signal
 from typing import Any
 from .types import RunResult
 
 # search_text MSB output contract (seed/msb/search_text.msb) caps text body at 10 MB.
 from .limits import MAX_TOOL_IO_BYTES as _MAX_TEXT_BYTES
+
+# ReDoS guard: cap regex pattern length and enforce a per-execution timeout.
+_MAX_PATTERN_LEN = 200   # characters; patterns longer than this are rejected
+_REGEX_TIMEOUT_S = 5     # seconds per compile+search execution (SIGALRM; Unix only)
+_HAS_SIGALRM = hasattr(signal, "SIGALRM")
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -20,6 +26,13 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             error=f"Text body exceeds 10 MB limit ({len(text.encode('utf-8'))} bytes)",
             correctness=0.0,
         )
+    # ReDoS guard: reject patterns that exceed the length cap
+    if len(pattern) > _MAX_PATTERN_LEN:
+        return RunResult(
+            ok=False,
+            error=f"Pattern too long: {len(pattern)} chars exceeds limit of {_MAX_PATTERN_LEN}",
+            correctness=0.0,
+        )
     flavor = inputs.get("flavor", "literal")
     # Backward-compat alias: existing callers pass `regex: True` to opt into regex mode.
     if bool(inputs.get("regex", False)):
@@ -32,6 +45,15 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     # Literal fallback=1 mirrors field.default; only fires on direct no-params calls.
     context_lines = max(1, min(10, int(params.get("context_lines", 1))))
     flags = 0 if case_sensitive else re.IGNORECASE
+
+    # ReDoS guard: wrap compile + search in a SIGALRM timeout (Unix only)
+    def _alarm_handler(signum: int, frame: object) -> None:  # type: ignore[type-arg]
+        raise TimeoutError("search_text: regex execution exceeded 5-second budget")
+
+    if _HAS_SIGALRM:
+        signal.signal(signal.SIGALRM, _alarm_handler)
+        signal.alarm(_REGEX_TIMEOUT_S)
+
     try:
         if flavor == "literal":
             compiled = re.compile(re.escape(pattern), flags)
@@ -64,6 +86,11 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
                 all_matches.append(match_entry)
     except re.error as exc:
         return RunResult(ok=False, error=f"Regex error: {exc}", correctness=0.0)
+    except TimeoutError as exc:
+        return RunResult(ok=False, error=str(exc), correctness=0.0)
+    finally:
+        if _HAS_SIGALRM:
+            signal.alarm(0)  # cancel the alarm regardless of outcome
     matches = all_matches[:max_results]
     truncated = len(all_matches) > len(matches)
     return RunResult(

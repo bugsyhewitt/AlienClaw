@@ -1,5 +1,6 @@
 import ast
 import math
+import signal
 from typing import Any
 from .types import RunResult
 
@@ -38,6 +39,36 @@ _ALLOWED_AST_NODES: list[tuple[type, Any]] = [
 ]
 
 
+_EXPONENT_MAX_RIGHT = 100       # reject exponents larger than this literal value
+_EXPONENT_MAX_LEFT  = 10 ** 15  # reject base literals larger than this
+
+
+def _check_pow(node: ast.BinOp) -> None:
+    """Guard against catastrophic exponentiation (PKT-P1, D-Q3).
+
+    Rejects ast.BinOp(op=ast.Pow) nodes where:
+      - The right operand is not a numeric literal or exceeds _EXPONENT_MAX_RIGHT.
+      - The left operand is a numeric literal exceeding _EXPONENT_MAX_LEFT.
+
+    Raises ValueError with message "exponent operand too large" on violation.
+    """
+    if not isinstance(node.op, ast.Pow):
+        return
+    right = node.right
+    if not isinstance(right, ast.Constant) or not isinstance(right.value, (int, float)):
+        raise ValueError("exponent operand too large: right operand must be a numeric literal")
+    if right.value > _EXPONENT_MAX_RIGHT:
+        raise ValueError(
+            f"exponent operand too large: {right.value} > {_EXPONENT_MAX_RIGHT}"
+        )
+    left = node.left
+    if isinstance(left, ast.Constant) and isinstance(left.value, (int, float)):
+        if left.value > _EXPONENT_MAX_LEFT:
+            raise ValueError(
+                f"exponent operand too large: base {left.value} > {_EXPONENT_MAX_LEFT}"
+            )
+
+
 def _check_call(node: ast.Call) -> None:
     """Verify a Call node only invokes safe names with positional args + safe kwargs.
 
@@ -65,9 +96,24 @@ def _eval_sandboxed(expression: str) -> Any:
             raise ValueError(f"disallowed AST node: {type(node).__name__}")
         if isinstance(node, ast.Call):
             _check_call(node)
+        if isinstance(node, ast.BinOp):
+            _check_pow(node)
     # After the walk confirms the tree is clean, compile + eval in the safe namespace.
     code = compile(tree, "<sandbox>", "eval")
-    return eval(code, {"__builtins__": {}}, _SAFE_NAMES)  # noqa: S307 — guarded by AST walk above
+
+    # Timeout guard: enforce 60-second budget via SIGALRM (Unix only).
+    # On platforms without SIGALRM (Windows), the timeout is skipped gracefully.
+    _has_sigalrm = hasattr(signal, "SIGALRM")
+    if _has_sigalrm:
+        def _timeout_handler(signum: int, frame: object) -> None:  # type: ignore[type-arg]
+            raise TimeoutError("compute: exceeded 60-second budget")
+        signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.alarm(60)
+    try:
+        return eval(code, {"__builtins__": {}}, _SAFE_NAMES)  # noqa: S307 — guarded by AST walk above
+    finally:
+        if _has_sigalrm:
+            signal.alarm(0)  # cancel the alarm
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
