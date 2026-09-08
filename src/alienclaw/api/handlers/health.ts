@@ -8,16 +8,60 @@ import { poolStats } from '../storage.js';
 
 interface BuildInfo { sha?: string; builtAt?: string; }
 
-function readBuildInfo(): BuildInfo {
-  try {
-    const dir = fileURLToPath(new URL('.', import.meta.url));
-    const p   = join(dir, '../../../../build-info.json');
-    return JSON.parse(readFileSync(p, 'utf8')) as BuildInfo;
-  } catch { return {}; }
+/**
+ * Read build-info.json, trying:
+ *   1. `pathOverride` when supplied (used in tests)
+ *   2. The module-relative repo root (source-tree layout: 4 levels up from this file)
+ *   3. process.cwd() (prod/dist layout: build-info.json sits next to the server bundle)
+ *
+ * Returns {} on any read/parse failure so callers fall back gracefully.
+ */
+export function readBuildInfo(pathOverride?: string): BuildInfo {
+  const candidates: string[] = pathOverride
+    ? [pathOverride]
+    : [
+        // Source layout: src/alienclaw/api/handlers/ → repo root
+        join(fileURLToPath(new URL('.', import.meta.url)), '../../../../build-info.json'),
+        // Prod/dist layout: process.cwd() is the deploy root
+        join(process.cwd(), 'build-info.json'),
+      ];
+
+  for (const p of candidates) {
+    try {
+      return JSON.parse(readFileSync(p, 'utf8')) as BuildInfo;
+    } catch { /* try next */ }
+  }
+  return {};
 }
 
-const _START = Date.now();
-const _BUILD = readBuildInfo();
+/**
+ * Read the `version` field from package.json, trying:
+ *   1. `pathOverride` when supplied (used in tests)
+ *   2. The module-relative repo root (source layout)
+ *   3. process.cwd()
+ *
+ * Returns 'unknown' on any read/parse failure.
+ */
+export function readVersion(pathOverride?: string): string {
+  const candidates: string[] = pathOverride
+    ? [pathOverride]
+    : [
+        join(fileURLToPath(new URL('.', import.meta.url)), '../../../../package.json'),
+        join(process.cwd(), 'package.json'),
+      ];
+
+  for (const p of candidates) {
+    try {
+      const pkg = JSON.parse(readFileSync(p, 'utf8')) as { version?: unknown };
+      if (typeof pkg.version === 'string' && pkg.version) return pkg.version;
+    } catch { /* try next */ }
+  }
+  return 'unknown';
+}
+
+const _START   = Date.now();
+const _BUILD   = readBuildInfo();
+const _VERSION = readVersion();
 
 // ── Handler (T5) ─────────────────────────────────────────────────────────────
 
@@ -44,6 +88,6 @@ export async function handleHealth(pool?: mysql.Pool): Promise<[number, object]>
     uptimeSec: Math.floor((Date.now() - _START) / 1000),
     db,
     pool:      stats ?? {},
-    version:   '1.0.0',
+    version:   _VERSION,
   }];
 }

@@ -280,7 +280,8 @@ describe('handleHealth (api/handlers/health.ts:6)', () => {
     const [s, b] = await handleHealth();
     const body = b as Record<string, unknown>;
     expect(s).toBe(200);
-    expect(body['version']).toBe('1.0.0');
+    // version is now sourced from package.json (2026.4.10), not a hardcoded string
+    expect(body['version']).toMatch(/^\d{4}\.\d+\.\d+$/);
     expect(typeof body['uptimeSec']).toBe('number');
     expect((body['uptimeSec'] as number)).toBeGreaterThanOrEqual(0);
     expect(body['db']).toBe('fail');

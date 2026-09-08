@@ -5,7 +5,10 @@
  */
 
 import type { Server } from 'node:http';
+import { fileURLToPath }              from 'node:url';
 import { configure, createApiServer } from './server.js';
+import { getPool }                    from './storage.js';
+import { runMigrations }              from './migrate.js';
 
 // ── Global crash handlers (T1) ─────────────────────────────────────────────
 // Log structured JSON, attempt graceful shutdown, exit only if ALIENCLAW_EXIT_ON_FATAL=1.
@@ -43,6 +46,12 @@ const port = parseInt(process.env['PORT'] ?? process.env['ALIENCLAW_API_PORT'] ?
 const host = process.env['ALIENCLAW_API_HOST'] ?? '0.0.0.0';
 
 configure();
+
+// Wire the migration runner. No-ops unless ALIENCLAW_RUN_MIGRATIONS=1.
+// A migration failure aborts startup — don't serve on a half-migrated schema.
+const _migrationsDir = fileURLToPath(new URL('../../../migrations', import.meta.url));
+await runMigrations(getPool()!, _migrationsDir);
+
 const server = await createApiServer(port, host);
 _server = server;
 
