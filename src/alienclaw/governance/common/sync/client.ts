@@ -5,6 +5,8 @@
  * client only throws on network failure or non-JSON responses.
  */
 
+import { randomBytes } from 'node:crypto';
+
 export interface InstallResponse {
   status: 'registered' | 'known';
   install_id: string;
@@ -28,11 +30,20 @@ export interface GenomeEntry {
   martian_type?: string;
   /** Not sent by the deployed server; kept for older payloads. */
   rank?: number;
+  /** T7: true when verified_fitness IS NOT NULL (i.e. P6 verifier has run). */
+  verified?: boolean;
+  /** T7: verified fitness from P6 verifier; null until then. */
+  verified_fitness?: number | null;
+  /** T8: SHA-256 of genome string for idempotent writes. */
+  genome_id?: string;
 }
 
 export interface TopGenomesResponse {
   martian_type: string;
+  /** Verified genomes (verified_fitness IS NOT NULL). */
   genomes: GenomeEntry[];
+  /** Unverified genomes pending P6 verification. */
+  unverified_genomes: GenomeEntry[];
   total_for_type: number;
 }
 
@@ -97,6 +108,8 @@ export class NetworkAPIClient {
    * @param fitness          Fitness in [0, 1].
    * @param leaderboardName  Public board handle, ^[A-Z]{8}$ (e.g. 'ALIENBOT').
    * @param runMetadata      Optional opaque metadata (<= 4096 bytes serialized).
+   * @param identity         Optional Ed25519 identity for signed submissions (T9).
+   *                         If provided, pubkey/nonce/timestamp/signature are added.
    */
   async submitGenome(
     genome: string,
@@ -104,7 +117,20 @@ export class NetworkAPIClient {
     fitness: number,
     leaderboardName: string,
     runMetadata: Record<string, unknown> = {},
+    identity?: { pubkey: string; signFn: (canonical: string) => Promise<string> },
   ): Promise<APIResult<SubmitResponse>> {
+    const nonce     = randomBytes(16).toString('hex');
+    const timestamp = new Date().toISOString();
+
+    let identityFields: Record<string, string> = {};
+    if (identity) {
+      // Canonical string: fields in fixed order, newline-separated.
+      // The server (T9) verifies by reconstructing the same canonical string.
+      const canonical = [genome, martianType, String(fitness), leaderboardName, nonce, timestamp].join('\n');
+      const signature = await identity.signFn(canonical);
+      identityFields = { pubkey: identity.pubkey, nonce, timestamp, signature };
+    }
+
     return this._post<SubmitResponse>(
       '/v1/genomes',
       {
@@ -113,6 +139,7 @@ export class NetworkAPIClient {
         fitness,
         leaderboard_name: leaderboardName,
         run_metadata:     runMetadata,
+        ...identityFields,
       },
       { Authorization: `Bearer ${this.apiKey}` },
     );

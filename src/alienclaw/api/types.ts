@@ -42,18 +42,22 @@ export interface SubmissionResponse {
 // ── Top genomes ───────────────────────────────────────────────────────────
 
 export interface GenomeEntry {
-  genome:           string;
-  fitness:          number;
-  submission_id:    string;
-  submitted_at:     string;
-  leaderboard_name: string;   // ^[A-Z]{8}$
-  generation?:      number;
+  genome:            string;
+  fitness:           number;
+  submission_id:     string;
+  submitted_at:      string;
+  leaderboard_name:  string;   // ^[A-Z]{8}$
+  generation?:       number;
+  verified?:         boolean;
+  verified_fitness?: number | null;
+  genome_id?:        string;
 }
 
 export interface TopGenomesResponse {
-  martian_type:    string;
-  genomes:         GenomeEntry[];
-  total_for_type:  number;
+  martian_type:       string;
+  genomes:            GenomeEntry[];
+  unverified_genomes: GenomeEntry[];
+  total_for_type:     number;
 }
 
 // ── Martian types ─────────────────────────────────────────────────────────
@@ -74,10 +78,15 @@ export interface MartianTypesResponse {
 // ── Health ────────────────────────────────────────────────────────────────
 
 export interface HealthResponse {
-  status:         'ok' | 'degraded';
-  version:        string;
-  uptime_seconds: number;
-  message?:       string;
+  ok:        boolean;
+  sha:       string;
+  builtAt:   string;
+  node:      string;
+  pid:       number;
+  uptimeSec: number;
+  db:        'ok' | 'fail';
+  pool:      Record<string, unknown>;
+  version:   string;
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────

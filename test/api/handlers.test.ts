@@ -102,7 +102,7 @@ describe('handleSubmitGenome (api/handlers/genomes.ts:8)', () => {
           submission_id: 'sub_dup', submitted_at: '2026-06-18T12:00:00Z',
           genome: FAKE_GENOME, martian_type: 'compute', fitness: 0.42,
           leaderboard_name: 'MAINNNNN', api_key_hash: FAKE_KEY_HASH,
-          run_metadata: {},
+          run_metadata: {}, verified_fitness: null, verified: false,
         }),
       }),
       registeredTypes: REG,
@@ -204,7 +204,7 @@ describe('handleTopGenomes (api/handlers/genomes.ts:78)', () => {
           submission_id: 'sub_g', submitted_at: '2026-06-19T00:00:00Z',
           genome: FAKE_GENOME, martian_type: 'compute', fitness: 0.5,
           leaderboard_name: 'MAINNNNN', api_key_hash: FAKE_KEY_HASH,
-          run_metadata: { generation: 7 },
+          run_metadata: { generation: 7 }, verified: true, verified_fitness: 0.5,
         }],
         countForType: async () => 1,
       }),
@@ -224,7 +224,7 @@ describe('handleTopGenomes (api/handlers/genomes.ts:78)', () => {
           submission_id: 'sub_g', submitted_at: '2026-06-19T00:00:00Z',
           genome: FAKE_GENOME, martian_type: 'compute', fitness: 0.5,
           leaderboard_name: 'MAINNNNN', api_key_hash: FAKE_KEY_HASH,
-          run_metadata: { generation: 'seven' },
+          run_metadata: { generation: 'seven' }, verified: true, verified_fitness: 0.5,
         }],
         countForType: async () => 1,
       }),
@@ -276,13 +276,15 @@ describe('handleInstall (api/handlers/install.ts:6)', () => {
 // ── handleHealth (health.ts:6) ──────────────────────────────────────────────
 
 describe('handleHealth (api/handlers/health.ts:6)', () => {
-  it('returns 200 with status=ok, version, and uptime_seconds', () => {
-    const [s, b] = handleHealth();
+  it('returns 200 with version and uptimeSec; db=fail when no pool given', async () => {
+    const [s, b] = await handleHealth();
+    const body = b as Record<string, unknown>;
     expect(s).toBe(200);
-    expect(b.status).toBe('ok');
-    expect(b.version).toBe('1.0.0');
-    expect(typeof b.uptime_seconds).toBe('number');
-    expect(b.uptime_seconds).toBeGreaterThanOrEqual(0);
+    expect(body['version']).toBe('1.0.0');
+    expect(typeof body['uptimeSec']).toBe('number');
+    expect((body['uptimeSec'] as number)).toBeGreaterThanOrEqual(0);
+    expect(body['db']).toBe('fail');
+    expect(body['ok']).toBe(false);
   });
 });
 
@@ -316,7 +318,7 @@ describe('handleMartianTypes (api/handlers/martian-types.ts:4)', () => {
               submission_id: 'sub_c', submitted_at: '2026-06-19T00:00:00Z',
               genome: FAKE_GENOME, martian_type: 'compute', fitness: 0.9,
               leaderboard_name: 'MAINNNNN', api_key_hash: FAKE_KEY_HASH,
-              run_metadata: {},
+              run_metadata: {}, verified_fitness: null, verified: false,
             }]
           : [],
         countForType: async (mt: string) => mt === 'compute' ? 5 : 0,

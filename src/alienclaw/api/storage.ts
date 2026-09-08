@@ -10,7 +10,7 @@
  */
 
 import mysql from 'mysql2/promise';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 
 // ── Connection pool ────────────────────────────────────────────────────────
 
@@ -24,7 +24,18 @@ export function initPool(dbUrl?: string): mysql.Pool {
       'Set ALIENCLAW_DB_URL=mysql://user:password@host/database and restart.'
     );
   }
-  _pool = mysql.createPool(url);
+  const limit = parseInt(process.env['ALIENCLAW_DB_POOL_MAX'] ?? '8', 10) || 8;
+  // mysql2 createPool accepts either a URL string or an options object.
+  // We pass the URL as the uri field alongside pool-level tunables (T2).
+  _pool = mysql.createPool({
+    uri:             url,
+    connectionLimit: limit,
+    maxIdle:         limit,
+    idleTimeout:     60_000,
+    enableKeepAlive: true,
+    queueLimit:      50,
+    connectTimeout:  10_000,
+  } as mysql.PoolOptions);
   return _pool;
 }
 
@@ -33,13 +44,55 @@ function pool(): mysql.Pool {
   return _pool;
 }
 
+/** Return the current pool for callers that need to probe it (e.g. health check). */
+export function getPool(): mysql.Pool | null { return _pool; }
+
+// ── Pool stats ─────────────────────────────────────────────────────────────
+
+export interface PoolStats {
+  connectionLimit:     number;
+  acquiredConnections: number;
+  freeConnections:     number;
+  waitingRequests:     number;
+}
+
+/**
+ * Best-effort pool stats using mysql2 internals.
+ * Returns null when no pool has been initialised.
+ */
+export function poolStats(): PoolStats | null {
+  if (!_pool) return null;
+  const limit = parseInt(process.env['ALIENCLAW_DB_POOL_MAX'] ?? '8', 10) || 8;
+  const p = _pool as unknown as {
+    pool?: {
+      _allConnections?: unknown[];
+      _freeConnections?: unknown[];
+      _connectionQueue?: unknown[];
+    };
+    _allConnections?: unknown[];
+    _freeConnections?: unknown[];
+    _connectionQueue?: unknown[];
+  };
+  const all  = (p.pool?._allConnections  ?? p._allConnections  ?? []) as unknown[];
+  const free = (p.pool?._freeConnections ?? p._freeConnections ?? []) as unknown[];
+  const wait = (p.pool?._connectionQueue ?? p._connectionQueue ?? []) as unknown[];
+  return {
+    connectionLimit:     limit,
+    acquiredConnections: all.length - free.length,
+    freeConnections:     free.length,
+    waitingRequests:     wait.length,
+  };
+}
+
 // ── Type definitions ───────────────────────────────────────────────────────
 
 export interface StoredSubmission {
   submission_id:    string;
   genome:           string;
   martian_type:     string;
-  fitness:          number;
+  fitness:          number;          // client-reported
+  verified_fitness: number | null;   // verified by P6; null until then
+  verified:         boolean;
   leaderboard_name: string;
   api_key_hash:     string;
   run_metadata:     Record<string, unknown>;
@@ -82,12 +135,20 @@ export class SubmissionStore {
   }): Promise<[string, string]> {
     const sid = `sub_${randomBytes(8).toString('hex')}`;
     const now = new Date().toISOString().replace('T', ' ').replace('Z', '');
+    // T8: SHA-256 genome_id enables idempotent writes via ON DUPLICATE KEY UPDATE.
+    // The genome_id column (added by migration 004) has a UNIQUE constraint so a
+    // re-submitted genome updates fitness/metadata rather than inserting a duplicate row.
+    const genomeId = createHash('sha256').update(opts.genome).digest('hex');
     await this._pool.execute(
       `INSERT INTO leaderboard_entries
-         (submission_id, leaderboard_name, genome, martian_type, fitness,
+         (submission_id, leaderboard_name, genome, genome_id, martian_type, fitness,
           api_key_hash, submitted_at, run_metadata)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [sid, opts.leaderboardName, opts.genome, opts.martianType, opts.fitness,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         fitness      = GREATEST(fitness, VALUES(fitness)),
+         run_metadata = VALUES(run_metadata),
+         submitted_at = VALUES(submitted_at)`,
+      [sid, opts.leaderboardName, opts.genome, genomeId, opts.martianType, opts.fitness,
        opts.apiKeyHash, now, JSON.stringify(opts.runMetadata)]
     );
     return [sid, new Date().toISOString()];
@@ -109,26 +170,35 @@ export class SubmissionStore {
         `This value is inlined into SQL and must be validated by the caller.`
       );
     }
+    // T7: fetch verified_fitness and order by it (COALESCE to -1 for unverified).
+    // Until migration 004 runs, verified_fitness is absent and COALESCE returns -1
+    // so the existing fitness DESC ordering is preserved as a secondary sort.
     const [rows] = await this._pool.execute<mysql.RowDataPacket[]>(
-      `SELECT submission_id, genome, martian_type, fitness, leaderboard_name,
-              api_key_hash, run_metadata,
+      `SELECT submission_id, genome, martian_type, fitness, verified_fitness,
+              leaderboard_name, api_key_hash, run_metadata,
               DATE_FORMAT(submitted_at, '%Y-%m-%dT%TZ') AS submitted_at
        FROM leaderboard_entries
        WHERE martian_type = ?
-       ORDER BY fitness DESC
+       ORDER BY COALESCE(verified_fitness, -1) DESC, fitness DESC
        LIMIT ${limit}`,
       [martianType]
     );
-    return rows.map(r => ({
-      submission_id:    r['submission_id'] as string,
-      genome:           r['genome'] as string,
-      martian_type:     r['martian_type'] as string,
-      fitness:          r['fitness'] as number,
-      leaderboard_name: r['leaderboard_name'] as string,
-      api_key_hash:     r['api_key_hash'] as string,
-      run_metadata:     parseRunMetadata(r['run_metadata']),
-      submitted_at:     r['submitted_at'] as string,
-    }));
+    return rows.map(r => {
+      const vf = r['verified_fitness'];
+      const verifiedFitness = (vf !== null && vf !== undefined) ? vf as number : null;
+      return {
+        submission_id:    r['submission_id'] as string,
+        genome:           r['genome'] as string,
+        martian_type:     r['martian_type'] as string,
+        fitness:          r['fitness'] as number,
+        verified_fitness: verifiedFitness,
+        verified:         verifiedFitness !== null,
+        leaderboard_name: r['leaderboard_name'] as string,
+        api_key_hash:     r['api_key_hash'] as string,
+        run_metadata:     parseRunMetadata(r['run_metadata']),
+        submitted_at:     r['submitted_at'] as string,
+      };
+    });
   }
 
   async countForType(martianType: string): Promise<number> {
@@ -176,11 +246,15 @@ export class SubmissionStore {
     );
     if (!rows[0]) return null;
     const r = rows[0];
+    const vf = r['verified_fitness'];
+    const verifiedFitness = (vf !== null && vf !== undefined) ? vf as number : null;
     return {
       submission_id:    r['submission_id'] as string,
       genome:           r['genome'] as string,
       martian_type:     r['martian_type'] as string,
       fitness:          r['fitness'] as number,
+      verified_fitness: verifiedFitness,
+      verified:         verifiedFitness !== null,
       leaderboard_name: r['leaderboard_name'] as string,
       api_key_hash:     r['api_key_hash'] as string,
       run_metadata:     parseRunMetadata(r['run_metadata']),

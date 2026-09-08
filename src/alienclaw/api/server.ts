@@ -8,9 +8,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { parse } from 'node:url';
 import { hashApiKey } from './auth.js';
 import { isValidApiKeyFormat } from './validation.js';
-import { RateLimiter } from './rate-limit.js';
+import { RateLimiter, IpRateLimiter } from './rate-limit.js';
 import { AuditLog } from './audit-log.js';
-import { SubmissionStore, InstallStore, GlobalStats, initPool } from './storage.js';
+import { SubmissionStore, InstallStore, GlobalStats, initPool, getPool } from './storage.js';
 import { handleHealth }       from './handlers/health.js';
 import { handleStats }        from './handlers/stats.js';
 import { handleMartianTypes } from './handlers/martian-types.js';
@@ -18,6 +18,8 @@ import { handleInstall }      from './handlers/install.js';
 import { handleSubmitGenome, handleTopGenomes } from './handlers/genomes.js';
 import type { SubmissionRequest, InstallRequest } from './types.js';
 import { apiError } from './types.js';
+import { boardCache, computeEtag } from './cache.js';
+import { deriveClientIp } from './client-ip.js';
 
 // ── Limits ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,7 @@ type BodyResult =
 // ── Global server state ────────────────────────────────────────────────────
 
 let _RATE_LIMITER = new RateLimiter();
+let _IP_LIMITER   = new IpRateLimiter();
 let _AUDIT_LOG    = new AuditLog();
 let _SUBMISSION   = new SubmissionStore();
 let _INSTALLS     = new InstallStore();
@@ -59,6 +62,7 @@ export function configure(opts: { dbUrl?: string; dataRoot?: string } = {}): voi
   const p     = initPool(dbUrl);   // throws immediately if dbUrl is missing
   const root  = opts.dataRoot;
   _RATE_LIMITER = new RateLimiter({ dataRoot: root });
+  _IP_LIMITER   = new IpRateLimiter();
   _AUDIT_LOG    = new AuditLog({ dataRoot: root });
   _SUBMISSION   = new SubmissionStore(p);
   _INSTALLS     = new InstallStore(p);
@@ -188,8 +192,23 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
 
     try {
       if (req.method === 'GET') {
+        if (path === '/' || path === '') {
+          return send(res, 200, {
+            service: 'alienclaw-api',
+            version: '1.0.0',
+            routes: [
+              'GET  /v1/health',
+              'GET  /v1/stats',
+              'GET  /v1/martian-types',
+              'GET  /v1/genomes/top?martian_type=&n=',
+              'POST /v1/install',
+              'POST /v1/genomes',
+            ],
+            docs: 'https://alienclaw.gg/docs/api',
+          }, true);
+        }
         if (path === '/v1/health') {
-          const [s, b] = handleHealth();
+          const [s, b] = await handleHealth(getPool() ?? undefined);
           return send(res, s, b, true);
         }
         if (path === '/v1/stats') {
@@ -207,8 +226,39 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
           // (clampTopN); the router must not duplicate it. NaN from a missing or
           // garbage `n` is normalized to the default inside the handler.
           const n = parseInt(String(qs['n'] ?? ''), 10);
+
+          // T6: IP read rate limit
+          const { ip: clientReadIp } = deriveClientIp(req);
+          const [readAllowed, readRetryAfter] = _IP_LIMITER.checkRead(clientReadIp);
+          if (!readAllowed) {
+            res.setHeader('Retry-After', String(readRetryAfter));
+            return err(res, 429, 'RATE_LIMIT_EXCEEDED', 'Read rate limit reached.',
+              { retry_after_seconds: readRetryAfter });
+          }
+
+          // T3: ETag + board cache
+          const cacheKey = `${martianType}:${n}`;
+          const cache    = boardCache();
+          const cached   = cache.get(cacheKey);
+          const ifNoneMatch = req.headers['if-none-match'];
+
+          if (cached) {
+            if (ifNoneMatch && ifNoneMatch === cached.etag) {
+              res.writeHead(304).end();
+              return;
+            }
+            res.setHeader('Cache-Control', 'public, max-age=10, stale-while-revalidate=60');
+            res.setHeader('ETag', cached.etag);
+            return send(res, 200, cached.value, true);
+          }
+
+          // Cache miss — fetch from DB
           try {
             const [s, b] = await handleTopGenomes({ martianType, n, store: _SUBMISSION, registeredTypes: _REGISTERED });
+            const etag = computeEtag(b);
+            cache.set(cacheKey, b, etag);
+            res.setHeader('Cache-Control', 'public, max-age=10, stale-while-revalidate=60');
+            res.setHeader('ETag', etag);
             return send(res, s, b, true);
           } catch (e: unknown) {
             if (e instanceof Error && 'martianType' in e) {
@@ -218,11 +268,32 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
             throw e;
           }
         }
+        if (path === '/__diag/whoami') {
+          const token = process.env['ALIENCLAW_DIAG_TOKEN'];
+          if (!token) return err(res, 404, 'NOT_FOUND', `No route for ${path}`);
+          const reqToken = (req.headers['x-diag-token'] ?? '') as string;
+          if (reqToken !== token) return err(res, 401, 'UNAUTHORIZED', 'Invalid diag token.');
+          const derived = deriveClientIp(req);
+          return send(res, 200, derived, true);
+        }
         return err(res, 404, 'NOT_FOUND', `No route for ${path}`);
       }
 
       if (req.method === 'POST') {
+        if (path === '/__diag/crash') {
+          const token = process.env['ALIENCLAW_DIAG_TOKEN'];
+          if (!token) return err(res, 404, 'NOT_FOUND', `No route for ${path}`);
+          const reqToken = (req.headers['x-diag-token'] ?? '') as string;
+          if (reqToken !== token) return err(res, 401, 'UNAUTHORIZED', 'Invalid diag token.');
+          throw new Error('/__diag/crash intentional throw for diagnostics');
+        }
+
         if (path === '/v1/install') {
+          // T4: 415 check
+          const installCt = (req.headers['content-type'] ?? '').split(';')[0]?.trim() ?? '';
+          if (installCt !== 'application/json') {
+            return err(res, 415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type must be application/json.');
+          }
           const parsed = await readJson(req);
           if (!parsed.ok) {
             if (parsed.reason === 'too_large') return tooLarge(res, parsed.receivedBytes);
@@ -251,6 +322,11 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
         }
 
         if (path === '/v1/genomes') {
+          // T4: 415 check
+          const genomesCt = (req.headers['content-type'] ?? '').split(';')[0]?.trim() ?? '';
+          if (genomesCt !== 'application/json') {
+            return err(res, 415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type must be application/json.');
+          }
           const khash = await authBearer(req, res);
           if (!khash) return;
           const [allowed, retryAfter] = _RATE_LIMITER.check(khash);
@@ -259,6 +335,14 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
             return err(res, 429, 'RATE_LIMIT_EXCEEDED',
               'Submission rate limit reached. Retry after the window resets.',
               { limit: 100, window_seconds: 3600, retry_after_seconds: retryAfter });
+          }
+          // T6: IP-based submission rate limit (supplemental to per-install limit)
+          const { ip: submitterIp } = deriveClientIp(req);
+          const [ipAllowed, ipRetryAfter] = _IP_LIMITER.checkSubmit(submitterIp);
+          if (!ipAllowed) {
+            res.setHeader('Retry-After', String(ipRetryAfter));
+            return err(res, 429, 'RATE_LIMIT_EXCEEDED', 'IP submission rate limit reached.',
+              { limit: 10, window_seconds: 3600, retry_after_seconds: ipRetryAfter });
           }
           const parsed = await readJson(req);
           if (!parsed.ok) {
@@ -302,12 +386,17 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
         return err(res, 404, 'NOT_FOUND', `No route for ${path}`);
       }
 
-      res.writeHead(405).end();
+      return err(res, 405, 'METHOD_NOT_ALLOWED', `${req.method ?? 'UNKNOWN'} is not allowed on ${path}`);
     } catch (e: unknown) {
       process.stderr.write(`[api] unhandled error: ${e}\n`);
       send(res, 500, { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } }, true);
     }
   });
+
+  // T4: server-level timeouts
+  server.headersTimeout  = 30_000;  // 30s for headers to arrive
+  server.requestTimeout  = 60_000;  // 60s for the full request
+  server.keepAliveTimeout = 5_000;  // 5s keep-alive idle
 
   return new Promise<ReturnType<typeof createServer>>((resolve, reject) => {
     server.listen(port, host, () => resolve(server));

@@ -97,7 +97,18 @@ async function _pullType(
     return result;
   }
 
-  for (const entry of entries) {
+  // T10: Only sync verified genomes (verified_fitness IS NOT NULL).
+  // Until P6's verifier exists this set is always empty — intentionally inert.
+  // This prevents untrusted client-reported fitness values from seeding
+  // local populations before independent verification.
+  // The entries directory is still created above for future pulls.
+  const verifiedGenomes = entries.filter((g: { verified?: boolean }) => g.verified === true);
+  if (verifiedGenomes.length === 0) {
+    process.stderr.write('[sync] Pull returned 0 verified genomes — inert until P6 verifier exists.\n');
+    return result;
+  }
+
+  for (const entry of verifiedGenomes) {
     try {
       _writeEntry(entriesDir, entry);
       result.written++;
