@@ -8,7 +8,10 @@
   "scripts": {
     "setup": "bash install.sh",
     "typecheck": "tsc --noEmit",
+    "build-info": "bash scripts/gen-build-info.sh",
+    "prestart": "bash scripts/gen-build-info.sh",
     "start": "tsx src/alienclaw/api/main.ts",
+    "migrate": "tsx src/alienclaw/api/migrate-cli.ts",
     "test": "pnpm exec vitest run && PYTHONPATH=src pytest && bash scripts/check-testvectors.sh && bash scripts/check-seed-drift.sh"
   },
   "devDependencies": {

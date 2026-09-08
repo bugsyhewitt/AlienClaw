@@ -146,3 +146,6 @@ test/probe/
 test/scratch/
 test/telemetry/zz_*
 test/zz_*
+
+# Per-build generated artifact (like dist/)
+build-info.json
