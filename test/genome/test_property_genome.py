@@ -11,12 +11,12 @@ Runtime target: < 30 seconds in CI.
 from __future__ import annotations
 
 import pytest
-from hypothesis import given, settings, HealthCheck
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from alienclaw.genome.alphabet import ALPHABET, GENOME_LENGTH, SECTION_LENGTH
+from alienclaw.genome.checksum import verify_checksum
 from alienclaw.genome.codec import assemble, parse, round_trip_check
-from alienclaw.genome.checksum import compute_checksum, verify_checksum
 
 ALPHABET_STR = ALPHABET
 

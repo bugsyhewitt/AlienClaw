@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from alienclaw.genome.codec import parse
 from alienclaw.genome.checksum import compute_checksum, verify_checksum
+from alienclaw.genome.codec import parse
 
 FIXTURES_PATH = (
     Path(__file__).parent.parent.parent / "test" / "fixtures" / "genome-spec-fixtures.json"
@@ -101,7 +101,7 @@ class TestInvalidCharacter:
 # ---------------------------------------------------------------------------
 
 class TestConfusables:
-    def test_0_to_O_fails_checksum(self, fixtures: dict) -> None:
+    def test_0_to_o_fails_checksum(self, fixtures: dict) -> None:
         cases = [c for c in adversarial_cases(fixtures) if "confusable-0-to-O" in c["name"]]
         for case in cases:
             with pytest.raises(ValueError, match="[Cc]hecksum"):
