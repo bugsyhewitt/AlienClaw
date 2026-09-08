@@ -1,0 +1,216 @@
+# seed/martians.spec.yaml — Declarative spec for all 16 seed Martian types (T3, PKT-P1).
+#
+# This file is the single source of truth for seed Martian slot declarations.
+# scripts/gen-seed-genomes.py reads this file and regenerates seed/martians/*.martian
+# deterministically. scripts/check-seed-drift.sh verifies no drift between this
+# spec and the committed .martian files.
+#
+# Format:
+#   name: martian_type identifier (matches .martian filename without extension)
+#   description: human-readable description
+#   use_cases: list of concrete use-case strings
+#   slots: list of tool slot declarations
+#     slot_index: 0-based index
+#     tool_name: tool name (must be in the brain registry)
+#     inputs_from: null (task context only) or {fields: {field: template}}
+
+spec_version: "1.0"
+generated_by: "PKT-P1 T3 (2026-09-07)"
+
+martians:
+  - name: compute_alone
+    description: "Single compute tool. Backwards-compat for pre-Packet-16 single-tool populations."
+    use_cases:
+      - "Pre-Packet-16 compute evolution experiments"
+      - "Baseline comparison for compute-based compositions"
+    slots:
+      - slot_index: 0
+        tool_name: compute
+        inputs_from: null
+
+  - name: compute_then_validate
+    description: "Compute a result, then validate it parses as JSON."
+    use_cases:
+      - "Computing a structured output and asserting it is well-formed JSON"
+      - "Numerical pipelines whose output is expected to serialize"
+    slots:
+      - slot_index: 0
+        tool_name: compute
+        inputs_from: null
+      - slot_index: 1
+        tool_name: extract_json
+        inputs_from:
+          fields:
+            json: "${slot[0].output.result}"
+
+  - name: compute_then_write
+    description: "Compute a result, then write it to a file."
+    use_cases:
+      - "Calculating a value and persisting it for downstream consumption"
+      - "Mathematical result archival pipelines"
+    slots:
+      - slot_index: 0
+        tool_name: compute
+        inputs_from: null
+      - slot_index: 1
+        tool_name: file_write
+        inputs_from:
+          fields:
+            path: "${campaign.write_path}"
+            content: "${slot[0].output.result}"
+
+  - name: extract_json_alone
+    description: "Single extract_json tool. Backwards-compat for pre-Packet-16 populations."
+    use_cases:
+      - "Parsing and validating JSON structure from a given input"
+    slots:
+      - slot_index: 0
+        tool_name: extract_json
+        inputs_from: null
+
+  - name: fetch_then_extract
+    description: "Fetch a URL via url_fetch, then extract a field from the JSON response."
+    use_cases:
+      - "Calling a REST API with custom headers and extracting a specific field"
+      - "Fetching and parsing a JSON document from an arbitrary HTTP endpoint"
+    slots:
+      - slot_index: 0
+        tool_name: url_fetch
+        inputs_from: null
+      - slot_index: 1
+        tool_name: extract_json
+        inputs_from:
+          fields:
+            json: "${slot[0].output.content}"
+            path: "${campaign.extract_path}"
+
+  - name: fetch_then_parse
+    description: "HTTP GET a URL, then parse the JSON response body."
+    use_cases:
+      - "Hitting a JSON API endpoint and extracting a specific field"
+      - "Validating that a URL returns well-formed JSON"
+    slots:
+      - slot_index: 0
+        tool_name: http_get
+        inputs_from: null
+      - slot_index: 1
+        tool_name: extract_json
+        inputs_from:
+          fields:
+            json: "${slot[0].output.content}"
+            path: "${campaign.extract_path}"
+
+  - name: file_read_alone
+    description: "Single file_read tool. Backwards-compat for pre-Packet-16 populations."
+    use_cases:
+      - "Reading and returning contents of a local file"
+    slots:
+      - slot_index: 0
+        tool_name: file_read
+        inputs_from: null
+
+  - name: file_write_alone
+    description: "Single file_write tool. Backwards-compat for pre-Packet-16 populations."
+    use_cases:
+      - "Writing content to a local file path"
+    slots:
+      - slot_index: 0
+        tool_name: file_write
+        inputs_from: null
+
+  - name: http_get_alone
+    description: "Single http_get tool. Backwards-compat for pre-Packet-16 populations."
+    use_cases:
+      - "Fetching a URL and returning its response body"
+    slots:
+      - slot_index: 0
+        tool_name: http_get
+        inputs_from: null
+
+  - name: read_then_extract
+    description: "Read a file, then extract a field from its JSON content."
+    use_cases:
+      - "Loading a JSON config file and pulling a specific value"
+      - "Parsing log files stored as JSON-lines"
+    slots:
+      - slot_index: 0
+        tool_name: file_read
+        inputs_from: null
+      - slot_index: 1
+        tool_name: extract_json
+        inputs_from:
+          fields:
+            json: "${slot[0].output.content}"
+            path: "${campaign.extract_path}"
+
+  - name: search_text_alone
+    description: "Single search_text tool. Backwards-compat for pre-Packet-16 populations."
+    use_cases:
+      - "Finding all pattern matches in a text corpus"
+    slots:
+      - slot_index: 0
+        tool_name: search_text
+        inputs_from: null
+
+  - name: search_then_count
+    description: "Search text for a pattern, then compute something with the match count."
+    use_cases:
+      - "Counting occurrences of a pattern and applying arithmetic to the count"
+      - "Finding how many times a token appears and computing a ratio"
+    slots:
+      - slot_index: 0
+        tool_name: search_text
+        inputs_from: null
+      - slot_index: 1
+        tool_name: compute
+        inputs_from:
+          fields:
+            input: "${slot[0].output.totalMatches}"
+
+  - name: search_then_fetch
+    description: "Search text for a URL pattern, then fetch a campaign-specified URL."
+    use_cases:
+      - "Extracting URLs from text and fetching their content"
+      - "Following links found in a document"
+    slots:
+      - slot_index: 0
+        tool_name: search_text
+        inputs_from: null
+      - slot_index: 1
+        tool_name: http_get
+        inputs_from:
+          fields:
+            url: "${campaign.fetch_url}"
+
+  - name: url_fetch_alone
+    description: "Single url_fetch tool. Backwards-compat for pre-Packet-16 populations."
+    use_cases:
+      - "Fetching a URL with support for custom methods and headers"
+    slots:
+      - slot_index: 0
+        tool_name: url_fetch
+        inputs_from: null
+
+  - name: web_search_alone
+    description: "Single web_search tool. Backwards-compat for pre-Packet-16 populations."
+    use_cases:
+      - "Searching the web and returning ranked results"
+    slots:
+      - slot_index: 0
+        tool_name: web_search
+        inputs_from: null
+
+  - name: write_then_verify
+    description: "Write content to a file, then read it back to verify."
+    use_cases:
+      - "Write-verify pattern for critical data persistence"
+      - "Checking that a file write succeeded by confirming readability"
+    slots:
+      - slot_index: 0
+        tool_name: file_write
+        inputs_from: null
+      - slot_index: 1
+        tool_name: file_read
+        inputs_from:
+          fields:
+            path: "${slot[0].output.path}"

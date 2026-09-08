@@ -278,6 +278,7 @@ export async function submitFromFile(
     }
   }
 
+  // POST for submission — native fetch. URL is operator-configured, not genome-controlled.
   const response = await fetch(submitUrl, {
     method: 'POST',
     headers: {

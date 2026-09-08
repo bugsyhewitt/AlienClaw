@@ -4,6 +4,20 @@ from typing import Any
 from .limits import MAX_TOOL_IO_BYTES
 from .types import RunResult
 
+_MAX_NESTING_DEPTH = 32  # MSB spec: cap nesting depth at 32 levels
+
+
+def _check_depth(obj: Any, depth: int = 0) -> None:
+    """Raise ValueError if the parsed JSON nests deeper than _MAX_NESTING_DEPTH."""
+    if depth > _MAX_NESTING_DEPTH:
+        raise ValueError(f"JSON nesting depth exceeds limit of {_MAX_NESTING_DEPTH}")
+    if isinstance(obj, dict):
+        for v in obj.values():
+            _check_depth(v, depth + 1)
+    elif isinstance(obj, list):
+        for item in obj:
+            _check_depth(item, depth + 1)
+
 
 def _get_path(obj: Any, path: str) -> Any:
     parts = re.split(r"\.|(?=\[)", path)
@@ -35,6 +49,10 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
         return RunResult(ok=False, error=f"JSON parse error: {exc}", correctness=0.0)
+    try:
+        _check_depth(parsed)
+    except ValueError as exc:
+        return RunResult(ok=False, error=str(exc), correctness=0.0)
     # result_format: 1=value, 2=+type, 3=+found (mod3_plus1 -> 1-3)
     result_format = max(1, min(3, int(params.get("result_format", 2))))
     # extraction_passes: re-parse and re-extract N times (verification); tool_calls = N

@@ -29,7 +29,9 @@
  */
 
 import * as fsPromises  from 'node:fs/promises';
-import * as path from 'node:path';
+import * as fs     from 'node:fs';
+import * as path   from 'node:path';
+import * as os     from 'node:os';
 
 import { registerToolAdapter } from './martian-executor.js';
 import type { ToolFn }         from './martian-executor.js';
@@ -42,13 +44,38 @@ const OUTPUT_DIR = PATHS.output;
 // ---------------------------------------------------------------------------
 
 function assertInsideBoundary(filePath: string, boundary: string): string {
-  const resolved = path.resolve(boundary, filePath);
-  const sep      = path.sep;
-  if (!resolved.startsWith(boundary + sep) && resolved !== boundary) {
+  // Reject dotfiles by filename
+  const basename = path.basename(filePath);
+  if (basename.startsWith('.')) {
+    throw new Error(`Dotfile rejected: "${filePath}" — filenames starting with "." are not allowed`);
+  }
+
+  // Use realpath to resolve symlinks on existing portions of the path
+  let resolved: string;
+  try {
+    resolved = fs.realpathSync(path.resolve(boundary, filePath));
+  } catch (err) {
+    // If the path doesn't exist yet (e.g., new file), resolve without realpath
+    // but still check for traversal
+    resolved = path.resolve(boundary, filePath);
+  }
+
+  const boundaryReal = (() => {
+    try { return fs.realpathSync(boundary); } catch { return boundary; }
+  })();
+  const sep = path.sep;
+  if (!resolved.startsWith(boundaryReal + sep) && resolved !== boundaryReal) {
     throw new Error(
       `Path traversal rejected: "${filePath}" resolves outside boundary "${boundary}"`
     );
   }
+
+  // Reject paths inside ~/.openclaw (OpenClaw agent workspaces — 2026 campaign vector)
+  const openclawHome = path.join(os.homedir(), '.openclaw');
+  if (resolved.startsWith(openclawHome + sep) || resolved === openclawHome) {
+    throw new Error(`OpenClaw workspace denied: "${filePath}" targets an OpenClaw agent directory`);
+  }
+
   return resolved;
 }
 
