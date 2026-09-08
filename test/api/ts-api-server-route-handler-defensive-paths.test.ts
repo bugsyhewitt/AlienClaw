@@ -129,7 +129,12 @@ beforeAll(async () => {
         return [true, 0];
       }
     }
-    return { RateLimiter };
+    // IpRateLimiter: always allow — tests only exercise per-install rate limiting
+    class IpRateLimiter {
+      checkRead(_ip: string): [boolean, number] { return [true, 0]; }
+      checkSubmit(_ip: string): [boolean, number] { return [true, 0]; }
+    }
+    return { RateLimiter, IpRateLimiter };
   });
 
   vi.doMock('../../src/alienclaw/api/handlers/genomes.js', () => {
