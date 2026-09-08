@@ -94,7 +94,7 @@ dbDescribe('Health', () => {
   it('GET /v1/health returns 200', async () => {
     const { status, body } = await get(base, '/v1/health');
     expect(status).toBe(200);
-    expect((body as {status: string}).status).toBe('ok');
+    expect((body as {ok: boolean}).ok).toBe(true);
   });
 });
 
@@ -265,7 +265,9 @@ dbDescribe('TopGenomes', () => {
       { genome: validGenome(), martian_type: 'compute', fitness: 0.7, leaderboard_name: 'TESTBOTA' },
       headers);
     const { body } = await get(base, '/v1/genomes/top?martian_type=compute&n=5');
-    const entries = (body as {genomes: {leaderboard_name: string}[]}).genomes;
+    // Submissions without a verified_fitness land in unverified_genomes (P2 split)
+    const resp = body as {genomes: {leaderboard_name: string}[]; unverified_genomes: {leaderboard_name: string}[]};
+    const entries = [...(resp.genomes ?? []), ...(resp.unverified_genomes ?? [])];
     expect(entries.length).toBeGreaterThan(0);
     for (const e of entries) {
       expect(e.leaderboard_name).toBe('TESTBOTA');
