@@ -158,8 +158,13 @@ dbDescribe('sync push → real createApiServer', () => {
     const top = await client.topGenomes('compute', 5);
     expect(top.ok).toBe(true);
     if (top.ok) {
-      expect(top.data.genomes.length).toBeGreaterThan(0);
-      const hit = top.data.genomes.find(g => g.genome === genome);
+      // P2 split: submissions without verified_fitness land in unverified_genomes
+      const allEntries = [
+        ...(top.data.genomes ?? []),
+        ...((top.data as unknown as { unverified_genomes?: typeof top.data.genomes }).unverified_genomes ?? []),
+      ];
+      expect(allEntries.length).toBeGreaterThan(0);
+      const hit = allEntries.find(g => g.genome === genome);
       expect(hit).toBeDefined();
       expect((hit as unknown as { leaderboard_name: string }).leaderboard_name).toBe('METABOTX');
     }
