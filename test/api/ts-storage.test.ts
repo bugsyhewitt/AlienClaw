@@ -21,12 +21,12 @@ const dbDescribe = TEST_DB_URL ? describe : describe.skip;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-function validGenome(): string {
+function validGenome(seed = 99): string {
   let g = '';
-  let seed = 99;
+  let s = seed;
   for (let i = 0; i < 256; i++) {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    g += BASE62_ALPHABET[seed % 62];
+    s = (s * 1664525 + 1013904223) >>> 0;
+    g += BASE62_ALPHABET[s % 62];
   }
   return g;
 }
@@ -97,7 +97,8 @@ dbDescribe('MySQL storage — persistence assertions', () => {
   });
 
   it('topForType() returns submissions sorted by fitness desc', async () => {
-    const genomes = [validGenome(), validGenome(), validGenome()];
+    // Use distinct seeds so each genome is unique (same seed → same genome_id → upsert to one row)
+    const genomes = [validGenome(1), validGenome(2), validGenome(3)];
     for (const [i, g] of genomes.entries()) {
       await submissions.save({
         genome: g, martianType: 'compute', fitness: [0.3, 0.8, 0.5][i]!,
@@ -231,11 +232,11 @@ dbDescribe('MySQL storage — persistence assertions', () => {
     // Add some data
     await installs.register('s'.repeat(64), 't'.repeat(64));
     await submissions.save({
-      genome: validGenome(), martianType: 'compute', fitness: 0.7,
+      genome: validGenome(1), martianType: 'compute', fitness: 0.7,
       apiKeyHash: 'u'.repeat(64), runMetadata: {}, leaderboardName: 'STATSBOT',
     });
     await submissions.save({
-      genome: validGenome(), martianType: 'web_search', fitness: 0.6,
+      genome: validGenome(2), martianType: 'web_search', fitness: 0.6,
       apiKeyHash: 'v'.repeat(64), runMetadata: {}, leaderboardName: 'STATSBOT',
     });
 
