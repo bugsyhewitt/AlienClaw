@@ -121,14 +121,28 @@ export async function handleTopGenomes(opts: {
     opts.store.topForType(opts.martianType, n),
     opts.store.countForType(opts.martianType),
   ]);
-  const entries: GenomeEntry[] = raw.map(e => ({
-    genome:           e.genome,
-    fitness:          e.fitness,
-    submission_id:    e.submission_id,
-    submitted_at:     e.submitted_at,
-    leaderboard_name: e.leaderboard_name,
-    generation:       typeof e.run_metadata?.['generation'] === 'number'
+
+  // T7: format each entry with verified/verified_fitness fields
+  const formatEntry = (e: (typeof raw)[number]): GenomeEntry => ({
+    genome:            e.genome,
+    fitness:           e.fitness,
+    submission_id:     e.submission_id,
+    submitted_at:      e.submitted_at,
+    leaderboard_name:  e.leaderboard_name,
+    generation:        typeof e.run_metadata?.['generation'] === 'number'
       ? e.run_metadata['generation'] : undefined,
-  }));
-  return [200, { martian_type: opts.martianType, genomes: entries, total_for_type: total }];
+    verified:          e.verified,
+    verified_fitness:  e.verified_fitness,
+  });
+
+  // T7: split into verified (verified_fitness IS NOT NULL) and unverified
+  const verified   = raw.filter(g => g.verified);
+  const unverified = raw.filter(g => !g.verified);
+
+  return [200, {
+    martian_type:       opts.martianType,
+    genomes:            verified.map(formatEntry),
+    unverified_genomes: unverified.map(formatEntry),
+    total_for_type:     total,
+  }];
 }

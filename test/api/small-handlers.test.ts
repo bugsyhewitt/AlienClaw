@@ -27,12 +27,14 @@ describe('apiError', () => {
 // ── handleHealth ────────────────────────────────────────────────────────────
 
 describe('handleHealth', () => {
-  it('returns [200, {status:ok, version:semver, uptime_seconds:>=0}]', () => {
-    const [code, body] = handleHealth();
+  it('returns [200, {version:semver, uptimeSec:>=0, db:fail}] when no pool given', async () => {
+    const [code, body] = await handleHealth();
+    const b = body as Record<string, unknown>;
     expect(code).toBe(200);
-    expect(body.status).toBe('ok');
-    expect(body.version).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(body.uptime_seconds).toBeGreaterThanOrEqual(0);
+    expect(String(b['version'])).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(typeof b['uptimeSec']).toBe('number');
+    expect((b['uptimeSec'] as number)).toBeGreaterThanOrEqual(0);
+    expect(b['db']).toBe('fail');
   });
 });
 

@@ -66,6 +66,10 @@ export function makeGenomeEntry(over: Partial<GenomeEntry> = {}): GenomeEntry {
     submission_id: 'sub_remote',
     submitted_at: '2026-07-01T00:00:00Z',
     leaderboard_name: 'TESTNAME',
+    // T10: entries in the `genomes` field are verified by API contract;
+    // default to verified:true so pull.ts's quarantine filter passes them through.
+    verified: true,
+    verified_fitness: 0.9,
     ...over,
   };
 }
@@ -75,9 +79,10 @@ export function topGenomes(
   entries: GenomeEntry[],
 ): APIResult<TopGenomesResponse> {
   return ok(200, {
-    martian_type: martianType,
-    genomes: entries,
-    total_for_type: entries.length,
+    martian_type:       martianType,
+    genomes:            entries,
+    unverified_genomes: [],
+    total_for_type:     entries.length,
   });
 }
 

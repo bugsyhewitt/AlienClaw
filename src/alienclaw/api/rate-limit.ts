@@ -106,3 +106,55 @@ export class RateLimiter {
     return Math.max(0, this._limit - ts.length);
   }
 }
+
+// ── IP-based rate limiter (T6) ───────────────────────────────────────────────
+// Two buckets keyed by client IP: reads (120/min) and submissions (10/hr).
+// In-memory, single-process. A process restart resets counters (acceptable).
+// LRU eviction to bound memory: max 10_000 IPs per bucket.
+
+const _IP_MAX_SIZE = 10_000;
+
+export class IpRateLimiter {
+  private readonly _readBucket:   Map<string, number[]> = new Map();
+  private readonly _submitBucket: Map<string, number[]> = new Map();
+
+  private readonly _readLimit:    number;
+  private readonly _readWindow:   number; // seconds
+  private readonly _submitLimit:  number;
+  private readonly _submitWindow: number;
+
+  constructor(opts?: { readPerMin?: number; submitPerHour?: number }) {
+    const envRead   = parseInt(process.env['ALIENCLAW_RATE_READ_PER_MIN']    ?? '120', 10) || 120;
+    const envSubmit = parseInt(process.env['ALIENCLAW_RATE_SUBMIT_PER_HOUR'] ?? '10',  10) || 10;
+    this._readLimit    = opts?.readPerMin    ?? envRead;
+    this._submitLimit  = opts?.submitPerHour ?? envSubmit;
+    this._readWindow   = 60;
+    this._submitWindow = 3600;
+  }
+
+  private _check(bucket: Map<string, number[]>, ip: string, limit: number, windowSec: number): [boolean, number] {
+    const now = Date.now() / 1000;
+    const cut = now - windowSec;
+    let ts = (bucket.get(ip) ?? []).filter(t => t > cut);
+
+    if (ts.length >= limit) {
+      const oldest     = Math.min(...ts);
+      const retryAfter = Math.ceil(oldest + windowSec - now) + 1;
+      bucket.set(ip, ts);
+      return [false, Math.max(1, retryAfter)];
+    }
+
+    // LRU eviction: remove oldest entry when at capacity
+    if (bucket.size >= _IP_MAX_SIZE && !bucket.has(ip)) {
+      const firstKey = bucket.keys().next().value;
+      if (firstKey !== undefined) bucket.delete(firstKey);
+    }
+
+    ts = [...ts, now];
+    bucket.set(ip, ts);
+    return [true, 0];
+  }
+
+  checkRead(ip: string):   [boolean, number] { return this._check(this._readBucket,   ip, this._readLimit,   this._readWindow);   }
+  checkSubmit(ip: string): [boolean, number] { return this._check(this._submitBucket, ip, this._submitLimit, this._submitWindow); }
+}
