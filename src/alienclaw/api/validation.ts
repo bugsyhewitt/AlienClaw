@@ -93,8 +93,25 @@ export function validateSubmission(
       { received: req.leaderboard_name, pattern: LEADERBOARD_NAME_RE.source });
   }
 
-  // 7. run_metadata size
-  const metaJson  = JSON.stringify(req.run_metadata);
+  // 7. run_metadata shape (PKT-1117): must be a plain object (or null/undefined).
+  // Mirrors parseRunMetadata in storage.ts:111-116 and the symmetric
+  // typeof-guards added to validateInstallRequest by PKT-472. Without this
+  // guard, JSON.stringify(undefined) returns undefined and Buffer.byteLength
+  // throws a TypeError that crashes the whole submission pipeline. Strings,
+  // numbers, booleans, and arrays also slipped through silently and were
+  // later stored as non-object run_metadata in the JSON column.
+  if (req.run_metadata !== undefined && req.run_metadata !== null) {
+    const meta: unknown = req.run_metadata;
+    if (typeof meta !== 'object' || Array.isArray(meta)) {
+      return fail('INVALID_RUN_METADATA',
+        'run_metadata must be a plain JSON object (or omitted); received type ' +
+        (meta === null ? 'null' : Array.isArray(meta) ? 'array' : typeof meta) + '.',
+        { received_type: meta === null ? 'null' : Array.isArray(meta) ? 'object' : typeof meta });
+    }
+  }
+
+  // 8. run_metadata size (only reachable when run_metadata is a plain object)
+  const metaJson  = JSON.stringify(req.run_metadata ?? {});
   const metaBytes = Buffer.byteLength(metaJson, 'utf8');
   if (metaBytes > 4096) {
     return fail('METADATA_TOO_LARGE',
