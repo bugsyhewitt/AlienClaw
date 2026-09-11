@@ -16,15 +16,48 @@ import { randomBytes, createHash } from 'node:crypto';
 
 let _pool: mysql.Pool | null = null;
 
+/**
+ * Default pool size if ALIENCLAW_DB_POOL_MAX is unset or invalid.
+ * Matches the prior implicit default of `parseInt(...) || 8`.
+ */
+export const DEFAULT_DB_POOL_MAX = 8;
+
+/**
+ * Maximum allowed pool size. MySQL 8 default `max_connections` is 151, but
+ * pool sizes above ~100 saturate the DB long before saturating Node, so we
+ * cap lower than the server limit. Anything above this falls back to the
+ * default. Justified in packets/1087-...md §"MAX_DB_POOL_MAX".
+ */
+export const MAX_DB_POOL_MAX = 100;
+
+/**
+ * Parse ALIENCLAW_DB_POOL_MAX into a positive integer in [1, MAX_DB_POOL_MAX].
+ * Falls back to DEFAULT_DB_POOL_MAX for unset, non-numeric, non-integer,
+ * out-of-range, or unsafe-integer values. Honours sci-notation ("1e2" → 100)
+ * via Number() since the operator intent is "100 connections".
+ *
+ * Mirror of resolveCacheTtlMs() (cache.ts, PKT-1118/1120) and
+ * _resolveRateLimitInt() (rate-limit.ts, PKT-1119). All three are the same
+ * env-var-coercion family from PR #593 (e322631d, feat(p2) hardening).
+ */
+export function resolvePoolMax(): number {
+  const raw = process.env['ALIENCLAW_DB_POOL_MAX'];
+  if (raw === undefined || raw === '') return DEFAULT_DB_POOL_MAX;
+  const n = Number(raw);
+  if (!Number.isInteger(n)) return DEFAULT_DB_POOL_MAX;
+  if (n < 1 || n > MAX_DB_POOL_MAX) return DEFAULT_DB_POOL_MAX;
+  return n;
+}
+
 export function initPool(dbUrl?: string): mysql.Pool {
   const url = dbUrl ?? process.env['ALIENCLAW_DB_URL'];
   if (!url) {
     throw new Error(
       'ALIENCLAW_DB_URL is not set. The AlienClaw API requires a MySQL database. ' +
-      'Set ALIENCLAW_DB_URL=mysql://user:password@host/database and restart.'
+      'Set ALIENCLAW_DB_URL=mysql://user:***@host/database and restart.'
     );
   }
-  const limit = parseInt(process.env['ALIENCLAW_DB_POOL_MAX'] ?? '8', 10) || 8;
+  const limit = resolvePoolMax();
   // mysql2 createPool accepts either a URL string or an options object.
   // We pass the URL as the uri field alongside pool-level tunables (T2).
   _pool = mysql.createPool({
@@ -62,7 +95,7 @@ export interface PoolStats {
  */
 export function poolStats(): PoolStats | null {
   if (!_pool) return null;
-  const limit = parseInt(process.env['ALIENCLAW_DB_POOL_MAX'] ?? '8', 10) || 8;
+  const limit = resolvePoolMax();
   const p = _pool as unknown as {
     pool?: {
       _allConnections?: unknown[];
