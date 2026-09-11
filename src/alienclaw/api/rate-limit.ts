@@ -140,6 +140,12 @@ export class IpRateLimiter {
     if (ts.length >= limit) {
       const oldest     = Math.min(...ts);
       const retryAfter = Math.ceil(oldest + windowSec - now) + 1;
+      // LRU touch-on-access (deny path): promote to MRU so a hammering IP
+      // that exhausted its budget is not evicted by a newcomer. Without this,
+      // an actively-deny-path IP stays at Map iteration index 0 and is evicted
+      // first when a fresh IP arrives — denial-of-budget (corrective re-author
+      // of REJECTED PKT-090 at slot 1119).
+      if (bucket.has(ip)) bucket.delete(ip);
       bucket.set(ip, ts);
       return [false, Math.max(1, retryAfter)];
     }
@@ -151,6 +157,10 @@ export class IpRateLimiter {
     }
 
     ts = [...ts, now];
+    // LRU touch-on-access (accept path): promote existing key to MRU so the
+    // eviction at line above (firstKey) actually removes the LEAST-RECENTLY-USED
+    // key, not the first-INSERTED key (FIFO bug, PR #593 / PKT-090).
+    if (bucket.has(ip)) bucket.delete(ip);
     bucket.set(ip, ts);
     return [true, 0];
   }
