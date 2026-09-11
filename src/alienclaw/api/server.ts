@@ -11,10 +11,10 @@ import { isValidApiKeyFormat } from './validation.js';
 import { RateLimiter, IpRateLimiter } from './rate-limit.js';
 import { AuditLog } from './audit-log.js';
 import { SubmissionStore, InstallStore, GlobalStats, initPool, getPool } from './storage.js';
-import { handleHealth }       from './handlers/health.js';
-import { handleStats }        from './handlers/stats.js';
-import { handleMartianTypes } from './handlers/martian-types.js';
-import { handleInstall }      from './handlers/install.js';
+import { handleHealth, readVersion } from './handlers/health.js';
+import { handleStats }              from './handlers/stats.js';
+import { handleMartianTypes }       from './handlers/martian-types.js';
+import { handleInstall }            from './handlers/install.js';
 import { handleSubmitGenome, handleTopGenomes } from './handlers/genomes.js';
 import type { SubmissionRequest, InstallRequest } from './types.js';
 import { apiError } from './types.js';
@@ -195,7 +195,7 @@ export function createApiServer(port = 8080, host = '0.0.0.0'): Promise<ReturnTy
         if (path === '/' || path === '') {
           return send(res, 200, {
             service: 'alienclaw-api',
-            version: '1.0.0',
+            version: readVersion(),
             routes: [
               'GET  /v1/health',
               'GET  /v1/stats',
