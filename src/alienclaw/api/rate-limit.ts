@@ -114,6 +114,57 @@ export class RateLimiter {
 
 const _IP_MAX_SIZE = 10_000;
 
+/**
+ * Default read rate (per minute) when ALIENCLAW_RATE_READ_PER_MIN is unset or invalid.
+ * Matches the prior implicit default of `parseInt(...) || 120`.
+ */
+export const DEFAULT_IP_READ_PER_MIN = 120;
+
+/**
+ * Default submit rate (per hour) when ALIENCLAW_RATE_SUBMIT_PER_HOUR is unset or invalid.
+ * Matches the prior implicit default of `parseInt(...) || 10`.
+ */
+export const DEFAULT_IP_SUBMIT_PER_HOUR = 10;
+
+/**
+ * Maximum allowed IP rate-limit per bucket. Anything above this would effectively
+ * disable rate limiting on a public endpoint. 1_000/min reads and 1_000/hr submits
+ * are far above any sane operator setting; this ceiling prevents a `1e9` env typo
+ * from collapsing the limit to 1 via parseInt's leading-digit-only behavior, and
+ * prevents an accidental DoS of the bucket map (memory growth).
+ *
+ * Justified in packets/1089-ipratelimiter-env-var-coercion-bypass-corrective-re-author.md §"MAX_IP_RATE".
+ */
+export const MAX_IP_READ_PER_MIN     = 1_000;
+export const MAX_IP_SUBMIT_PER_HOUR  = 1_000;
+
+/**
+ * Parse an env-var string into a positive safe integer in [1, maxValue].
+ * Falls back to defaultValue for unset, non-numeric, non-integer, out-of-range,
+ * or unsafe-integer inputs. Honours sci-notation ('1e2' → 100) via Number() since
+ * operator intent is the integer value the literal would resolve to.
+ *
+ * The naive `parseInt(x, 10) || default` shape only protected against 0 and NaN.
+ * Negative integers, huge integers, exponent notation ('1e9' → 1), and Infinity
+ * all slipped through. PKT-089 documented this; PKT-1089 is the corrective
+ * re-author with full File-A coverage (RED→GREEN both run).
+ *
+ * Mirror of resolvePoolMax() (storage.ts, PKT-1087), resolveCacheTtlMs()
+ * (cache.ts, PKT-1118/1120). All three are the same env-var-coercion family
+ * from PR #593 (e322631d, feat(p2) hardening).
+ */
+export function _resolveRateLimitInt(
+  envValue:     string | undefined,
+  defaultValue: number,
+  maxValue:     number,
+): number {
+  if (envValue === undefined || envValue === '') return defaultValue;
+  const n = Number(envValue);
+  if (!Number.isInteger(n)) return defaultValue;
+  if (n < 1 || n > maxValue) return defaultValue;
+  return n;
+}
+
 export class IpRateLimiter {
   private readonly _readBucket:   Map<string, number[]> = new Map();
   private readonly _submitBucket: Map<string, number[]> = new Map();
@@ -124,10 +175,18 @@ export class IpRateLimiter {
   private readonly _submitWindow: number;
 
   constructor(opts?: { readPerMin?: number; submitPerHour?: number }) {
-    const envRead   = parseInt(process.env['ALIENCLAW_RATE_READ_PER_MIN']    ?? '120', 10) || 120;
-    const envSubmit = parseInt(process.env['ALIENCLAW_RATE_SUBMIT_PER_HOUR'] ?? '10',  10) || 10;
-    this._readLimit    = opts?.readPerMin    ?? envRead;
-    this._submitLimit  = opts?.submitPerHour ?? envSubmit;
+    const envRead   = _resolveRateLimitInt(process.env['ALIENCLAW_RATE_READ_PER_MIN'],
+      DEFAULT_IP_READ_PER_MIN, MAX_IP_READ_PER_MIN);
+    const envSubmit = _resolveRateLimitInt(process.env['ALIENCLAW_RATE_SUBMIT_PER_HOUR'],
+      DEFAULT_IP_SUBMIT_PER_HOUR, MAX_IP_SUBMIT_PER_HOUR);
+    const optRead   = (opts?.readPerMin !== undefined)
+      ? _resolveRateLimitInt(String(opts.readPerMin), DEFAULT_IP_READ_PER_MIN, MAX_IP_READ_PER_MIN)
+      : undefined;
+    const optSubmit = (opts?.submitPerHour !== undefined)
+      ? _resolveRateLimitInt(String(opts.submitPerHour), DEFAULT_IP_SUBMIT_PER_HOUR, MAX_IP_SUBMIT_PER_HOUR)
+      : undefined;
+    this._readLimit    = optRead   ?? envRead;
+    this._submitLimit  = optSubmit ?? envSubmit;
     this._readWindow   = 60;
     this._submitWindow = 3600;
   }
