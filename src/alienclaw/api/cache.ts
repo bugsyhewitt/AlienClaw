@@ -65,8 +65,38 @@ export function computeEtag(value: unknown): string {
 
 // ── Board-read cache singleton ─────────────────────────────────────────────
 
-const _ttlMs = (): number =>
-  parseInt(process.env['ALIENCLAW_BOARD_CACHE_TTL_MS'] ?? '10000', 10) || 10000;
+/**
+ * Upper bound for `ALIENCLAW_BOARD_CACHE_TTL_MS`. Anything above this would
+ * create effectively-immortal entries on a public GET route (PKT-1118,
+ * corrective re-author of REJECTED PKT-091). 5 minutes is enough to absorb
+ * a board-read burst without permitting unbounded Map growth.
+ *
+ * Documented knob per `perf/README.md:74`; this cap is the validator, not
+ * a behavior change — operators who needed longer TTLs were already advised
+ * to use a reverse-proxy cache layer for that scale.
+ */
+export const MAX_BOARD_CACHE_TTL_MS = 5 * 60_000;  // 300_000 ms = 5 minutes
+
+const DEFAULT_BOARD_CACHE_TTL_MS = 10_000;
+
+/**
+ * Resolve the board-cache TTL from the `ALIENCLAW_BOARD_CACHE_TTL_MS` env var.
+ * Falls back to {@link DEFAULT_BOARD_CACHE_TTL_MS} for any input that is
+ * not a positive safe integer in [1, MAX_BOARD_CACHE_TTL_MS].
+ *
+ * The naive `parseInt(x, 10) || 10000` shape only protected against `0` and
+ * `NaN` (both falsy). Negative integers, huge integers, and exponent notation
+ * (`'1e9'` → `1`) all slipped through. PKT-091 documented this; PKT-1118 is
+ * the corrective re-author with full File-A coverage (RED→GREEN both run).
+ */
+export function resolveCacheTtlMs(envValue?: string): number {
+  const raw = envValue ?? process.env['ALIENCLAW_BOARD_CACHE_TTL_MS'];
+  if (raw === undefined || raw === '') return DEFAULT_BOARD_CACHE_TTL_MS;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed)) return DEFAULT_BOARD_CACHE_TTL_MS;
+  if (parsed < 1 || parsed > MAX_BOARD_CACHE_TTL_MS) return DEFAULT_BOARD_CACHE_TTL_MS;
+  return parsed;
+}
 
 let _boardCache: TTLCache<string, unknown> | null = null;
 
@@ -76,7 +106,7 @@ let _boardCache: TTLCache<string, unknown> | null = null;
  * Constructed on first call; the TTL is read at construction time.
  */
 export function boardCache(): TTLCache<string, unknown> {
-  if (!_boardCache) _boardCache = new TTLCache(_ttlMs());
+  if (!_boardCache) _boardCache = new TTLCache(resolveCacheTtlMs());
   return _boardCache;
 }
 
