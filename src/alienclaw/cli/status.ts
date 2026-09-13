@@ -45,7 +45,19 @@ export async function runStatus(home = defaultHome()): Promise<number> {
   if (existsSync(summaryPath)) {
     try {
       const parsed = JSON.parse(readFileSync(summaryPath, 'utf-8')) as LiveFitnessSummary;
-      if (Array.isArray(parsed.martians)) summaryMartians = parsed.martians;
+      if (Array.isArray(parsed.martians)) {
+        // PKT-1142: filter non-string id + non-finite fitness. `1e500` is a
+        // valid JSON literal that JSON.parse coerces to Infinity; without
+        // this filter, .toFixed(4) returns "Infinity" in operator-facing
+        // stdout. Sister to PKT-1141 (the online_fitness.jsonl path, same
+        // file, :33 — already hardened).
+        summaryMartians = parsed.martians.filter(
+          (m): m is { id: string; fitness: number } =>
+            typeof m?.id === 'string'
+            && typeof m?.fitness === 'number'
+            && Number.isFinite(m.fitness),
+        );
+      }
     } catch { /* ignore corrupt summary */ }
   }
 
