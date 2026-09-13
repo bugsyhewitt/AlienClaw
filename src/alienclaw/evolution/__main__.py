@@ -105,6 +105,10 @@ def main() -> int:
         "--elitism", type=int, default=None,
         help="Number of elite genomes preserved per generation (default: 2)",
     )
+    run.add_argument(
+        "--target-fitness", type=float, default=None,
+        help="Halt evolution once max_fitness >= TARGET (must be in (0, 1]; optional)",
+    )
 
     args = parser.parse_args()
 
@@ -150,6 +154,13 @@ def main() -> int:
         return 0
 
     if args.cmd == "run-experiment":
+        if args.target_fitness is not None and not (0 < args.target_fitness <= 1):
+            print(
+                f"ERROR: --target-fitness must be in (0, 1]; got {args.target_fitness}",
+                file=sys.stderr,
+            )
+            return 2
+
         try:
             from alienclaw.evolution.bridge_runner import make_bridge_runner
         except ImportError as exc:
@@ -194,16 +205,25 @@ def main() -> int:
             results.append(row)
             print(json.dumps(row))
 
-        pop, _ = run_experiment(
+        pop, all_stats = run_experiment(
             config=config,
             run_martian=run_martian,
             generations=args.generations,
             on_generation=on_gen,
+            target_fitness=args.target_fitness,
         )
         snap = pop.snapshot()
         print(f"\nFinal: generation={snap['generation']}, "
               f"top_fitness={snap['top_fitness']:.4f}, "
               f"mean_fitness={snap['mean_fitness']:.4f}", file=sys.stderr)
+
+        if (args.target_fitness is not None and len(all_stats) > 1
+                and all_stats[-1].max_fitness >= args.target_fitness):
+            print(json.dumps({
+                "type": "target_reached",
+                "generation": results[-1]["generation"],
+                "fitness": all_stats[-1].max_fitness,
+            }))
 
         if args.output:
             args.output.write_text(json.dumps(results, indent=2))
