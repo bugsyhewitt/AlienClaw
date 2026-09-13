@@ -50,8 +50,17 @@ export function formatGenerationLine(line: string, totalGenerations: number): st
     const gen  = row['generation'];
     const max  = row['max_fitness'];
     const mean = row['mean_fitness'];
-    if (typeof gen === 'number' && typeof max === 'number' && typeof mean === 'number') {
-      const distinct = typeof row['distinct_genomes'] === 'number'
+    // PKT-1142: typeof === 'number' is necessary but not sufficient — JSON.parse
+    // silently coerces the valid JSON literal `1e500` to Infinity (and `-1e500`
+    // to -Infinity). .toFixed(3) then returns the 8-char string "Infinity" /
+    // "-Infinity" instead of a 3-decimal number, poisoning the operator's stdout.
+    // Mirror the hardening at cli/runs.ts:37/55, cli/show.ts:34,
+    // cli/status.ts:33 (PKT-1141), telemetry-reader.ts:136,
+    // sync/local-population.ts:51, and ~14 other sites.
+    if (typeof gen  === 'number' && Number.isFinite(gen)
+     && typeof max  === 'number' && Number.isFinite(max)
+     && typeof mean === 'number' && Number.isFinite(mean)) {
+      const distinct = typeof row['distinct_genomes'] === 'number' && Number.isFinite(row['distinct_genomes'])
         ? ` distinct=${row['distinct_genomes']}`
         : '';
       return `gen ${gen}/${totalGenerations}  max=${max.toFixed(3)} mean=${mean.toFixed(3)}${distinct}`;

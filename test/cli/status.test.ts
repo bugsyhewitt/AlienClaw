@@ -102,4 +102,72 @@ describe('alienclaw status', () => {
     expect(r0[1]).toBe('0');
     expect(r0[2]).toContain('0.9');
   });
+
+  // PKT-1142 D2: Number.isFinite hardening — Array.isArray(parsed.martians)
+  // does not validate each element. A summary entry {id:'compute',
+  // fitness:1e500} survives the array check and reaches .toFixed(4),
+  // which returns "Infinity" — operator sees `compute\t0\tInfinity` in
+  // stdout. Filter non-finite fitness and non-string id out at parse time.
+  it('A-1142-A: summary entry with fitness=1e500 is dropped (no "Infinity" in stdout)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ac-status-'));
+    writeFileSync(join(dir, 'live-fitness-summary.json'), JSON.stringify({
+      generated_at: '2026-09-05T00:00:00Z',
+      martians: [
+        { id: 'compute', fitness: 1e500 }, // poison candidate
+        { id: 'web',     fitness: 0.6 },    // well-formed
+      ],
+    }));
+    const cap = captureStdout();
+    await runStatus(dir);
+    const out = cap.lines().join('');
+    expect(out).not.toContain('Infinity');
+    expect(out).toContain('web');
+    // compute had no online entries either; with summary entry dropped,
+    // there should be exactly 1 row (web) — no orphan compute row printing Infinity.
+    const rows = cap.lines().filter(r => r.trim().length > 0);
+    expect(rows.length).toBe(1);
+  });
+
+  it('A-1142-B: summary entry with fitness=-1e500 is dropped', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ac-status-'));
+    writeFileSync(join(dir, 'live-fitness-summary.json'), JSON.stringify({
+      generated_at: '2026-09-05T00:00:00Z',
+      martians: [
+        { id: 'compute', fitness: -1e500 },
+        { id: 'web',     fitness: 0.6 },
+      ],
+    }));
+    const cap = captureStdout();
+    await runStatus(dir);
+    const out = cap.lines().join('');
+    expect(out).not.toContain('Infinity');
+  });
+
+  it('A-1142-C: summary entry with non-string id is dropped', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ac-status-'));
+    writeFileSync(join(dir, 'live-fitness-summary.json'), JSON.stringify({
+      generated_at: '2026-09-05T00:00:00Z',
+      martians: [
+        { id: 42,   fitness: 0.5 },           // id not a string → drop
+        { id: 'ok', fitness: 0.7 },           // keep
+      ],
+    }));
+    const cap = captureStdout();
+    await runStatus(dir);
+    const out = cap.lines().join('');
+    expect(out).not.toContain('42\t');
+    expect(out).toContain('ok');
+  });
+
+  it('A-1142-D: finite summary entries still render with 4-decimal formatting (regression guard)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ac-status-'));
+    writeFileSync(join(dir, 'live-fitness-summary.json'), JSON.stringify({
+      generated_at: '2026-09-05T00:00:00Z',
+      martians: [{ id: 'compute', fitness: 0.9 }],
+    }));
+    const cap = captureStdout();
+    await runStatus(dir);
+    const out = cap.lines().join('');
+    expect(out).toContain('compute\t0\t0.9000');
+  });
 });
