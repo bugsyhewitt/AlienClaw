@@ -30,7 +30,16 @@ export async function runStatus(home = defaultHome()): Promise<number> {
       if (!line.trim()) continue;
       try {
         const e = JSON.parse(line) as OnlineFitnessEntry;
-        if (typeof e.martian_type !== 'string' || typeof e.fitness !== 'number') continue;
+        // PKT-1141: typeof === 'number' is necessary but not sufficient — JSON.parse
+        // silently coerces `1e500` (valid JSON syntax) to Infinity, which then poisons
+        // Math.max(cur.maxFitness, Infinity) permanently for that martian_type, and
+        // Infinity.toFixed(4) returns the 8-char string "Infinity" instead of a 4-char
+        // decimal. Mirror the hardening already applied in cli/runs.ts:55, cli/show.ts:34,
+        // telemetry-reader.ts:136 (PKT-589), sync/local-population.ts:51 (PKT-654),
+        // and ~12 other sites (see defect-class trend in PKT-1141 packet).
+        if (typeof e.martian_type !== 'string'
+            || typeof e.fitness !== 'number'
+            || !Number.isFinite(e.fitness)) continue;
         const cur = online.get(e.martian_type) ?? { count: 0, maxFitness: -Infinity };
         online.set(e.martian_type, {
           count:      cur.count + 1,
