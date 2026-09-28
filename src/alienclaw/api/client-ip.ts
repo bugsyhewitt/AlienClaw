@@ -27,9 +27,21 @@ export interface ClientIpResult {
   rawXff:   string;
 }
 
+/** Maximum allowed XFF hop count. Anything above is either a misconfiguration or an attempt to game the rate-limit IP derivation. */
+const MAX_XFF_HOPS = 32;
+
 /** Parse proxy hop count from the environment (minimum 1). */
-const XFF_HOPS = (): number =>
-  Math.max(1, parseInt(process.env['ALIENCLAW_XFF_HOPS'] ?? '1', 10) || 1);
+export function resolveXffHops(): number {
+  const raw = process.env['ALIENCLAW_XFF_HOPS'];
+  if (raw === undefined || raw === '') return 1;
+  const n = Number(raw);
+  if (!Number.isInteger(n)) return 1;
+  if (n < 1 || n > MAX_XFF_HOPS) return 1;
+  return n;
+}
+
+/** Back-compat alias preserved for existing imports. */
+export const XFF_HOPS = (): number => resolveXffHops();
 
 /**
  * Strip a port suffix from an IP string.
