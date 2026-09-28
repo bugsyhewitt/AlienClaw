@@ -70,13 +70,17 @@ export async function handleHealth(pool?: mysql.Pool): Promise<[number, object]>
 
   let db: 'ok' | 'fail' = 'fail';
   if (pool) {
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
         pool.query('SELECT 1'),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 2_000)),
+        new Promise<never>((_, rej) => {
+          timeoutHandle = setTimeout(() => rej(new Error('timeout')), 2_000);
+        }),
       ]);
       db = 'ok';
     } catch { db = 'fail'; }
+    finally { if (timeoutHandle !== undefined) clearTimeout(timeoutHandle); }
   }
 
   return [200, {
