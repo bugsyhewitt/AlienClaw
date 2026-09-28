@@ -194,3 +194,166 @@ describe('parseCliArgs — evolve --type malformed input rejected (PKT-561)', ()
     });
   }
 });
+
+// ── PKT-1268 — register.evolve Commander shim numeric-coercion hardening ───
+//
+// The Commander shim at src/alienclaw/cli/register.evolve.ts forwards user
+// flags via `Number(opts.X)` with no validation. The parallel parseCliArgs
+// path (args.ts L122-141) DOES validate. Sister site of PKT-1267's
+// register.show.ts / register.leaderboard.ts topN coercion defect.
+//
+// Failure modes exercised below:
+//   - NaN propagation to runEvolve when opts.X is non-numeric
+//     (Number('abc') / Number('') / Number('10abc'))
+//   - Range bypass for ints (negative, zero, fractional)
+//   - Range bypass for floats (top-fraction / crossover-rate / mutation-rate
+//     outside [0, 1])
+
+describe('registerEvolveCommand — numeric coercion hardening (PKT-1268)', () => {
+  async function invokeAction(opts: Record<string, unknown>): Promise<unknown> {
+    const fake = makeFakeProgram();
+    registerEvolveCommand(fake.program);
+    const action = fake.lastAction() as (o: Record<string, unknown>) => Promise<unknown>;
+    return action(opts);
+  }
+
+  async function captureRunEvolveCall(opts: Record<string, unknown>): Promise<unknown> {
+    const { runEvolve } = await import('../../src/alienclaw/cli/evolve.js');
+    (runEvolve as unknown as { mockClear: () => void }).mockClear?.();
+    await invokeAction(opts);
+    const calls = (runEvolve as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    return calls[calls.length - 1]?.[0];
+  }
+
+  // ── generations ───────────────────────────────────────────────────────────
+
+  it('rejects --generations=NaN — must not propagate NaN to runEvolve', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: 'abc', population: '8' });
+    expect(called).toBeUndefined(); // action must reject before runEvolve
+  });
+
+  it('rejects --generations="" (empty) — Number("") === 0 silent-zero bypass', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '', population: '8' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --generations="10abc" (parseInt-leading-digit bypass)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '10abc', population: '8' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --generations=-5 (negative)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '-5', population: '8' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --generations=0 (must be >= 1)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '0', population: '8' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --generations=1.5 (non-integer)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '1.5', population: '8' });
+    expect(called).toBeUndefined();
+  });
+
+  // ── population ────────────────────────────────────────────────────────────
+
+  it('rejects --population=NaN — must not propagate NaN to runEvolve', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: 'NaN' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --population=-1 (negative)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '-1' });
+    expect(called).toBeUndefined();
+  });
+
+  // ── seed ──────────────────────────────────────────────────────────────────
+
+  it('rejects --seed=lucky (non-numeric) — must not propagate NaN', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', seed: 'lucky' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --seed=-1 (negative)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', seed: '-1' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --seed=1.5 (non-integer)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', seed: '1.5' });
+    expect(called).toBeUndefined();
+  });
+
+  // ── tournament-k ─────────────────────────────────────────────────────────
+
+  it('rejects --tournament-k=-3 (negative — silent bypass otherwise)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', tournamentK: '-3' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --tournament-k=0 (must be >= 1)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', tournamentK: '0' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --tournament-k=1.5 (non-integer)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', tournamentK: '1.5' });
+    expect(called).toBeUndefined();
+  });
+
+  // ── top-fraction ──────────────────────────────────────────────────────────
+
+  it('rejects --top-fraction=2 (outside [0, 1] — silent bypass)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', topFraction: '2' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --top-fraction=-0.1 (negative)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', topFraction: '-0.1' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --top-fraction=NaN', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', topFraction: 'NaN' });
+    expect(called).toBeUndefined();
+  });
+
+  // ── elitism ───────────────────────────────────────────────────────────────
+
+  it('rejects --elitism=-1 (negative)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', elitism: '-1' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --elitism=1.5 (non-integer)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', elitism: '1.5' });
+    expect(called).toBeUndefined();
+  });
+
+  // ── crossover-rate / mutation-rate ────────────────────────────────────────
+
+  it('rejects --crossover-rate=99 (outside [0, 1])', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', crossoverRate: '99' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --mutation-rate=-0.1 (negative)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', mutationRate: '-0.1' });
+    expect(called).toBeUndefined();
+  });
+
+  it('rejects --crossover-rate=NaN', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8', crossoverRate: 'NaN' });
+    expect(called).toBeUndefined();
+  });
+
+  // ── Positive control: valid input still passes ────────────────────────────
+
+  it('forwards valid --generations=3 --population=8 to runEvolve (positive control)', async () => {
+    const called = await captureRunEvolveCall({ type: 'compute_alone', generations: '3', population: '8' });
+    expect(called).toBeDefined();
+    expect(called).toMatchObject({ generations: 3, population: 8 });
+  });
+});
