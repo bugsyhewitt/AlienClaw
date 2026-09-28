@@ -10,13 +10,34 @@ scale experiments. This module uses per-step absolute delta for the CLI evolve p
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
+from typing import Sequence
 
 
 @dataclass(frozen=True)
 class PlateauInfo:
     start_generation: int  # 1-indexed generation where the flat run begins
     length: int            # number of consecutive plateau steps
+
+
+def _assert_finite_sequence(name: str, curve: Sequence[float]) -> None:
+    """Raise ValueError if any element of curve is NaN or ±Inf.
+
+    Mirrors the guard in alienclaw.diagnostics.plateau_detector (PKT-516):
+    a non-finite fitness value is a bug in the upstream stats pipeline
+    (e.g. ``max(fitnesses)`` propagates NaN; ``round(nan, 4)`` is NaN), and
+    silently swallowing it here would either hide garbage data (NaN
+    propagates ``nan < delta = False``, dropping the element from the
+    plateau scan and reporting a spurious ``[]``) or actively misreport
+    a PHANTOM plateau on Infinity (``inf - 0.5 = inf`` is not a plateau
+    step but the trailing-element handling then treats the curve as
+    flat). Raise so the operator sees the bad generation instead of a
+    wrong answer.
+    """
+    for i, x in enumerate(curve):
+        if not math.isfinite(x):
+            raise ValueError(f"{name}[{i}] must be a finite number, got {x!r}")
 
 
 def detect_plateaus(
@@ -35,6 +56,7 @@ def detect_plateaus(
     Returns:
         Plateaus in order of appearance (non-overlapping).
     """
+    _assert_finite_sequence("curve", curve)
     if len(curve) < 2:
         return []
 
