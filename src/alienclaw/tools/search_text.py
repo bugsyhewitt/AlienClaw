@@ -50,7 +50,20 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     def _alarm_handler(signum: int, frame: object) -> None:  # type: ignore[type-arg]
         raise TimeoutError("search_text: regex execution exceeded 5-second budget")
 
+    # PKT-1274 (corrective re-author of REJECTED PKT-1271): save the
+    # previously-installed SIGALRM handler so we can restore it on exit.
+    # signal.signal() mutates process-global state; clobbering the prior
+    # handler (e.g. one installed by the parent test runner, debugger, or a
+    # prior tool call) is a silent side-effect.  When `getsignal` returns
+    # None (C / non-Python-installed handler), we fall back to SIG_DFL —
+    # signal.signal(SIGALRM, None) raises TypeError and would otherwise
+    # escape the `finally` block, replacing the tool's RunResult with an
+    # unhandled exception (this is the exact hole the rejected patch hit).
+    _prev_handler: object | None = None
     if _HAS_SIGALRM:
+        _prev_handler = signal.getsignal(signal.SIGALRM)
+        if _prev_handler is None:
+            _prev_handler = signal.SIG_DFL
         signal.signal(signal.SIGALRM, _alarm_handler)
         signal.alarm(_REGEX_TIMEOUT_S)
 
@@ -91,6 +104,18 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     finally:
         if _HAS_SIGALRM:
             signal.alarm(0)  # cancel the alarm regardless of outcome
+            # PKT-1274: restore the previously-installed SIGALRM handler
+            # (see the install site above).  Skip the call when SIGALRM
+            # wasn't installed from Python in the first place — but we only
+            # reach here when _HAS_SIGALRM is true and we DID install, so
+            # always restore.
+            try:
+                signal.signal(signal.SIGALRM, _prev_handler)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                # Defensive: if the saved handler is somehow invalid, fall
+                # back to SIG_DFL so we never leave a stale closure
+                # installed.
+                signal.signal(signal.SIGALRM, signal.SIG_DFL)
     matches = all_matches[:max_results]
     truncated = len(all_matches) > len(matches)
     return RunResult(
