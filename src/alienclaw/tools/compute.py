@@ -104,7 +104,17 @@ def _eval_sandboxed(expression: str) -> Any:
     # Timeout guard: enforce 60-second budget via SIGALRM (Unix only).
     # On platforms without SIGALRM (Windows), the timeout is skipped gracefully.
     _has_sigalrm = hasattr(signal, "SIGALRM")
+    # PKT-1274 (corrective re-author of REJECTED PKT-1271): save the
+    # previously-installed SIGALRM handler so we can restore it on exit.
+    # signal.signal() mutates process-global state; clobbering the prior
+    # handler is a silent side-effect.  When `getsignal` returns None (C /
+    # non-Python-installed handler), fall back to SIG_DFL — see search_text
+    # for the full rationale (signal.signal(SIGALRM, None) raises TypeError).
+    _prev_handler: object | None = None
     if _has_sigalrm:
+        _prev_handler = signal.getsignal(signal.SIGALRM)
+        if _prev_handler is None:
+            _prev_handler = signal.SIG_DFL
         def _timeout_handler(signum: int, frame: object) -> None:  # type: ignore[type-arg]
             raise TimeoutError("compute: exceeded 60-second budget")
         signal.signal(signal.SIGALRM, _timeout_handler)
@@ -114,6 +124,13 @@ def _eval_sandboxed(expression: str) -> Any:
     finally:
         if _has_sigalrm:
             signal.alarm(0)  # cancel the alarm
+            # PKT-1274: restore the previously-installed SIGALRM handler.
+            try:
+                signal.signal(signal.SIGALRM, _prev_handler)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                # Defensive: invalid saved handler (should not happen given
+                # the install-site guard, but never leave a stale closure).
+                signal.signal(signal.SIGALRM, signal.SIG_DFL)
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
