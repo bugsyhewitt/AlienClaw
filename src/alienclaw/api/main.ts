@@ -9,6 +9,7 @@ import { fileURLToPath }              from 'node:url';
 import { configure, createApiServer } from './server.js';
 import { getPool }                    from './storage.js';
 import { runMigrations }              from './migrate.js';
+import { resolveApiPortFromEnv }       from './port.js';
 
 // ── Global crash handlers (T1) ─────────────────────────────────────────────
 // Log structured JSON, attempt graceful shutdown, exit only if ALIENCLAW_EXIT_ON_FATAL=1.
@@ -42,7 +43,11 @@ process.on('uncaughtException', (err) => {
   }
 });
 
-const port = parseInt(process.env['PORT'] ?? process.env['ALIENCLAW_API_PORT'] ?? '8080', 10);
+// PKT-1276: hardened env-var coercion. PORT (12-factor) takes precedence over
+// the legacy ALIENCLAW_API_PORT. resolveApiPortFromEnv() rejects every
+// parseInt bypass (substring truncation, exponent collapse, NaN, out-of-range,
+// empty, etc.) and applies a [1..65535] range check.
+const port = resolveApiPortFromEnv(process.env['PORT'], process.env['ALIENCLAW_API_PORT']);
 const host = process.env['ALIENCLAW_API_HOST'] ?? '0.0.0.0';
 
 configure();
