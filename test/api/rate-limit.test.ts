@@ -28,7 +28,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   mkdtempSync, rmSync, mkdirSync, writeFileSync,
-  existsSync, readFileSync,
+  existsSync, readFileSync, chmodSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -133,12 +133,17 @@ describe('RateLimiter — persistence (fire-and-forget)', () => {
     expect(rl2.remaining('persisted-id')).toBe(1);
   });
 
-  it('corrupt JSON file is treated as empty cache', () => {
+  it('corrupt JSON file fails closed (treated as limit-reached per PKT-496 directive)', () => {
+    // Supersedes the pre-PKT-496 test that asserted remaining()=100 for a
+    // corrupt JSON file. The PKT-496 directive mandates FAIL CLOSED on any
+    // non-parseable rate_limit content (JSON.parse syntax error included).
     const dir = join(dataRoot, 'rate_limit', 'co');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'corrupt-id.json'), 'NOT JSON');
     const rl = new RateLimiter({ dataRoot });
-    expect(rl.remaining('corrupt-id')).toBe(100);
+    expect(rl.remaining('corrupt-id')).toBe(0);
+    const [ok] = rl.check('corrupt-id');
+    expect(ok).toBe(false);
   });
 
   it('missing file is treated as empty cache', () => {
@@ -176,6 +181,54 @@ describe('RateLimiter — sliding window (fake timers)', () => {
 
 // PKT-496: corrected re-author of PKT-473 — aligned fix + tests on option (a):
 // any non-empty file with ≥1 unparseable timestamp ⇒ FAIL CLOSED (cache = limit timestamps at now).
+describe('RateLimiter — corrupt JSON file at load (catch-arm fail-closed per PKT-496 directive)', () => {
+  function writeRawRateFile(installId: string, raw: string): void {
+    const dir = join(dataRoot, 'rate_limit', installId.slice(0, 2));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${installId}.json`), raw);
+  }
+
+  it('syntax-error JSON → remaining()=0 and check()=[false, retryAfter>0] (fail-closed)', () => {
+    // Mirrors PKT-496 option (a) directive: any non-parseable rate_limit file
+    // must FAIL CLOSED (treat as limit-reached), NOT clear the cache to [].
+    // Pre-fix behavior: catch arm at L63-65 of src/alienclaw/api/rate-limit.ts
+    // set cache to [] on JSON.parse syntax error, restoring the full budget.
+    writeRawRateFile('bad-json', 'NOT JSON');
+    const rl = new RateLimiter({ limit: 3, windowSeconds: 3600, dataRoot });
+    expect(rl.remaining('bad-json')).toBe(0);
+    const [ok, retryAfter] = rl.check('bad-json');
+    expect(ok).toBe(false);
+    expect(retryAfter).toBeGreaterThan(0);
+    expect(retryAfter).toBeLessThanOrEqual(3601);
+  });
+
+  it('truncated JSON (unterminated string) → remaining()=0 (fail-closed)', () => {
+    writeRawRateFile('trunc-json', '{"install_id":"trunc-json","window_timestamps":[');
+    const rl = new RateLimiter({ limit: 3, windowSeconds: 3600, dataRoot });
+    expect(rl.remaining('trunc-json')).toBe(0);
+    const [ok] = rl.check('trunc-json');
+    expect(ok).toBe(false);
+  });
+
+  it('EACCES (read permission denied) → remaining()=0 (fail-closed)', () => {
+    if (process.getuid && process.getuid() === 0) return; // root bypasses perms
+    const dir = join(dataRoot, 'rate_limit', 'no');
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, 'noperm.json');
+    writeFileSync(file, JSON.stringify({ install_id: 'noperm', window_timestamps: [] }));
+    // chmod 000 then readFileSync will throw EACCES on the try-block path
+    // (after the existsSync L43 pre-check passes). Skipped under root.
+    chmodSync(file, 0o000);
+    try {
+      const rl = new RateLimiter({ limit: 3, windowSeconds: 3600, dataRoot });
+      // EACCES reaches the catch arm: must fail-closed.
+      expect(rl.remaining('noperm')).toBe(0);
+    } finally {
+      chmodSync(file, 0o644);
+    }
+  });
+});
+
 describe('RateLimiter — corrupted timestamps (fail-closed per option a, PKT-496)', () => {
   function writeRateFile(installId: string, payload: unknown): void {
     const dir = join(dataRoot, 'rate_limit', installId.slice(0, 2));

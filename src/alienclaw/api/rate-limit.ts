@@ -61,7 +61,15 @@ export class RateLimiter {
         this._cache.set(installId, new Array(this._limit).fill(Date.now() / 1000));
       }
     } catch {
-      this._cache.set(installId, []);
+      // Any error reaching here is real corruption (JSON.parse syntax error,
+      // EACCES, EISDIR, EMFILE, partial-write corruption). ENOENT cannot reach
+      // here — it is handled by the existsSync pre-check at L43-46 above.
+      // Per PKT-496 directive intent: treat corruption as limit-reached,
+      // NOT as empty cache (which would silently restore the per-install
+      // budget and enable rate-limit bypass). The pre-PKT-496 test that
+      // asserted 'corrupt JSON → remaining()=100' was a stale assertion of
+      // the bypass; it is superseded by the directive.
+      this._cache.set(installId, new Array(this._limit).fill(Date.now() / 1000));
     }
   }
 
