@@ -12,6 +12,7 @@ import {
   weightedPick,
   chooseComponentToRevise,
   rawObjectiveVector,
+  dominates,
 } from "../../../src/alienclaw/evolution/reflective/objectives.js";
 import type { ExecutionTrace, CandidateScore, ObjectiveVector } from "../../../src/alienclaw/evolution/reflective/types.js";
 import { DEFAULT_CONFIG } from "../../../src/alienclaw/evolution/reflective/config.js";
@@ -323,5 +324,150 @@ describe("rawObjectiveVector — non-finite correctness (PKT-680)", () => {
   it("-Infinity correctness → correctness field 0.0", () => {
     const raw = rawObjectiveVector(makeTrace(-Infinity));
     expect(raw.correctness).toBe(0);
+  });
+});
+
+// PKT-981: harden rawObjectiveVector against NaN/±Infinity in cost.dollars and
+// cost.wallMs (the inverse-cost fields), which previously propagated NaN straight
+// into the normalized ObjectiveVector and silently inflated `dominates()` —
+// `a[k] < b[k]` is false for NaN, so a candidate with NaN costInv never failed
+// that objective and could silently outrank a parent with finite costInv.
+// safeInv() contract (mirrors PKT-680 / clamp01 pattern at objectives.ts L14-26):
+//   - finite x with finite result -> finite + (preserves +Infinity rank-best semantics
+//     because 1/0+ = +Inf — legitimate extremum)
+//   - non-finite input OR non-finite output -> 0 (treating as unscoreable rather
+//     than letting NaN propagate into dominance comparison)
+describe("rawObjectiveVector — non-finite cost fields (PKT-981)", () => {
+  it("NaN dollars → costInvRaw is finite (NaN guarded out)", () => {
+    const trace: ExecutionTrace = {
+      ...makeTrace(0.8),
+      cost: { inputTokens: 100, outputTokens: 50, dollars: NaN, toolCalls: 1, wallMs: 200 },
+    };
+    const raw = rawObjectiveVector(trace);
+    expect(Number.isNaN(raw.costInvRaw)).toBe(false);
+    expect(raw.costInvRaw).toBe(0);
+  });
+
+  it("+Infinity dollars → costInvRaw is finite", () => {
+    const trace: ExecutionTrace = {
+      ...makeTrace(0.8),
+      cost: { inputTokens: 100, outputTokens: 50, dollars: +Infinity, toolCalls: 1, wallMs: 200 },
+    };
+    const raw = rawObjectiveVector(trace);
+    expect(Number.isFinite(raw.costInvRaw)).toBe(true);
+    expect(raw.costInvRaw).toBe(0);
+  });
+
+  it("-Infinity dollars → costInvRaw is finite", () => {
+    const trace: ExecutionTrace = {
+      ...makeTrace(0.8),
+      cost: { inputTokens: 100, outputTokens: 50, dollars: -Infinity, toolCalls: 1, wallMs: 200 },
+    };
+    const raw = rawObjectiveVector(trace);
+    expect(Number.isFinite(raw.costInvRaw)).toBe(true);
+    expect(raw.costInvRaw).toBe(0);
+  });
+
+  it("NaN wallMs → latencyInvRaw is finite (NaN guarded out)", () => {
+    const trace: ExecutionTrace = {
+      ...makeTrace(0.8),
+      cost: { inputTokens: 100, outputTokens: 50, dollars: 0.001, toolCalls: 1, wallMs: NaN },
+    };
+    const raw = rawObjectiveVector(trace);
+    expect(Number.isNaN(raw.latencyInvRaw)).toBe(false);
+    expect(raw.latencyInvRaw).toBe(0);
+  });
+
+  it("+Infinity wallMs → latencyInvRaw is finite", () => {
+    const trace: ExecutionTrace = {
+      ...makeTrace(0.8),
+      cost: { inputTokens: 100, outputTokens: 50, dollars: 0.001, toolCalls: 1, wallMs: +Infinity },
+    };
+    const raw = rawObjectiveVector(trace);
+    expect(Number.isFinite(raw.latencyInvRaw)).toBe(true);
+    expect(raw.latencyInvRaw).toBe(0);
+  });
+
+  it("-Infinity wallMs → latencyInvRaw is finite", () => {
+    const trace: ExecutionTrace = {
+      ...makeTrace(0.8),
+      cost: { inputTokens: 100, outputTokens: 50, dollars: 0.001, toolCalls: 1, wallMs: -Infinity },
+    };
+    const raw = rawObjectiveVector(trace);
+    expect(Number.isFinite(raw.latencyInvRaw)).toBe(true);
+    expect(raw.latencyInvRaw).toBe(0);
+  });
+
+  it("finite dollars=0.001 → costInvRaw ≈ 1/0.001 (no regression on benign inputs)", () => {
+    const raw = rawObjectiveVector(makeTrace(0.8, 1, 0.001, 200));
+    // 1 / (0.001 + 1e-9) ≈ 999.999. (Note: NOT 1e6 — that's 1/1e-6, the well-known
+    // costInvRaw magnitude when dollars is sub-micro.)
+    expect(raw.costInvRaw).toBeCloseTo(1 / (0.001 + 1e-9), 6);
+  });
+
+  it("finite wallMs=200 → latencyInvRaw ≈ 1/201 (no regression on benign inputs)", () => {
+    const raw = rawObjectiveVector(makeTrace(0.8, 1, 0.001, 200));
+    expect(raw.latencyInvRaw).toBeCloseTo(1 / 201, 10);
+  });
+});
+
+// PKT-981: harden dominates() against NaN propagation. A child whose aggregate
+// ObjectiveVector carries NaN on costInv / latencyInv (because upstream rawObjectiveVector
+// or normalizeObjectives produced NaN) must NOT silently outrank a parent with finite
+// values on those objectives — NaN comparisons are false, so without an explicit guard
+// the function returns strictlyBetter=true from any other objective strictly better.
+//
+// Standing semantics (resolved at cycle-583 carry-forward, refined this cycle):
+//   - +Infinity: treat as unscoreable (PKT-981 conservative reading — dominance
+//     requires BOTH operands finite on every objective, otherwise refuse to claim)
+//   - -Infinity: treat as unscoreable (same reasoning)
+//   - NaN: treat as unscoreable → return false
+// Any non-finite on either side → false (no info gained, refuse dominance).
+describe("dominates — non-finite propagation (PKT-981)", () => {
+  it("child NaN costInv + better correctness → FALSE (no info gained on NaN key)", () => {
+    const child = { correctness: 0.9, efficiency: 0.5, costInv: NaN, latencyInv: 0.5, confidence: 0.5 };
+    const parent = { correctness: 0.8, efficiency: 0.5, costInv: 0.5, latencyInv: 0.5, confidence: 0.5 };
+    expect(dominates(child, parent)).toBe(false);
+  });
+
+  it("child NaN latencyInv + better correctness → FALSE", () => {
+    const child = { correctness: 0.9, efficiency: 0.5, costInv: 0.5, latencyInv: NaN, confidence: 0.5 };
+    const parent = { correctness: 0.8, efficiency: 0.5, costInv: 0.5, latencyInv: 0.5, confidence: 0.5 };
+    expect(dominates(child, parent)).toBe(false);
+  });
+
+  it("child NaN on BOTH costInv + latencyInv + better correctness → FALSE", () => {
+    const child = { correctness: 0.9, efficiency: 0.5, costInv: NaN, latencyInv: NaN, confidence: 0.5 };
+    const parent = { correctness: 0.8, efficiency: 0.5, costInv: 0.5, latencyInv: 0.5, confidence: 0.5 };
+    expect(dominates(child, parent)).toBe(false);
+  });
+
+  it("child +Inf costInv + better correctness → FALSE (PKT-981 conservative: any non-finite key refuses dominance)", () => {
+    // PKT-981 standing semantics: any non-finite value on either operand is treated
+    // as unscoreable → return false (no info gained, refuse to claim dominance).
+    // This is intentionally stricter than the cycle-583 carry-forward which allowed
+    // +Inf as a legitimate rank-best extremum; the conservative reading is that
+    // dominance requires both sides to be fully finite on every key.
+    const child = { correctness: 0.9, efficiency: 0.5, costInv: +Infinity, latencyInv: 0.5, confidence: 0.5 };
+    const parent = { correctness: 0.8, efficiency: 0.5, costInv: 0.5, latencyInv: 0.5, confidence: 0.5 };
+    expect(dominates(child, parent)).toBe(false);
+  });
+
+  it("child -Inf costInv + better correctness → FALSE (-Inf coerce-to-worst)", () => {
+    const child = { correctness: 0.9, efficiency: 0.5, costInv: -Infinity, latencyInv: 0.5, confidence: 0.5 };
+    const parent = { correctness: 0.8, efficiency: 0.5, costInv: 0.5, latencyInv: 0.5, confidence: 0.5 };
+    expect(dominates(child, parent)).toBe(false);
+  });
+
+  it("all-NaN vectors → FALSE (no strict ordering possible)", () => {
+    const a = { correctness: NaN, efficiency: NaN, costInv: NaN, latencyInv: NaN, confidence: NaN };
+    const b = { correctness: NaN, efficiency: NaN, costInv: NaN, latencyInv: NaN, confidence: NaN };
+    expect(dominates(a, b)).toBe(false);
+  });
+
+  it("finite dominance still works after NaN guard (regression check)", () => {
+    const child = { correctness: 0.9, efficiency: 0.6, costInv: 0.6, latencyInv: 0.6, confidence: 0.6 };
+    const parent = { correctness: 0.5, efficiency: 0.5, costInv: 0.5, latencyInv: 0.5, confidence: 0.5 };
+    expect(dominates(child, parent)).toBe(true);
   });
 });

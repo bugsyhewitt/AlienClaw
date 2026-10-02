@@ -26,6 +26,25 @@ function clamp01(value: number): number {
 }
 
 /**
+ * Safe inverse for the cost fields (costInvRaw = 1/(dollars+1e-9),
+ * latencyInvRaw = 1/(wallMs+1)). NaN/±Infinity inputs or outputs are coerced to 0
+ * to prevent NaN propagation into `dominates()` — where a NaN key never fails
+ * `a[k] < b[k]` (NaN comparisons are false), letting a candidate silently
+ * outrank a parent with finite cost on that objective.
+ *
+ * Mirrors clamp01's "non-finite → 0" convention (PKT-680) so non-finite cost
+ * fields get the same failing-score treatment as non-finite correctness.
+ *
+ * PKT-981.
+ */
+function safeInv(value: number, offset: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const result = 1.0 / (value + offset);
+  if (!Number.isFinite(result)) return 0;
+  return result;
+}
+
+/**
  * Compute the legacy scalar fitness.
  * Exactly mirrors alienclaw.fitness.function.evaluate().
  */
@@ -57,8 +76,8 @@ export function rawObjectiveVector(trace: ExecutionTrace): {
   const slotCount = trace.cost.slotCount ?? 1;
   const excess = Math.max(0, trace.cost.toolCalls - slotCount);
   const efficiency = 1.0 / (1.0 + ALPHA * excess);
-  const costInvRaw = 1.0 / (trace.cost.dollars + 1e-9);
-  const latencyInvRaw = 1.0 / (trace.cost.wallMs + 1.0);
+  const costInvRaw = safeInv(trace.cost.dollars, 1e-9);
+  const latencyInvRaw = safeInv(trace.cost.wallMs, 1.0);
   const confidence = trace.correctness.confidence ?? correctness; // neutral fallback
 
   return { correctness, efficiency, costInvRaw, latencyInvRaw, confidence };
@@ -199,10 +218,20 @@ export function improvedOnMinibatch(
   return noRegression && c.correctness > p.correctness + EPS;
 }
 
-/** a Pareto-dominates b iff a >= b on all objectives and > on at least one. */
+/**
+ * a Pareto-dominates b iff a >= b on all objectives and > on at least one.
+ *
+ * PKT-981: NaN AND ±Infinity are treated as unscoreable — return false on the
+ * first non-finite key comparison (NaN comparisons are false, and ±Infinity would
+ * otherwise require meta-domain resolution — refusing is the conservative call).
+ *
+ * Standing semantics (resolved at cycle-583 carry-forward, refined this cycle):
+ *   - Any non-finite value on EITHER side → false (no info gained, refuse dominance)
+ */
 export function dominates(a: ObjectiveVector, b: ObjectiveVector): boolean {
   let strictlyBetter = false;
   for (const k of OBJECTIVE_KEYS) {
+    if (!Number.isFinite(a[k]) || !Number.isFinite(b[k])) return false;
     if (a[k] < b[k]) return false;
     if (a[k] > b[k]) strictlyBetter = true;
   }
