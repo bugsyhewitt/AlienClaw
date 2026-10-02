@@ -36,10 +36,18 @@ export interface AgentMessage {
 // cap it silently, per AgentChannel's structural invariant of NEVER writing to stdout.
 const MAX_AUDIT_CONTENT_BYTES = 64 * 1024; // 65,536
 
+// PKT-772: bound the in-memory message log to prevent singleton heap exhaustion on
+// long-running bosses. Mirrors the GovernanceLoop.EVENT_QUEUE_LIMIT ring-buffer
+// pattern (governance-loop.ts:79,214-219). 1000 entries × ~200 bytes/entry caps
+// the in-memory log at ~200 KiB regardless of process uptime. The audit-file log
+// on disk (writeTelemetry) remains the durable record; the in-memory log is a
+// write-only ring buffer with no production consumers (see grep audit in PKT-772 §1).
+const MAX_LOG_ENTRIES = 1000;
+
 // ── AgentChannel ──────────────────────────────────────────────────────────────
 
 export class AgentChannel {
-  /** In-memory log of all messages */
+  /** In-memory ring buffer of recent messages; bounded by MAX_LOG_ENTRIES */
   private _log: AgentMessage[] = [];
 
   /** Per-instance monotonic counter for audit-filename uniqueness under same-ts collisions */
@@ -73,6 +81,13 @@ export class AgentChannel {
         ? `[[truncated: ${msg.content.length} bytes exceeded ${MAX_AUDIT_CONTENT_BYTES} cap]]`
         : msg.content,
     };
+    // PKT-772: ring-buffer eviction — drop oldest entries when the in-memory log
+    // reaches MAX_LOG_ENTRIES. Mirrors GovernanceLoop.pushEvent (governance-loop.ts:222-227).
+    // This caps singleton heap growth on long-running bosses; the audit file on disk
+    // remains the durable record (writeTelemetry is unaffected).
+    if (this._log.length >= MAX_LOG_ENTRIES) {
+      this._log.shift();
+    }
     this._log.push(record);
     void this._writeAuditFile(record);
     for (const fn of this._subscribers) {
