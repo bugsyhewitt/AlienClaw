@@ -4,9 +4,29 @@
  * TypeScript port of src/alienclaw/evolution/online_fitness.py.
  * Writes to the same default path so Python and TypeScript readers share one log.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  unlinkSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+
+// PKT-1294: cap the on-disk size of the appended JSONL log so a hostile or
+// misconfigured writer can't OOM every reader. Mirrors the Python twin at
+// `src/alienclaw/evolution/online_fitness.py:67-79` which already streams
+// line-by-line. 64 MiB covers all current production campaigns (≤ ~5 MiB
+// observed) with a 1000× margin.
+const MAX_ONLINE_FITNESS_LOG_BYTES = 64 * 1024 * 1024;
+// Read chunk size for the streaming read. 64 KiB balances syscall overhead
+// against peak per-chunk buffer allocation; per-line state never exceeds one
+// chunk + one line.
+const READ_CHUNK_BYTES = 64 * 1024;
 
 const DEFAULT_PATH = join(homedir(), '.alienclaw', 'online_fitness.jsonl');
 
@@ -14,12 +34,6 @@ export interface FitnessEntry {
   martian_type: string;
   fitness:      number;
   ts:           string;
-}
-
-// Strip a single leading UTF-8 BOM if present (PKT-634, mirrors Python `open(encoding="utf-8")`
-// BOM tolerance). Without this, `JSON.parse` of the first line returns "Unexpected token ﻿".
-function stripBom(s: string): string {
-  return s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
 }
 
 export class OnlineFitnessLog {
@@ -53,26 +67,54 @@ export class OnlineFitnessLog {
   read(): FitnessEntry[] {
     if (!existsSync(this._path)) return [];
     // PKT-634 prescribed subset (BOM strip + per-line try/catch + non-object skip).
-    // Malformed lines (truncated, partial-write from crash mid-serialization) are silently skipped.
-    // Non-object JSON lines (raw null, number, string) are skipped.
-    // NOTE: Python `online_fitness.py:65-76 read()` also runs `_is_valid_fitness_entry` which
-    // rejects non-finite, non-numeric, and out-of-range [0,1] fitness values. That validity
-    // filter is outside PKT-634 scope (overmind verdict: reader-side range filter is the
-    // consumer's job — PKT-589 `telemetry-reader.ts` owns that layer). Out-of-range/null/string
-    // fitness entries are therefore preserved here, unlike the Python twin's read().
-    const raw = stripBom(readFileSync(this._path, 'utf-8'));
+    // PKT-1294: chunked synchronous read — keeps per-call memory bounded by the file's
+    // STREAMING footprint (≤ READ_CHUNK_BYTES + one pending line) rather than the
+    // pre-fix full-file materialized footprint (file_size × UTF-8 expansion). Mirrors
+    // the Python twin's line-iterator shape at `online_fitness.py:67-79`. The cap at
+    // MAX_ONLINE_FITNESS_LOG_BYTES short-circuits once crossed; pre-fix, there was no
+    // cap and a 1 GiB log forced ≥ 1 GiB of RSS before any per-line parse.
     const out: FitnessEntry[] = [];
-    for (const line of raw.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(trimmed);
-      } catch {
-        continue;  // malformed JSONL line — skip per Python twin policy
+    let fd: number;
+    try {
+      fd = openSync(this._path, 'r');
+    } catch {
+      return [];  // ENOENT or permission error — silent return, matches pre-fix behavior
+    }
+    try {
+      const stat = fstatSync(fd);
+      const totalSize = stat.size;
+      const maxBytes = Math.min(totalSize, MAX_ONLINE_FITNESS_LOG_BYTES);
+      const buf = Buffer.allocUnsafe(READ_CHUNK_BYTES);
+      let pending = '';
+      let bytesSeen = 0;
+      let firstLine = true;
+      while (bytesSeen < maxBytes) {
+        const want = Math.min(READ_CHUNK_BYTES, maxBytes - bytesSeen);
+        const n = readSync(fd, buf, 0, want, bytesSeen);
+        if (n <= 0) break;
+        bytesSeen += n;
+        pending += buf.toString('utf-8', 0, n);
+        // PKT-634 BOM tolerance on first line.
+        if (firstLine && pending.charCodeAt(0) === 0xFEFF) pending = pending.slice(1);
+        firstLine = false;
+        let nl: number;
+        while ((nl = pending.indexOf('\n')) !== -1) {
+          const line = pending.slice(0, nl);
+          pending = pending.slice(nl + 1);
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(trimmed);
+          } catch {
+            continue;  // malformed JSONL line — skip per Python twin policy
+          }
+          if (typeof parsed !== 'object' || parsed === null) continue;
+          out.push(parsed as FitnessEntry);
+        }
       }
-      if (typeof parsed !== 'object' || parsed === null) continue;
-      out.push(parsed as FitnessEntry);
+    } finally {
+      closeSync(fd);
     }
     return out;
   }
