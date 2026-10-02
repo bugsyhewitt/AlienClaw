@@ -283,3 +283,114 @@ class TestEntryFromDictGenomeLengthValidation:
         path.write_text(__import__("json").dumps(bad))
         with pytest.raises(ValueError, match="invalid genome length"):
             s.read_all_entries()
+
+
+class TestEntryFromDictFitnessValidation:
+    """PKT-980: _entry_from_dict must reject any fitness that is non-finite (NaN/+Inf/-Inf)
+    or outside [0.0, 1.0]. Without this guard a poisoned entries/*.json file silently
+    poisons the entire Population for that martian_type — evaluate_and_evolve() then
+    crashes on statistics.stdev() with `inf or nan encountered in data` (Python 3.14
+    statistics module raises ValueError on NaN inputs).
+
+    Mirrors PKT-618 (generation.py:_make_entry defense at callback-injection) and
+    PKT-690 (governance/common/sync/pull.ts network-write guard). The storage LOAD
+    path was the unfixed seam between those two.
+    """
+
+    _VALID = {
+        "entry_id": "e1",
+        "genome": "A" * 256,
+        "fitness": 0.5,
+        "generation": 0,
+        "created_at": "2026-01-01T00:00:00Z",
+    }
+
+    def _bad(self, **overrides):
+        return {**self._VALID, **overrides}
+
+    @pytest.mark.parametrize("bad_fitness,label", [
+        (float("nan"), "NaN"),
+        (float("inf"), "+Infinity"),
+        (float("-inf"), "-Infinity"),
+        (-0.0001, "negative near-zero"),
+        (-1.0, "negative one"),
+        (1.0001, "above-one near-one"),
+        (2.0, "two"),
+        (10.0, "ten"),
+    ])
+    def test_rejects_non_canonical_fitness(self, bad_fitness, label):
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="fitness"):
+            _entry_from_dict(self._bad(fitness=bad_fitness))
+
+    @pytest.mark.parametrize("good_fitness", [0.0, 0.0001, 0.5, 0.9999, 1.0])
+    def test_accepts_canonical_fitness(self, good_fitness):
+        from alienclaw.evolution.storage import _entry_from_dict
+        entry = _entry_from_dict(self._bad(fitness=good_fitness))
+        assert entry.fitness == good_fitness
+
+    def test_rejects_null_fitness(self):
+        """JSON.stringify converts JS Infinity/NaN to null; float(None) raises
+        TypeError. _entry_from_dict should fail-closed with a clear ValueError,
+        not a TypeError mid-loop."""
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="fitness"):
+            _entry_from_dict(self._bad(fitness=None))
+
+    def test_rejects_non_numeric_fitness(self):
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="fitness"):
+            _entry_from_dict(self._bad(fitness="0.5"))
+
+    def test_error_message_includes_entry_id(self):
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="e1"):
+            _entry_from_dict(self._bad(fitness=float("nan")))
+
+    def test_error_message_includes_actual_value(self):
+        from alienclaw.evolution.storage import _entry_from_dict
+        with pytest.raises(ValueError, match="nan"):
+            _entry_from_dict(self._bad(fitness=float("nan")))
+
+    def test_read_all_entries_raises_on_persisted_nan_fitness(self, tmp_path, monkeypatch):
+        """End-to-end: a poisoned entries/*.json with NaN fitness must raise a
+        ValueError at Population.load() so the entire martian_type fails closed
+        rather than silently producing NaN stats that crash later in
+        evaluate_and_evolve()'s compute_from_entries() statistics.stdev()
+        (Python 3.14 raises ValueError('inf or nan encountered in data'))."""
+        monkeypatch.setenv("ALIENCLAW_POPULATIONS_ROOT", str(tmp_path / "populations"))
+        s = PopulationStorage("compute")
+        s.initialize(EvolutionConfig(martian_type="compute"))
+        # JSON literal NaN/Infinity is a Python json extension; emitted via json.dumps
+        # with allow_nan=True (the default).
+        poisoned = {
+            "entry_id": "poison-1",
+            "genome": "X" * 256,
+            "fitness": float("nan"),
+            "generation": 0,
+            "parent_ids": [],
+            "run_metadata": {},
+            "created_at": "2026-01-01T00:00:00Z",
+        }
+        path = s.entries_dir / "poison-1.json"
+        path.write_text(__import__("json").dumps(poisoned))
+        with pytest.raises(ValueError, match="fitness"):
+            s.read_all_entries()
+
+    def test_read_all_entries_raises_on_persisted_inf_fitness(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ALIENCLAW_POPULATIONS_ROOT", str(tmp_path / "populations"))
+        s = PopulationStorage("compute")
+        s.initialize(EvolutionConfig(martian_type="compute"))
+        poisoned = {
+            "entry_id": "poison-2",
+            "genome": "X" * 256,
+            "fitness": float("inf"),
+            "generation": 0,
+            "parent_ids": [],
+            "run_metadata": {},
+            "created_at": "2026-01-01T00:00:00Z",
+        }
+        path = s.entries_dir / "poison-2.json"
+        path.write_text(__import__("json").dumps(poisoned))
+        with pytest.raises(ValueError, match="fitness"):
+            s.read_all_entries()

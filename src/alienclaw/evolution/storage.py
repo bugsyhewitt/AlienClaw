@@ -17,6 +17,7 @@ Callers access this only through Population. Never use PopulationStorage directl
 from __future__ import annotations
 
 import json
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -82,10 +83,30 @@ def _entry_from_dict(d: dict[str, Any]) -> PopulationEntry:
             f"population entry {d.get('entry_id', '<unknown>')!r} has invalid genome length "
             f"{actual}; expected {GENOME_LENGTH}"
         )
+    # PKT-980: reject non-canonical fitness at the load boundary. Without this
+    # guard a poisoned entries/*.json file (NaN/+Inf/-Inf, out-of-range, null,
+    # non-numeric) silently poisons the entire Population for that martian_type
+    # — compute_from_entries() then crashes on statistics.stdev() with
+    # `inf or nan encountered in data` (Python 3.14 statistics raises
+    # ValueError on NaN inputs). Mirrors PKT-618 (generation.py:_make_entry
+    # defense at callback-injection) and PKT-690 (sync/pull.ts network-write
+    # guard). The storage LOAD path was the unfixed seam between those two.
+    raw_fitness = d.get("fitness")
+    if not isinstance(raw_fitness, (int, float)) or isinstance(raw_fitness, bool):
+        raise ValueError(
+            f"population entry {d.get('entry_id', '<unknown>')!r} has non-canonical "
+            f"fitness {raw_fitness!r} (must be a finite number in [0.0, 1.0])"
+        )
+    fitness = float(raw_fitness)
+    if not (0.0 <= fitness <= 1.0) or math.isnan(fitness) or math.isinf(fitness):
+        raise ValueError(
+            f"population entry {d.get('entry_id', '<unknown>')!r} has non-canonical "
+            f"fitness {fitness!r} (must be a finite number in [0.0, 1.0])"
+        )
     return PopulationEntry(
         entry_id=d["entry_id"],
         genome=genome,
-        fitness=float(d["fitness"]),
+        fitness=fitness,
         generation=int(d["generation"]),
         parent_ids=tuple(d.get("parent_ids", [])),
         run_metadata=d.get("run_metadata", {}),
