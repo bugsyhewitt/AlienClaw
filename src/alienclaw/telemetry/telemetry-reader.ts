@@ -8,9 +8,18 @@
  */
 
 import { readFile, readdir } from 'node:fs/promises';
-import { join }              from 'node:path';
-import { PATHS }             from '../constants.js';
-import { dateStamp }         from '../utils.js';
+import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
+import { join } from 'node:path';
+import { PATHS } from '../constants.js';
+import { dateStamp } from '../utils.js';
+
+// PKT-1294: cap the on-disk size of the appended JSONL log so a hostile or
+// misconfigured writer can't OOM the server-side reader (called from
+// /v1/martian-types on every request). Mirrors the Python twin at
+// `online_fitness.py:67-79`. 64 MiB covers all current production campaigns
+// (≤ ~5 MiB observed) with a 1000× margin.
+const MAX_ONLINE_FITNESS_LOG_BYTES = 64 * 1024 * 1024;
+const READ_CHUNK_BYTES = 64 * 1024;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -124,24 +133,58 @@ export async function aggregateOnlineFitness(
   martianType: string,
 ): Promise<OnlineFitnessAggregate> {
   const logPath = join(PATHS.home, 'online_fitness.jsonl');
+  // PKT-1294: chunked streaming read — caps per-call memory at ≤ READ_CHUNK_BYTES
+  // (one chunk + one pending line) plus the bounded matching-entries array. Pre-fix,
+  // the full file was materialized into a UTF-8 string before any per-line parse,
+  // so a 1 GiB log forced ≥ 1 GiB of RSS in this server-side reader (called from
+  // /v1/martian-types on every request). The MAX_ONLINE_FITNESS_LOG_BYTES cap
+  // short-circuits once crossed. The aggregate shape (count + mean of matching
+  // finite [0,1] entries) is unchanged.
+  const entries: OnlineFitnessEntry[] = [];
+  let fd: number;
   try {
-    const raw = await readFile(logPath, 'utf-8');
-    const entries = raw
-      .split('\n')
-      .filter(line => line.trim().length > 0)
-      .flatMap(line => {
-        try { return [JSON.parse(line) as OnlineFitnessEntry]; } catch { return []; }
-      })
-      .filter(e => e.martian_type === martianType &&
-                   typeof e.fitness === 'number' && Number.isFinite(e.fitness) &&
-                   e.fitness >= 0 && e.fitness <= 1);
-
-    if (entries.length === 0) return { count: 0, mean_fitness: 0 };
-    const sum = entries.reduce((acc, e) => acc + e.fitness, 0);
-    return { count: entries.length, mean_fitness: sum / entries.length };
+    fd = openSync(logPath, 'r');
   } catch {
-    return { count: 0, mean_fitness: 0 };
+    return { count: 0, mean_fitness: 0 };  // ENOENT or permission error — matches pre-fix catch
   }
+  try {
+    const stat = fstatSync(fd);
+    const totalSize = stat.size;
+    const maxBytes = Math.min(totalSize, MAX_ONLINE_FITNESS_LOG_BYTES);
+    const buf = Buffer.allocUnsafe(READ_CHUNK_BYTES);
+    let pending = '';
+    let bytesSeen = 0;
+    while (bytesSeen < maxBytes) {
+      const want = Math.min(READ_CHUNK_BYTES, maxBytes - bytesSeen);
+      const n = readSync(fd, buf, 0, want, bytesSeen);
+      if (n <= 0) break;
+      bytesSeen += n;
+      pending += buf.toString('utf-8', 0, n);
+      let nl: number;
+      while ((nl = pending.indexOf('\n')) !== -1) {
+        const line = pending.slice(0, nl);
+        pending = pending.slice(nl + 1);
+        const trimmed = line.trim();
+        if (trimmed.length === 0) continue;
+        try {
+          const parsed = JSON.parse(trimmed) as OnlineFitnessEntry;
+          if (parsed.martian_type === martianType &&
+              typeof parsed.fitness === 'number' && Number.isFinite(parsed.fitness) &&
+              parsed.fitness >= 0 && parsed.fitness <= 1) {
+            entries.push(parsed);
+          }
+        } catch {
+          continue;  // malformed JSONL line — skip
+        }
+      }
+    }
+  } finally {
+    closeSync(fd);
+  }
+
+  if (entries.length === 0) return { count: 0, mean_fitness: 0 };
+  const sum = entries.reduce((acc, e) => acc + e.fitness, 0);
+  return { count: entries.length, mean_fitness: sum / entries.length };
 }
 
 /**
