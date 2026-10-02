@@ -21,6 +21,7 @@ def run_experiment(
     generations: int,
     on_generation: Callable[[int, dict], None] | None = None,
     governance_gate: GovernanceGate | None = None,
+    target_fitness: float | None = None,
 ) -> tuple[Population, list[GenerationStats]]:
     """Run an evolution experiment for `generations` generations.
 
@@ -48,6 +49,8 @@ def run_experiment(
         all_stats.append(result["stats"])
         if on_generation:
             on_generation(i, result)
+        if target_fitness is not None and result["stats"].max_fitness >= target_fitness:
+            break
         # Governance gates each generation: a halt decision stops the run
         # cleanly, leaving the Martian population persisted (resumable) on disk.
         if governance_gate is not None:

@@ -47,6 +47,13 @@ export function formatGenerationLine(line: string, totalGenerations: number): st
         return `Convergence: ${plateaus.length} plateaus (at ${parts.join(', ')})`;
       }
     }
+    if (row['type'] === 'target_reached') {
+      const fitness = row['fitness'];
+      const gen = row['generation'];
+      if (typeof fitness === 'number' && typeof gen === 'number') {
+        return `target reached: fitness=${fitness.toFixed(3)} at gen ${gen}`;
+      }
+    }
     const gen  = row['generation'];
     const max  = row['max_fitness'];
     const mean = row['mean_fitness'];
@@ -77,6 +84,7 @@ export function buildRunnerArgs(args: EvolveCommandArgs): string[] {
     ...(args.elitism       !== undefined ? ['--elitism',       String(args.elitism)]       : []),
     ...(args.crossoverRate !== undefined ? ['--crossover-rate', String(args.crossoverRate)] : []),
     ...(args.mutationRate  !== undefined ? ['--mutation-rate',  String(args.mutationRate)]  : []),
+    ...(args.targetFitness !== undefined ? ['--target-fitness', String(args.targetFitness)] : []),
   ];
 }
 
