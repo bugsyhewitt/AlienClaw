@@ -56,6 +56,42 @@ describe('isBlockedHost — IPv6 literals', () => {
   it('rejects multicast ff02::1', () => expectBlocked('[ff02::1]'));
 });
 
+describe('isBlockedHost — IPv4-translated 4-group suffix (PKT-1079 corpus gap)', () => {
+  // RFC 6145 IPv4-translated form ::ffff:0:a.b.c.d (e.g. ::ffff:0:127.0.0.1).
+  // Node URL canonicalises [::ffff:0:127.0.0.1] to [::ffff:0:7f00:1], and
+  // dns.lookup accepts both as literal IPv6 with family:6. The legacy
+  // isBlockedIpv6 only recognised the 3-group form ::ffff:a.b.c.d
+  // (groups[5]===0xffff) — the 4-group form (groups[4]===0xffff, groups[5]===0)
+  // slipped through to fetch(), reaching loopback / RFC1918 / cloud metadata.
+  it('rejects ::ffff:0:0:1 (IPv4-translated 0.0.0.1 — this network)', () =>
+    expectBlocked('[::ffff:0:0:1]'));
+  it('rejects ::ffff:0:7f00:1 (IPv4-translated 127.0.0.1 — loopback)', () =>
+    expectBlocked('[::ffff:0:7f00:1]'));
+  it('rejects ::ffff:0:a9fe:a9fe (IPv4-translated 169.254.169.254 — IMDS)', () =>
+    expectBlocked('[::ffff:0:a9fe:a9fe]'));
+  it('rejects ::ffff:0:a00:1 (IPv4-translated 10.0.0.1 — RFC1918)', () =>
+    expectBlocked('[::ffff:0:a00:1]'));
+  it('rejects ::ffff:0:c0a8:101 (IPv4-translated 192.168.1.1 — RFC1918)', () =>
+    expectBlocked('[::ffff:0:c0a8:101]'));
+  it('rejects ::ffff:0:ffff:ffff (IPv4-translated 255.255.255.255 — broadcast)', () =>
+    expectBlocked('[::ffff:0:ffff:ffff]'));
+  it('rejects canonicalised ::ffff:0:127.0.0.1 form (URL parser output)', () =>
+    expectBlocked('[::ffff:0:127.0.0.1]'));
+});
+
+describe('isBlockedHost — IPv6 mapped/translated forms must NOT over-block (PKT-1079 safety)', () => {
+  // These addresses happen to have `ffff` at hextet position 4 or 5 but are
+  // NOT in the IPv4-mapped / -converted space. They are legitimate global
+  // unicast addresses and must remain reachable through the allowlist
+  // gate (which is applied separately).
+  it('accepts Google DNS 2001:4860:4860::8888 (global unicast)', () =>
+    expect(isBlockedHost('[2001:4860:4860::8888]')).toBe(false));
+  it('accepts ::1:ffff:0:0 (ffff at pos 5, groups[4]=1 not 0)', () =>
+    expect(isBlockedHost('[::1:ffff:0:0]')).toBe(false));
+  it('accepts Cloudflare DNS 2606:4700:4700::1111 (global unicast)', () =>
+    expect(isBlockedHost('[2606:4700:4700::1111]')).toBe(false));
+});
+
 describe('isBlockedHost — IPv4 literals', () => {
   it('rejects loopback 127.0.0.1', () => expectBlocked('127.0.0.1'));
   it('rejects RFC1918 10.0.0.1', () => expectBlocked('10.0.0.1'));
@@ -117,6 +153,12 @@ describe('validateResolvedAddresses', () => {
   it('rejects IPv6 ::ffff:a9fe:a9fe (hex IPv4-mapped 169.254.169.254)', () => {
     expect(() => validateResolvedAddresses([{ address: '::ffff:a9fe:a9fe', family: 6 }])).toThrow('blocked range');
   });
+  it('rejects IPv6 ::ffff:0:a9fe:a9fe (IPv4-translated 169.254.169.254 — PKT-1079)', () => {
+    expect(() => validateResolvedAddresses([{ address: '::ffff:0:a9fe:a9fe', family: 6 }])).toThrow('blocked range');
+  });
+  it('rejects IPv6 ::ffff:0:7f00:1 (IPv4-translated 127.0.0.1 — PKT-1079)', () => {
+    expect(() => validateResolvedAddresses([{ address: '::ffff:0:7f00:1', family: 6 }])).toThrow('blocked range');
+  });
   it('rejects empty address list', () => {
     expect(() => validateResolvedAddresses([])).toThrow('no addresses');
   });
@@ -163,6 +205,12 @@ describe('hardenedFetch — blocked literal hostnames', () => {
   });
   it('rejects http://[::ffff:127.0.0.1]/', async () => {
     await expect(hardenedFetch('http://[::ffff:127.0.0.1]/', POLICY)).rejects.toThrow(/SSRF rejected|blocked/i);
+  });
+  it('rejects http://[::ffff:0:127.0.0.1]/ (RFC 6145 translated form, PKT-1079)', async () => {
+    await expect(hardenedFetch('http://[::ffff:0:127.0.0.1]/', POLICY)).rejects.toThrow(/SSRF rejected|blocked/i);
+  });
+  it('rejects http://[::ffff:0:a9fe:a9fe]/ (canonicalised IMDS, PKT-1079)', async () => {
+    await expect(hardenedFetch('http://[::ffff:0:a9fe:a9fe]/', POLICY)).rejects.toThrow(/SSRF rejected|blocked/i);
   });
   it('rejects http://localhost/', async () => {
     await expect(hardenedFetch('http://localhost/', POLICY)).rejects.toThrow(/SSRF rejected|blocked/i);

@@ -135,11 +135,24 @@ function isBlockedIpv6(hostNoBrackets: string): boolean {
   const groups = expandIpv6(addr);
   if (!groups) return true;  // unparseable → fail closed
   const g0 = groups[0]!;
-  // IPv4-mapped / IPv4-translated (::ffff:a.b.c.d / ::ffff:0:a.b.c.d)
+  // IPv4-mapped / IPv4-translated (::ffff:a.b.c.d / ::ffff:0:a.b.c.d).
+  // The mapping marker `::ffff:` sits at one of two positions:
+  //   • legacy 3-group-suffix form (::ffff:a.b.c.d → groups[0..4]=0,
+  //     groups[5]=0xffff, groups[6..7]=a,b)
+  //   • RFC 6145 / RFC 6052 4-group-suffix translated form
+  //     (::ffff:0:a.b.c.d → groups[0..3]=0, groups[4]=0xffff,
+  //     groups[5]=0, groups[6..7]=a,b)
+  // The previous check required groups[0..4] === 0 and accepted only the
+  // 3-group suffix; the 4-group form slipped through to fetch() and reached
+  // loopback / RFC1918 / cloud-metadata (PKT-1079 / PKT-1236 defect 1).
+  //
+  // Both clauses require groups[0..3] === 0 so we never over-block legitimate
+  // global-unicast addresses like `::1:ffff:0:0` that happen to contain
+  // `ffff` at group position 5 (out of the mapped space).
   const isV4Mapped =
-    groups[0] === 0 && groups[1] === 0 && groups[2] === 0 &&
-    groups[3] === 0 && groups[4] === 0 &&
-    (groups[5] === 0xffff || (groups[5] === 0 && groups[6] !== 0));
+    groups[0] === 0 && groups[1] === 0 && groups[2] === 0 && groups[3] === 0 &&
+    ((groups[4] === 0 && groups[5] === 0xffff) ||
+     (groups[4] === 0xffff && groups[5] === 0));
   if (isV4Mapped) return true;
   // All-zero prefix (unspecified/loopback-adjacent/IPv4-compatible)
   if (groups[0] === 0 && groups[1] === 0 && groups[2] === 0 && groups[3] === 0 &&
