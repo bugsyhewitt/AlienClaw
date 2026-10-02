@@ -42,6 +42,14 @@ import { seedEmptyPopulations }  from '../governance/common/sync/pull.js';
 import { NetworkAPIClient }       from '../governance/common/sync/client.js';
 import { ensureApiKey }           from '../governance/common/sync/credentials.js';
 
+// PKT-1123: bound the callLiveEvoBridge stdout/stderr accumulators. The bridge
+// response is a single JSON envelope (~25 KiB typical, ~40 KiB observed max);
+// 256 KiB is generous and bounded — it stops a child process from OOMing the
+// adapter by writing gigabytes before close. Sister site to PKT-938 (stderr cap
+// at real-summon-adapter.ts), PKT-1122 (stdout cap at real-summon-adapter.ts).
+const STDOUT_MAX_BYTES = 256 * 1024;
+const STDERR_TAIL_BYTES = 4096;
+
 export interface BootstrapResult {
   /** The BossBot governance loop — call loop.start() to begin processing goals */
   loop:        GovernanceLoop;
@@ -350,8 +358,23 @@ export function bootstrap(): BootstrapResult {
         child.kill('SIGTERM');
         sigkillTimer = setTimeout(() => { child.kill('SIGKILL'); }, 5000);
       }, 30_000);
-      child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
-      child.stderr.on('data', (chunk: Buffer) => { stderrBuf += chunk.toString('utf8'); });
+      child.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString('utf8');
+        // PKT-1123: head-trim the stdout buffer once it exceeds 2*cap so the
+        // tail-portion of a still-valid envelope is preserved while memory
+        // stays bounded. Mirrors PKT-1122 (real-summon-adapter.ts stdout cap).
+        if (stdout.length > STDOUT_MAX_BYTES * 2) {
+          stdout = stdout.slice(-STDOUT_MAX_BYTES);
+        }
+      });
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderrBuf += chunk.toString('utf8');
+        // PKT-1123: bound the stderr buffer. Mirrors PKT-938 stderr cap at
+        // real-summon-adapter.ts:74-77.
+        if (stderrBuf.length > STDERR_TAIL_BYTES * 2) {
+          stderrBuf = stderrBuf.slice(-STDERR_TAIL_BYTES);
+        }
+      });
       child.stdin.write(req + '\n');
       child.stdin.end();
       child.on('close', (exitCode) => {
