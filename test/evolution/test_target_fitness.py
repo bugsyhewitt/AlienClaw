@@ -8,7 +8,9 @@ GREEN after: experiment.py gains optional target_fitness parameter (File A).
 Gate: PYTHONPATH=src pytest test/evolution/test_target_fitness.py -v
 """
 from __future__ import annotations
+
 import pytest
+
 from alienclaw.evolution.experiment import run_experiment
 from alienclaw.evolution.generation import FitnessReport
 from alienclaw.evolution.types import EvolutionConfig

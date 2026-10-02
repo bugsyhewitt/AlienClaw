@@ -181,6 +181,7 @@ class TestTargetFitnessEmission:
     def test_emits_target_reached_when_halted(self, monkeypatch, tmp_path):
         import json as _json
         from unittest.mock import MagicMock
+
         from alienclaw.evolution.generation import FitnessReport
 
         def make_fixed_runner(martian_type, inputs):
@@ -206,8 +207,8 @@ class TestTargetFitnessEmission:
 
         main()
 
-        lines = [l for l in stdout_capture.getvalue().splitlines() if l.strip()]
-        target_lines = [l for l in lines if '"target_reached"' in l]
+        lines = [line for line in stdout_capture.getvalue().splitlines() if line.strip()]
+        target_lines = [line for line in lines if '"target_reached"' in line]
         assert len(target_lines) == 1, f"Expected 1 target_reached line, got: {lines}"
         data = _json.loads(target_lines[0])
         assert data["type"] == "target_reached"
@@ -215,8 +216,8 @@ class TestTargetFitnessEmission:
         assert isinstance(data["generation"], int)
 
     def test_no_target_reached_when_never_halted(self, monkeypatch, tmp_path):
-        import json as _json
         from unittest.mock import MagicMock
+
         from alienclaw.evolution.generation import FitnessReport
 
         def make_zero_runner(martian_type, inputs):
@@ -243,5 +244,5 @@ class TestTargetFitnessEmission:
         main()
 
         lines = stdout_capture.getvalue().splitlines()
-        target_lines = [l for l in lines if '"target_reached"' in l]
+        target_lines = [line for line in lines if '"target_reached"' in line]
         assert len(target_lines) == 0, f"Expected no target_reached line, got: {target_lines}"
