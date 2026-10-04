@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       mysql2:
-        specifier: ^3.24.4
-        version: 3.24.4(@types/node@26.6.2)
+        specifier: ^3.24.5
+        version: 3.24.5(@types/node@26.6.2)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -1047,8 +1047,8 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  mysql2@3.24.4:
-    resolution: {integrity: sha512-A2olluVlj0mvgyIRRISMEzXc51m+21mRtcMVjJyIpt2GG98+XrC9m9HzsqcMsX2LcnfccJvY5NB22g8fENBnOA==}
+  mysql2@3.24.5:
+    resolution: {integrity: sha512-X6Ujsr2QSkkLpkQGjxzpKRAPn9nu4axpR63ntBzquFVEvPOArgbUQ1sJjFKI7hnaYtiVZxa17Z7q18KSubW0IQ==}
     engines: {node: '>= 8.0'}
     peerDependencies:
       '@types/node': '>= 8'
@@ -2334,7 +2334,7 @@ snapshots:
 
   ms@2.1.3: {}
 
-  mysql2@3.24.4(@types/node@26.6.2):
+  mysql2@3.24.5(@types/node@26.6.2):
     dependencies:
       '@types/node': 26.6.2
       aws-ssl-profiles: 1.1.2
