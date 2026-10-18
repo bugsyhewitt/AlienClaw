@@ -134,13 +134,21 @@ export async function aggregateOnlineFitness(
 ): Promise<OnlineFitnessAggregate> {
   const logPath = join(PATHS.home, 'online_fitness.jsonl');
   // PKT-1294: chunked streaming read — caps per-call memory at ≤ READ_CHUNK_BYTES
-  // (one chunk + one pending line) plus the bounded matching-entries array. Pre-fix,
-  // the full file was materialized into a UTF-8 string before any per-line parse,
-  // so a 1 GiB log forced ≥ 1 GiB of RSS in this server-side reader (called from
-  // /v1/martian-types on every request). The MAX_ONLINE_FITNESS_LOG_BYTES cap
-  // short-circuits once crossed. The aggregate shape (count + mean of matching
-  // finite [0,1] entries) is unchanged.
-  const entries: OnlineFitnessEntry[] = [];
+  // (one chunk + one pending line). Pre-fix, the full file was materialized into
+  // a UTF-8 string before any per-line parse, so a 1 GiB log forced ≥ 1 GiB of
+  // RSS in this server-side reader (called from /v1/martian-types on every
+  // request). The MAX_ONLINE_FITNESS_LOG_BYTES cap short-circuits once crossed.
+  //
+  // PKT-1416: replace the matching-entries array with two scalars (count + sum).
+  // The function only ever returns {count, mean_fitness}, so materializing every
+  // matching parsed OnlineFitnessEntry was an O(matches) hidden amplifier: a 30
+  // MiB JSONL fixture with 200_000 entries (40_000 matching mt1 in the probe
+  // fixture) retained ~16 MiB of parsed-object heap, surfacing as a ≥ 60 MiB RSS
+  // delta on the streaming-cap probe (R-013). Two scalars make the accumulator
+  // O(1) and bring the same probe inside the 30 MiB threshold. The aggregate
+  // shape (count + mean of matching finite [0,1] entries) is unchanged.
+  let matchCount = 0;
+  let matchSum   = 0;
   let fd: number;
   try {
     fd = openSync(logPath, 'r');
@@ -171,7 +179,8 @@ export async function aggregateOnlineFitness(
           if (parsed.martian_type === martianType &&
               typeof parsed.fitness === 'number' && Number.isFinite(parsed.fitness) &&
               parsed.fitness >= 0 && parsed.fitness <= 1) {
-            entries.push(parsed);
+            matchCount += 1;
+            matchSum   += parsed.fitness;
           }
         } catch {
           continue;  // malformed JSONL line — skip
@@ -182,9 +191,8 @@ export async function aggregateOnlineFitness(
     closeSync(fd);
   }
 
-  if (entries.length === 0) return { count: 0, mean_fitness: 0 };
-  const sum = entries.reduce((acc, e) => acc + e.fitness, 0);
-  return { count: entries.length, mean_fitness: sum / entries.length };
+  if (matchCount === 0) return { count: 0, mean_fitness: 0 };
+  return { count: matchCount, mean_fitness: matchSum / matchCount };
 }
 
 /**
