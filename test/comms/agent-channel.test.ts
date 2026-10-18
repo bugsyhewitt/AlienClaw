@@ -648,3 +648,90 @@ describe('AgentChannel — content-length cap (PKT-676)', () => {
     expect((record.content as unknown) as number).toBe(12345);
   });
 });
+
+describe('AgentChannel — bounded in-memory log (PKT-772)', () => {
+  let tmpDir: string;
+  let ch: AgentChannel;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    ch = new AgentChannel(tmpDir);
+  });
+
+  afterEach(() => {
+    rmTmp(tmpDir);
+  });
+
+  // R-772-1: log length never exceeds MAX_LOG_ENTRIES (1000) under sustained load
+  it('caps in-memory log at MAX_LOG_ENTRIES (1000) under sustained load', () => {
+    for (let i = 0; i < 1500; i++) {
+      ch.send(makeMsg({ ts: 1700000000000 + i, content: `msg-${i}` }));
+    }
+    // history() filters by (A,B) — all messages here are BossBot↔AdvisorBot,
+    // so the filtered count IS the full log length.
+    const records = ch.history('BossBot', 'AdvisorBot');
+    expect(records).toHaveLength(1000);
+  });
+
+  // R-772-2: oldest entries are evicted (ring-buffer behavior)
+  it('drops oldest entries when cap is reached (ring-buffer behavior)', () => {
+    for (let i = 0; i < 1500; i++) {
+      ch.send(makeMsg({ ts: 1700000000000 + i, content: `msg-${i}` }));
+    }
+    const records = ch.history('BossBot', 'AdvisorBot');
+    // First 500 (i=0..499) were evicted; first kept is i=500
+    expect(records[0]!.content).toBe('msg-500');
+    expect(records[records.length - 1]!.content).toBe('msg-1499');
+  });
+
+  // R-772-3: log length grows up to cap then plateaus (not linear-with-sends)
+  it('log length plateaus at cap after cap sends, not linear', () => {
+    // Send exactly cap messages first
+    for (let i = 0; i < 1000; i++) {
+      ch.send(makeMsg({ ts: 1700000000000 + i }));
+    }
+    expect(ch.history('BossBot', 'AdvisorBot')).toHaveLength(1000);
+
+    // Send 5000 more — log must stay at 1000
+    for (let i = 0; i < 5000; i++) {
+      ch.send(makeMsg({ ts: 1800000000000 + i }));
+    }
+    expect(ch.history('BossBot', 'AdvisorBot')).toHaveLength(1000);
+  });
+
+  // R-772-4: audit files on disk are unaffected (every send still writes a file)
+  it('audit files on disk still write for every send (no record skipped)', async () => {
+    for (let i = 0; i < 1500; i++) {
+      ch.send(makeMsg({ ts: 1700000000000 + i, content: `msg-${i}` }));
+    }
+    // Yield to event loop so all 1500 fire-and-forget audit writes settle.
+    await new Promise((r) => setTimeout(r, 200));
+    const today = new Date().toISOString().slice(0, 10);
+    const auditDir = join(tmpDir, today, 'agent-channel');
+    expect(existsSync(auditDir)).toBe(true);
+    const files = readdirSync(auditDir);
+    // Every send wrote one audit file; ring-buffer in-memory does NOT skip writes.
+    expect(files).toHaveLength(1500);
+  });
+
+  // R-772-5: small burst under cap stays entirely in memory (no false eviction)
+  it('small burst well under cap (10 messages) is all retained in memory', () => {
+    for (let i = 0; i < 10; i++) {
+      ch.send(makeMsg({ ts: 1700000000000 + i, content: `msg-${i}` }));
+    }
+    const records = ch.history('BossBot', 'AdvisorBot');
+    expect(records).toHaveLength(10);
+    expect(records.map((m) => m.content)).toEqual([
+      'msg-0', 'msg-1', 'msg-2', 'msg-3', 'msg-4',
+      'msg-5', 'msg-6', 'msg-7', 'msg-8', 'msg-9',
+    ]);
+  });
+
+  // R-772-6: existing tests stay green — < MAX_LOG_ENTRIES sends never trigger eviction
+  // (regression: a fresh send-then-history pair still returns the full record)
+  it('regression: one send, one history — eviction does not occur', () => {
+    ch.send(makeMsg({ ts: 1700000000000, content: 'single' }));
+    expect(ch.history('BossBot', 'AdvisorBot')).toHaveLength(1);
+    expect(ch.history('BossBot', 'AdvisorBot')[0]!.content).toBe('single');
+  });
+});
