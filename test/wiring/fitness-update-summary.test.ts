@@ -515,4 +515,95 @@ describe('fitness-update — malformed outcome enum (PKT-615)', () => {
 
     shutdown();
   });
+
+  // ── Summary writer non-finite filter (PKT-1372) ────────────────────────────
+
+  it('FUS-301: summary writer drops NaN-fitness Martian; on-disk JSON has no null fitness', async () => {
+    const goodMs = { id: 'good_martian', fitness: 0.5 } as { id: string; fitness: number };
+    const nanMs  = { id: 'nan_martian',  fitness: NaN } as { id: string; fitness: number };
+    mockFakeRegistry.list.mockReturnValue([goodMs, nanMs]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    const raw = readFileSync(SUMMARY_PATH, 'utf-8');
+    const data = JSON.parse(raw) as { martians: Array<{ id: string; fitness: number }> };
+
+    // Good Martian must still be present.
+    expect(data.martians.some(m => m.id === 'good_martian')).toBe(true);
+
+    // NaN Martian must have been filtered out — its absence in the JSON is the proof.
+    // (If it had been written, JSON.stringify(NaN) → null, and the assertion below would fail.)
+    expect(data.martians.find(m => m.id === 'nan_martian')).toBeUndefined();
+
+    // Belt-and-braces: NO entry has null fitness.
+    for (const m of data.martians) {
+      expect(Number.isFinite(m.fitness)).toBe(true);
+    }
+
+    shutdown();
+  });
+
+  it('FUS-302: summary writer drops Infinity and -Infinity fitness Martians', async () => {
+    const goodMs   = { id: 'good',     fitness: 0.42 }      as { id: string; fitness: number };
+    const infMs    = { id: 'inf_ms',   fitness: Infinity }  as { id: string; fitness: number };
+    const negInfMs = { id: 'neginf',   fitness: -Infinity } as { id: string; fitness: number };
+    mockFakeRegistry.list.mockReturnValue([goodMs, infMs, negInfMs]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    const raw = readFileSync(SUMMARY_PATH, 'utf-8');
+    const data = JSON.parse(raw) as { martians: Array<{ id: string; fitness: number }> };
+
+    expect(data.martians.some(m => m.id === 'good')).toBe(true);
+    expect(data.martians.find(m => m.id === 'inf_ms')).toBeUndefined();
+    expect(data.martians.find(m => m.id === 'neginf')).toBeUndefined();
+    for (const m of data.martians) {
+      expect(Number.isFinite(m.fitness)).toBe(true);
+    }
+
+    shutdown();
+  });
+
+  it('FUS-303: summary writer drops undefined-fitness Martian (missing # fitness: header)', async () => {
+    // .ms files where the `# fitness:` header was hand-deleted parse to spec.fitness = undefined.
+    // registry.list() returns the in-memory spec with undefined; JSON.stringify(undefined)
+    // OMITS the field entirely, so the reader sees `{ id, ... }` without a `fitness` key.
+    // PKT-1142 catches this at the reader; PKT-1372 prevents it at the writer.
+    const goodMs  = { id: 'good_ms',  fitness: 0.7 }                       as { id: string; fitness: number };
+    const undefMs = { id: 'undef_ms', fitness: undefined as unknown as number };  // cast for type compat
+    mockFakeRegistry.list.mockReturnValue([goodMs, undefMs]);
+
+    const { shutdown } = bootstrap();
+    await captureFitnessUpdateFn()();
+
+    const raw = readFileSync(SUMMARY_PATH, 'utf-8');
+    const data = JSON.parse(raw) as { martians: Array<{ id: string; fitness: number }> };
+
+    // The undefined-fitness Martian must be excluded (Number.isFinite(undefined) === false).
+    expect(data.martians.some(m => m.id === 'good_ms')).toBe(true);
+    expect(data.martians.find(m => m.id === 'undef_ms')).toBeUndefined();
+
+    shutdown();
+  });
+
+  it('FUS-304: all-non-finite registry writes empty martians:[] without crashing', async () => {
+    // Belt-and-braces end-to-end: a registry with ALL non-finite fitness must produce
+    // an empty summary (not crash) — proves the filter runs before JSON.stringify and
+    // does NOT short-circuit on the empty-array path.
+    const allBadMs = [
+      { id: 'nan1', fitness: NaN }       as { id: string; fitness: number },
+      { id: 'nan2', fitness: Infinity }  as { id: string; fitness: number },
+    ];
+    mockFakeRegistry.list.mockReturnValue(allBadMs);
+
+    const { shutdown } = bootstrap();
+    await expect(captureFitnessUpdateFn()()).resolves.not.toThrow();
+    const raw = readFileSync(SUMMARY_PATH, 'utf-8');
+    const data = JSON.parse(raw) as { martians: Array<{ id: string; fitness: number }> };
+    expect(data.martians).toHaveLength(0);
+
+    shutdown();
+  });
 });
