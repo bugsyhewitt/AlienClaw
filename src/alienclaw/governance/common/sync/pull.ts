@@ -82,7 +82,28 @@ async function _pullType(
     return result;
   }
 
-  const entries = r.data.genomes;
+  // Response-shape guard (PKT-1475). `r.data` is an UNCHECKED cast of the
+  // parsed JSON body (`json as TopGenomesResponse` in client.ts::_parse), so
+  // `genomes` may legitimately be a string / null / an object / absent when
+  // the server drifts or an intermediary rewrites the body. Previously that
+  // threw an uncaught TypeError out of `_pullType`, aborting the ENTIRE pull
+  // for every remaining martian type and — in the sync scheduler — skipping
+  // `onCycle(summary)` altogether. A malformed body is a PER-TYPE failure and
+  // belongs in `result.errors`, exactly like the `!r.ok` branch above.
+  const data: unknown = r.data;
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    result.errors.push(
+      `Malformed response body: expected a JSON object, got ${Array.isArray(data) ? 'array' : typeof data}`,
+    );
+    return result;
+  }
+  const entries = (data as { genomes?: unknown }).genomes;
+  if (!Array.isArray(entries)) {
+    result.errors.push(
+      `Malformed response body: expected \`genomes\` to be an array, got ${entries === null ? 'null' : typeof entries}`,
+    );
+    return result;
+  }
   result.received = entries.length;
 
   // Python's PopulationStorage reads <type>/entries/*.json, so seeds must
