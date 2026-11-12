@@ -91,7 +91,13 @@ function evalGroup(group: ConditionGroup, result: SummonResult): boolean {
 }
 
 export function decide(input: DecisionInput): Action {
-  const state = input.table.states[input.current_state];
+  // Object.hasOwn, not a bare bracket read: `table.states` is a plain object,
+  // so `table.states['constructor']` resolves to the inherited Object
+  // constructor — a function, not a State — which would make this guard pass
+  // and emit a Summon with `martian_type: undefined`.
+  const state = Object.hasOwn(input.table.states, input.current_state)
+    ? input.table.states[input.current_state]
+    : undefined;
   if (!state) {
     return { kind: 'Fail', reason: `state_not_found:${input.current_state}` };
   }
@@ -131,7 +137,12 @@ export function decide(input: DecisionInput): Action {
       if (goto === 'FINALIZE') return { kind: 'Finalize' };
       if (goto.startsWith('FAIL:')) return { kind: 'Fail', reason: goto.slice(5) };
       if (goto === input.current_state) return { kind: 'Retry' };
-      const nextState = input.table.states[goto];
+      // Object.hasOwn, not a bare bracket read: a prototype member name
+      // ('constructor', 'toString', ...) would resolve to an inherited value
+      // and emit a Summon with `martian_type: undefined`.
+      const nextState = Object.hasOwn(input.table.states, goto)
+        ? input.table.states[goto]
+        : undefined;
       if (!nextState) {
         return { kind: 'Fail', reason: `state_not_found:${goto}` };
       }
