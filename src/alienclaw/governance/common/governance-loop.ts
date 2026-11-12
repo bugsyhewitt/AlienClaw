@@ -87,7 +87,11 @@ export class GovernanceLoop {
   /** subGoalId → Promise for legacy/fallback sub-goal dispatch */
   private legacyJobs     = new Map<string, Promise<void>>();
 
-  /** In-memory per-campaign strike counter — reset on fresh dispatch, capped at MAX_STRIKE_COUNT. */
+  /**
+   * In-memory per-campaign strike counter — counts CONSECUTIVE failures of a
+   * campaign. Cleared when the campaign SUCCEEDS (not on dispatch, because a
+   * dispatch may be a retry). Capped at MAX_STRIKE_COUNT.
+   */
   private readonly campaignStrikes = new Map<string, number>();
 
   /** Per-goal fitness accumulator: goalId → fitness scores from all completed campaigns this run. */
@@ -348,7 +352,15 @@ export class GovernanceLoop {
    * The Subagent is created inline — no pre-build phase is needed.
    */
   private async spawnCampaign(goalId: string, campaign: Campaign): Promise<void> {
-    this.campaignStrikes.delete(campaign.id);
+    // PKT-1460: do NOT clear the strike counter here. spawnCampaign() is the
+    // dispatch path for BOTH a first-time campaign AND a retry of a campaign
+    // that already failed (handleJobFailed -> updateCampaign('pending') ->
+    // dispatchReadyCampaigns -> spawnCampaign). Clearing the counter on every
+    // dispatch made `strikes` permanently 1 in production, so
+    // `strikes >= MAX_STRIKE_COUNT` was unreachable and a deterministically
+    // failing campaign was retried forever without ever surfacing to the user.
+    // The counter is cleared on SUCCESS (see onSuccess below), which is the
+    // only point at which the consecutive-failure run genuinely ends.
     await this.goalManager.updateCampaign(goalId, campaign.id, { status: 'active' });
     this.userChannel.status(
       `Campaign started: "${campaign.name}" — ${campaign.objective}`
@@ -435,6 +447,10 @@ export class GovernanceLoop {
       terminatedPrefix:  `Campaign "${campaign.name}" terminated`,
       thrownPrefix:      `Campaign "${campaign.name}" threw`,
       onSuccess: async (campaignResult) => {
+        // PKT-1460: the consecutive-failure run ends at success — clear the
+        // campaign's strike counter so a later, unrelated failure run starts
+        // from 0 (mirrors the legacy TaskManager.resetStrikes() semantics).
+        this.campaignStrikes.delete(campaign.id);
         this.onlineFitnessLog?.record(martianType, campaignResult.fitness);
         const _scores = this.goalMinFitness.get(goalId) ?? [];
         _scores.push(campaignResult.fitness);
