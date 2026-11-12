@@ -104,9 +104,13 @@ class TestErrorPath:
         assert r.fitness == 0.0
         assert r.efficiency == 0.0
 
-    def test_error_path_passes_correctness_through_unclamped(self):
+    def test_error_path_passes_finite_correctness_through_unclamped(self):
         # Documents current behavior: the error early-return echoes the raw
         # input correctness, skipping the clamp applied on the success path.
+        # PKT-1466 narrows the error path's coercion to NON-FINITE values only
+        # (the function docstring's literal promise); a finite out-of-range
+        # correctness is preserved unchanged, as it carries diagnostic value
+        # ("the run got 1.7 of the way before failing").
         r = evaluate(FitnessInputs(correctness=1.7, tool_calls=1, error="boom"))
         assert r.correctness == 1.7
 
@@ -160,13 +164,17 @@ class TestNonFiniteCorrectness:
         assert r.fitness == 0.0
         assert r.correctness == 0.0
 
-    def test_non_finite_correctness_falls_through_error_path_passes_correctness_through(self):
-        # The error early-return echoes the raw input correctness, skipping the
-        # clamp applied on the success path. Non-finite correctness here is the
-        # caller's problem; the error path zeros fitness/efficiency regardless.
+    def test_non_finite_correctness_on_error_path_is_coerced_to_zero(self):
+        # PKT-1466: the error early-return now applies the SAME non-finite
+        # coercion as the success path (and as this function's docstring
+        # promises). Previously it echoed the raw input correctness, so a
+        # non-finite value escaped a function whose contract is a
+        # deterministic failing score. The assertion on `.correctness` is
+        # ADDED to the pre-existing fitness/efficiency assertions.
         r = evaluate(FitnessInputs(correctness=float("nan"), tool_calls=1, error="boom"))
         assert r.fitness == 0.0
         assert r.efficiency == 0.0
+        assert r.correctness == 0.0
 
     def test_nan_correctness_with_excess_still_zeroes(self):
         # No partial credit via efficiency: NaN correctness → fitness=0.0 regardless.
