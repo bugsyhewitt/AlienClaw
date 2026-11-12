@@ -140,18 +140,96 @@ function parseConditionsFromArray(arrText: string): Condition[] | false {
   return conds;
 }
 
+/**
+ * Quote-aware field splitter for a condition body.
+ *
+ * The previous implementation split the body on EVERY comma
+ * (`inner.split(',')`) and then unquoted each half. That is wrong twice over:
+ *
+ *   1. A comma inside a quoted value truncates it. `value: "a,b"` parsed to
+ *      the two-character string `"a` — the closing quote included — so the
+ *      condition could never match the value the author wrote.
+ *   2. A comma inside a value also injects a NEW key. `value: x, field: toString`
+ *      overwrote the declared `field` with `toString`, silently changing the
+ *      condition's semantics (and, combined with the prototype-chain `in`
+ *      lookup in decision_engine.ts, letting a table fire on an empty output).
+ *
+ * This splitter honours quoting so a quoted value keeps its commas, and it
+ * REFUSES a duplicated key instead of letting the last one win.
+ *
+ * A quoted value must be followed by a comma or the end of the body. Treating
+ * the whitespace after a closing quote as a field separator would reopen the
+ * key-injection hole through a second delimiter — `value: "x" field: toString`
+ * would parse to a `field` of `toString` — so anything else is malformed.
+ *
+ * Returns null when the body is malformed (unterminated quote, missing ':',
+ * empty key, duplicated key) — the caller treats that as an unresolvable
+ * condition and drops the whole transition (the pre-existing fail-closed
+ * contract).
+ */
+function splitConditionFields(inner: string): Record<string, string> | null {
+  const fields: Record<string, string> = {};
+  let i = 0;
+  const n = inner.length;
+
+  const isSpace = (c: string) => c === ' ' || c === '\t';
+
+  while (i < n) {
+    // Skip separators and whitespace between fields.
+    while (i < n && (inner[i] === ',' || isSpace(inner[i]!))) i++;
+    if (i >= n) break;
+
+    // Read the key: up to the first ':'. The scan must also stop at the field
+    // separator — otherwise a colon-less token does not fail the body, it
+    // swallows the NEXT key (e.g. `kind: fitness_gt, stray, n: 0.9` would
+    // yield a key of "stray, n" and silently drop the n: threshold, leaving a
+    // gate that fires at n=0 instead of holding at n=0.9). That is fail-OPEN
+    // on a governance gate, so a part without a ':' is malformed, not a key.
+    const keyStart = i;
+    while (i < n && inner[i] !== ':' && inner[i] !== ',') i++;
+    if (i >= n || inner[i] !== ':') return null;  // no ':' before ',' — malformed body
+    const key = inner.slice(keyStart, i).trim();
+    i++;                                 // consume ':'
+
+    // Skip whitespace after the ':'.
+    while (i < n && isSpace(inner[i]!)) i++;
+
+    // Read the value: a quoted string (commas allowed inside) or a bare run
+    // up to the next comma.
+    let value: string;
+    const q = inner[i];
+    if (q === '"' || q === "'") {
+      const close = inner.indexOf(q, i + 1);
+      if (close === -1) return null;    // unterminated quote — malformed
+      value = inner.slice(i + 1, close);
+      i = close + 1;
+      // A quoted value must end at a comma or the end of the body.
+      while (i < n && isSpace(inner[i]!)) i++;
+      if (i < n && inner[i] !== ',') return null;
+    } else {
+      const valStart = i;
+      while (i < n && inner[i] !== ',') i++;
+      value = inner.slice(valStart, i).trim();
+    }
+
+    if (key === '') return null;        // empty key — malformed
+
+    // A duplicated key is a malformed body. The old last-wins behaviour let a
+    // value smuggle in a replacement `kind` / `field` / `n`, so refuse it
+    // outright and let the caller drop the whole transition (fail-closed).
+    if (Object.prototype.hasOwnProperty.call(fields, key)) return null;
+
+    fields[key] = value;
+  }
+
+  return fields;
+}
+
 function parseConditionInner(inner: string): Condition | false {
   // Returns Condition (valid) or false (unresolvable — caller drops the entire enclosing
   // transition). No path returns null; false is the uniform fail-closed sentinel.
-  const fields: Record<string, string> = {};
-  const parts = inner.split(',');
-  for (const p of parts) {
-    const idx = p.indexOf(':');
-    if (idx === -1) continue;
-    const key = p.slice(0, idx).trim();
-    const val = unquote(p.slice(idx + 1).trim());
-    fields[key] = val;
-  }
+  const fields = splitConditionFields(inner);
+  if (fields === null) return false;
   const kind = fields['kind'];
   // Missing kind: return false (poison) — a condition we cannot identify must not
   // silently shrink a multi-condition all-group; unknown conditions fail closed.
