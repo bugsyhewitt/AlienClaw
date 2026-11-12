@@ -31,8 +31,9 @@
  * is a wall-clock guess, not a synchronization primitive. Its adequacy
  * depends on threadpool contention, which depends on how many sibling test
  * files are running in parallel. The cleanup below instead waits on the
- * OBSERVABLE state (the on-disk file count stops changing), so it waits
- * exactly as long as the writes take and no longer.
+ * OBSERVABLE state (the on-disk file count stops changing), so it waits for
+ * the writes to land rather than guessing how long they need — and then
+ * adds a short, fixed settling margin on top.
  */
 import { readdirSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -46,14 +47,14 @@ import { join } from 'node:path';
 const DRAIN_PROBE_MS      = 5;
 const DRAIN_STABLE_PROBES = 3;
 const DRAIN_ZERO_PROBES   = 6;
-const DRAIN_MAX_ROUNDS    = 600; // 3 s hard bound
+const DRAIN_MAX_ROUNDS    = 600; // round cap — ≈3 s of probing, excluding per-round cost
 
 // Phase 2 — REMOVE and WATCH. How long to wait before checking that the tree
 // STAYED gone, and how many consecutive absent observations are required
 // before the cleanup is declared complete.
 const WATCH_PROBE_MS    = 10;
 const WATCH_QUIET_PROBES = 3;
-const WATCH_MAX_ROUNDS  = 120; // 1.2 s hard bound
+const WATCH_MAX_ROUNDS  = 120; // round cap — ≈1.2 s of probing, excluding per-round cost
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -125,7 +126,9 @@ export function countAuditFiles(dir: string): number {
  * had not yet STARTED when the drain settled. Nothing the drain counts has
  * changed yet, so only the watch can catch it.
  *
- * Both phases are bounded, so a pathological case can never hang the suite.
+ * Both phases are bounded by a fixed round count, so a pathological case can
+ * never hang the suite. The wall-clock bound is the round cap plus the
+ * per-round cost of counting and removing.
  */
 export async function cleanupTmp(dir: string): Promise<void> {
   // Phase 1 — DRAIN.

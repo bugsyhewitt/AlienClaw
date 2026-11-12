@@ -76,22 +76,40 @@ function queueWrites(ch: AgentChannel, count: number): void {
 }
 
 /**
- * Count every file under `dir`, independently of the helper under test.
+ * Count every FILE under `dir`, recursively.
  *
  * This is an OBSERVER, not a re-implementation of the fix. The fix removes
  * the tree; the gate has to be able to tell that it did not. Counting with
  * the helper's own `countAuditFiles` would let a broken counter make the
- * assertion vacuously true — so this uses a different primitive (the
- * recursive `readdirSync` option) rather than the helper's walker.
+ * assertion vacuously true — so this counts independently, here in the gate.
+ *
+ * It walks the tree BY HAND rather than using `readdirSync(dir, {
+ * recursive: true })`: that option requires Node >= 20.1 and is SILENTLY
+ * IGNORED on older Node, where it returns only the top-level entries. That
+ * would make this observer blind to every nested audit file and let the
+ * assertion pass VACUOUSLY. `package.json` declares no `engines` floor, so
+ * the portable walker is the safe choice.
  */
 function countFilesOnDisk(dir: string): number {
-  try {
-    return readdirSync(dir, { recursive: true, withFileTypes: true }).filter(
-      (entry) => entry.isFile(),
-    ).length;
-  } catch {
-    return 0;
-  }
+  let total = 0;
+  const walk = (current: string): void => {
+    let entries;
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.isFile()) {
+        total++;
+      }
+    }
+  };
+  walk(dir);
+  return total;
 }
 
 describe('AgentChannel — audit write vs. tmpdir cleanup race (PKT-1443)', () => {
@@ -102,25 +120,41 @@ describe('AgentChannel — audit write vs. tmpdir cleanup race (PKT-1443)', () =
     const dir = mkdtempSync(join(tmpdir(), 'agent-channel-pkt1443-'));
     const ch = new AgentChannel(dir);
 
+    // A sentinel marks the ORIGINAL tree. `rmSync` removes it; a tree
+    // recreated by a queued write cannot contain it. Proving the
+    // resurrection this way removes the false-RED race entirely: nothing
+    // has to be observed ABSENT in a separate statement, so a queued
+    // `mkdir` landing between `rmSync` returning and the next probe is
+    // evidence FOR the mechanism rather than a spurious failure.
+    const sentinel = join(dir, 'pkt1443-original-tree.sentinel');
+    writeFileSync(sentinel, 'original');
+
     queueWrites(ch, 200);
 
     // The pre-PKT-1443 cleanup: remove immediately, no drain.
     rmTmp(dir);
-    expect(existsSync(dir)).toBe(false); // removed...
 
-    // ...but the queued write's `mkdir(..., { recursive: true })` brings it back.
-    // Wait for the resurrection rather than guessing how long it takes: a
-    // fixed sleep here would be a wall-clock guess that turns into a false
-    // RED on a saturated CI runner.
+    // ...but the queued write's `mkdir(..., { recursive: true })` brings it
+    // back. Wait for the resurrection rather than guessing how long it
+    // takes: a fixed sleep here would be a wall-clock guess that turns into
+    // a false RED on a saturated CI runner.
     const deadline = Date.now() + RESURRECTION_WAIT_MS;
     while (!existsSync(dir) && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 10));
     }
     const resurrected = existsSync(dir);
-    rmSync(dir, { recursive: true, force: true }); // clean up the race residue
+    // The tree that came back is a DIFFERENT tree: the sentinel is gone.
+    // If the removal had silently failed, the sentinel would still be
+    // there and this assertion would catch it.
+    const sentinelGone = resurrected && !existsSync(sentinel);
+    // Clean up the race residue: the queued writes may still be landing, so
+    // a plain `rmSync` here can be undone by a late `mkdir`. The shipped
+    // drain-aware cleanup is the right tool for the hygiene step.
+    await cleanupTmp(dir);
 
     // Assert the mechanism, unconditionally — no `if (resurrected)` tautology.
     expect(resurrected).toBe(true);
+    expect(sentinelGone).toBe(true);
   });
 
   // R-1443-2 (THE GATE): the PKT-1443 cleanup leaves nothing behind, and
@@ -138,6 +172,9 @@ describe('AgentChannel — audit write vs. tmpdir cleanup race (PKT-1443)', () =
     // Give any straggler a chance to resurrect it, then re-assert.
     await new Promise((r) => setTimeout(r, STRAGGLER_WINDOW_MS));
     expect(existsSync(dir)).toBe(false);
+    // Hygiene: a straggler that lands after the final assertion would
+    // resurrect the tree and leak it. The drain-aware cleanup removes it.
+    await cleanupTmp(dir);
   });
 
   // R-1443-3: the user-visible symptom — no file may survive in the tmpdir.
@@ -156,7 +193,7 @@ describe('AgentChannel — audit write vs. tmpdir cleanup race (PKT-1443)', () =
     // tree; with the drain-aware cleanup there is nothing left to land.
     await new Promise((r) => setTimeout(r, STRAGGLER_WINDOW_MS));
     const survivors = countFilesOnDisk(dir);
-    rmSync(dir, { recursive: true, force: true });
+    await cleanupTmp(dir);
 
     expect(survivors).toBe(0);
   });
