@@ -89,7 +89,17 @@ export class GoalManager {
     const file = this.load();
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) throw new Error(`Goal ${goalId} not found`);
-    const sg = goal.subGoals.find(s => s.id === subGoalId);
+    // PKT-1464: the WRITE-path parent envelope for `subGoals`. The read-path
+    // siblings (getReadySubGoals L112, isGoalComplete L124, markGoalComplete
+    // L147) already guard with Array.isArray / `?? []`; `load()` does an
+    // unvalidated `JSON.parse(...) as GoalsFile` cast (L50), so a goals.json
+    // whose goal lacks `subGoals` reaches this line as undefined and the
+    // `.find()` below throws a raw TypeError that kills the governance loop.
+    // PKT-1345 (done/, phantom-done: its source change and its
+    // goal-manager-f303.test.ts are both ABSENT from HEAD) proposed this
+    // envelope; PKT-1312 / PKT-1313 / PKT-1370 were prior attempts at it.
+    const subGoals = Array.isArray(goal.subGoals) ? goal.subGoals : [];
+    const sg = subGoals.find(s => s !== null && typeof s === 'object' && s.id === subGoalId);
     if (!sg) throw new Error(`SubGoal ${subGoalId} not found`);
     Object.assign(sg, patch);
     this._dirty = true;
@@ -129,7 +139,39 @@ export class GoalManager {
     const file = this.load();
     const goal = file.goals.find(g => g.id === goalId);
     if (!goal) throw new Error(`Goal ${goalId} not found`);
-    goal.subGoals.push(...newSubGoals);
+    // PKT-1464: two layers of write-path hardening on `subGoals`.
+    //
+    // (1) PARENT ENVELOPE — `goal.subGoals` itself may be undefined / null /
+    // non-array on disk (load() casts without validating). Coerce to [] so
+    // the push below cannot throw a raw TypeError. The mutation target is
+    // re-assigned, so the coerced array is what actually gets persisted.
+    //
+    // (2) ELEMENT FILTER — drop malformed SubGoal elements instead of
+    // writing them to disk. A subGoal with no `id` can never be dispatched
+    // (dispatchReadySubGoals keys on s.id) and a subGoal with a bogus
+    // `status` can never be flipped to complete, so either one permanently
+    // blocks the parent goal: markGoalComplete's PKT-905 guard then refuses
+    // to complete the goal and no reader can ever clear it. Fail-quiet
+    // (drop the element) for elements, matching the read-path symmetry at
+    // L112 / L124 / L147; fail-loud (throw) for a non-array `newSubGoals`
+    // argument, which is a caller bug rather than a data-shape defect.
+    if (!Array.isArray(newSubGoals)) {
+      throw new Error(`foldUserInput: newSubGoals must be an array; got ${typeof newSubGoals}`);
+    }
+    const _clean: SubGoal[] = [];
+    for (const s of newSubGoals) {
+      if (s === null || typeof s !== 'object') continue;
+      const rec = s as unknown as Record<string, unknown>;
+      const hasId       = typeof rec['id'] === 'string' && rec['id'].length > 0;
+      const hasStatus   = typeof rec['status'] === 'string'
+        && (['pending', 'active', 'complete', 'failed'] as string[]).includes(rec['status']);
+      const hasDepends  = Array.isArray(rec['dependsOn'])
+        && rec['dependsOn'].every((d: unknown) => typeof d === 'string');
+      if (!hasId || !hasStatus || !hasDepends) continue;
+      _clean.push(s);
+    }
+    if (!Array.isArray(goal.subGoals)) goal.subGoals = [];
+    goal.subGoals.push(..._clean);
     this._dirty = true;
     await this.save(file);
   }
