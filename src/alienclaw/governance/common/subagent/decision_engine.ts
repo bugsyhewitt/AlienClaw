@@ -75,8 +75,8 @@ function evalCondition(cond: Condition, result: SummonResult): boolean {
     case 'error_absent':              return result.error === null;
     case 'tool_calls_gt':             return result.tool_calls > cond.n;
     case 'tool_calls_lt':             return result.tool_calls < cond.n;
-    case 'output_field_present':      return cond.field in result.output;
-    case 'output_field_eq':           return result.output[cond.field] === cond.value;
+    case 'output_field_present':      return Object.hasOwn(result.output, cond.field);
+    case 'output_field_eq':           return Object.hasOwn(result.output, cond.field) && result.output[cond.field] === cond.value;
   }
 }
 

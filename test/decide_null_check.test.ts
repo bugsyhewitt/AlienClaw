@@ -78,7 +78,7 @@ describe('PROBE decide() output null/undefined crash', () => {
       });
       expect.fail('expected throw');
     } catch (e) {
-      expect((e as Error).message).toMatch(/Cannot use 'in' operator/);
+      expect((e as Error).message).toMatch(/Cannot convert undefined or null to object/);
       expect((e as Error).name).toBe('TypeError');
     }
   });
