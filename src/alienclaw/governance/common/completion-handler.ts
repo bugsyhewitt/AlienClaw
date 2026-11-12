@@ -44,6 +44,29 @@ function goalDoneLines(goal: { subGoals: SubGoal[]; scheme?: { campaigns: Array<
   return [...subGoalLines, ...campaignLines];
 }
 
+/**
+ * Pick the sub-goal that the reopen path should re-execute.
+ *
+ * A sub-goal with status 'failed' was ABANDONED by the user (the abandon branch
+ * in governance-loop.ts sets `status: 'failed'`). It is terminal: re-opening it
+ * would resurrect work the user explicitly rejected. Only non-terminal sub-goals
+ * ('pending' / 'active' / anything that is neither 'complete' nor 'failed') are
+ * eligible reopen targets.
+ */
+function findReopenableSubGoal(subGoals: SubGoal[]): SubGoal | undefined {
+  return subGoals.find(s => s.status !== 'complete' && s.status !== 'failed');
+}
+
+/**
+ * Final fallback when every sub-goal is terminal: prefer a non-failed sub-goal
+ * so an abandoned sub-goal is never the one resurrected. Returns undefined when
+ * every sub-goal is 'complete' or 'failed' — the caller then reopens nothing
+ * rather than resurrecting abandoned work.
+ */
+function findFallbackSubGoal(subGoals: SubGoal[]): SubGoal | undefined {
+  return subGoals.find(s => s.status !== 'failed');
+}
+
 export class CompletionHandler {
   constructor(
     private advisorBot:   AdvisorBot,
@@ -72,11 +95,11 @@ export class CompletionHandler {
       const campaigns             = Array.isArray(goal.scheme?.campaigns)
         ? goal.scheme!.campaigns.filter((c): c is NonNullable<typeof c> => c !== null && typeof c === 'object')
         : [];
-      const firstIncompleteSubGoal  = subGoals.find(s => s.status !== 'complete');
+      const firstIncompleteSubGoal  = findReopenableSubGoal(subGoals);
       const firstIncompleteCampaign = campaigns.find(c => c.status !== 'complete');
       const reopenId = firstIncompleteSubGoal?.id
         ?? firstIncompleteCampaign?.id
-        ?? subGoals[0]?.id;
+        ?? findFallbackSubGoal(subGoals)?.id;
       return { proceed: false, reopenIds: reopenId ? [reopenId] : [] };
     }
 
@@ -118,11 +141,11 @@ export class CompletionHandler {
       const campaigns               = Array.isArray(goal.scheme?.campaigns)
         ? goal.scheme!.campaigns.filter((c): c is NonNullable<typeof c> => c !== null && typeof c === 'object')
         : [];
-      const firstIncompleteSubGoal  = subGoals.find(s => s.status !== 'complete');
+      const firstIncompleteSubGoal  = findReopenableSubGoal(subGoals);
       const firstIncompleteCampaign = campaigns.find(c => c.status !== 'complete');
       const reopenId                = firstIncompleteSubGoal?.id
         ?? firstIncompleteCampaign?.id
-        ?? subGoals[0]?.id;
+        ?? findFallbackSubGoal(subGoals)?.id;
       return { proceed: false, reopenIds: reopenId ? [reopenId] : [] };
     }
 
