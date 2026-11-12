@@ -106,7 +106,7 @@ class TestErrorPath:
 
     def test_error_path_passes_finite_correctness_through_unclamped(self):
         # Documents current behavior: the error early-return echoes the raw
-        # input correctness, skipping the clamp applied on the success path.
+        # finite input correctness, skipping the clamp applied on the success path.
         # PKT-1466 narrows the error path's coercion to NON-FINITE values only
         # (the function docstring's literal promise); a finite out-of-range
         # correctness is preserved unchanged, as it carries diagnostic value
