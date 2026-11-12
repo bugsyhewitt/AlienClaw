@@ -60,7 +60,7 @@ export function substitute(
         );
       }
       const out = slotOutputs[slotN]!;
-      if (!(fieldName in out)) {
+      if (!Object.prototype.hasOwnProperty.call(out, fieldName)) {
         throw new Error(
           `Slot ${slotN} output has no field '${fieldName}'. ` +
           `Available: ${Object.keys(out).sort().join(', ')}`
@@ -68,7 +68,7 @@ export function substitute(
       }
       return _coerceToStr(out[fieldName]);
     }
-    if (!(fieldName in campaignInputs)) {
+    if (!Object.prototype.hasOwnProperty.call(campaignInputs, fieldName)) {
       throw new Error(
         `Campaign inputs has no field '${fieldName}'. ` +
         `Available: ${Object.keys(campaignInputs).sort().join(', ')}`
