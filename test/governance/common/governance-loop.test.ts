@@ -315,7 +315,23 @@ describe('GovernanceLoop.handleJobFailed — campaign retry limit (packet 099)',
     expect(surfaced).toBe(true);
   });
 
-  it('resets the strike counter when spawnCampaign is called (fresh dispatch)', async () => {
+  /**
+   * WHY the strike counter must NOT be cleared on dispatch:
+   *
+   *   `spawnCampaign()` is the dispatch path for BOTH a first-time campaign AND a
+   *   retry of a campaign that has already failed. Clearing `campaignStrikes`
+   *   there makes the counter permanently 1 in production, so the
+   *   `strikes >= MAX_STRIKE_COUNT` check in `handleJobFailed()` is unreachable:
+   *   a failing campaign retries forever and never surfaces to the user.
+   *
+   *   The previous version of this test never called `spawnCampaign()` at all. It
+   *   hand-issued `(loop as any).campaignStrikes.delete(CAMPAIGN_ID)` and then
+   *   asserted on the very Map it had just mutated itself — so it asserted its own
+   *   stub, encoded the buggy behaviour as its contract, and could never fail if
+   *   the production reset was wrong. This version drives the real dispatch path
+   *   and asserts the counter survives it.
+   */
+  it('does NOT reset the strike counter when spawnCampaign re-dispatches the same campaign', async () => {
     const CAMPAIGN_ID = 'camp-reset';
     const GOAL_ID     = 'goal-reset';
 
@@ -377,6 +393,18 @@ describe('GovernanceLoop.handleJobFailed — campaign retry limit (packet 099)',
       close:    () => {},
     } as unknown as import('../../../src/alienclaw/comms/user-channel.js').UserChannel;
 
+    // The dispatched campaign is still failing: buildSubagent returns a Subagent
+    // whose runCampaign resolves with a non-final termination reason, so the
+    // dispatch completes without any asynchronous side effect on the counters
+    // under test.
+    const campaignCreatorBot = {
+      buildSubagent: () => ({
+        birth:       () => {},
+        runCampaign: async () => ({ termination_reason: 'state_machine_failed' }),
+        erase:       () => {},
+      }),
+    } as unknown as import('../../../src/alienclaw/governance/common/creator-bot.js').CreatorBot;
+
     const loop = new GovernanceLoop({
       bossBot:           noopBossBot,
       advisorBot,
@@ -389,6 +417,7 @@ describe('GovernanceLoop.handleJobFailed — campaign retry limit (packet 099)',
       userChannel,
       agentChannel:      noopAgentChannel,
       adapter:           noopAdapter,
+      campaignCreatorBot,
     });
 
     // Stub state transitions — we test retry-counter logic, not state-machine wiring
@@ -404,47 +433,32 @@ describe('GovernanceLoop.handleJobFailed — campaign retry limit (packet 099)',
       error:    'transient error',
     };
 
-    // Hit MAX_STRIKE_COUNT - 1 failures
+    // Burn MAX_STRIKE_COUNT - 1 strikes — every one of them is below the limit,
+    // so every one of them retries instead of surfacing to the user.
     for (let i = 0; i < MAX_STRIKE_COUNT - 1; i++) {
       await (loop as any).handleJobFailed(jobFailedEvent);
     }
-
-    // Now simulate a fresh dispatch via spawnCampaign (resets counter)
-    // spawnCampaign needs the campaign and a Subagent — stub Subagent.run
-    const campaign = file.goals[0].scheme!.campaigns[0];
-    // Patch Subagent to avoid real execution
-    const originalSubagent = (loop as any).Subagent;
-    // Instead, call spawnCampaign and stub the Subagent inline
-    // We do this by stubbing the agentRegistry and adapter used inside spawnCampaign
-    const stubAdapter = {
-      summon: async () => ({ output: 'ok', fitness: 1 }),
-    };
-    (loop as any).adapter = stubAdapter;
-    (loop as any).agentRegistry = {
-      register:   () => {},
-      deregister: () => {},
-    };
-    // Stub Subagent constructor to return a minimal object
-    // Since we can't mock the import, let's directly test that campaignStrikes.delete is called
-    // by inspecting the Map before and after
-    (loop as any).campaignStrikes.set(CAMPAIGN_ID, MAX_STRIKE_COUNT - 1);
     expect((loop as any).campaignStrikes.get(CAMPAIGN_ID)).toBe(MAX_STRIKE_COUNT - 1);
 
-    // Manually call the delete portion (we verify the Map directly)
-    (loop as any).campaignStrikes.delete(CAMPAIGN_ID);
-    expect((loop as any).campaignStrikes.has(CAMPAIGN_ID)).toBe(false);
+    // Re-dispatch the SAME campaign through the real production dispatch path.
+    // The counter must survive: this retry is the same campaign's Nth attempt,
+    // not a brand-new campaign with a fresh retry budget.
+    const campaign = file.goals[0].scheme!.campaigns[0];
+    await (loop as any).spawnCampaign(GOAL_ID, campaign);
 
-    // After reset, another failure sequence should restart from 0
-    requiredMessages = [];
+    expect((loop as any).campaignStrikes.get(CAMPAIGN_ID)).toBe(MAX_STRIKE_COUNT - 1);
+
+    // The dispatch itself calls updateCampaign — reset tracking so the next
+    // assertion measures only what the next failure does.
     updateCampaignCalls = 0;
+    requiredMessages   = [];
 
-    // Fire MAX_STRIKE_COUNT - 1 more failures — all should rebuild (counter is now 0 again)
-    for (let i = 0; i < MAX_STRIKE_COUNT - 1; i++) {
-      await (loop as any).handleJobFailed(jobFailedEvent);
-    }
-    expect(updateCampaignCalls).toBe(MAX_STRIKE_COUNT - 1);
-    const surfacedAfterReset = requiredMessages.some(m => m.includes('needs your attention'));
-    expect(surfacedAfterReset).toBe(false);
+    // One more failure must reach MAX_STRIKE_COUNT: no rebuild, surface to user.
+    await (loop as any).handleJobFailed(jobFailedEvent);
+
+    expect(updateCampaignCalls).toBe(0); // no rebuild
+    const surfaced = requiredMessages.some(m => m.includes('needs your attention'));
+    expect(surfaced).toBe(true);
   });
 });
 
