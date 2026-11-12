@@ -160,7 +160,7 @@ function validateSchema(value: unknown, schema: unknown): boolean {
   if (s["required"] && Array.isArray(s["required"])) {
     if (typeof value !== "object" || value === null) return false;
     for (const key of s["required"] as string[]) {
-      if (!(key in (value as Record<string, unknown>))) return false;
+      if (!Object.hasOwn(value, key)) return false;
     }
   }
   return true;
