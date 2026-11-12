@@ -89,6 +89,10 @@ function queueWrites(ch: AgentChannel, count: number): void {
  * would make this observer blind to every nested audit file and let the
  * assertion pass VACUOUSLY. `package.json` declares no `engines` floor, so
  * the portable walker is the safe choice.
+ *
+ * A missing directory is legitimately zero files, but a READ ERROR must not
+ * read as zero — that would make the assertion pass vacuously. Only ENOENT
+ * is swallowed; anything else is rethrown so the gate fails loudly.
  */
 function countFilesOnDisk(dir: string): number {
   let total = 0;
@@ -96,8 +100,9 @@ function countFilesOnDisk(dir: string): number {
     let entries;
     try {
       entries = readdirSync(current, { withFileTypes: true });
-    } catch {
-      return;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw err;
     }
     for (const entry of entries) {
       const full = join(current, entry.name);
