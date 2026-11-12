@@ -19,22 +19,23 @@ import {
   agentChannel as defaultAgentChannel,
 } from '../../src/alienclaw/comms/agent-channel.js';
 import { PATHS } from '../../src/alienclaw/constants.js';
+import { cleanupTmp } from '../helpers/agent-channel-cleanup.js';
 import type { TierAAgent } from '../../src/alienclaw/constants.js';
 import type { AgentMessage, AgentMessageKind } from '../../src/alienclaw/comms/agent-channel.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeTmpDir(): string {
-  return mkdtempSync(join(tmpdir(), 'agent-channel-test-'));
-}
+/**
+ * Every tmpdir created by this file is registered here so that the file-level
+ * `afterEach` can remove ALL of them — including the ones created inline
+ * (`new AgentChannel(makeTmpDir())`) that no individual describe block owns.
+ */
+const createdTmpDirs = new Set<string>();
 
-function rmTmp(dir: string): void {
-  try {
-    const { rmSync } = require('node:fs') as typeof import('node:fs');
-    rmSync(dir, { recursive: true, force: true });
-  } catch {
-    // ignore
-  }
+function makeTmpDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-channel-test-'));
+  createdTmpDirs.add(dir);
+  return dir;
 }
 
 function makeMsg(overrides: Partial<AgentMessage> = {}): AgentMessage {
@@ -51,15 +52,25 @@ function makeMsg(overrides: Partial<AgentMessage> = {}): AgentMessage {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
+/**
+ * PKT-1443 — file-level cleanup. Removes EVERY tmpdir this file created,
+ * including the ones made inline by `new AgentChannel(makeTmpDir())` that no
+ * individual describe block tracks. Without this, those dirs leak on every
+ * run regardless of whether the block sent any message.
+ */
+afterEach(async () => {
+  const dirs = [...createdTmpDirs];
+  createdTmpDirs.clear();
+  for (const dir of dirs) {
+    await cleanupTmp(dir);
+  }
+});
+
 describe('AgentChannel — constructor', () => {
   let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = makeTmpDir();
-  });
-
-  afterEach(() => {
-    rmTmp(tmpDir);
   });
 
   it('accepts no args and uses PATHS.telemetry as the default base directory', () => {
@@ -263,10 +274,6 @@ describe('AgentChannel — audit file writes', () => {
     ch = new AgentChannel(tmpDir);
   });
 
-  afterEach(() => {
-    rmTmp(tmpDir);
-  });
-
   it('writes a JSON file to <baseDir>/<YYYY-MM-DD>/agent-channel/<from>-<to>-<ts>-<seq>.json', async () => {
     const ts = Date.now();
     ch.send(makeMsg({ ts, from: 'BossBot', to: 'AdvisorBot' }));
@@ -432,10 +439,6 @@ describe('AgentChannel — non-finite ts edge cases', () => {
     ch = new AgentChannel(tmpDir);
   });
 
-  afterEach(() => {
-    rmTmp(tmpDir);
-  });
-
   it('ts=Infinity → audit filename uses Date.now() backfill (not Infinity.json)', async () => {
     ch.send(makeMsg({ ts: Infinity }));
     await new Promise((r) => setTimeout(r, 50));
@@ -513,8 +516,6 @@ describe('AgentChannel — audit-filename uniqueness under same-ts', () => {
     ch = new AgentChannel(tmpDir);
   });
 
-  afterEach(() => { rmTmp(tmpDir); });
-
   it('CASE A: explicit-shared-ts → exactly N files for N sends', async () => {
     const sharedTs = 1700000000000;
     ch.send(makeMsg({ ts: sharedTs, content: 'first' }));
@@ -586,10 +587,6 @@ describe('AgentChannel — content-length cap (PKT-676)', () => {
     ch = new AgentChannel(tmpDir);
   });
 
-  afterEach(() => {
-    rmTmp(tmpDir);
-  });
-
   // R-676-1: a content string exactly at the cap writes verbatim (no truncation)
   it('content at exactly MAX_AUDIT_CONTENT_BYTES writes verbatim (no truncation)', async () => {
     const exact = 'A'.repeat(65_536);
@@ -656,10 +653,6 @@ describe('AgentChannel — bounded in-memory log (PKT-772)', () => {
   beforeEach(() => {
     tmpDir = makeTmpDir();
     ch = new AgentChannel(tmpDir);
-  });
-
-  afterEach(() => {
-    rmTmp(tmpDir);
   });
 
   // R-772-1: log length never exceeds MAX_LOG_ENTRIES (1000) under sustained load
