@@ -72,9 +72,23 @@ export async function runStatus(home = defaultHome()): Promise<number> {
               // decimal. Mirror the hardening already applied in cli/runs.ts:55, cli/show.ts:34,
               // telemetry-reader.ts:136 (PKT-589), sync/local-population.ts:51 (PKT-654),
               // and ~12 other sites (see defect-class trend in PKT-1141 packet).
+              // PKT-1490: finite is necessary but NOT sufficient either — the canonical
+              // fitness range is [0.0, 1.0], enforced at submission time by
+              // api/validation.ts:72 ("fitness must be in [0.0, 1.0]"). The sister readers
+              // of this same file already enforce it: telemetry-reader.ts:171-174
+              // (aggregateOnlineFitness) checks `fitness >= 0 && fitness <= 1`, and the
+              // Python twin evolution/online_fitness.py:23-34 ends `return 0.0 <= f <= 1.0`.
+              // Without the range clause this reader is the only one of the three that
+              // accepts an out-of-range value, and it renders it verbatim on operator
+              // stdout via maxFitness.toFixed(4) below (e.g. `compute\t1\t1.5000`).
+              // Corrective re-author of REJECTED PKT-1369 (overmind review 2026-10-13,
+              // managers/alienclaw/issues.md:35872), whose finding and fix direction were
+              // upheld; this is the "higher-value pickup" the overmind named.
               if (typeof e.martian_type !== 'string'
                   || typeof e.fitness !== 'number'
-                  || !Number.isFinite(e.fitness)) continue;
+                  || !Number.isFinite(e.fitness)
+                  || e.fitness < 0
+                  || e.fitness > 1) continue;
               const cur = online.get(e.martian_type) ?? { count: 0, maxFitness: -Infinity };
               online.set(e.martian_type, {
                 count:      cur.count + 1,

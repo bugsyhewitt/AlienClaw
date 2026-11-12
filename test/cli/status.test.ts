@@ -203,12 +203,18 @@ describe('alienclaw status — PKT-1141 JSONL Number.isFinite guard', () => {
     expect(cells[2]).toBe('0.9000');
   });
 
-  it('B-1141-E: 1e308 (finite, large) survives; 1e500 (overflow) rejected', async () => {
+  it('B-1141-E (amended by PKT-1490): 1 (finite, upper bound) survives; 1e500 (overflow) rejected', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ac-pkt-1141-'));
     const ts = '2026-09-12T00:00:00Z';
+    // PKT-1490: the token changed from `1e308` to `1`. `1e308` was only ever a
+    // stand-in for "finite and large", and the PKT-1490 range clause makes
+    // "large" unrepresentable here (1e308 is finite but > 1.0, so the RANGE
+    // clause — not the isFinite clause — now rejects it). `1` is the finite,
+    // in-range upper boundary and is still accepted. The `1e500` → Infinity
+    // axis (PKT-1141's actual subject) stays pinned.
     writeFileSync(join(dir, 'online_fitness.jsonl'),
       [
-        _line('a', '1e308', ts),   // finite, large → accepted
+        _line('a', '1', ts),       // finite, in-range upper bound → accepted
         _line('a', '1e500', ts),   // overflow → Infinity, rejected
       ].join('\n') + '\n',
     );
@@ -218,13 +224,10 @@ describe('alienclaw status — PKT-1141 JSONL Number.isFinite guard', () => {
     const rows = cap.lines();
     expect(rows).toHaveLength(1);
     const cells = rows[0]!.split('\t');
-    expect(cells[1]).toBe('1');                   // only 1e308 counted
-    expect(cells[2]).not.toContain('Infinity');   // 1e308 is finite, so toFixed gives a number
-    // (1e308).toFixed(4) returns "1e+308" in scientific notation — proves
-    // the guard accepted it (Number.isFinite(1e308) === true) without
-    // collapsing to Infinity. Direct check via parseFloat:
+    expect(cells[1]).toBe('1');                   // only the in-range entry counted
+    expect(cells[2]).not.toContain('Infinity');
+    expect(cells[2]).toBe('1.0000');
     expect(Number.isFinite(parseFloat(cells[2]!))).toBe(true);
-    expect(parseFloat(cells[2]!)).toBeGreaterThan(1e307);  // confirms the 1e308 value
   });
 });
 });
