@@ -1,7 +1,7 @@
 /**
  * PKT-1460 — the campaign strike counter must ACCUMULATE across retries.
  *
- * DEFECT (live on main @ aa88b468):
+ * DEFECT (live on origin/main @ bd1bc646, re-verified RED on this exact base):
  *
  *   src/alienclaw/governance/common/governance-loop.ts:351
  *       private async spawnCampaign(goalId: string, campaign: Campaign): Promise<void> {
