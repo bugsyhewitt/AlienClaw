@@ -41,7 +41,7 @@ def evaluate(inputs: FitnessInputs) -> FitnessResult:
         #
         # Finite correctness is PRESERVED (not clamped): a partial score on a
         # failed run carries diagnostic value, and the shipped
-        # `test_error_path_passes_correctness_through_unclamped` contract for
+        # `test_error_path_passes_finite_correctness_through_unclamped` contract for
         # out-of-range finite values is unchanged by this fix.
         err_correctness = 0.0 if not math.isfinite(inputs.correctness) else inputs.correctness
         return FitnessResult(fitness=0.0, correctness=err_correctness, efficiency=0.0,
