@@ -7,6 +7,7 @@
  * A reflective loop on a gameable signal converges faster on the wrong thing.
  */
 import type { Oracle, CorrectnessVerdict, ExecutionTrace } from "./types.js";
+import { isDeepStrictEqual } from "node:util";
 
 export interface OracleContext {
   trace: ExecutionTrace;
@@ -32,13 +33,22 @@ export function resolveCorrectness(
   switch (oracle.kind) {
     case "exact": {
       const actual = ctx.trace.finalOutput;
-      const match = JSON.stringify(actual) === JSON.stringify(oracle.expected);
+      // Structural deep equality, NOT JSON.stringify comparison.
+      // `JSON.stringify` emits properties in INSERTION order, so two
+      // structurally identical objects whose keys were inserted in a
+      // different order serialise to different strings and compare
+      // UNEQUAL — the deterministic oracle then awards score 0.0 to a
+      // correct answer. It also THROWS on values JSON cannot represent
+      // (circular structures, BigInt), escaping resolveCorrectness as a
+      // raw TypeError. isDeepStrictEqual is order-insensitive for object
+      // keys, order-sensitive for arrays (correct), and never throws.
+      const match = isDeepStrictEqual(actual, oracle.expected);
       return {
         score: match ? 1.0 : 0.0,
         source: "exact",
         evidence: match
           ? "exact match"
-          : `expected ${JSON.stringify(oracle.expected)}, got ${JSON.stringify(actual)}`,
+          : `expected ${describeValue(oracle.expected)}, got ${describeValue(actual)}`,
         confidence: applyConfidence(match ? 1.0 : 0.0, ctx),
       };
     }
@@ -82,6 +92,22 @@ export function resolveCorrectness(
         confidence: applyConfidence(existing.score, ctx),
       };
     }
+  }
+}
+
+/**
+ * Render a value for the mismatch evidence string.
+ *
+ * JSON.stringify throws on circular structures and BigInt, so a naive
+ * stringify would replace a mismatch verdict with an uncaught TypeError.
+ * Fall back to a coarse type tag when the value cannot be serialised.
+ */
+function describeValue(v: unknown): string {
+  try {
+    const s = JSON.stringify(v);
+    return s === undefined ? String(v) : s;
+  } catch {
+    return `[unserializable ${v === null ? "null" : typeof v}]`;
   }
 }
 
