@@ -179,10 +179,15 @@ function splitConditionFields(inner: string): Record<string, string> | null {
     while (i < n && (inner[i] === ',' || isSpace(inner[i]!))) i++;
     if (i >= n) break;
 
-    // Read the key: up to the first ':'.
+    // Read the key: up to the first ':'. The scan must also stop at the field
+    // separator — otherwise a colon-less token does not fail the body, it
+    // swallows the NEXT key (e.g. `kind: fitness_gt, stray, n: 0.9` would
+    // yield a key of "stray, n" and silently drop the n: threshold, leaving a
+    // gate that fires at n=0 instead of holding at n=0.9). That is fail-OPEN
+    // on a governance gate, so a part without a ':' is malformed, not a key.
     const keyStart = i;
-    while (i < n && inner[i] !== ':') i++;
-    if (i >= n) return null;           // no ':' — malformed body
+    while (i < n && inner[i] !== ':' && inner[i] !== ',') i++;
+    if (i >= n || inner[i] !== ':') return null;  // no ':' before ',' — malformed body
     const key = inner.slice(keyStart, i).trim();
     i++;                                 // consume ':'
 

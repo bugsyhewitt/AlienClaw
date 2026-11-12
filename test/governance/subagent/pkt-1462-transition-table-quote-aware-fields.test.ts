@@ -212,4 +212,96 @@ describe('PKT-1462 — parseConditionInner quote-aware field parsing', () => {
       )).toBe(0);
     });
   });
+
+  describe('malformed bodies fail closed — a bad part may not absorb the next key', () => {
+    // A colon-less part must FAIL the body, not swallow the following key.
+    // If the key scan ran past the separator, `kind: fitness_gt, stray, n: 0.9`
+    // would parse to a key of "stray, n" and silently destroy the n: threshold,
+    // leaving a gate that fires at n=0 instead of holding at n=0.9 — fail-OPEN
+    // on a governance gate, and a regression against the pre-fix parser, which
+    // skipped the colon-less part and kept n=0.9.
+
+    it('drops the transition when a colon-less token precedes the n threshold', () => {
+      expect(transitionCount(
+        'all: [{kind: fitness_gt, stray, n: 0.9}]',
+      )).toBe(0);
+    });
+
+    it('a colon-less token cannot make a numeric gate fire early', () => {
+      // The end-state that matters: the gate must NOT finalize at fitness 0.8
+      // when the author wrote a threshold of 0.9.
+      const r = parseTransitionTable(campaignMd(
+        'all: [{kind: fitness_gt, stray, n: 0.9}]',
+      ));
+      expect(r.ok).toBe(true);
+      expect(r.table?.states['S1']?.transitions.length ?? 0).toBe(0);
+      const action = decide({
+        current_state: 'S1',
+        last_result: {
+          martian_type: 'compute',
+          output: {},
+          correctness: 0,
+          fitness: 0.8,
+          tool_calls: 1,
+          error: null,
+        },
+        table: r.table!,
+        history: [],
+      });
+      expect(action).toEqual({ kind: 'Fail', reason: 'no_matching_transition' });
+    });
+
+    it('drops the transition when an unquoted comma value precedes the n threshold', () => {
+      // `value: a,b` has no closing quote, so the bare-value scan stops at the
+      // comma and leaves `b` to be read as the next key — which would swallow
+      // the `n: 0.9` that follows it.
+      expect(transitionCount(
+        'all: [{kind: fitness_gt, value: a,b, n: 0.9}]',
+      )).toBe(0);
+    });
+
+    it('a well-formed numeric gate keeps its threshold', () => {
+      // Control for the two cases above: the same gate, written correctly,
+      // still parses n=0.9 and still holds at fitness 0.8.
+      const cond = firstCondition('all: [{kind: fitness_gt, n: 0.9}]');
+      expect(cond.kind).toBe('fitness_gt');
+      expect(cond.n).toBe(0.9);
+      const r = parseTransitionTable(campaignMd('all: [{kind: fitness_gt, n: 0.9}]'));
+      const action = decide({
+        current_state: 'S1',
+        last_result: {
+          martian_type: 'compute',
+          output: {},
+          correctness: 0,
+          fitness: 0.8,
+          tool_calls: 1,
+          error: null,
+        },
+        table: r.table!,
+        history: [],
+      });
+      expect(action).toEqual({ kind: 'Fail', reason: 'no_matching_transition' });
+    });
+
+    it('drops the transition when an unquoted comma value injects a duplicate field key', () => {
+      // The duplicate-key refusal must still fire in the presence of an
+      // unquoted comma — the malformed value must not shield the injection.
+      expect(transitionCount(
+        'all: [{kind: output_field_eq, field: status, value: a,b, field: toString}]',
+      )).toBe(0);
+    });
+
+    it('drops the transition when a key is empty', () => {
+      expect(transitionCount(
+        'all: [{kind: fitness_gt, : 0.9}]',
+      )).toBe(0);
+    });
+
+    it('accepts a body with a trailing separator', () => {
+      // A trailing comma is not a malformed part — the body still parses.
+      const cond = firstCondition('all: [{kind: fitness_gt, n: 0.9,}]');
+      expect(cond.kind).toBe('fitness_gt');
+      expect(cond.n).toBe(0.9);
+    });
+  });
 });
