@@ -541,7 +541,12 @@ export class Subagent {
         case 'Retry': {
           const stateForSummon =
             action.kind === 'Summon' ? action.target_state : currentState;
-          const stateDef = table.states[stateForSummon];
+          // Object.hasOwn, not a bare bracket read: a prototype member name
+          // ('constructor', 'toString', ...) would resolve to an inherited value
+          // instead of failing the `state_not_found` guard below.
+          const stateDef = Object.hasOwn(table.states, stateForSummon)
+            ? table.states[stateForSummon]
+            : undefined;
           if (!stateDef) {
             termReason = 'state_machine_failed';
             failError = `state_not_found:${stateForSummon}`;

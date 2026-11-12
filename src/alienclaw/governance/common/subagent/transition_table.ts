@@ -51,7 +51,11 @@ export function validateTransitionTable(
 ): ValidationResult {
   const errors: string[] = [];
 
-  if (!table.states[table.initial_state]) {
+  // Object.hasOwn, not a bare bracket read: `table.states` is a plain object,
+  // so `table.states['constructor']` (and 10 other Object.prototype members)
+  // resolves to an inherited value and would pass the "is this state declared?"
+  // check for a state that was never declared.
+  if (!Object.hasOwn(table.states, table.initial_state)) {
     errors.push(`initial_state '${table.initial_state}' not declared in states`);
   }
 
@@ -64,7 +68,7 @@ export function validateTransitionTable(
     }
     for (const t of state.transitions) {
       const goto = t.goto;
-      if (goto !== 'FINALIZE' && !goto.startsWith('FAIL:') && !table.states[goto]) {
+      if (goto !== 'FINALIZE' && !goto.startsWith('FAIL:') && !Object.hasOwn(table.states, goto)) {
         errors.push(`State '${name}': goto '${goto}' references undeclared state`);
       }
       for (const cond of t.when.conditions) {
