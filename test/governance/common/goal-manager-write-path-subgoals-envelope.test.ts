@@ -166,6 +166,17 @@ describe('PKT-1464 — write-path parent envelope: goal.subGoals is not an array
       .rejects.toThrow(/SubGoal sg1 not found/);
   });
 
+  it('updateSubGoal throws a controlled "SubGoal not found" (not a TypeError) when subGoals is a non-array object', async () => {
+    const { GoalManager, PATHS } = await loadGoalManager();
+    writeGoalsFile(PATHS.goals, [
+      { id: 'g1', description: 'object-subgoals goal', subGoals: { 'sg-x': {} }, status: 'active', createdAt: 1 },
+    ]);
+
+    const gm = new GoalManager();
+    await expect(gm.updateSubGoal('g1', 'sg1', { status: 'complete' }))
+      .rejects.toThrow(/SubGoal sg1 not found/);
+  });
+
   it('updateSubGoal over a subGoals array containing a null element resolves and mutates the matching sub-goal', async () => {
     const { GoalManager, PATHS } = await loadGoalManager();
     writeGoalsFile(PATHS.goals, [
@@ -252,6 +263,22 @@ describe('PKT-1464 — foldUserInput element filter (fail-quiet)', () => {
     const onDisk = readGoals(PATHS.goals);
     expect(onDisk.goals[0].subGoals).toHaveLength(1);
     expect(onDisk.goals[0].subGoals[0].id).toBe('sg-ok');
+  });
+
+  it('drops an undefined element without throwing', async () => {
+    const { GoalManager, PATHS } = await loadGoalManager();
+    writeGoalsFile(PATHS.goals, [
+      { id: 'g1', description: 'g', subGoals: [makeSubGoal('sg-ok')], status: 'active', createdAt: 1 },
+    ]);
+
+    const gm = new GoalManager();
+    await expect(gm.foldUserInput('g1', [undefined as any, makeSubGoal('sg-new')]))
+      .resolves.toBeUndefined();
+
+    const onDisk = readGoals(PATHS.goals);
+    expect(onDisk.goals[0].subGoals).toHaveLength(2);
+    expect(onDisk.goals[0].subGoals[0].id).toBe('sg-ok');
+    expect(onDisk.goals[0].subGoals[1].id).toBe('sg-new');
   });
 
   it('throws (fail-loud) when newSubGoals itself is not an array', async () => {
