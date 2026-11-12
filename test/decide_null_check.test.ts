@@ -65,7 +65,7 @@ describe('PROBE decide() output null/undefined crash', () => {
   });
 
   // Error message shape probe (for the packet's blast-radius narrative)
-  it('error message is the V8 "in operator" TypeError', () => {
+  it('error message is the V8 "Cannot convert undefined or null to object" TypeError', () => {
     const table = mkTable([
       { when: { kind: 'all', conditions: [{ kind: 'output_field_present', field: 'foo' }] }, goto: 'FINALIZE' },
     ]);
@@ -78,7 +78,7 @@ describe('PROBE decide() output null/undefined crash', () => {
       });
       expect.fail('expected throw');
     } catch (e) {
-      expect((e as Error).message).toMatch(/Cannot use 'in' operator/);
+      expect((e as Error).message).toMatch(/Cannot convert undefined or null to object/);
       expect((e as Error).name).toBe('TypeError');
     }
   });
