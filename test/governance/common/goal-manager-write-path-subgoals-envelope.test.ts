@@ -4,8 +4,11 @@
  * File-A for PKT-1464 — the WRITE-path `subGoals` envelope on
  * `src/alienclaw/governance/common/goal-manager.ts`.
  *
- * Two layers, both on the WRITE path (the read path is already hardened at
- * L112 `getReadySubGoals`, L124 `isGoalComplete`, L147 `markGoalComplete`):
+ * Two layers, both on the WRITE path. The read-path siblings are already
+ * hardened at L112 `getReadySubGoals`, L124 `isGoalComplete`; `markGoalComplete`
+ * (L147) is a third *mutating* method that guards only against
+ * undefined/null via `?? []` — it is NOT hardened against a non-array object
+ * (that site is owned by PKT-1337, which has not shipped).
  *
  *   LAYER 1 — PARENT ENVELOPE
  *     `load()` does `JSON.parse(readFileSync(GOALS_PATH, 'utf-8')) as GoalsFile`
@@ -14,6 +17,8 @@
  *       - `updateSubGoal`  L92  `goal.subGoals.find(...)`  -> TypeError
  *       - `foldUserInput`  L132 `goal.subGoals.push(...)` -> TypeError
  *     The read-path siblings guard; these two mutating methods did not.
+ *     LAYER 1 also covers a null / non-object ELEMENT inside a well-formed
+ *     `subGoals` array, which reaches `updateSubGoal`'s `.find()` predicate.
  *
  *   LAYER 2 — ELEMENT FILTER (foldUserInput only)
  *     `foldUserInput` persists `newSubGoals` verbatim. A subGoal with no `id`
@@ -160,6 +165,19 @@ describe('PKT-1464 — write-path parent envelope: goal.subGoals is not an array
     await expect(gm.updateSubGoal('g1', 'sg1', { status: 'complete' }))
       .rejects.toThrow(/SubGoal sg1 not found/);
   });
+
+  it('updateSubGoal over a subGoals array containing a null element resolves and mutates the matching sub-goal', async () => {
+    const { GoalManager, PATHS } = await loadGoalManager();
+    writeGoalsFile(PATHS.goals, [
+      { id: 'g1', description: 'g', subGoals: [null, makeSubGoal('sg1'), 'not-a-subgoal'], status: 'active', createdAt: 1 },
+    ]);
+
+    const gm = new GoalManager();
+    await expect(gm.updateSubGoal('g1', 'sg1', { status: 'complete' })).resolves.toBeUndefined();
+
+    const onDisk = readGoals(PATHS.goals);
+    expect(onDisk.goals[0].subGoals[1].status).toBe('complete');
+  });
 });
 
 // ─── LAYER 2 — element filter ───────────────────────────────────────────────
@@ -246,6 +264,19 @@ describe('PKT-1464 — foldUserInput element filter (fail-quiet)', () => {
     await expect(gm.foldUserInput('g1', 'not-an-array' as any))
       .rejects.toThrow(/newSubGoals must be an array/);
   });
+
+  it('drops a subGoal element whose id is an empty string', async () => {
+    const { GoalManager, PATHS } = await loadGoalManager();
+    writeGoalsFile(PATHS.goals, [
+      { id: 'g1', description: 'g', subGoals: [], status: 'active', createdAt: 1 },
+    ]);
+
+    const gm = new GoalManager();
+    await gm.foldUserInput('g1', [makeSubGoal('') as any]);
+
+    const onDisk = readGoals(PATHS.goals);
+    expect(onDisk.goals[0].subGoals).toHaveLength(0);
+  });
 });
 
 // ─── CONTROL — happy path preserved ─────────────────────────────────────────
@@ -287,18 +318,5 @@ describe('PKT-1464 — control: well-formed input keeps its existing behaviour',
     const gm = new GoalManager();
     await expect(gm.updateSubGoal('g1', 'nope', { status: 'complete' }))
       .rejects.toThrow(/SubGoal nope not found/);
-  });
-
-  it('accepts a subGoal with an empty id-string? NO — empty id is dropped', async () => {
-    const { GoalManager, PATHS } = await loadGoalManager();
-    writeGoalsFile(PATHS.goals, [
-      { id: 'g1', description: 'g', subGoals: [], status: 'active', createdAt: 1 },
-    ]);
-
-    const gm = new GoalManager();
-    await gm.foldUserInput('g1', [makeSubGoal('') as any]);
-
-    const onDisk = readGoals(PATHS.goals);
-    expect(onDisk.goals[0].subGoals).toHaveLength(0);
   });
 });
