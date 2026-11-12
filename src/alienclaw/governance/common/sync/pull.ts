@@ -93,7 +93,7 @@ async function _pullType(
   const data: unknown = r.data;
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     result.errors.push(
-      `Malformed response body: expected a JSON object, got ${Array.isArray(data) ? 'array' : typeof data}`,
+      `Malformed response body: expected a JSON object, got ${data === null ? 'null' : Array.isArray(data) ? 'array' : typeof data}`,
     );
     return result;
   }
@@ -105,6 +105,23 @@ async function _pullType(
     return result;
   }
   result.received = entries.length;
+
+  // PKT-1475: `entries` is still an UNCHECKED cast, so an element may be a
+  // non-object (null / undefined / a primitive). Dereferencing `g.verified`
+  // on such an element throws an uncaught TypeError out of `_pullType`,
+  // aborting the whole pull cycle — the same failure the guards above
+  // prevent. Drop non-object elements and report them instead, so a
+  // malformed element can never take the cycle down.
+  const objectEntries = entries.filter(
+    (g: unknown): g is GenomeEntry => typeof g === 'object' && g !== null,
+  );
+  const malformedEntries = entries.length - objectEntries.length;
+  if (malformedEntries > 0) {
+    result.errors.push(
+      `Malformed response body: ${malformedEntries} of ${entries.length} genome ` +
+      `${malformedEntries === 1 ? 'entry is' : 'entries are'} not an object`,
+    );
+  }
 
   // Python's PopulationStorage reads <type>/entries/*.json, so seeds must
   // land there — and in the full PopulationEntry shape (_entry_from_dict
@@ -123,7 +140,7 @@ async function _pullType(
   // This prevents untrusted client-reported fitness values from seeding
   // local populations before independent verification.
   // The entries directory is still created above for future pulls.
-  const verifiedGenomes = entries.filter((g: { verified?: boolean }) => g.verified === true);
+  const verifiedGenomes = objectEntries.filter((g) => g.verified === true);
   if (verifiedGenomes.length === 0) {
     process.stderr.write('[sync] Pull returned 0 verified genomes — inert until P6 verifier exists.\n');
     return result;

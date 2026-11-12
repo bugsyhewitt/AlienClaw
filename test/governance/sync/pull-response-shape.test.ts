@@ -33,6 +33,15 @@
  *   at pull.ts:80-83 — not an uncaught exception that kills the whole cycle.
  *
  * Test IDs are prefixed `R-1475-*` for traceability.
+ *
+ * ELEMENT-LEVEL COVERAGE (R-1475-5 .. R-1475-8):
+ *   The root-shape guards alone are NOT sufficient. A `genomes` ARRAY whose
+ *   ELEMENTS are non-objects (null / a primitive) passes both `Array.isArray`
+ *   checks and then throws inside `entries.filter(g => g.verified === true)`
+ *   — BEFORE `_writeEntry` (PKT-690) can reject it — so that case has no
+ *   other owner. R-1475-5..8 cover it: no throw, the malformed elements are
+ *   reported in `result.errors`, `result.received` keeps the raw array
+ *   length, and any VALID element in the same array is still written.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -176,5 +185,119 @@ describe('R-1475 — pull.ts response-shape guard (malformed `genomes` field)', 
     expect(result!.errors).toEqual([]);
     expect(result!.received).toBe(1);
     expect(result!.written).toBe(1);
+  });
+
+  it('R-1475-5 pullTopGenomes records an error and does NOT throw when a genomes ELEMENT is not an object', async () => {
+    stubFetchBody({
+      martian_type: 'compute',
+      total_for_type: 2,
+      genomes: [null, 'not-an-object'],
+    });
+    const client = new NetworkAPIClient('https://api.example.test', 'k');
+
+    let threw: unknown = undefined;
+    let results: Awaited<ReturnType<typeof pullTopGenomes>> | undefined;
+    try {
+      results = await pullTopGenomes(client, ['compute'], root, 5);
+    } catch (e) {
+      threw = e;
+    }
+
+    expect(threw, 'pullTopGenomes must not throw for a non-object genomes element').toBeUndefined();
+    expect(results).toHaveLength(1);
+    expect(results![0]!.martianType).toBe('compute');
+    expect(results![0]!.received).toBe(2);
+    expect(results![0]!.written).toBe(0);
+    expect(results![0]!.errors.length).toBeGreaterThan(0);
+    expect(results![0]!.errors.join(' ')).toMatch(/malformed response body/i);
+  });
+
+  it('R-1475-6 seedEmptyPopulations records an error and does NOT throw when a genomes ELEMENT is not an object', async () => {
+    stubFetchBody({
+      martian_type: 'compute',
+      total_for_type: 2,
+      genomes: [null, 'not-an-object'],
+    });
+    const client = new NetworkAPIClient('https://api.example.test', 'k');
+
+    let threw: unknown = undefined;
+    let results: Awaited<ReturnType<typeof seedEmptyPopulations>> | undefined;
+    try {
+      results = await seedEmptyPopulations(client, ['compute'], root, 5);
+    } catch (e) {
+      threw = e;
+    }
+
+    expect(threw, 'seedEmptyPopulations must not throw for a non-object genomes element').toBeUndefined();
+    expect(results).toHaveLength(1);
+    expect(results![0]!.martianType).toBe('compute');
+    expect(results![0]!.errors.length).toBeGreaterThan(0);
+    expect(results![0]!.errors.join(' ')).toMatch(/malformed response body/i);
+  });
+
+  it('R-1475-7 a VALID element alongside a malformed element is still written', async () => {
+    const goodEntry = (goodBody() as { genomes: Array<Record<string, unknown>> }).genomes[0];
+    stubFetchBody({
+      martian_type: 'compute',
+      total_for_type: 2,
+      genomes: [goodEntry, null],
+    });
+    const client = new NetworkAPIClient('https://api.example.test', 'k');
+
+    let threw: unknown = undefined;
+    let results: Awaited<ReturnType<typeof pullTopGenomes>> | undefined;
+    try {
+      results = await pullTopGenomes(client, ['compute'], root, 5);
+    } catch (e) {
+      threw = e;
+    }
+
+    expect(threw, 'pullTopGenomes must not throw for [valid, null]').toBeUndefined();
+    expect(results).toHaveLength(1);
+    expect(results![0]!.martianType).toBe('compute');
+    expect(results![0]!.received).toBe(2);
+    expect(results![0]!.written).toBe(1);
+    expect(results![0]!.errors.length).toBeGreaterThan(0);
+    expect(results![0]!.errors.join(' ')).toMatch(/malformed response body/i);
+  });
+
+  it('R-1475-8 a malformed type FIRST does not abort the pull for the LATER types', async () => {
+    globalThis.fetch = (async (url: unknown) => {
+      const u = String(url);
+      if (u.includes('martian_type=bad')) {
+        return new Response(JSON.stringify({ martian_type: 'bad', genomes: [null], total_for_type: 1 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify(goodBody()), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as unknown as typeof globalThis.fetch;
+
+    const client = new NetworkAPIClient('https://api.example.test', 'k');
+
+    let threw: unknown = undefined;
+    let results: Awaited<ReturnType<typeof pullTopGenomes>> | undefined;
+    try {
+      results = await pullTopGenomes(client, ['bad', 'good'], root, 5);
+    } catch (e) {
+      threw = e;
+    }
+
+    expect(threw, 'pullTopGenomes must not throw when the malformed type comes FIRST').toBeUndefined();
+    expect(results).toHaveLength(2);
+    expect(results!.map(r => r.martianType)).toEqual(['bad', 'good']);
+
+    const bad = results!.find(r => r.martianType === 'bad')!;
+    expect(bad.errors.length).toBeGreaterThan(0);
+    expect(bad.errors.join(' ')).toMatch(/malformed response body/i);
+    expect(bad.written).toBe(0);
+
+    const good = results!.find(r => r.martianType === 'good')!;
+    expect(good.errors).toEqual([]);
+    expect(good.received).toBe(1);
+    expect(good.written).toBe(1);
   });
 });
