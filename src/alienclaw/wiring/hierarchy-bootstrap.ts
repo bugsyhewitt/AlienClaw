@@ -264,9 +264,19 @@ export function bootstrap(): BootstrapResult {
       // Write live-fitness summary every tick so status readers see fresh data
       try {
         const allMs = registry.list();
+        // PKT-1372: filter non-finite fitness BEFORE serialization. Mirrors the EMA
+        // guard at L195 (PKT-458) and the audit guard at L154. JSON.stringify(NaN/Infinity)
+        // emit 'null', and JSON.stringify(undefined) omits the field — both produce a
+        // malformed on-disk summary that the status reader must filter (slow path).
+        // Excluding them here keeps the on-disk state well-formed (fast path).
+        // The audit-job URGENT at L195-202 already logs the corruption; this filter
+        // prevents the corrupted summary from hitting disk in the first place.
+        const summaryMartians = allMs
+          .filter(ms => Number.isFinite(ms.fitness))
+          .map(ms => ({ id: ms.id, fitness: ms.fitness }));
         const summary = JSON.stringify({
           generated_at: new Date().toISOString(),
-          martians: allMs.map(ms => ({ id: ms.id, fitness: ms.fitness })),
+          martians: summaryMartians,
         }, null, 2);
         atomicWrite(PATHS.liveFitnessSummary, summary);
       } catch {
