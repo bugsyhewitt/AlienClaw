@@ -69,4 +69,35 @@ describe('--target-fitness CLI lever', () => {
       'gen 3/10  max=0.870 mean=0.550 distinct=12',
     );
   });
+
+  // PKT-1373: target_reached branch must drop non-finite fitness/gen before .toFixed().
+  // Sister hardening to PR #605 (PKT-1142) on the gen/max_fitness/mean_fitness block.
+  it('R-1373-A: fitness=1e500 (JSON.parse → Infinity) drops from target_reached arm', () => {
+    const line = '{"type":"target_reached","fitness":1e500,"generation":3}';
+    const out = formatGenerationLine(line, 10);
+    expect(out).not.toContain('Infinity');
+    expect(out).not.toContain('NaN');
+    expect(out).toBe(line);
+  });
+
+  it('R-1373-B: fitness=-1e500 (JSON.parse → -Infinity) drops from target_reached arm', () => {
+    const line = '{"type":"target_reached","fitness":-1e500,"generation":3}';
+    const out = formatGenerationLine(line, 10);
+    expect(out).not.toContain('Infinity');
+    expect(out).not.toContain('NaN');
+    expect(out).toBe(line);
+  });
+
+  it('R-1373-C: generation=1e500 (Infinity) drops from target_reached arm', () => {
+    const line = '{"type":"target_reached","fitness":0.9,"generation":1e500}';
+    const out = formatGenerationLine(line, 10);
+    expect(out).not.toContain('Infinity');
+    expect(out).not.toContain('NaN');
+    expect(out).toBe(line);
+  });
+
+  it('R-1373-D: regression — happy path 0.9 at gen 4 still formats correctly', () => {
+    const line = JSON.stringify({ type: 'target_reached', generation: 4, fitness: 0.9 });
+    expect(formatGenerationLine(line, 10)).toBe('target reached: fitness=0.900 at gen 4');
+  });
 });
