@@ -42,8 +42,15 @@ function log(msg: string): void {
  * This is intentionally simple — migrations should avoid stored procedures
  * that require DELIMITER rewriting.
  */
-function splitStatements(sql: string): string[] {
-  return sql.split(';').map(s => s.trim()).filter(Boolean);
+export function splitStatements(sql: string): string[] {
+  // Comments are stripped before splitting: a `;` inside a `--` line comment or a
+  // `/* ... */` block comment is not a statement boundary (migrations 003/004 rely
+  // on this). The `--` pattern is anchored at start-of-line so it can never match
+  // inside a string literal.
+  const stripped = sql
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^[ \t]*--.*$/gm, '');
+  return stripped.split(';').map(s => s.trim()).filter(Boolean);
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
