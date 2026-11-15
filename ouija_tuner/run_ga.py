@@ -117,7 +117,7 @@ def _run_baseline(label: str, config: dict, model: str, ollama_seed: int) -> flo
     t0 = time.monotonic()
     fitness = evaluate_config(config, model, ollama_seed)
     elapsed = time.monotonic() - t0
-    print(f"    mean_leak_asr={fitness:.4f}  ({elapsed:.1f}s)")
+    print(f"    mean_inj_asr={fitness:.4f}  ({elapsed:.1f}s)")
     return fitness
 
 
@@ -252,7 +252,7 @@ def main() -> int:
     best_config = decode_ouija_config(best_genome)
     print("── GA winner (training seed) ─────────────────────────────────────")
     print(f"  genome  : {best_genome[:32]}…")
-    print(f"  fitness : {best_fitness:.4f} (mean_leak_asr on training seed)")
+    print(f"  fitness : {best_fitness:.4f} (mean_inj_asr on training seed)")
     print(f"  config  : {_fmt_config(best_config)}")
     print()
 
@@ -273,7 +273,7 @@ def main() -> int:
     t0 = time.monotonic()
     ho_evolved = evaluate_config(best_config, args.model, held_out_seed)
     elapsed = time.monotonic() - t0
-    print(f"    mean_leak_asr={ho_evolved:.4f}  ({elapsed:.1f}s)")
+    print(f"    mean_inj_asr={ho_evolved:.4f}  ({elapsed:.1f}s)")
     print()
 
     beats_plain    = ho_evolved > ho_plain
