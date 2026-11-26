@@ -1,0 +1,63 @@
+{
+  "package": "agent-tool-sandbox (python)",
+  "source_commit": "b057cf3cf91f3ece8c88ae1e4fb156ef5b3fec2c",
+  "files": [
+    {
+      "staged": "staging/agent-tool-sandbox/python/src/agent_tool_sandbox/ssrf_guard.py",
+      "source": "src/alienclaw/tools/_ssrf_guard.py",
+      "source_blob": "a67f6c7d12620ef61ead4a2a1e94e8d7e1945887",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/src/agent_tool_sandbox/boundary.py",
+      "source": "src/alienclaw/tools/_boundary.py",
+      "source_blob": "ae3dc52a52cc8cff01fb1d2e9626520ed90ff2ad",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_url_fetch_ssrf.py",
+      "source": "test/tools/test_url_fetch_ssrf.py",
+      "source_blob": "b779c6a4cf12cc2ce6110ba2a785e96d48d5da9b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_http_get_ssrf.py",
+      "source": "test/tools/test_http_get_ssrf.py",
+      "source_blob": "2c5884307879a2c77366843b64fef2fc2191dc8b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_ssrf_guard_uncaught_idna.py",
+      "source": "test/tools/test_ssrf_guard_uncaught_idna.py",
+      "source_blob": "baa426e658fb7c22076aa8ec48e2e4e120493986",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_file_boundary.py",
+      "source": "test/tools/test_file_boundary.py",
+      "source_blob": "1ec79a31fac23c434552391c557a0e3436322f2c",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_file_write_boundary.py",
+      "source": "test/tools/test_file_write.py",
+      "source_blob": "75b2df784d2c1427e5b76afff1b3978af7b22ad7",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_url_fetch_ssrf_cgnat.py",
+      "source": "test/tools/test_url_fetch_ssrf_cgnat.py",
+      "source_blob": "814dbc12c3e6e0cec2373930f3135508e2bd0c48",
+      "relation": "adapted"
+    }
+  ],
+  "divergences": [
+    "CGNAT: ssrf_guard._ip_is_blocked additionally blocks RFC 6598 100.64.0.0/10 (IPv4Address only), applied verbatim from open/unmerged PR #630 (head ff070bd5e9dadeaa5da32ccffd868b15eb642aa9, which changes src/alienclaw/tools/_ssrf_guard.py a67f6c7d -> 328ac5f8). In-tree allows these addresses. This is the only decision difference at equivalent configuration; tests/test_parity_in_tree.py asserts it explicitly and fails if in-tree starts blocking CGNAT.",
+    "test_url_fetch_ssrf_cgnat.py derives from PR #630 head ff070bd5; the file is absent at source_commit, so its source_blob is taken from that PR commit, not from source_commit.",
+    "boundary: removed the OpenClaw/env helpers workspace_root(), file_write_root(), _openclaw_home() and the _OPENCLAW_SUBPATH constant; callers always pass the boundary root explicitly.",
+    "boundary: the hardcoded ~/.openclaw denial inside assert_inside_boundary became a keyword-only parameter deny_roots=() (iterable of str/PathLike; a single str/PathLike is accepted). Default denies nothing beyond the boundary. With deny_roots=[Path.home() / '.openclaw'] every decision is identical to in-tree (asserted by tests/test_parity_in_tree.py).",
+    "boundary: deny-root rejection message changed from 'OpenClaw workspace denied: \"<path>\" targets an OpenClaw agent directory' to 'Denied root: \"<path>\" targets a denied directory'. All other error messages in both modules are byte-identical to in-tree.",
+    "Docstrings/comments genericised (product names, ticket numbers and caller file references removed); assert_safe_fetch_url docstring corrected from 'Returns the canonical URL' to 'Returns the URL unchanged' (behaviour unchanged).",
+    "Ported tests are guard-level only: tool-level assertions (RunResult ok/correctness, atomic write, output contract, compute/extract_json/search_text guards in test_file_boundary.py) were not ported. The real-socket HTTPServer redirect tests were replaced with an in-process urllib handler, and DNS is a fake resolver (real libc parser via AI_NUMERICHOST for literals), so the suite is network-free."
+  ]
+}
