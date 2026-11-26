@@ -1,0 +1,30 @@
+{
+  "package": "@v3x/hardened-fetch (ts)",
+  "source_commit": "b057cf3cf91f3ece8c88ae1e4fb156ef5b3fec2c",
+  "files": [
+    {
+      "staged": "staging/agent-tool-sandbox/ts/src/hardened-fetch.ts",
+      "source": "src/alienclaw/net/hardened-fetch.ts",
+      "source_blob": "03ee376ccbd5b8ffc05bec4dca253b53712cee66",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/ts/test/ssrf-vectors.test.ts",
+      "source": "test/ssrf-vectors.test.ts",
+      "source_blob": "500b5365bfe65b20424ee1fb8dd0b0b11da9178b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/ts/test/jail-ssrf.test.ts",
+      "source": "test/jail-hostile-genomes.test.ts",
+      "source_blob": "3a314be8a86cd120a587672e9ae0629a5c47765c",
+      "relation": "adapted"
+    }
+  ],
+  "divergences": [
+    "API: LEADERBOARD_POLICY and leaderboardFetch (AlienClaw-specific) are not exported; all other exports (FetchPolicy, ResolvedAddress, DEFAULT_PROTOCOLS, MAX_REDIRECTS, isBlockedHost, validateResolvedAddresses, hardenedFetch) are identical.",
+    "Block list: none. CGNAT 100.64.0.0/10 was already blocked in-tree (isBlockedIpv4), so no range was added; test/parity-in-tree.test.ts asserts an empty decision-divergence set against the in-tree module.",
+    "Non-behavioural: unused node:http and node:https imports removed; header comment rewritten (AlienClaw consumer list dropped; the in-tree claim that resolver-inconsistency attacks are impossible replaced by a statement that fetch() re-resolves DNS); one section comment reworded. All function bodies are verbatim.",
+    "Tests: ported ssrf-vectors fixes the in-tree '[::])' typo (it passed only via fail-closed parsing) and replaces four vacuous obfuscated-IPv4 assertions with real new URL() canonicalisation; the two expect(true) jail construction notes are not ported."
+  ]
+}
