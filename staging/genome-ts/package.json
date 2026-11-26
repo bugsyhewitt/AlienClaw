@@ -1,0 +1,23 @@
+{
+  "name": "@alienclaw/genome-codec",
+  "version": "0.0.0-dev",
+  "private": true,
+  "description": "Deterministic, checksummed 256-char Base62 genome codec (TypeScript twin of the Python genome codec)",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./codec": "./src/codec.ts",
+    "./operators": "./src/operators.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "PROVENANCE.json"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {}
+}

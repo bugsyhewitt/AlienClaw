@@ -1,0 +1,64 @@
+{
+  "package": "@alienclaw/genome-codec (ts)",
+  "source_commit": "b057cf3cf91f3ece8c88ae1e4fb156ef5b3fec2c",
+  "files": [
+    {
+      "staged": "staging/genome-ts/src/codec.ts",
+      "source": "src/alienclaw/registry/genome-codec.ts",
+      "source_blob": "531c9a467e727204219b38091a3b60c80f0f23ae",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/genome-ts/src/operators.ts",
+      "source": "src/alienclaw/registry/genome-operators.ts",
+      "source_blob": "44dc2d56cece40023352b766f48e08838f111120",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/genome-ts/test/fixtures/genome-spec-fixtures.json",
+      "source": "test/fixtures/genome-spec-fixtures.json",
+      "source_blob": "ac109de347c125a6bdd0bb50bed439bae8f4e3de",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/genome-ts/test/codec.test.ts",
+      "source": "test/registry/genome-codec.test.ts",
+      "source_blob": "f68f4e05050d435396687b152280b97602dbfc0e",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/genome-ts/test/operators.test.ts",
+      "source": "test/registry/genome-operators.test.ts",
+      "source_blob": "d5f3b845724933347365e795b8cb52f721fee082",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/genome-ts/test/xcode-helpers.test.ts",
+      "source": "test/genome/xcode-helpers.test.ts",
+      "source_blob": "e0baae2a1aadab848db18ce054ec29ea7648efde",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/genome-ts/test/fixture-runner.test.ts",
+      "source": "test/genome/ts-fixture-runner.test.ts",
+      "source_blob": "b14a96e55e891a0ea0b6ffa23db3712ba1889f77",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/genome-ts/test/property.test.ts",
+      "source": "test/genome/test_property_genome.ts",
+      "source_blob": "7d8063264b16f17e85c4347789dad4d6a17bbae1",
+      "relation": "adapted"
+    }
+  ],
+  "divergences": [
+    "src/codec.ts is byte-identical to the source (no imports to rewrite). Its doc comments still use retired-product vocabulary (CreatorBot, Martian, ARCHITECTURE section refs); kept verbatim on purpose.",
+    "src/operators.ts: the only change is the import specifier './genome-codec.js' -> './codec.js'.",
+    "Nothing was pulled from constants.ts, utils.ts or types.ts: genome-codec.ts has no imports and genome-operators.ts imports only genome-codec.ts.",
+    "Ported tests: only import specifiers changed ('../../src/alienclaw/registry/genome-codec.js' -> '../src/codec.js', '.../genome-operators.js' -> '../src/operators.js'). fixture-runner.test.ts additionally resolves the fixture at 'fixtures/genome-spec-fixtures.json' (was '../fixtures/...'). Header comments that name in-tree paths are left as-is.",
+    "test/property.test.ts is renamed from test/genome/test_property_genome.ts. The in-tree file does not match vitest's *.test.ts include glob, so it has never been collected by the in-tree suite; the staged copy IS collected and runs.",
+    "New files with no in-tree source: package.json, tsconfig.json, README.md, PROVENANCE.json, src/index.ts (re-exports codec + operators), test/fixture-sync.test.ts, test/parity-in-tree.test.ts.",
+    "tsconfig.json mirrors the root one (strict, nodenext, noEmit, types [node]) but pins lib [es2022] (no DOM) and drops esModuleInterop and resolveJsonModule (unused). noUncheckedIndexedAccess was not enabled: the verbatim fixture runner destructures Record<string,string> values and would need non-import edits.",
+    "Not ported: tests that exercise the codec only through DROP areas (test/registry/registry.test.ts, martian-registry.test.ts, ms-loader.test.ts, test/governance/common/random-genome.test.ts, test/wiring/*, test/msb/*) and test/api/* (api validation layer, not the codec). test/evolution/reflective/genome-codec.test.ts covers a different module (evolution/reflective/genome-codec.ts) and is out of scope."
+  ]
+}
