@@ -16,6 +16,7 @@ single `if _current is not None` guard — zero allocation, zero cost.
 """
 from __future__ import annotations
 
+import math
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -82,10 +83,12 @@ def record_runner_result(output: dict[str, Any], error: str | None,
     if _current is not None:
         _current.runner_output = dict(output)
         _current.runner_error = error
-        _current.correctness = correctness
+        # PKT-1415: defensive coerce NaN/±Inf → safe default.
+        _current.correctness = 0.0 if not math.isfinite(correctness) else correctness
         _current.tool_calls = tool_calls
 
 
 def record_fitness(fitness: float) -> None:
     if _current is not None:
-        _current.fitness = fitness
+        # PKT-1415: see record_runner_result.
+        _current.fitness = 0.0 if not math.isfinite(fitness) else fitness

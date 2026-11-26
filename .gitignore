@@ -149,3 +149,6 @@ test/zz_*
 
 # Per-build generated artifact (like dist/)
 build-info.json
+
+# pho3nix_tuner rig data dumps (import from xil-1/sentry; never commit)
+pho3nix_tuner/data/

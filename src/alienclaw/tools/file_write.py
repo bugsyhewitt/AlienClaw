@@ -2,7 +2,7 @@ import os
 import uuid
 from typing import Any
 from .types import RunResult
-from ._boundary import assert_inside_boundary, file_write_root
+from ._boundary import assert_inside_boundary, assert_no_symlink, file_write_root
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -13,7 +13,10 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if content is None:
         return RunResult(ok=False, error="Missing 'content' field", correctness=0.0)
     try:
-        path = assert_inside_boundary(path_str, file_write_root())
+        write_root = file_write_root()
+        # Symlink guard must inspect the UNRESOLVED path
+        assert_no_symlink(write_root / path_str)
+        path = assert_inside_boundary(path_str, write_root)
     except ValueError as exc:
         return RunResult(ok=False, error=str(exc), correctness=0.0)
     # repeat_count: write content N times (mod5_plus1 → 1-5). Drives tool_calls count.
