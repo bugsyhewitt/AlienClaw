@@ -1,0 +1,8 @@
+martian_type: url_fetch_alone
+description: "Single url_fetch tool. Backwards-compat for pre-Packet-16 populations."
+use_cases:
+  - "Fetching a URL with support for custom methods and headers"
+slots:
+  - slot_index: 0
+    tool_name: url_fetch
+    inputs_from: null

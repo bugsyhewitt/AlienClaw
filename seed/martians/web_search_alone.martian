@@ -1,0 +1,8 @@
+martian_type: web_search_alone
+description: "Single web_search tool. Backwards-compat for pre-Packet-16 populations."
+use_cases:
+  - "Searching the web and returning ranked results"
+slots:
+  - slot_index: 0
+    tool_name: web_search
+    inputs_from: null

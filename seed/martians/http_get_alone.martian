@@ -1,0 +1,8 @@
+martian_type: http_get_alone
+description: "Single http_get tool. Backwards-compat for pre-Packet-16 populations."
+use_cases:
+  - "Fetching a URL and returning its response body"
+slots:
+  - slot_index: 0
+    tool_name: http_get
+    inputs_from: null

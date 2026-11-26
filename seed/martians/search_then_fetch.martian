@@ -1,0 +1,14 @@
+martian_type: search_then_fetch
+description: "Search text for a URL pattern, then fetch a campaign-specified URL."
+use_cases:
+  - "Extracting URLs from text and fetching their content"
+  - "Following links found in a document"
+slots:
+  - slot_index: 0
+    tool_name: search_text
+    inputs_from: null
+  - slot_index: 1
+    tool_name: http_get
+    inputs_from:
+      fields:
+        url: "${campaign.fetch_url}"

@@ -1,0 +1,8 @@
+martian_type: file_write_alone
+description: "Single file_write tool. Backwards-compat for pre-Packet-16 populations."
+use_cases:
+  - "Writing content to a local file path"
+slots:
+  - slot_index: 0
+    tool_name: file_write
+    inputs_from: null

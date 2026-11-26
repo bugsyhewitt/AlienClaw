@@ -1,0 +1,14 @@
+martian_type: compute_then_validate
+description: "Compute a result, then validate it parses as JSON."
+use_cases:
+  - "Computing a structured output and asserting it is well-formed JSON"
+  - "Numerical pipelines whose output is expected to serialize"
+slots:
+  - slot_index: 0
+    tool_name: compute
+    inputs_from: null
+  - slot_index: 1
+    tool_name: extract_json
+    inputs_from:
+      fields:
+        json: "${slot[0].output.result}"

@@ -1,0 +1,15 @@
+martian_type: fetch_then_extract
+description: "Fetch a URL via url_fetch, then extract a field from the JSON response."
+use_cases:
+  - "Calling a REST API with custom headers and extracting a specific field"
+  - "Fetching and parsing a JSON document from an arbitrary HTTP endpoint"
+slots:
+  - slot_index: 0
+    tool_name: url_fetch
+    inputs_from: null
+  - slot_index: 1
+    tool_name: extract_json
+    inputs_from:
+      fields:
+        json: "${slot[0].output.content}"
+        path: "${campaign.extract_path}"

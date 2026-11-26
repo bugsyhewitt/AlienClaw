@@ -1,0 +1,8 @@
+martian_type: extract_json_alone
+description: "Single extract_json tool. Backwards-compat for pre-Packet-16 populations."
+use_cases:
+  - "Parsing and validating JSON structure from a given input"
+slots:
+  - slot_index: 0
+    tool_name: extract_json
+    inputs_from: null

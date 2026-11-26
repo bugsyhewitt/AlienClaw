@@ -1,0 +1,15 @@
+martian_type: compute_then_write
+description: "Compute a result, then write it to a file."
+use_cases:
+  - "Calculating a value and persisting it for downstream consumption"
+  - "Mathematical result archival pipelines"
+slots:
+  - slot_index: 0
+    tool_name: compute
+    inputs_from: null
+  - slot_index: 1
+    tool_name: file_write
+    inputs_from:
+      fields:
+        path: "${campaign.write_path}"
+        content: "${slot[0].output.result}"

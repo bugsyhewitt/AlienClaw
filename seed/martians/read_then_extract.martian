@@ -1,0 +1,15 @@
+martian_type: read_then_extract
+description: "Read a file, then extract a field from its JSON content."
+use_cases:
+  - "Loading a JSON config file and pulling a specific value"
+  - "Parsing log files stored as JSON-lines"
+slots:
+  - slot_index: 0
+    tool_name: file_read
+    inputs_from: null
+  - slot_index: 1
+    tool_name: extract_json
+    inputs_from:
+      fields:
+        json: "${slot[0].output.content}"
+        path: "${campaign.extract_path}"
