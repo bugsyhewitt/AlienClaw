@@ -50,7 +50,16 @@ export function formatGenerationLine(line: string, totalGenerations: number): st
     if (row['type'] === 'target_reached') {
       const fitness = row['fitness'];
       const gen = row['generation'];
-      if (typeof fitness === 'number' && typeof gen === 'number') {
+      // PKT-1373: typeof === 'number' is necessary but not sufficient — JSON.parse
+      // silently coerces the valid JSON literal `1e500` to Infinity (and `-1e500`
+      // to -Infinity). .toFixed(3) then returns the 8-char string "Infinity" /
+      // "-Infinity" instead of a 3-decimal number, poisoning the operator's stdout.
+      // Mirror the hardening at cli/runs.ts:37/55, cli/show.ts:34,
+      // cli/status.ts:33 (PKT-1141), telemetry-reader.ts:136,
+      // sync/local-population.ts:51, the gen/max/mean block of this same
+      // function (PR #605 / PKT-1142), and ~14 other sites.
+      if (typeof fitness === 'number' && Number.isFinite(fitness)
+       && typeof gen === 'number' && Number.isFinite(gen)) {
         return `target reached: fitness=${fitness.toFixed(3)} at gen ${gen}`;
       }
     }
