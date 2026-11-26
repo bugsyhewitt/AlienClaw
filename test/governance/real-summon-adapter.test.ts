@@ -5,7 +5,8 @@ import { RealMartianSummonAdapter, validateBridgeResponse } from '../../src/alie
 const VALID_GENOME = 'TEST0001G1AlienClaw1d1HDjft5Q1DV1CeXDao0nhL9xK55qbojXyNYpcrZh2EH4E6HdMMCGwebAjANzdYgqmE1JGDwsJeOuSGFYGatODzV526cnQ3NzWyr0igXGd6QSxsGVBurIdb9lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJzeRW7DKaED4dEur4EfD8wZ82fsI3iY7MgLgmrYahC0Fmy5GotUO98O1gIrAOtaC5m0nA6TYCfWMhW0neS3ewBQ';
 
 describe('RealMartianSummonAdapter', () => {
-  it('returns UNKNOWN_MARTIAN_TYPE error for unrecognized brain', async () => {
+  // skip: seed/martians/ deleted in teardown pass 1; subprocess crashes with exit 1 instead of UNKNOWN_MARTIAN_TYPE; whole governance suite drops in pass 2
+  it.skip('returns UNKNOWN_MARTIAN_TYPE error for unrecognized brain', async () => {
     const adapter = new RealMartianSummonAdapter();
     const result = await adapter.summon({
       summon_id: 'test-1',

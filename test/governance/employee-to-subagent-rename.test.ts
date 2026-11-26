@@ -61,7 +61,8 @@ describe('packet-043: Employee → Subagent rename is complete and self-consiste
     expect(t?.assignedTo).toBe('subagent-D');
   });
 
-  it('agent prompts contain "Subagent" and do not contain standalone "Employee" identifier', async () => {
+  // skip: src/alienclaw/prompts/ deleted in teardown pass 1; whole governance suite drops in pass 2
+  it.skip('agent prompts contain "Subagent" and do not contain standalone "Employee" identifier', async () => {
     const fs = await import('fs/promises');
     const prompts = ['bossbot', 'creatorbot', 'advisorbot'];
     for (const p of prompts) {
