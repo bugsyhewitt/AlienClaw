@@ -50,8 +50,11 @@ def _resolve_host_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6A
     return out
 
 
+_CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")  # RFC 6598 carrier-grade NAT
+
+
 def _ip_is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """True if ip is loopback / private / link-local / metadata / reserved / multicast."""
+    """True if ip is loopback / private / link-local / metadata / reserved / CGNAT / multicast."""
     if (
         ip.is_loopback
         or ip.is_private
@@ -60,6 +63,11 @@ def _ip_is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
         or ip.is_reserved
         or ip.is_unspecified
     ):
+        return True
+    # CGNAT 100.64.0.0/10 (RFC 6598) — not in is_private on Python ≤ 3.12.
+    # Explicit check is the only correct cross-version contract (TS twin at
+    # msb/tool-adapters.ts:154-155 has blocked this range since PKT-577).
+    if isinstance(ip, ipaddress.IPv4Address) and ip in _CGNAT_NETWORK:
         return True
     # IPv6 deprecated site-local (fec0::/10) — not covered by is_private in all Python versions
     if isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local:
