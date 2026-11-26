@@ -95,11 +95,29 @@ async function fileWrite(args: Record<string, unknown>): Promise<unknown> {
 // Resolver
 // ---------------------------------------------------------------------------
 
-const TOOL_MAP: Record<string, ToolFn> = {
+// PKT-1416 — prototype-safe tool map.
+//
+// `TOOL_MAP` was a plain object literal, so `TOOL_MAP[toolName]` resolved
+// INHERITED `Object.prototype` members for any tool name that was never
+// declared: `constructor`, `toString`, `hasOwnProperty`, `valueOf`, …
+// `resolve()` returned those as callable `ToolFn`s. Because the
+// adapter-invocation guard is a truthiness check (`if (!adapter) …`), a
+// leaked member PASSED the guard and the call was recorded as a SUCCESS with
+// a garbage payload instead of the intended
+// `No tool adapter registered for "<name>"` failure.
+//
+// `Object.create(null)` gives the map a null prototype, so only own
+// properties are reachable. `supportedTools()` keeps working — `Object.keys()`
+// on a null-prototype object returns its own enumerable keys.
+//
+// The sibling resolver (governance/hermes/hermes-tool-resolver.ts) is already
+// prototype-safe: it delegates to the Map-based `getToolAdapter()`. This makes
+// the two `implements ToolResolver` hosts agree on unknown-name behavior.
+const TOOL_MAP: Record<string, ToolFn> = Object.assign(Object.create(null), {
   web_search: webSearch,
   file_read:  fileRead,
   file_write: fileWrite,
-};
+});
 
 export class OpenClawToolResolver implements ToolResolver {
   resolve(toolName: string): ToolFn | undefined {
