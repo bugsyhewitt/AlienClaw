@@ -78,5 +78,9 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         ok=True,
         output={"extracted": extracted, "inputKeys": input_keys},
         tool_calls=extraction_passes,
-        correctness=1.0,
+        # Parity with web_search.py:95 — a run that extracted nothing is not a
+        # perfect run. Without this the bridge min(graded, correctness) lets a
+        # zero-extraction call score 1.0, identical to (in fact better than) a
+        # real extraction. PKT-087 corrective re-author.
+        correctness=1.0 if extracted else 0.5,
     )
