@@ -54,7 +54,8 @@ def mutual_information(
         n_bins_y: number of bins for Y; auto-determined if None
 
     Returns:
-        MI estimate in nats (always ≥ 0)
+        MI estimate in nats (always ≥ 0). Miller-Madow can put it above the
+        plug-in H(X) (never above the Miller-Madow H(X)).
     """
     n = len(x)
     if n < 2:
@@ -94,30 +95,43 @@ def mutual_information(
             if c > 0
         )
 
-    H_x = entropy(x_counts)
-    H_y = entropy(y_counts)
-    H_joint = entropy(joint)
+    h_x = entropy(x_counts)
+    h_y = entropy(y_counts)
+    h_joint = entropy(joint)
 
-    raw_mi = H_x + H_y - H_joint
+    raw_mi = h_x + h_y - h_joint
 
-    # Miller-Madow finite-sample correction
-    n_x = len(x_counts)
-    n_y = len(y_counts)
-    n_joint = len(joint)
-    # PKT-1477: the bias correction may only REDUCE the plug-in estimate.
-    # `n_x * n_y - n_joint - 1` is NEGATIVE whenever the joint table is
-    # saturated (n_x * n_y <= n_joint) — which includes the ubiquitous case
-    # of a CONSTANT X, where n_x == 1 and n_joint == n_y. A negative
-    # correction made `raw_mi - correction` LARGER than `raw_mi`, so the
-    # "bias correction" inflated the estimate and a provably-zero-information
-    # input reported a strictly positive MI (1/(2n) at constant X: 0.125 at
-    # n=4, 0.0125 at n=40). The `max(0.0, ...)` clamp below only guarded the
-    # lower bound, so the inflation escaped. Clamp the corrected value to the
-    # plug-in estimate: a bias correction can never add information.
-    correction = (n_x * n_y - n_joint - 1) / (2.0 * total)
+    # Miller-Madow finite-sample correction. Each plug-in entropy is biased low
+    # by about (m - 1) / (2N), m = number of non-empty bins, so applying the
+    # Miller-Madow entropy H + (m - 1) / (2N) to each term of h_x + h_y - h_joint
+    # gives
+    #   MI_MM = raw_mi + ((m_x - 1) + (m_y - 1) - (m_joint - 1)) / (2N)
+    #         = raw_mi - (m_joint - m_x - m_y + 1) / (2N)
+    # (Panzeri & Treves 1996 reach the same term for I(S;R)). Every joint cell
+    # occupied (m_joint = m_x * m_y, the independent case) gives a correction of
+    # (m_x - 1)(m_y - 1) / (2N), the plug-in bias of an independent pair. A
+    # constant X (m_x = 1 forces m_joint = m_y) gives exactly 0. A sparse joint
+    # table (m_joint < m_x + m_y - 1: a near-deterministic relation) gives a
+    # negative correction that RAISES the estimate: the marginal entropies'
+    # corrections then outweigh the joint entropy's.
+    #
+    # 2026-11-26 review: the term was (m_x * m_y - m_joint - 1) / (2N), which is
+    # not Miller-Madow. It was -1 / (2N) whenever every joint cell was occupied
+    # (including at constant X, where PKT-1477 saw it inflate the estimate to
+    # 1/(2N)), and PKT-1477's clamp min(raw_mi, corrected_mi) then returned the
+    # uncorrected plug-in value. The clamp is gone with the wrong term: under the
+    # correct term constant X needs no clamp, and capping at raw_mi would discard
+    # the legitimate upward correction of a sparse table.
+    m_x = len(x_counts)
+    m_y = len(y_counts)
+    m_joint = len(joint)
+    correction = (m_joint - m_x - m_y + 1) / (2.0 * total)
     corrected_mi = raw_mi - correction
 
-    return max(0.0, min(raw_mi, corrected_mi))
+    # Floor at 0 (the documented contract): the correction can overshoot a
+    # plug-in MI that is pure sampling noise. 0 <= MI_MM <= H_MM(X) holds, since
+    # h_joint >= h_y and m_joint >= m_y.
+    return max(0.0, corrected_mi)
 
 
 def genome_byte_mutual_information(
@@ -146,7 +160,14 @@ def genome_byte_mutual_information(
         }
     """
     if not genomes:
-        return {"summary": {"max_byte_mi": 0.0, "mean_byte_mi": 0.0, "n_significant_bytes": 0, "threshold_nats": 0.01}}
+        return {
+            "summary": {
+                "max_byte_mi": 0.0,
+                "mean_byte_mi": 0.0,
+                "n_significant_bytes": 0,
+                "threshold_nats": 0.01,
+            }
+        }
 
     _assert_finite_sequence("fitnesses", fitnesses)
 
