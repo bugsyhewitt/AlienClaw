@@ -213,7 +213,15 @@ With `timeout=None` the resolution runs inline, as before.
 - 307 and 308 repeat the method and body (the body must be `bytes`); 301, 302 and 303
   become a `GET` without a body, and the `Content-*` and `Transfer-Encoding` headers are
   dropped (a `HEAD` stays a `HEAD`, as in urllib);
-- a redirect body is never read, and a 3xx without `Location` is an `HTTPError`;
+- only 301/302/303/307/308 are followed: any other 3xx is an `HTTPError`, even with a
+  `Location`;
+- a redirect body is never read, and a 3xx without `Location`, or with an empty one, is an
+  `HTTPError`; more than one `Location` header is refused
+  (`Refusing redirect (status 302): 2 Location headers`), as browsers do;
+- a non-ASCII `Location` is read as UTF-8 (as browsers and `fetch()` read it) and its path,
+  query and fragment are percent-encoded, so `/café` is requested as `/caf%C3%A9`. The
+  guard's character rule is applied first, so whitespace and control characters, ASCII or
+  not, are still refused;
 - hop N+1 raises `Redirect to '<Location>' blocked: more than N redirects`;
 - every hop spends the same deadline; `resp.url` is the final canonical URL.
 
@@ -488,7 +496,11 @@ Regression tests: `tests/test_wireserver_port_zero.py`.
    python allow to block, which now equals the TS verdict. Tests:
    `tests/test_localhost_and_redaction.py`.
 10. **Opt-in redirects** (staged only, 2026-11-26, G5). `pinned_urlopen(follow_redirects=N)`;
-    the default 0 is unchanged. Tests: `tests/test_redirects.py`.
+    the default 0 is unchanged. Tests: `tests/test_redirects.py`. Three fixes the shared
+    redirect corpus (`../vectors/redirect-vectors.json`) found: a non-ASCII `Location` no
+    longer lets `UnicodeEncodeError` escape (it is read as UTF-8 and percent-encoded), more
+    than one `Location` is refused, and an empty `Location` is an `HTTPError` at once
+    instead of a loop to the hop cap.
 11. **Data-driven block list** (staged only, 2026-11-26, G3 preparation; no decision
     change). `_ip_is_blocked` and `_is_loopback_name` read the generated
     `_blocklist_data.py` instead of `ipaddress.is_*`, the CGNAT network, `_METADATA_IPS`

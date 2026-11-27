@@ -75,11 +75,13 @@ each hop, in this order, all under that one deadline (`Fetch timeout: exceeded <
    must be a canonical IP string (`net.isIP` agrees with its family), so `SSRF rejected: a resolved address is not a
    canonical IPv4 address` stops spellings such as `012.0.0.1` that the classifier and `inet_aton` would read
    differently. The validated list is the pin.
-6. One GET through the pinned transport (`src/pinned-request.ts`, see "Connection pinning"). A 3xx response needs a
-   `Location` header, which is resolved against the current URL; the unread redirect body is cancelled, the hop
-   counter goes down and the loop returns to step 1, so the next hop resolves once and is pinned again. A Location
+6. One GET through the pinned transport (`src/pinned-request.ts`, see "Connection pinning"). A redirect (301, 302,
+   303, 307 or 308 only, as in Fetch) needs exactly one non-empty `Location` header (`Redirect with no Location
+   header` / `Redirect with 2 Location headers`, the second as browsers refuse it), which is read as UTF-8 when it is
+   not ASCII (as `fetch()` reads it) and resolved against the current URL; the unread redirect body is cancelled, the
+   hop counter goes down and the loop returns to step 1, so the next hop resolves once and is pinned again. A Location
    that does not parse throws `TypeError: Invalid redirect Location: <the Location, redacted>`. Any other non-2xx
-   response throws `HTTP <status> from <host>`.
+   response, any other 3xx included, throws `HTTP <status> from <host>`.
 7. Streamed body with the size cap. Each chunk read races the deadline, so the body read is covered too.
 
 ## Connection pinning
@@ -270,6 +272,7 @@ for connection pinning.
 | Port 0 (staged only, 2026-11-26) | `validateUrl` refuses an explicit port outside 1-65535 (`Port rejected: ...`), before DNS. In-tree hands `:0` to `fetch()`. Declared end-to-end in `test/parity-in-tree.test.ts`. |
 | Localhost names (staged only, 2026-11-26) | `isBlockedHost` also blocks `localhost.`, `*.localhost` and `*.localhost.` (and the other two tokens with trailing dots). In-tree leaves them to DNS. Declared in `test/parity-in-tree.test.ts` (`inDeclaredName`). No shared-corpus verdict changed: the corpus's localhost vectors already blocked through their loopback DNS answers. |
 | Error messages (staged only, 2026-11-26) | A resolved-address refusal does not name the address (`AddressRejection.blockedAddress` carries it); `Invalid URL`, the new `Invalid redirect Location` and the transport's URL errors are redacted. In-tree names the address and repeats the URL. `test/parity-in-tree.test.ts` maps in-tree messages to the staged form (`inTreeAsStaged`) and still compares decision, reason and address. |
+| Redirect handling (staged only, 2026-11-26; found by `../vectors/redirect-vectors.json`) | Only 301/302/303/307/308 are followed; in-tree follows any 3xx with a `Location`, a `305 Use Proxy` included. A redirect with more than one `Location` header is refused (`Redirect with 2 Location headers (status 302)`); in-tree reads them through `Headers#get`, which joins them into one URL. A non-ASCII `Location` is read as UTF-8 before `new URL()`, as `fetch()`'s own redirect follower and browsers do (`/caf%C3%A9`); in-tree percent-encodes the Latin-1 mojibake (`/caf%C3%83%C2%A9`). Tests: `test/hardened-fetch.test.ts`, `test/pinning.test.ts`. |
 | TLS (staged only, 2026-11-26) | `rejectUnauthorized: true` is explicit, so `NODE_TLS_REJECT_UNAUTHORIZED=0` is ignored. In-tree uses `fetch()`, which honours it. |
 | Timeout reporting | In-tree commit d18c5c5d (only the deadline's own abort is reported as a timeout) is ported. In-tree checks the error and its `cause`; the staged copy walks the `cause` chain (up to 4 levels), because the pinned transport reports a body broken by the abort as `TypeError('terminated', { cause: <AbortError> })`. Regression test: `test/timeout-masking.test.ts`, adapted from in-tree `test/net/hardened-fetch-timeout-masking.test.ts` to stub the transport. |
 | Transport (staged only, 2026-11-26) | `fetch()` is replaced by the pinned `node:http` / `node:https` transport in `src/pinned-request.ts`, and `FetchPolicy` gains `resolve`. The classifiers (`isBlockedHost`, `validateResolvedAddresses`) are unchanged, so the decision parity below still holds; `test/parity-in-tree.test.ts` stubs the transport for the staged module and `fetch` for the in-tree one with the same responses. See "Differences from `fetch()`" for every observable change. |

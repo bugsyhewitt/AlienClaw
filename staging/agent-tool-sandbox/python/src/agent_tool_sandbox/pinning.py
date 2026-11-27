@@ -37,10 +37,11 @@ import urllib.request
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Union
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
 from .ssrf_guard import (
     SsrfBlockedError,
+    _assert_unambiguous_chars,
     _connect_target,
     _ip_is_blocked,
     _NoRedirect,
@@ -646,16 +647,73 @@ class _RedirectReceivedError(Exception):
 
 
 class _HandBackRedirect(urllib.request.HTTPRedirectHandler):
-    """Hands every redirect back to ``pinned_urlopen`` instead of following it here."""
+    """Hands every redirect back to ``pinned_urlopen`` instead of following it here.
+
+    Only 301/302/303/307/308 reach it (Fetch's redirect statuses); any other 3xx, Location
+    or not, is left to ``HTTPDefaultErrorHandler`` and raises ``HTTPError``.
+    """
 
     def http_error_302(self, req, fp, code, msg, headers):  # noqa: N802
-        location = headers.get("Location")
-        if location is None:
-            return None  # no Location: HTTPDefaultErrorHandler raises HTTPError, as urllib does
+        locations = headers.get_all("Location") or []
+        if len(locations) > 1:
+            # urllib took the first one, the TS twin's header join made one URL of them
+            # all; browsers refuse the response (ERR_RESPONSE_HEADERS_MULTIPLE_LOCATION).
+            fp.close()
+            raise SsrfBlockedError(
+                f"Refusing redirect (status {code}): {len(locations)} Location headers"
+            )
+        if not locations or not locations[0].strip(" \t"):
+            # No Location, or an empty one: HTTPDefaultErrorHandler raises HTTPError, as
+            # urllib does. An empty Location is not followed as a reference to the current
+            # URL (RFC 3986 5.2), which only requested the same URL again up to the hop cap.
+            return None
         fp.close()  # the redirect body is never read
-        raise _RedirectReceivedError(code, location)
+        raise _RedirectReceivedError(code, locations[0])
 
     http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
+
+
+_NON_ASCII = re.compile(r"[^\x00-\x7f]+")
+
+
+def _location_text(location: str) -> str:
+    """A Location header as the text its sender meant: its bytes read as UTF-8.
+
+    http.client decodes header bytes as Latin-1, so a UTF-8 ``/café`` arrives as
+    ``/cafÃ©``. A value that is not ASCII is turned back into its bytes and decoded as
+    UTF-8, invalid sequences becoming U+FFFD, as browsers and fetch() do (undici's
+    ``normalizeBinaryStringToUtf8``; the TS twin does the same).
+    """
+    if location.isascii():
+        return location
+    try:
+        raw = location.encode("latin-1")
+    except UnicodeEncodeError:  # not a Latin-1 decoding of header bytes: keep it as it is
+        return location
+    return raw.decode("utf-8", "replace")
+
+
+def _percent_encode_non_ascii(url: str) -> str:
+    """Percent-encode, as UTF-8, every non-ASCII character of the path, query and fragment.
+
+    What a WHATWG URL parser does to them (and what the TS twin sends). http.client cannot
+    put them in a request line: before this a non-ASCII Location escaped ``pinned_urlopen``
+    as ``UnicodeEncodeError``. The authority is left alone: the guard IDNA-encodes the host
+    or refuses it.
+    """
+    if url.isascii():
+        return url
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url  # malformed: the guard refuses it
+
+    def encode(text: str) -> str:
+        return _NON_ASCII.sub(lambda m: quote(m.group(0), safe=""), text)
+
+    return urlunsplit(parts._replace(
+        path=encode(parts.path), query=encode(parts.query), fragment=encode(parts.fragment)
+    ))
 
 
 def _redirect_limit(follow_redirects: Any) -> int:
@@ -726,7 +784,7 @@ def pinned_urlopen(
                     f"more than {max_hops} redirects"
                 ) from None
             hops += 1
-            next_url = urljoin(target.canonical_url, redirect.location)
+            next_url = urljoin(target.canonical_url, _location_text(redirect.location))
             try:
                 next_scheme = urlsplit(next_url).scheme.lower()
             except ValueError:
@@ -735,7 +793,10 @@ def pinned_urlopen(
                 raise SsrfBlockedError(
                     f"Refusing redirect to {_redact_url(next_url)!r}: https to http downgrade"
                 ) from None
-            next_target = _resolve_within(next_url, deadline)
+            # The guard's character rule on the decoded URL first, so that percent-encoding
+            # cannot turn whitespace or a control character into an accepted %XX.
+            _assert_unambiguous_chars(next_url)
+            next_target = _resolve_within(_percent_encode_non_ascii(next_url), deadline)
             if redirect.code in (301, 302, 303):
                 method = "HEAD" if request.get_method() == "HEAD" else "GET"
                 data = None

@@ -423,6 +423,35 @@ describe('pinning: every redirect hop re-resolves once and is pinned', () => {
     expect(seen.map((s) => s.host)).toEqual(['a.example']);
   });
 
+  it('two Location headers on the wire: refused, no second connection (they used to be comma-joined)', async () => {
+    let port = 0;
+    await httpServer((_req, res) => {
+      res.writeHead(302, ['Location', `http://a.example:${port}/one`, 'Location', `http://b.example:${port}/two`]);
+      res.end();
+    }).then((s) => { port = s.port; });
+    const seen = viaLoopback();
+    const resolve = async (): Promise<ResolvedAddress[]> => [v4(PUBLIC_A)];
+    await expect(hardenedFetch(`http://a.example:${port}/`, { ...POLICY, resolve }))
+      .rejects.toThrow('Redirect with 2 Location headers (status 302)');
+    expect(seen.map((s) => s.host)).toEqual(['a.example']);
+  });
+
+  it('a UTF-8 Location on the wire is read as UTF-8 and percent-encoded, as fetch() does', async () => {
+    let port = 0;
+    const { requests } = await httpServer((req, res) => {
+      if (req.url === '/start') {
+        res.writeHead(302, { location: Buffer.from('/café?q=ü', 'utf8').toString('latin1') });
+        res.end();
+      } else {
+        res.end('utf8');
+      }
+    }).then((s) => { port = s.port; return s; });
+    viaLoopback();
+    const resolve = async (): Promise<ResolvedAddress[]> => [v4(PUBLIC_A)];
+    await expect(hardenedFetch(`http://a.example:${port}/start`, { ...POLICY, resolve })).resolves.toBe('utf8');
+    expect(requests.map((r) => r.url)).toEqual(['/start', '/caf%C3%A9?q=%C3%BC']);
+  });
+
   it('the unread redirect body is released before the next hop', async () => {
     let port = 0;
     let firstClosed = false;

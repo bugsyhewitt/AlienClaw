@@ -177,6 +177,90 @@ def test_a_redirect_without_location_is_an_http_error(hops) -> None:
     assert excinfo.value.code == 302
 
 
+@pytest.mark.parametrize("location", ["", " "])
+def test_an_empty_location_is_a_missing_one(location, hops) -> None:
+    """Not a reference to the current URL (RFC 3986 5.2), which loops until the hop cap."""
+    hops.replies = [_to(302, location), _reply(200, body=b"must not be fetched")]
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        pinned_urlopen("http://public.example/", timeout=5, follow_redirects=3)
+    assert excinfo.value.code == 302
+    assert len(hops.sockets) == 1
+
+
+def test_more_than_one_location_is_refused(hops) -> None:
+    """Browsers refuse it (ERR_RESPONSE_HEADERS_MULTIPLE_LOCATION); urllib took the first."""
+    two = (b"HTTP/1.1 302 X\r\nLocation: http://other.example/one\r\n"
+           b"Location: http://public.example/two\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    hops.replies = [two, _reply(200, body=b"must not be fetched")]
+    refused = r"^Refusing redirect \(status 302\): 2 Location headers$"
+    with pytest.raises(SsrfBlockedError, match=refused):
+        pinned_urlopen("http://public.example/", timeout=5, follow_redirects=3)
+    assert len(hops.sockets) == 1
+
+
+@pytest.mark.parametrize(
+    "location,request_line",
+    [
+        ("/café", "GET /caf%C3%A9 HTTP/1.1"),
+        ("/s?q=é&r=ü#frag-é", "GET /s?q=%C3%A9&r=%C3%BC HTTP/1.1"),
+        ("http://public.example/naïve/x", "GET /na%C3%AFve/x HTTP/1.1"),
+    ],
+)
+def test_a_utf8_location_is_percent_encoded(location, request_line, hops) -> None:
+    """UTF-8 on the wire, as browsers and fetch() read it: decoded, then percent-encoded.
+
+    http.client decodes header bytes as Latin-1, so before this the hop's request line held
+    non-ASCII and http.client raised UnicodeEncodeError out of pinned_urlopen.
+    """
+    hops.replies = [_to(302, location.encode().decode("latin-1")), _reply(200, body=b"enc")]
+    with pinned_urlopen("http://public.example/", timeout=5, follow_redirects=1) as resp:
+        assert resp.read() == b"enc"
+    assert hops.sockets[1].request()[0] == request_line
+
+
+def test_a_location_that_is_not_utf8_gets_replacement_characters(hops) -> None:
+    """A lone Latin-1 byte is not UTF-8: U+FFFD, as fetch() and the TS twin decode it."""
+    hops.replies = [_to(302, "/caf\xe9"), _reply(200, body=b"enc")]
+    with pinned_urlopen("http://public.example/", timeout=5, follow_redirects=1) as resp:
+        assert resp.read() == b"enc"
+    assert hops.sockets[1].request()[0] == "GET /caf%EF%BF%BD HTTP/1.1"
+
+
+def test_a_utf8_host_in_a_location_is_idna_encoded(hops, fake_dns) -> None:
+    fake_dns.records["xn--bcher-kva.example"] = [OTHER_V4]
+    hops.replies = [_to(302, "http://bücher.example/b".encode().decode("latin-1")),
+                    _reply(200, body=b"idna")]
+    with pinned_urlopen("http://public.example/", timeout=5, follow_redirects=1) as resp:
+        assert resp.read() == b"idna"
+    assert hops.sockets[1].connected_to == (OTHER_V4, 80)
+    assert hops.sockets[1].request()[1]["host"] == "xn--bcher-kva.example"
+
+
+@pytest.mark.parametrize(
+    "location", ["/a b", "/a　b", "/a\u0085b", "http://bücher x.example/"]
+)
+def test_percent_encoding_launders_no_whitespace_or_control(location, hops) -> None:
+    """The guard's character rule is applied to the decoded Location, before encoding.
+
+    It refuses whitespace and control characters anywhere in the URL (ASCII ones too, the
+    documented difference with the TS twin), so encoding must not turn them into %XX.
+    """
+    hops.replies = [_to(302, location.encode().decode("latin-1")), _reply(200, body=b"ws")]
+    with pytest.raises(SsrfBlockedError, match="^Refusing URL containing "):
+        pinned_urlopen("http://public.example/", timeout=5, follow_redirects=1)
+    assert len(hops.sockets) == 1
+
+
+@pytest.mark.parametrize("code", [300, 304, 305, 306])
+def test_a_3xx_that_is_not_a_redirect_is_an_http_error(code, hops) -> None:
+    """Only 301/302/303/307/308 are followed, Location or not (the TS twin agrees)."""
+    hops.replies = [_to(code, "http://other.example/x"), _reply(200, body=b"must not be fetched")]
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        pinned_urlopen("http://public.example/", timeout=5, follow_redirects=3)
+    assert excinfo.value.code == code
+    assert len(hops.sockets) == 1
+
+
 # ── Scheme downgrade ────────────────────────────────────────────────────────
 
 

@@ -42,7 +42,17 @@ export interface PinnedAddress {
 /** The part of a WHATWG Response that hardenedFetch reads. A real Response fits it. */
 export interface TransportResponse {
   readonly status: number;
-  readonly headers: { get(name: string): string | null };
+  readonly headers: {
+    /** Every field line of `name`, joined with ', ' (as Headers#get does), or null. */
+    get(name: string): string | null;
+    /**
+     * Every field line of `name`, in order, not joined. Optional because a
+     * WHATWG Response cannot tell repeated lines from one value with a comma;
+     * the pinned transport always has it, so hardenedFetch can refuse a
+     * response with two Location headers (staged only, 2026-11-26).
+     */
+    getAll?(name: string): readonly string[];
+  };
   readonly body: ReadableStream<Uint8Array> | null;
 }
 
@@ -225,6 +235,7 @@ function toTransportResponse(res: http.IncomingMessage, release: () => void): Tr
   const distinct = res.headersDistinct;
   const headers = {
     get: (name: string): string | null => distinct[name.toLowerCase()]?.join(', ') ?? null,
+    getAll: (name: string): readonly string[] => distinct[name.toLowerCase()] ?? [],
   };
   res.on('error', () => { /* surfaced through the body stream */ });
   if (NULL_BODY_STATUS.has(status)) {

@@ -29,7 +29,8 @@ together). Run it under ``staging/tools/offline.sh``, which leaves only loopback
 
 Observation: ``outcome`` ``ok`` (``status``, ``body``) or ``error`` (``error`` code:
 ``blocked`` for any guard refusal, ``downgrade``, ``hop_cap``, ``deadline``, ``http_status``
-with ``status``, ``no_location``, ``invalid_location``, ``network_error``, or
+with ``status``, ``no_location``, ``multiple_location``, ``invalid_location``,
+``network_error``, or
 ``crash:<Type>`` for an exception outside the documented ones), plus ``hops``, ``resolved``
 and ``stray_connects``, with listener ports written back as ``{port:x}``.
 ``hops_deterministic: false`` vectors compare only the outcome and check ``elapsed_max_ms``.
@@ -313,6 +314,8 @@ def _classify(exc: BaseException) -> dict[str, Any]:
             return {"error": "hop_cap"}
         if "https to http downgrade" in msg:
             return {"error": "downgrade"}
+        if re.fullmatch(r"Refusing redirect \(status \d+\): \d+ Location headers", msg):
+            return {"error": "multiple_location"}
         return {"error": "blocked"}  # a guard refusal; ``resolved`` shows whether DNS ran
     if isinstance(exc, urllib.error.HTTPError):
         exc.close()

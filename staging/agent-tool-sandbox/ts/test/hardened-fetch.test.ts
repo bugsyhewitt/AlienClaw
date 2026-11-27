@@ -126,6 +126,44 @@ describe('redirects', () => {
     await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow('Redirect with no Location header (status 301)');
   });
 
+  it('an empty Location is a missing one: no request to the same URL again', async () => {
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => redirect(''));
+    await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow('Redirect with no Location header (status 302)');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([300, 304, 305, 306])('a %i is not a redirect status: an HTTP error even with a Location, never followed', async (status) => {
+    // Fetch follows only 301/302/303/307/308; a 305 Use Proxy in particular must never be followed.
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => redirect('https://other.example/x', status));
+    await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow(`HTTP ${status} from example.com`);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a redirect with more than one Location header (get() would join them into one URL)', async () => {
+    const values = ['https://example.com/one', 'https://other.example/two'];
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => ({
+      status: 302,
+      headers: { get: () => values.join(', '), getAll: () => values },
+      body: null,
+    }));
+    await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow('Redirect with 2 Location headers (status 302)');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    // node:http hands header bytes over Latin-1 decoded: '/café' sent as UTF-8 arrives as '/cafÃ©'.
+    ['/cafÃ©', 'https://example.com/caf%C3%A9'],
+    ['/s?q=Ã©#f', 'https://example.com/s?q=%C3%A9#f'],
+    ['https://bÃ¼cher.example/b', 'https://xn--bcher-kva.example/b'],
+    ['/café', 'https://example.com/caf%EF%BF%BD'],  // not UTF-8: U+FFFD, as fetch() decodes it
+  ])('reads a non-ASCII Location %j as UTF-8, as fetch() and browsers do', async (location, next) => {
+    const fetchSpy = vi.spyOn(transport, 'request')
+      .mockImplementationOnce(async () => redirect(location))
+      .mockImplementationOnce(async () => new Response('ok'));
+    await expect(hardenedFetch('https://example.com/', POLICY)).resolves.toBe('ok');
+    expect(fetchSpy.mock.calls[1]![0]).toBe(next);
+  });
+
   it("protocols: ['https'] blocks an https-to-http downgrade redirect", async () => {
     vi.spyOn(transport, 'request').mockImplementation(async () => redirect('http://example.com/'));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, protocols: ['https'] }))

@@ -297,6 +297,7 @@ function classify(err: unknown): Observation {
   if (msg.startsWith('Fetch timeout')) return { error: 'deadline' };
   if (msg.startsWith('Too many redirects')) return { error: 'hop_cap' };
   if (msg.startsWith('Redirect with no Location header')) return { error: 'no_location' };
+  if (/^Redirect with \d+ Location headers/.test(msg)) return { error: 'multiple_location' };
   if (msg.startsWith('Invalid redirect Location')) return { error: 'invalid_location' };
   const http = /^HTTP (\d+) from /.exec(msg);
   if (http) return { error: 'http_status', status: Number(http[1]) };

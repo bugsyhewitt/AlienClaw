@@ -41,7 +41,8 @@
  *     Teredo 2001:0::/32 prefixes.
  *   - Refuses port 0 (node:http would read it as the default port).
  *   - Follows redirects manually, re-running every check on each hop; caps
- *     hops at maxRedirects (default MAX_REDIRECTS).
+ *     hops at maxRedirects (default MAX_REDIRECTS). Only 301/302/303/307/308
+ *     with exactly one Location are followed (staged only, 2026-11-26).
  *   - Validates the policy before any I/O: limits must be bounded integers,
  *     omitted optional fields get the defaults, anything else is a TypeError.
  *   - Enforces a response size cap and ONE time budget that covers DNS,
@@ -516,6 +517,33 @@ function isDeadlineError(err: unknown, deadline: Error): boolean {
 }
 
 /**
+ * The statuses Fetch follows (its "redirect status"). Any other 3xx (300,
+ * 304, 305 Use Proxy, 306) is an ordinary non-2xx response even when it
+ * carries a Location (staged only, 2026-11-26: before, every 3xx with a
+ * Location was followed). The Python twin follows the same five.
+ */
+const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
+
+/**
+ * A Location header as the text its sender meant: its bytes read as UTF-8.
+ * node:http decodes header bytes as Latin-1, so a UTF-8 '/café' arrived as
+ * '/cafÃ©' and was sent as '/caf%C3%83%C2%A9'. A value that is not ASCII is
+ * turned back into its bytes and decoded as UTF-8 (invalid sequences become
+ * U+FFFD), as fetch() and browsers do (undici's normalizeBinaryStringToUtf8);
+ * new URL() then percent-encodes it. Staged only, 2026-11-26; the Python twin
+ * does the same.
+ */
+function locationText(location: string): string {
+  let ascii = true;
+  for (let i = 0; i < location.length; i++) {
+    const code = location.charCodeAt(i);
+    if (code > 0xff) return location;  // not header bytes read as Latin-1 (a stub transport): keep it
+    if (code > 0x7f) ascii = false;
+  }
+  return ascii ? location : Buffer.from(location, 'latin1').toString('utf8');
+}
+
+/**
  * Perform a URL fetch with full SSRF protection and resource limits.
  *
  * @param url     The URL to fetch (string or URL object).
@@ -564,10 +592,17 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
       //    socket connects only to `addresses` and never follows redirects.
       const response = await beforeDeadline(transport.request(currentUrl, { signal, addresses }));
 
-      // 4. Handle redirects (3xx)
-      if (response.status >= 300 && response.status < 400) {
+      // 4. Handle redirects (301/302/303/307/308 only)
+      if (REDIRECT_STATUSES.has(response.status)) {
         // The redirect body is never read; release its connection now.
         response.body?.cancel().catch(() => { /* already closed */ });
+        // get() joins repeated lines with ', ', which made one URL of two
+        // Locations; browsers refuse such a response
+        // (ERR_RESPONSE_HEADERS_MULTIPLE_LOCATION). Staged only, 2026-11-26.
+        const locations = response.headers.getAll?.('location');
+        if (locations !== undefined && locations.length > 1) {
+          throw new Error(`Redirect with ${locations.length} Location headers (status ${response.status})`);
+        }
         const location = response.headers.get('location');
         if (!location) {
           throw new Error(`Redirect with no Location header (status ${response.status})`);
@@ -581,7 +616,7 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
         // replaced by one that names only the redacted Location (gate G7, staged only).
         let next: URL;
         try {
-          next = new URL(location, currentUrl);
+          next = new URL(locationText(location), currentUrl);
         } catch {
           throw new TypeError(`Invalid redirect Location: ${redactUrl(location)}`);
         }

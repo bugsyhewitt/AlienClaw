@@ -14,13 +14,21 @@ test-only resolver and wire, and how to re-record: `REDIRECT_VECTORS_RECORD=<dir
 one `<id>.<lang>.json` per vector, and each file's `observed` becomes that vector's
 `expected.<lang>`.
 
-| | Vectors |
-|---|---|
-| python == ts | 14 |
-| python != ts, API surface only (A1, A2) | 50 |
-| python != ts, behaviour (B1 to B9) | 17 |
+Re-recorded the same day after the three library bugs the corpus found were fixed (see
+"Library bugs found"). Exactly 7 vectors changed, 9 recorded outcomes in all:
+`status-300-with-location`, `status-304-with-location`, `status-305-with-location`,
+`status-306-with-location` (TS), `status-302-two-location-headers` (both),
+`relative-non-ascii-path` (both), `status-302-empty-location` (Python). No other vector's
+outcome moved, so none of the policy items below (B5, B7, B8, B9) changed.
 
-Every `python != ts` vector appears below exactly once.
+| | Vectors (before the fixes) |
+|---|---|
+| python == ts | 19 (14) |
+| python != ts, API surface only (A1, A2) | 51 (50) |
+| python != ts, behaviour (B2, B5, B7, B8, B9) | 11 (17) |
+
+Every `python != ts` vector appears below exactly once. B1, B3, B4 and B6 are resolved and
+kept, struck through, so that their numbers stay stable.
 
 ## What both implementations do the same way
 
@@ -40,14 +48,25 @@ Every `python != ts` vector appears below exactly once.
   `urljoin` strips it too).
 - **Scheme changes.** `file:`, `ftp:`, `data:`, `javascript:` and `gopher:` Locations are refused. An http to
   https upgrade is followed.
+- **Redirect statuses** (since the fixes). Only 301, 302, 303, 307 and 308 are followed. A
+  300, 304, 305 or 306 is an HTTP error after one request even with a Location
+  (`status-30x-with-location`): Python raises `HTTPError`, TS `HTTP <status> from <host>`.
+- **Two Location headers** (since the fixes, `status-302-two-location-headers`). Both refuse
+  the response after one request, as browsers do: Python
+  `SsrfBlockedError("Refusing redirect (status 302): 2 Location headers")`, TS
+  `Error("Redirect with 2 Location headers (status 302)")`. The harnesses classify both as
+  `multiple_location`.
+- **Non-ASCII Location** (since the fixes, `relative-non-ascii-path`; differs only through
+  A1). Both read the header's bytes as UTF-8, as browsers and `fetch()` do, and percent-encode
+  the result: `/café` sent as UTF-8 is requested as `/caf%C3%A9`.
 
 ## A. API surface (not redirect logic)
 
 **A1. TS does not return the status.** `hardenedFetch` returns only the body string, so a
-TS `ok` outcome has no `status`. 13 vectors differ only in this:
+TS `ok` outcome has no `status`. 14 vectors differ only in this:
 `status-201-location-not-followed`, `relative-absolute-path`, `relative-dot-segments`,
 `relative-query-only`, `relative-fragment`, `relative-tab-in-path`,
-`cred-set-cookie-not-replayed`, `cred-caller-host-header`, `cap-exact`, `cap-twenty`,
+`relative-non-ascii-path` (since the fixes), `cred-set-cookie-not-replayed`, `cred-caller-host-header`, `cap-exact`, `cap-twenty`,
 `deadline-slow-hops-control`, `deadline-redirect-body-not-read`, `body-large-redirect-body`.
 *Recommendation:* none needed for G5.
 
@@ -78,30 +97,34 @@ These vectors then test them without edits, apart from re-recording `expected.ts
 
 ## B. Behaviour
 
-**B1. A 3xx that is not a redirect status, sent with a Location header.** Vectors:
-`status-300-with-location`, `status-304-with-location`, `status-305-with-location`,
-`status-306-with-location`. Python raises `HTTPError` with that status. TS follows it,
-because it treats any 300-399 response that has a Location as a redirect. Fetch follows only
-301/302/303/307/308. Each hop is still re-validated, so this is not SSRF. Still, a `304` or
-`305 Use Proxy` sent to another origin should not be followed.
-*Recommendation:* in TS, follow only 301/302/303/307/308 (reported as a TS bug).
+**~~B1. A 3xx that is not a redirect status, sent with a Location header.~~ Resolved.**
+Vectors: `status-300-with-location`, `status-304-with-location`, `status-305-with-location`,
+`status-306-with-location`. Python raised `HTTPError` with that status. TS followed it,
+because it treated any 300-399 response that had a Location as a redirect, a `305 Use Proxy`
+to another origin included. *Fixed in TS:* `hardenedFetch` follows only 301/302/303/307/308
+(`REDIRECT_STATUSES`); any other 3xx takes the non-2xx path (`HTTP <status> from <host>`).
+All four vectors are now python == ts.
 
-**B2. 3xx without a Location header** (`status-302-without-location`). Both fail after one
-request: Python with `HTTPError` 302, TS with `Redirect with no Location header`. Only the
-error type differs. *Recommendation:* no change.
+**B2. 3xx without a Location header, or with an empty one** (`status-302-without-location`,
+and since the fixes `status-302-empty-location`). Both fail after one request: Python with
+`HTTPError` 302, TS with `Redirect with no Location header`. Only the error type differs.
+*Recommendation:* no change.
 
-**B3. Empty Location** (`status-302-empty-location`, max 3). Python resolves `""` against
-the current URL (RFC 3986) and requests the same URL again until the hop cap: 4 requests,
-then `hop_cap`. TS treats an empty value as missing: 1 request, then `no_location`.
-*Recommendation:* fail fast in both (the TS behaviour). Low priority.
+**~~B3. Empty Location.~~ Resolved; now part of B2** (`status-302-empty-location`, max 3).
+Python resolved `""` against the current URL (RFC 3986) and requested the same URL again until
+the hop cap: 4 requests, then `hop_cap`. TS treats an empty value as missing. *Fixed in
+Python:* an empty (or blank) Location is treated as a missing one, so `pinned_urlopen`
+raises `HTTPError` 302 after 1 request.
 
-**B4. Two Location headers** (`status-302-two-location-headers`). Python follows the first
-one. TS joins them (`<first>, <second>`) and parses the result as one URL. The host comes from
-the first one, and the second URL becomes part of the path
+**~~B4. Two Location headers.~~ Resolved** (`status-302-two-location-headers`). Python
+followed the first one. TS joined them (`<first>, <second>`) and parsed the result as one
+URL, with the host from the first and the second URL in the path
 (`/one,%20http://c.redirect.test:{port:c}/two`). Browsers refuse such a response
-(`ERR_RESPONSE_HEADERS_MULTIPLE_LOCATION`).
-*Recommendation:* refuse a redirect with more than one Location, in both libraries (reported
-as a TS bug; the Python behaviour is defensible but silent).
+(`ERR_RESPONSE_HEADERS_MULTIPLE_LOCATION`). *Fixed in both:* a redirect with more than one
+Location is refused after one request (Python `SsrfBlockedError`, TS `Error`); see "What both
+implementations do the same way". The TS check needs the transport's new optional
+`headers.getAll()`, which the pinned transport always has (a WHATWG `Response` joins repeated
+lines). Now python == ts.
 
 **B5. Parser differentials in Location.**
 - `relative-backslash-authority` (`/\b.redirect.test:PORT/x`): TS follows it to **another
@@ -109,21 +132,28 @@ as a TS bug; the Python behaviour is defensible but silent).
 - `relative-space-in-path` (`/a b`): TS percent-encodes the space and follows. Python refuses raw
   whitespace.
 
+The same holds for non-ASCII whitespace and control characters (`U+00A0`, `U+3000`, `U+0085`;
+no vector): since the B6 fix Python applies its guard's character rule to the UTF-8 decoded
+Location *before* it percent-encodes, so it still refuses them, and TS percent-encodes and
+follows them. Neither the fix nor the re-recording changed a B5 outcome.
+
 Each library is consistent with its own parser: TS validates and connects with WHATWG `URL`.
 The case for change is downstream consumers, which may parse the same Location differently.
 *Recommendation (strictest wins):* TS refuses a Location that contains `\` or raw whitespace,
 as Python's guard does.
 
-**B6. Non-ASCII Location** (`relative-non-ascii-path`, UTF-8 bytes on the wire). Both decode
-the header as Latin-1.
-- **Python crashes.** The guard accepts the hop. `http.client` then cannot encode the request
-  line and raises `UnicodeEncodeError` out of `pinned_urlopen`. This is not one of its
-  documented exceptions (`SsrfBlockedError`, `HTTPError`, `URLError`). It fails closed (no
-  second request is sent), but a caller that catches the documented types crashes.
-- TS percent-encodes the mojibake (`/caf%C3%83%C2%A9`) and follows.
-
-*Recommendation:* Python raises `SsrfBlockedError` (or percent-encodes) for a non-ASCII
-URL (reported as a Python bug).
+**~~B6. Non-ASCII Location.~~ Resolved; now A1 only** (`relative-non-ascii-path`, UTF-8 bytes
+on the wire). Both decoded the header as Latin-1. Python's guard accepted the hop, then
+`http.client` could not encode the request line and raised `UnicodeEncodeError` out of
+`pinned_urlopen` (not one of its documented exceptions; no second request was sent). TS
+percent-encoded the mojibake (`/caf%C3%83%C2%A9`), which is not what `fetch()` sends: undici
+re-reads a non-ASCII Location as UTF-8 (`normalizeBinaryStringToUtf8`), as browsers do.
+*Fixed in both:* the Location's bytes are read as UTF-8 (invalid sequences become U+FFFD), then
+Python percent-encodes non-ASCII in the path, query and fragment as WHATWG does (the guard
+still IDNA-encodes or refuses the host) and TS lets `new URL()` do it. Both request
+`/caf%C3%A9`, as `fetch()` and browsers do. A non-ASCII URL passed by the *caller* (not a
+Location) still raises `UnicodeEncodeError` in Python, as `urllib.request.urlopen` does; it
+is outside this corpus.
 
 **B7. https to http downgrade** (`scheme-https-to-http`, `scheme-https-to-http-uppercase`).
 Python refuses the hop (`downgrade`) before resolving it. TS follows it, as documented:
@@ -149,13 +179,14 @@ apply it to redirect hops, whose port the server chooses.
 *Recommendation (strictest wins):* in TS, move the credentials check into `validateUrl`
 (before DNS) and refuse any `@` in the authority.
 
-## Library bugs found (not fixed here)
+## Library bugs found (all fixed 2026-11-26)
 
-| Library | Vector(s) | Bug |
-|---|---|---|
-| Python | `relative-non-ascii-path` | `pinned_urlopen` lets `UnicodeEncodeError` escape on a non-ASCII redirect Location (B6). |
-| TS | `status-300-with-location`, `status-304-with-location`, `status-305-with-location`, `status-306-with-location` | Any 3xx with a Location is followed, not only 301/302/303/307/308 (B1). |
-| TS | `status-302-two-location-headers` | Multiple Location headers are comma-joined and followed as one URL (B4). |
+| Library | Vector(s) | Bug | Fix (regression tests) |
+|---|---|---|---|
+| Python | `relative-non-ascii-path` | `pinned_urlopen` let `UnicodeEncodeError` escape on a non-ASCII redirect Location (B6). | Location read as UTF-8, non-ASCII percent-encoded (`test_redirects.py`). TS's mojibake fixed with it (`hardened-fetch.test.ts`, `pinning.test.ts`). |
+| TS | `status-300-with-location`, `status-304-with-location`, `status-305-with-location`, `status-306-with-location` | Any 3xx with a Location was followed, not only 301/302/303/307/308 (B1). | `REDIRECT_STATUSES` (`hardened-fetch.test.ts`; Python pinned by `test_redirects.py`). |
+| TS | `status-302-two-location-headers` | Multiple Location headers were comma-joined and followed as one URL (B4). | Refused in both (`hardened-fetch.test.ts`, `pinning.test.ts`, `test_redirects.py`). |
+| Python | `status-302-empty-location` | An empty Location re-requested the same URL until the hop cap (B3). | Treated as missing: `HTTPError` 302 at once (`test_redirects.py`). |
 
 The TS https to http downgrade (B7) is documented behaviour, not a bug. It is the open G5
 decision.

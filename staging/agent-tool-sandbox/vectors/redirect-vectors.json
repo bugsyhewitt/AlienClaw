@@ -878,8 +878,9 @@
           "stray_connects": []
         },
         "ts": {
-          "outcome": "ok",
-          "body": "followed",
+          "outcome": "error",
+          "error": "http_status",
+          "status": 300,
           "hops": [
             {
               "server": "a",
@@ -889,20 +890,10 @@
                 "host": "a.redirect.test:{port:a}"
               },
               "body": ""
-            },
-            {
-              "server": "b",
-              "method": "GET",
-              "target": "/x",
-              "headers": {
-                "host": "b.redirect.test:{port:b}"
-              },
-              "body": ""
             }
           ],
           "resolved": [
-            "a.redirect.test",
-            "b.redirect.test"
+            "a.redirect.test"
           ],
           "stray_connects": []
         }
@@ -981,8 +972,9 @@
           "stray_connects": []
         },
         "ts": {
-          "outcome": "ok",
-          "body": "followed",
+          "outcome": "error",
+          "error": "http_status",
+          "status": 304,
           "hops": [
             {
               "server": "a",
@@ -992,20 +984,10 @@
                 "host": "a.redirect.test:{port:a}"
               },
               "body": ""
-            },
-            {
-              "server": "b",
-              "method": "GET",
-              "target": "/x",
-              "headers": {
-                "host": "b.redirect.test:{port:b}"
-              },
-              "body": ""
             }
           ],
           "resolved": [
-            "a.redirect.test",
-            "b.redirect.test"
+            "a.redirect.test"
           ],
           "stray_connects": []
         }
@@ -1084,8 +1066,9 @@
           "stray_connects": []
         },
         "ts": {
-          "outcome": "ok",
-          "body": "followed",
+          "outcome": "error",
+          "error": "http_status",
+          "status": 305,
           "hops": [
             {
               "server": "a",
@@ -1095,20 +1078,10 @@
                 "host": "a.redirect.test:{port:a}"
               },
               "body": ""
-            },
-            {
-              "server": "b",
-              "method": "GET",
-              "target": "/x",
-              "headers": {
-                "host": "b.redirect.test:{port:b}"
-              },
-              "body": ""
             }
           ],
           "resolved": [
-            "a.redirect.test",
-            "b.redirect.test"
+            "a.redirect.test"
           ],
           "stray_connects": []
         }
@@ -1187,8 +1160,9 @@
           "stray_connects": []
         },
         "ts": {
-          "outcome": "ok",
-          "body": "followed",
+          "outcome": "error",
+          "error": "http_status",
+          "status": 306,
           "hops": [
             {
               "server": "a",
@@ -1198,20 +1172,10 @@
                 "host": "a.redirect.test:{port:a}"
               },
               "body": ""
-            },
-            {
-              "server": "b",
-              "method": "GET",
-              "target": "/x",
-              "headers": {
-                "host": "b.redirect.test:{port:b}"
-              },
-              "body": ""
             }
           ],
           "resolved": [
-            "a.redirect.test",
-            "b.redirect.test"
+            "a.redirect.test"
           ],
           "stray_connects": []
         }
@@ -1328,35 +1292,9 @@
       "expected": {
         "python": {
           "outcome": "error",
-          "error": "hop_cap",
+          "error": "http_status",
+          "status": 302,
           "hops": [
-            {
-              "server": "a",
-              "method": "GET",
-              "target": "/start",
-              "headers": {
-                "host": "a.redirect.test:{port:a}"
-              },
-              "body": ""
-            },
-            {
-              "server": "a",
-              "method": "GET",
-              "target": "/start",
-              "headers": {
-                "host": "a.redirect.test:{port:a}"
-              },
-              "body": ""
-            },
-            {
-              "server": "a",
-              "method": "GET",
-              "target": "/start",
-              "headers": {
-                "host": "a.redirect.test:{port:a}"
-              },
-              "body": ""
-            },
             {
               "server": "a",
               "method": "GET",
@@ -1368,9 +1306,6 @@
             }
           ],
           "resolved": [
-            "a.redirect.test",
-            "a.redirect.test",
-            "a.redirect.test",
             "a.redirect.test"
           ],
           "stray_connects": []
@@ -1468,9 +1403,8 @@
       },
       "expected": {
         "python": {
-          "outcome": "ok",
-          "status": 200,
-          "body": "b",
+          "outcome": "error",
+          "error": "multiple_location",
           "hops": [
             {
               "server": "a",
@@ -1480,26 +1414,16 @@
                 "host": "a.redirect.test:{port:a}"
               },
               "body": ""
-            },
-            {
-              "server": "b",
-              "method": "GET",
-              "target": "/one",
-              "headers": {
-                "host": "b.redirect.test:{port:b}"
-              },
-              "body": ""
             }
           ],
           "resolved": [
-            "a.redirect.test",
-            "b.redirect.test"
+            "a.redirect.test"
           ],
           "stray_connects": []
         },
         "ts": {
-          "outcome": "ok",
-          "body": "b",
+          "outcome": "error",
+          "error": "multiple_location",
           "hops": [
             {
               "server": "a",
@@ -1509,20 +1433,10 @@
                 "host": "a.redirect.test:{port:a}"
               },
               "body": ""
-            },
-            {
-              "server": "b",
-              "method": "GET",
-              "target": "/one,%20http://c.redirect.test:{port:c}/two",
-              "headers": {
-                "host": "b.redirect.test:{port:b}"
-              },
-              "body": ""
             }
           ],
           "resolved": [
-            "a.redirect.test",
-            "b.redirect.test"
+            "a.redirect.test"
           ],
           "stray_connects": []
         }
@@ -2671,13 +2585,23 @@
       },
       "expected": {
         "python": {
-          "outcome": "error",
-          "error": "crash:UnicodeEncodeError",
+          "outcome": "ok",
+          "status": 200,
+          "body": "non-ascii",
           "hops": [
             {
               "server": "a",
               "method": "GET",
               "target": "/start",
+              "headers": {
+                "host": "a.redirect.test:{port:a}"
+              },
+              "body": ""
+            },
+            {
+              "server": "a",
+              "method": "GET",
+              "target": "/caf%C3%A9",
               "headers": {
                 "host": "a.redirect.test:{port:a}"
               },
@@ -2706,7 +2630,7 @@
             {
               "server": "a",
               "method": "GET",
-              "target": "/caf%C3%83%C2%A9",
+              "target": "/caf%C3%A9",
               "headers": {
                 "host": "a.redirect.test:{port:a}"
               },
