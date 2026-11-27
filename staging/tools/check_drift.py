@@ -45,7 +45,7 @@ import posixpath
 import re
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 PROVENANCE_NAME = "PROVENANCE.json"
@@ -53,7 +53,7 @@ RELATIONS = ("verbatim", "adapted")
 TOP_KEYS = ("package", "source_commit", "files", "divergences")
 OPTIONAL_TOP_KEYS = ("new_files",)
 ENTRY_KEYS = ("staged", "source", "source_blob", "relation")
-OPTIONAL_ENTRY_KEYS = ("source_ref",)
+OPTIONAL_ENTRY_KEYS = ("source_commit", "source_ref")
 CODE_SUFFIXES = frozenset({".py", ".ts", ".mts", ".cts", ".tsx", ".js", ".mjs", ".cjs", ".jsx"})
 FIXTURE_SUFFIXES = frozenset({".json"})
 FIXTURE_DIRS = frozenset({"fixtures"})
@@ -87,11 +87,7 @@ class Finding:
         return (_SEVERITY_RANK[self.severity], self.staged or "", self.code, self.message)
 
     def to_dict(self) -> dict:
-        return {
-            "severity": self.severity, "code": self.code, "message": self.message,
-            "staged": self.staged, "source": self.source,
-            "expected": self.expected, "actual": self.actual,
-        }
+        return asdict(self)
 
 
 @dataclass(frozen=True)
@@ -100,7 +96,9 @@ class Entry:
     source: str   # normalised repo-relative posix path
     blob: str
     relation: str
-    source_ref: str | None = None  # e.g. "PR #630 @ ff070bd5": source not on this branch yet
+    # Source not on this branch (e.g. an unmerged PR): verified as <source_commit>:<source>.
+    source_commit: str | None = None
+    source_ref: str | None = None  # human label only, e.g. "PR #630 head"
 
 
 @dataclass
@@ -200,6 +198,23 @@ def objects_present(repo: Path, shas: list[str]) -> set[str]:
     except subprocess.CalledProcessError:
         return set()
     return {line.split()[0] for line in out.splitlines() if line and not line.endswith(" missing")}
+
+
+def blobs_at(repo: Path, specs: list[str]) -> dict[str, str | None]:
+    """Map each "<commit>:<path>" spec to the blob sha it names, or None if it doesn't exist."""
+    unique = sorted(set(specs))
+    if not unique:
+        return {}
+    try:
+        out = _git(repo, ["cat-file", "--batch-check=%(objectname) %(objecttype)"],
+                   "".join(s + "\n" for s in unique))
+    except subprocess.CalledProcessError:
+        return dict.fromkeys(unique)
+    result: dict[str, str | None] = {}
+    for spec, line in zip(unique, out.splitlines()):
+        sha, _, kind = line.partition(" ")
+        result[spec] = sha if kind == "blob" else None
+    return result
 
 
 # --------------------------------------------------------------------------- paths
@@ -321,6 +336,13 @@ def _parse_entry(index: int, raw: object, report: PackageReport) -> Entry | None
     if source_ref is not None and not (isinstance(source_ref, str) and source_ref.strip()):
         report.add("ERROR", "schema", f"{where}.source_ref must be a non-empty string", **subject)
         return None
+    source_commit = raw.get("source_commit")
+    if source_commit is not None and not (isinstance(source_commit, str)
+                                          and SHA_RE.match(source_commit)):
+        report.add("ERROR", "schema",
+                   f"{where}.source_commit {source_commit!r} is not a lowercase hex git sha",
+                   **subject)
+        return None
     problems: list[str] = []
     missing = [k for k in ENTRY_KEYS if k not in raw]
     if missing:
@@ -346,7 +368,7 @@ def _parse_entry(index: int, raw: object, report: PackageReport) -> Entry | None
         report.add("ERROR", "schema", f"{where}: " + "; ".join(problems), **subject)
     if problems or len(paths) != 2:
         return None
-    return Entry(paths["staged"], paths["source"], blob, relation, source_ref)
+    return Entry(paths["staged"], paths["source"], blob, relation, source_commit, source_ref)
 
 
 def plan_package(repo: Path, prov: Path) -> _Plan:
@@ -422,7 +444,7 @@ def _short(sha: str | None) -> str:
 
 
 def _check_entry(plan: _Plan, repo: Path, entry: Entry, hashes: dict[str, str | None],
-                 present: set[str]) -> None:
+                 present: set[str], pinned: dict[str, str | None]) -> None:
     report = plan.report
     ids = {"staged": entry.staged, "source": entry.source}
     staged_abs = Path(posixpath.normpath(str(repo / entry.staged)))
@@ -440,11 +462,18 @@ def _check_entry(plan: _Plan, repo: Path, entry: Entry, hashes: dict[str, str | 
 
     source_abs = repo / entry.source
     source_hash = hashes.get(entry.source) if source_abs.is_file() else None
-    if not source_abs.exists() and entry.source_ref and entry.blob in present:
-        report.add("INFO", "source_external",
-                   f"source {entry.source} is not on this branch; pinned to {entry.source_ref} "
-                   f"(blob {_short(entry.blob)} is in the object store)", expected=entry.blob,
-                   **ids)
+    if not source_abs.exists() and entry.source_commit:
+        label = entry.source_ref or entry.source_commit[:12]
+        at_commit = pinned.get(f"{entry.source_commit}:{entry.source}")
+        if at_commit == entry.blob:
+            report.add("INFO", "source_external",
+                       f"source {entry.source} is not on this branch; verified at "
+                       f"{entry.source_commit[:12]} ({label})", expected=entry.blob, **ids)
+        else:
+            report.add("ERROR", "source_pin_mismatch",
+                       f"source {entry.source} at {entry.source_commit[:12]} ({label}) is "
+                       f"{_short(at_commit) if at_commit else 'absent'}, recorded "
+                       f"{_short(entry.blob)}", expected=entry.blob, actual=at_commit, **ids)
     elif not source_abs.is_file():
         what = "is not a regular file" if source_abs.exists() else "is missing from the work tree"
         known = "is" if entry.blob in present else "is not"
@@ -503,11 +532,13 @@ def run_check(repo: Path, staging: Path) -> list[PackageReport]:
             if entry.relation == "verbatim" and (repo / entry.staged).is_file():
                 to_hash.append(entry.staged)
     hashes = hash_objects(repo, to_hash)
-    missing_blobs = [e.blob for p in plans for e in p.entries if not (repo / e.source).is_file()]
-    present = objects_present(repo, missing_blobs)
+    off_branch = [e for p in plans for e in p.entries if not (repo / e.source).is_file()]
+    present = objects_present(repo, [e.blob for e in off_branch])
+    pinned = blobs_at(repo, [f"{e.source_commit}:{e.source}" for e in off_branch
+                             if e.source_commit])
     for plan in plans:
         for entry in plan.entries:
-            _check_entry(plan, repo, entry, hashes, present)
+            _check_entry(plan, repo, entry, hashes, present, pinned)
         if plan.scan_untracked:
             _check_untracked(plan, repo)
         plan.report.findings.sort(key=Finding.sort_key)

@@ -47,7 +47,9 @@ SURVIVING = ("KEEP", "DEFER", "REVIEW")  # strongest first
 BLOCKING_KINDS = ("runtime", "data", "ci")
 EDGE_KINDS = ("runtime", "type-only", "data", "ci", "mention")
 # Session records and packet reports are history, not code: classified, never scanned.
-SCAN_EXCLUDE = ("MEMORY/", ".packet-reports/")
+# docs/salvage/ holds this tool's own output; scanning it would turn every path it lists
+# into a bogus data edge on the next regeneration.
+SCAN_EXCLUDE = ("MEMORY/", ".packet-reports/", "docs/salvage/")
 PASS1_STATUSES = ("deleted-in-pass1", "restored-in-pass1", "modified-in-pass1", "untouched")
 
 # ── Classification rules ────────────────────────────────────────────────────────────
@@ -206,7 +208,7 @@ def is_env_file(path: str) -> bool:
 
 
 def ls_tree(repo: str, ref: str, long: bool = False) -> dict[str, dict]:
-    """Map path -> {mode, type, sha, size} for every entry at ``ref`` (.env* excluded)."""
+    """Map path -> {mode, type, sha, size} for every entry at ``ref`` (callers drop .env*)."""
     args = ["ls-tree", "-r", "-z"] + (["-l"] if long else []) + [ref]
     out: dict[str, dict] = {}
     for rec in git(repo, *args).split(b"\0"):
@@ -220,11 +222,6 @@ def ls_tree(repo: str, ref: str, long: bool = False) -> dict[str, dict]:
             entry["size"] = None if fields[3] == "-" else int(fields[3])
         out[path] = entry
     return out
-
-
-def count_env(repo: str, ref: str) -> int:
-    raw = git(repo, "ls-tree", "-r", "-z", "--name-only", ref).split(b"\0")
-    return sum(1 for p in raw if p and is_env_file(p.decode("utf-8", "surrogateescape")))
 
 
 def read_blobs(repo: str, shas: list[str]) -> dict[str, bytes]:
@@ -700,10 +697,10 @@ def scan_ci(ci_path: str, text: str, idx: PathIndex) -> tuple[list[dict], list[E
     steps_out, edges = [], []
     for step in parse_ci_steps(text):
         refs, seen = [], set()
-        pieces = [(t, False) for line in step["run"].splitlines()
+        tokens = [t for line in step["run"].splitlines()
                   if not line.lstrip().startswith("#") for t in _TOKEN.findall(line)]
-        pieces += [(t, False) for v in step["extra"] for t in _TOKEN.findall(str(v))]
-        for tok, _ in pieces:
+        tokens += [t for v in step["extra"] for t in _TOKEN.findall(str(v))]
+        for tok in tokens:
             for piece in [tok] + _DOTTED.findall(tok):
                 hit = idx.match(piece, ci_path)
                 if not hit or (hit[0], piece) in seen:
@@ -954,7 +951,9 @@ def build_manifest(repo: str, ref: str = DEFAULT_REF, pass1_ref: str = DEFAULT_P
     p1_sha = rev_parse(repo, f"{pass1_ref}^{{commit}}")
     if not p1_sha:
         raise SystemExit(f"cannot resolve --pass1-ref {pass1_ref}")
-    tree = {p: e for p, e in ls_tree(repo, ref_sha, long=True).items() if not is_env_file(p)}
+    full_tree = ls_tree(repo, ref_sha, long=True)
+    tree = {p: e for p, e in full_tree.items() if not is_env_file(p)}
+    env_count = len(full_tree) - len(tree)
     paths = sorted(tree)
     blob_shas = sorted({e["sha"] for e in tree.values() if e["type"] == "blob"})
     blobs = read_blobs(repo, blob_shas)
@@ -1046,9 +1045,9 @@ def build_manifest(repo: str, ref: str = DEFAULT_REF, pass1_ref: str = DEFAULT_P
     for f in files:
         pass1_counts[f["verdict"]][f["pass1"]] += 1
 
-    edge_dicts = [_edge_dict(e, info, ci_rel) for e in inbound]
-    blockers = _group(edge_dicts, BLOCKING_KINDS, info, idx)
-    soft = _group(edge_dicts, ("type-only",), info, idx)
+    edge_dicts = [_edge_dict(e, info) for e in inbound]
+    blockers = _group(edge_dicts, BLOCKING_KINDS, idx)
+    soft = _group(edge_dicts, ("type-only",), idx)
     cut_list = defaultdict(set)
     for e in edge_dicts:
         if e["kind"] in BLOCKING_KINDS:
@@ -1081,7 +1080,7 @@ def build_manifest(repo: str, ref: str = DEFAULT_REF, pass1_ref: str = DEFAULT_P
             "ref_tree": git(repo, "rev-parse", f"{ref_sha}^{{tree}}").decode().strip(),
             "pass1_ref": pass1_ref, "pass1_commit": p1_sha, "pass1_merge_base": p1["merge_base"],
             "ci": ci_source,
-            "excluded": {"pattern": ".env*", "count": count_env(repo, ref_sha),
+            "excluded": {"pattern": ".env*", "count": env_count,
                          "note": "never read or listed"},
         },
         "archive": archive_block(repo, tag, bundle, verify_bundle, lock_cmd),
@@ -1100,7 +1099,7 @@ def build_manifest(repo: str, ref: str = DEFAULT_REF, pass1_ref: str = DEFAULT_P
     }
 
 
-def _edge_dict(e: Edge, info: dict, ci_rel: str) -> dict:
+def _edge_dict(e: Edge, info: dict) -> dict:
     d = {"from": e.src, "line": e.line, "to": e.target, "to_type": e.ttype, "kind": e.kind,
          "spec": e.spec, "from_verdict": info.get(e.src, {}).get("verdict", "KEEP")}
     if e.context:
@@ -1108,7 +1107,7 @@ def _edge_dict(e: Edge, info: dict, ci_rel: str) -> dict:
     return d
 
 
-def _group(edges: list[dict], kinds: tuple[str, ...], info: dict, idx: PathIndex) -> list[dict]:
+def _group(edges: list[dict], kinds: tuple[str, ...], idx: PathIndex) -> list[dict]:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for e in edges:
         if e["kind"] in kinds:
@@ -1330,7 +1329,7 @@ def render_markdown(m: dict) -> str:
         for f in derived:
             out.append(f"- `{f['path']}`: {f['verdict']}. {f['reason']}")
     out += ["", "## Regenerate", "", "```bash",
-            "H=/tmp/claude-1000/-home-xil-dev-alienclaw/<session>/scratchpad/heavy.sh",
+            "H=staging/tools/heavy.sh",
             "python3 staging/tools/build_drop_manifest.py --repo . --ref HEAD \\",
             "  --pass1-ref origin/chore/teardown-pass1 --ci .github/workflows/ci.yml \\",
             "  --lock-cmd \"$H\" \\",

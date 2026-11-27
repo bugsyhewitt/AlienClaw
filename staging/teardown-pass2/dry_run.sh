@@ -9,7 +9,7 @@
 #
 # Environment:
 #   HEAVY    wrapper that gates heavy commands (RAM > 4 GB + shared flock).
-#            Default: the session's heavy.sh (see HEAVY_DEFAULT below).
+#            Default: staging/tools/heavy.sh next to this kit.
 #   LOGDIR   where step logs + summary go. Default: <kit>/last-run (wiped first).
 #
 # What it does, in order:
@@ -40,7 +40,7 @@
 set -u
 
 KIT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HEAVY_DEFAULT=/tmp/claude-1000/-home-xil-dev-alienclaw/8583d279-be75-4906-9885-a0f66a34619d/scratchpad/heavy.sh
+HEAVY_DEFAULT="$KIT_DIR/../tools/heavy.sh"
 HEAVY="${HEAVY:-$HEAVY_DEFAULT}"
 REQUIRED_JOBS='TypeScript typecheck|Unit tests|Python lint + test + genome coverage'
 

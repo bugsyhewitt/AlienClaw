@@ -203,28 +203,48 @@ def test_missing_source_is_error_and_reports_object_store(repo, capsys):
     assert codes(report, "DRIFT") == []  # the verbatim copy still matches the record
 
 
-def test_source_ref_pins_off_branch_source_as_info(repo, capsys):
+def test_source_commit_verifies_off_branch_source_as_info(repo, capsys):
     doc = load_provenance(repo)
-    doc["files"][0]["source_ref"] = "PR #630 @ ff070bd5"
+    doc["files"][0]["source_commit"] = doc["source_commit"]
+    doc["files"][0]["source_ref"] = "PR #630 head"
     write_provenance(repo, doc)
     (repo / "src/pkg/mod.py").unlink()
     code, report = run_json(repo, capsys=capsys)
     assert code == 0
     [f] = findings(report)
     assert (f["severity"], f["code"]) == ("INFO", "source_external")
-    assert "PR #630 @ ff070bd5" in f["message"]
+    assert "PR #630 head" in f["message"]
 
 
-def test_source_ref_does_not_excuse_a_blob_missing_from_the_store(repo, capsys):
+def test_source_commit_with_wrong_blob_is_error(repo, capsys):
     doc = load_provenance(repo)
     doc["files"].append(entry("src/demo/gone.py", "src/pkg/gone.py", "never\n", "adapted"))
-    doc["files"][-1]["source_ref"] = "PR #999 @ deadbeef"
+    doc["files"][-1]["source_commit"] = doc["source_commit"]  # gone.py never existed there
     write_provenance(repo, doc)
     write(repo / PKG / "src/demo/gone.py", "never\n")
     code, report = run_json(repo, capsys=capsys)
     assert code == 1
     [f] = findings(report, "ERROR")
-    assert f["code"] == "source_missing"
+    assert f["code"] == "source_pin_mismatch" and f["actual"] is None
+
+
+def test_source_ref_alone_does_not_excuse_a_missing_source(repo, capsys):
+    doc = load_provenance(repo)
+    doc["files"][0]["source_ref"] = "PR #630 head"
+    write_provenance(repo, doc)
+    (repo / "src/pkg/mod.py").unlink()
+    code, report = run_json(repo, capsys=capsys)
+    assert code == 1
+    assert codes(report, "ERROR") == ["source_missing"]
+
+
+def test_malformed_source_commit_is_schema_error(repo, capsys):
+    doc = load_provenance(repo)
+    doc["files"][0]["source_commit"] = "ff070bd5"
+    write_provenance(repo, doc)
+    code, report = run_json(repo, capsys=capsys)
+    assert code == 1
+    assert "schema" in codes(report, "ERROR")
 
 
 def test_empty_source_ref_is_schema_error(repo, capsys):
