@@ -2,8 +2,9 @@
  * hardenedFetch behaviour: success path, redirects, policy options, errors,
  * plus pinned KNOWN GAPS (current behaviour that is not a guarantee; see
  * README "Not covered"). A fix for a gap should flip its pinned test on
- * purpose. The NAT64, body-read and DNS-rebinding gaps were fixed on
- * 2026-11-26 and their pinned tests flipped into "fixed gaps" below;
+ * purpose. The NAT64, body-read, DNS-rebinding, 6to4, site-local and
+ * localhost-name gaps were fixed on 2026-11-26 and their pinned tests
+ * flipped into "fixed gaps" below;
  * test/hardening.test.ts has the full regression set for the first two and
  * for policy validation, test/pinning.test.ts for connection pinning.
  *
@@ -265,6 +266,13 @@ describe('fixed gaps (formerly pinned)', () => {
   it('deprecated site-local fec0::/10 is blocked', () => {
     expect(isBlockedHost('[fec0::1]')).toBe(true);
   });
+
+  // Pinned as "pass the literal check and rely on DNS" until 2026-11-26 (gate G7);
+  // test/prepublication-gates.test.ts has the full set.
+  it('localhost. (trailing dot) and *.localhost are blocked by the literal check, before DNS', () => {
+    expect(isBlockedHost('localhost.')).toBe(true);
+    expect(isBlockedHost('foo.localhost')).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -272,9 +280,13 @@ describe('fixed gaps (formerly pinned)', () => {
 // ---------------------------------------------------------------------------
 
 describe('KNOWN GAPS (pinned)', () => {
-  it('localhost. (trailing dot) and *.localhost pass the literal check and rely on DNS', () => {
-    expect(isBlockedHost('localhost.')).toBe(false);
-    expect(isBlockedHost('foo.localhost')).toBe(false);
+  // SR-14 (docs/salvage/SANDBOX-SECURITY-REVIEW.md): there is no port policy beyond
+  // port 0 and the Fetch bad-port list, as README "Not covered" says.
+  it('no port policy: a public host on a service port (6379, 9200) is fetched', async () => {
+    const spy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok', { status: 200 }));
+    await expect(hardenedFetch('http://example.com:6379/', POLICY)).resolves.toBe('ok');
+    await expect(hardenedFetch('http://example.com:9200/', POLICY)).resolves.toBe('ok');
+    expect(spy.mock.calls.map((c) => c[0])).toEqual(['http://example.com:6379/', 'http://example.com:9200/']);
   });
 
   it('the default protocol list allows an https-to-http downgrade redirect', async () => {

@@ -1,6 +1,6 @@
 # @v3x/hardened-fetch (TypeScript, staging)
 
-An SSRF-hardened HTTP GET for Node 18+ with **connection pinning**: the socket
+An SSRF-hardened HTTP GET for Node 22+ (`engines.node: ">=22"`) with **connection pinning**: the socket
 connects only to the addresses that were validated. It has no runtime
 dependencies (only Node built-ins: `node:dns/promises`, `node:http`,
 `node:https`, `node:net`, `node:stream`, `node:zlib`).
@@ -25,10 +25,10 @@ const body: string = await hardenedFetch('https://example.com/data.json', {
 
 | Export | Kind | What it does |
 |---|---|---|
-| `hardenedFetch(url, policy)` | `Promise<string>` | Validates the policy, validates the URL, resolves the host once and rejects if any answer is blocked, sends a GET whose socket can connect only to that validated answer, handles redirects itself and re-validates (and re-pins) every hop, caps the size, and decodes the body as UTF-8, all under one deadline. Throws `TypeError` for an invalid policy, `TypeError('fetch failed', { cause })` for a network failure (as `fetch()` did), and `Error` on any other rejection. |
-| `isBlockedHost(hostname)` | `boolean` | Classifies a **`new URL(...).hostname`** string: IP literal (bracketed or bare IPv6, dotted-quad IPv4) or the tokens `localhost`, `ip6-localhost`, `ip6-loopback`. Returns `false` for ordinary DNS names, which are left to the post-DNS check. |
-| `validateResolvedAddresses(addrs)` | `void` / throws | Checks a `dns.lookup(host, { all: true })` answer. Throws if any address is blocked, if the family is not 4 or 6, if a family-4 address does not parse, or if the list is empty. |
-| `FetchPolicy`, `ResolvedAddress`, `Resolver` | types | See below. `Resolver` is the type of the `resolve` hook. |
+| `hardenedFetch(url, policy)` | `Promise<string>` | Validates the policy, validates the URL, resolves the host once and rejects if any answer is blocked, sends a GET whose socket can connect only to that validated answer, handles redirects itself and re-validates (and re-pins) every hop, caps the size, and decodes the body as UTF-8, all under one deadline. Throws `TypeError` for an invalid policy, `TypeError('fetch failed', { cause })` for a network failure (as `fetch()` did), and `Error` on any other rejection. See "Error messages" for what a message may contain. |
+| `isBlockedHost(hostname)` | `boolean` | Classifies a **`new URL(...).hostname`** string: IP literal (bracketed or bare IPv6, dotted-quad IPv4), the tokens `localhost`, `ip6-localhost`, `ip6-loopback`, and every name under `.localhost` (RFC 6761), each with or without trailing dots. Returns `false` for other DNS names, which are left to the post-DNS check. |
+| `validateResolvedAddresses(addrs)` | `void` / throws | Checks a `dns.lookup(host, { all: true })` answer. Throws if any address is blocked, if the family is not 4 or 6, if a family-4 address does not parse, or if the list is empty. The message does not name the address; the thrown `Error` is an `AddressRejection` (see "Error messages"). |
+| `FetchPolicy`, `ResolvedAddress`, `Resolver`, `AddressRejection` | types | See below. `Resolver` is the type of the `resolve` hook. `AddressRejection` is the `Error` a refused DNS answer throws, with its `blockedAddress` and `addressFamily`. |
 | `DEFAULT_PROTOCOLS` | `['https', 'http']` | The protocols allowed when `policy.protocols` is unset. |
 | `MAX_REDIRECTS` | `5` | The redirect cap when `policy.maxRedirects` is unset. |
 
@@ -61,22 +61,25 @@ until the time budget ran out.
 The policy is checked once (`Invalid FetchPolicy`, a `TypeError`), and the deadline starts. Then these steps run for
 each hop, in this order, all under that one deadline (`Fetch timeout: exceeded <timeoutMs>ms budget`):
 
-1. `new URL(url)`. A parse failure gives `Invalid URL` (this includes a port above 65535).
+1. `new URL(url)`. A parse failure gives `Invalid URL: <the input, redacted>` (this includes a port above 65535).
 2. Protocol allowlist (`Protocol rejected`), then the port: an explicit port must be 1 to 65535
    (`Port rejected: 0 is not a port from 1 to 65535`). WHATWG keeps `:0`, and `node:http` reads port 0 as "use the
    default", so before 2026-11-26 `http://host:0/` was dialled on port 80.
-3. `isBlockedHost(hostname)` on the literal (`SSRF rejected: hostname ... is blocked`).
-   This happens before any DNS lookup.
+3. `isBlockedHost(hostname)` on the literal (`SSRF rejected: hostname ... is blocked`): blocked IP literals and the
+   localhost names (`localhost`, `localhost.`, `foo.localhost`, `foo.localhost.`, `ip6-localhost`, `ip6-loopback`).
+   This happens before any DNS lookup, so a resolver that answers a public address for `foo.localhost` changes nothing.
 4. `allowedHosts`, if set (`Host not in allowlist`).
 5. One resolution: `policy.resolve(hostname)` if set, else `dns.promises.lookup(hostname, { all: true })`.
    A failure gives `DNS resolution failed`. Every address goes through `validateResolvedAddresses`, so a single
-   blocked answer rejects the request, and every address must be a canonical IP string (`net.isIP` agrees with
-   its family), so `SSRF rejected: resolved address ... is not a canonical IPv4 address` stops spellings such as
-   `012.0.0.1` that the classifier and `inet_aton` would read differently. The validated list is the pin.
+   blocked answer rejects the request (`SSRF rejected: a resolved address is in a blocked range`), and every address
+   must be a canonical IP string (`net.isIP` agrees with its family), so `SSRF rejected: a resolved address is not a
+   canonical IPv4 address` stops spellings such as `012.0.0.1` that the classifier and `inet_aton` would read
+   differently. The validated list is the pin.
 6. One GET through the pinned transport (`src/pinned-request.ts`, see "Connection pinning"). A 3xx response needs a
    `Location` header, which is resolved against the current URL; the unread redirect body is cancelled, the hop
-   counter goes down and the loop returns to step 1, so the next hop resolves once and is pinned again. Any other
-   non-2xx response throws `HTTP <status> from <host>`.
+   counter goes down and the loop returns to step 1, so the next hop resolves once and is pinned again. A Location
+   that does not parse throws `TypeError: Invalid redirect Location: <the Location, redacted>`. Any other non-2xx
+   response throws `HTTP <status> from <host>`.
 7. Streamed body with the size cap. Each chunk read races the deadline, so the body read is covered too.
 
 ## Connection pinning
@@ -87,7 +90,9 @@ and `127.0.0.1` (or the metadata address) to the connect. Now:
 
 - The request is made with `node:http` / `node:https` to the **original hostname**, so the `Host` header, the TLS SNI
   (`servername`) and the certificate check (Node's default `checkServerIdentity`, against the default CA store) all
-  use the name.
+  use the name. The transport passes `rejectUnauthorized: true` to the request and to its agent, so the process-wide
+  `NODE_TLS_REJECT_UNAUTHORIZED=0` opt-out does **not** turn certificate verification off for it (2026-11-26; there
+  is no policy option to turn it off).
 - Its `lookup` option is a pinned lookup that answers **only** from the validated list and never calls DNS. It
   supports the `{ all: true }` form that Node's `autoSelectFamily` (happy eyeballs) uses, filters by family when
   asked, and refuses any other hostname. With several validated addresses Node may try any of them; all were
@@ -116,7 +121,8 @@ the real global `fetch` against the same local server:
 | Request headers | `host`, `accept: */*`, `accept-language: *`, `sec-fetch-mode: cors`, `user-agent: node`, `accept-encoding: gzip, deflate` (`br, gzip, deflate` over https) | same, except **`connection: keep-alive`**; now **`connection: close`** (no reuse, one TCP/TLS connection per hop) |
 | Content decoding | gzip / x-gzip, deflate (zlib-wrapped or raw, chosen from the RFC 1950 header), br, zstd where `zlib` has it, stacked codings decoded last-first, more than 5 codings refused, an unknown coding passes the body through undecoded; `maxBytes` counts decoded bytes | same (undici picks raw deflate from the first byte only) |
 | Bad ports (Fetch standard list: 22, 25, 6000, ...) | `TypeError: fetch failed`, cause `bad port`, no connect | same |
-| URL with credentials | `TypeError: Request cannot be constructed from a URL that includes credentials: <url>` | same |
+| URL with credentials | `TypeError: Request cannot be constructed from a URL that includes credentials: <url, redacted>` | same, but the URL repeated whole, password included |
+| `NODE_TLS_REJECT_UNAUTHORIZED=0` | ignored: certificates are always verified | honoured: verification off |
 | Network errors | `TypeError: fetch failed` with the Node error as `cause` | same shape; the `cause` is Node's error, not undici's |
 | Body broken mid-read | `TypeError: terminated` | same |
 | 101 / 204 / 205 / 304 | null body (a 204 still ends in `No response body`) | same |
@@ -126,6 +132,27 @@ the real global `fetch` against the same local server:
 | Idle timers | only the policy deadline | undici's 300 s headers and body timeouts also applied |
 | TLS ALPN | none offered | `http/1.1` offered |
 | Protocol | HTTP/1.1 | HTTP/1.1 (undici's default; `allowH2` is off) |
+
+## Error messages
+
+In an agent tool the error text usually goes back to the model, so a prompt-injected page can read it. Two rules
+(staged only, 2026-11-26):
+
+- **A refused DNS answer is not named.** `SSRF rejected: a resolved address is in a blocked range` is the whole
+  message, whatever the address (`... is not a canonical IPv4 address` and `unknown address family <n> for a resolved
+  address` likewise). Before, the message said which internal address the name resolved to, so a page could map
+  internal DNS (`http://vault.corp/` -> `10.20.30.40`) without any connection being made (pinning review PR-03). The
+  error is still a plain `Error`; it is typed `AddressRejection` and carries `blockedAddress` (the refused string) and
+  `addressFamily`. Both properties are **non-enumerable** and read-only, so `util.inspect`, `JSON.stringify` and
+  loggers that copy own enumerable fields do not print them; read them by name to log them. An IP-literal refusal
+  still quotes the literal (`SSRF rejected: hostname "10.0.0.1" is blocked`), since the caller wrote it.
+- **A URL in a message is redacted.** Its userinfo, query and fragment each become `<redacted>`; scheme, host, port and
+  path stay. This covers `Invalid URL: ...`, `Invalid redirect Location: ...` and the transport's credentials and
+  parse errors. For a string the parser rejects, everything before the last `@` counts as userinfo, because a
+  password containing `/`, `?` or `#` is what breaks the parse. Example: `http://alice:s3cret@example.com:99999/?t=1`
+  gives `Invalid URL: http://<redacted>@example.com:99999/?<redacted>`. Hostnames are not redacted.
+
+`test/prepublication-gates.test.ts` checks both, including the inspect and JSON renderings.
 
 ### Block list
 
@@ -184,6 +211,9 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
 - Port 0, which `node:http` would otherwise dial as the default port.
 - Errors that settle just as the deadline fires are reported as themselves (an SSRF rejection stays an SSRF
   rejection); only the deadline's own abort is reported as `Fetch timeout`.
+- `localhost.`, `*.localhost` and `*.localhost.` (RFC 6761), refused before DNS whatever the resolver would answer.
+- Error messages do not name a refused DNS answer or repeat credentials, queries or fragments (see "Error messages").
+- `NODE_TLS_REJECT_UNAUTHORIZED=0` cannot disable certificate verification for these requests.
 - **DNS rebinding (TOCTOU)**, in this staged copy only: the host is resolved once per hop and the socket is pinned to
   that validated answer (see "Connection pinning"). The in-tree module is still exposed.
 - Proxies cannot carry the request around the check: proxy configuration is ignored.
@@ -207,15 +237,21 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
 - **No port policy beyond port 0 and the Fetch bad-port list.** `http://public-host:6379/` is fetched.
 - **IPv4 documentation ranges** (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`) and other special-purpose ranges such as
   `192.88.99.0/24` are not blocked.
-- **`localhost.` and `*.localhost`** are not caught by the literal check. They are blocked only if DNS resolves them to
-  loopback, which is the normal case.
+- **Other local-only names** (`*.local`, `*.internal`, `metadata.google.internal`, `*.home.arpa`) are not caught by the
+  literal check. They are blocked only if DNS resolves them to a blocked address, which is the normal case.
+- **A name-existence oracle remains.** A name that does not resolve gives `DNS resolution failed for "<host>": ...`
+  and a name that resolves to a blocked address gives `SSRF rejected: a resolved address is in a blocked range`, so a
+  page can still learn that `db.corp` exists internally (not its address). Merging the two messages is a policy
+  choice left open.
 - **Downgrade.** The default `protocols` allows an https-to-http redirect. Set `protocols: ['https']` to forbid it.
-- **Credential leakage in errors.** `Invalid URL: <url>` repeats the input, userinfo included.
+- **Error causes are Node's.** A network failure is `TypeError('fetch failed', { cause })`, and Node's `cause` can name
+  the pinned (already validated, so not internal) address and port, or the hostname.
 
 `test/hardened-fetch.test.ts` pins the testable gaps above under "KNOWN GAPS (pinned)". Fixing one should flip its test on purpose.
-The NAT64, body-read, DNS-rebinding, 6to4 and site-local gaps were fixed on 2026-11-26: their pinned tests were flipped
-into "fixed gaps (formerly pinned)", and `test/corpus-gaps.test.ts` holds the full set for 6to4, Teredo, `fec0::/10`,
-WireServer and port 0. `test/hardening.test.ts` holds the full regression set for the first two and for policy
+The NAT64, body-read, DNS-rebinding, 6to4, site-local and localhost-name gaps were fixed on 2026-11-26: their pinned
+tests were flipped into "fixed gaps (formerly pinned)", `test/corpus-gaps.test.ts` holds the full set for 6to4, Teredo,
+`fec0::/10`, WireServer and port 0, and `test/prepublication-gates.test.ts` the one for localhost names, error
+messages and the engine range. `test/hardening.test.ts` holds the full regression set for the first two and for policy
 validation (including the real transport against a 127.0.0.1 slow-drip listener), and `test/pinning.test.ts` the one
 for connection pinning.
 
@@ -226,6 +262,9 @@ for connection pinning.
 | Exports | `LEADERBOARD_POLICY` and `leaderboardFetch` (AlienClaw-specific) are removed. Every other export is identical. |
 | Block list (staged only, 2026-11-26) | 6to4 `2002::/16`, Teredo `2001:0::/32` and site-local `fec0::/10` are blocked whole, and the Azure WireServer address `168.63.129.16` is in the IPv4 table (so its NAT64 embedding `64:ff9b::a83f:8110` is blocked too). In-tree allows all of them. `test/parity-in-tree.test.ts` declares exactly these ranges and asserts that each one still differs (staged blocks, in-tree allows) and that nothing else does. CGNAT `100.64.0.0/10` was already blocked in-tree. |
 | Port 0 (staged only, 2026-11-26) | `validateUrl` refuses an explicit port outside 1-65535 (`Port rejected: ...`), before DNS. In-tree hands `:0` to `fetch()`. Declared end-to-end in `test/parity-in-tree.test.ts`. |
+| Localhost names (staged only, 2026-11-26) | `isBlockedHost` also blocks `localhost.`, `*.localhost` and `*.localhost.` (and the other two tokens with trailing dots). In-tree leaves them to DNS. Declared in `test/parity-in-tree.test.ts` (`inDeclaredName`). No shared-corpus verdict changed: the corpus's localhost vectors already blocked through their loopback DNS answers. |
+| Error messages (staged only, 2026-11-26) | A resolved-address refusal does not name the address (`AddressRejection.blockedAddress` carries it); `Invalid URL`, the new `Invalid redirect Location` and the transport's URL errors are redacted. In-tree names the address and repeats the URL. `test/parity-in-tree.test.ts` maps in-tree messages to the staged form (`inTreeAsStaged`) and still compares decision, reason and address. |
+| TLS (staged only, 2026-11-26) | `rejectUnauthorized: true` is explicit, so `NODE_TLS_REJECT_UNAUTHORIZED=0` is ignored. In-tree uses `fetch()`, which honours it. |
 | Timeout reporting | In-tree commit d18c5c5d (only the deadline's own abort is reported as a timeout) is ported. In-tree checks the error and its `cause`; the staged copy walks the `cause` chain (up to 4 levels), because the pinned transport reports a body broken by the abort as `TypeError('terminated', { cause: <AbortError> })`. Regression test: `test/timeout-masking.test.ts`, adapted from in-tree `test/net/hardened-fetch-timeout-masking.test.ts` to stub the transport. |
 | Transport (staged only, 2026-11-26) | `fetch()` is replaced by the pinned `node:http` / `node:https` transport in `src/pinned-request.ts`, and `FetchPolicy` gains `resolve`. The classifiers (`isBlockedHost`, `validateResolvedAddresses`) are unchanged, so the decision parity below still holds; `test/parity-in-tree.test.ts` stubs the transport for the staged module and `fetch` for the in-tree one with the same responses. See "Differences from `fetch()`" for every observable change. |
 | Non-behavioural | The header comment is rewritten (consumer list dropped, rebinding claim corrected). |

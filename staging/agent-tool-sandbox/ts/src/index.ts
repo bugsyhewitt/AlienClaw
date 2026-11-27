@@ -5,4 +5,4 @@ export {
   isBlockedHost,
   validateResolvedAddresses,
 } from './hardened-fetch.js';
-export type { FetchPolicy, ResolvedAddress, Resolver } from './hardened-fetch.js';
+export type { AddressRejection, FetchPolicy, ResolvedAddress, Resolver } from './hardened-fetch.js';

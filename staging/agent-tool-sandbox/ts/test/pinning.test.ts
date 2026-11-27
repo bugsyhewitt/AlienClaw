@@ -334,6 +334,55 @@ describe('pinning: Host, SNI and the certificate check use the original hostname
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // Pinning review PR-04 (2026-11-26): the transport passes rejectUnauthorized: true,
+  // so the process-wide NODE_TLS_REJECT_UNAUTHORIZED=0 opt-out cannot turn it off.
+  const hasOpenssl = spawnSync('openssl', ['version'], { stdio: 'ignore' }).status === 0;
+
+  it.skipIf(!hasOpenssl)('TLS: NODE_TLS_REJECT_UNAUTHORIZED=0 does not turn certificate verification off', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pinning-cert-'));
+    const saved = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    try {
+      execFileSync('openssl', [
+        'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1', '-nodes',
+        '-keyout', join(dir, 'key.pem'), '-out', join(dir, 'cert.pem'), '-days', '2',
+        '-subj', '/CN=rebind.example', '-addext', 'subjectAltName=DNS:rebind.example',
+      ], { stdio: 'ignore' });
+      // Self-signed and NOT trusted: only a disabled verification would accept it.
+      const cert = readFileSync(join(dir, 'cert.pem'), 'utf8');
+      const key = readFileSync(join(dir, 'key.pem'), 'utf8');
+      let served = 0;
+      const server = https.createServer({ cert, key }, (_req, res) => { served++; res.end('unverified'); });
+      server.on('tlsClientError', () => { /* the refused handshake */ });
+      const port = await listen(server);
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      vi.spyOn(process, 'emitWarning').mockImplementation(() => { /* Node's opt-out warning */ });
+
+      // Control: in this process the opt-out really is in force for a client that leaves the default.
+      const control = await new Promise<string>((resolveBody, reject) => {
+        https.get({ host: '127.0.0.1', port, servername: 'rebind.example', agent: new https.Agent() }, (res) => {
+          let body = '';
+          res.on('data', (c: Buffer) => { body += c.toString(); });
+          res.on('end', () => resolveBody(body));
+        }).on('error', reject);
+      });
+      expect(control).toBe('unverified');
+      expect(served).toBe(1);
+
+      viaLoopback();
+      const err = await rejection(hardenedFetch(`https://rebind.example:${port}/`, {
+        ...POLICY, resolve: async () => [v4(PUBLIC_A)],
+      }));
+      expect(err).toBeInstanceOf(TypeError);
+      expect(err.message).toBe('fetch failed');
+      expect(err.cause?.code).toBe('DEPTH_ZERO_SELF_SIGNED_CERT');
+      expect(served).toBe(1);  // the pinned request never got past the handshake
+    } finally {
+      if (saved === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+      else process.env.NODE_TLS_REJECT_UNAUTHORIZED = saved;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -513,13 +562,17 @@ describe('transport parity with fetch(): headers, decoding, errors', () => {
     expect(connects()).toBe(0);
   });
 
-  it('a URL with credentials is refused with fetch()\'s TypeError, no connect', async () => {
+  it('a URL with credentials is refused with fetch()\'s TypeError, no connect; the URL is redacted', async () => {
     const { connects } = socketTargets();
     const url = 'http://user:pass@creds.example/';
+    const prefix = 'Request cannot be constructed from a URL that includes credentials: ';
     const err = await rejection(hardenedFetch(url, { ...POLICY, resolve }));
     expect(err).toBeInstanceOf(TypeError);
-    expect(err.message).toBe(`Request cannot be constructed from a URL that includes credentials: ${url}`);
-    expect((await rejection(fetch(url))).message).toBe(err.message);
+    // fetch() repeats the URL whole; the transport redacts its userinfo (gate G7, 2026-11-26).
+    expect(err.message).toBe(`${prefix}http://<redacted>@creds.example/`);
+    const ref = await rejection(fetch(url));
+    expect(ref).toBeInstanceOf(TypeError);
+    expect(ref.message).toBe(`${prefix}${url}`);
     expect(connects()).toBe(0);
   });
 

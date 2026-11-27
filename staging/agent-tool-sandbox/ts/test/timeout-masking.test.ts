@@ -92,14 +92,15 @@ describe('hardenedFetch reports the real error when it settles as the deadline f
     lookup.mockResolvedValue([{ address: '127.0.0.1', family: 4 }] as never);
     fireDeadlineWhenRaceRejects(/^SSRF rejected/);
     const message = await failure(hardenedFetch('https://example.com/', POLICY));
-    expect(message).toBe('SSRF rejected: resolved address 127.0.0.1 is in a blocked range');
+    // The message no longer names the address (pinning review PR-03, 2026-11-26).
+    expect(message).toBe('SSRF rejected: a resolved address is in a blocked range');
   });
 
   it('a policy resolve hook answer in a blocked range, rejected as the deadline fires', async () => {
     fireDeadlineWhenRaceRejects(/^SSRF rejected/);
     const resolve = () => [{ address: '169.254.169.254', family: 4 }];
     const message = await failure(hardenedFetch('https://example.com/', { ...POLICY, resolve }));
-    expect(message).toBe('SSRF rejected: resolved address 169.254.169.254 is in a blocked range');
+    expect(message).toBe('SSRF rejected: a resolved address is in a blocked range');
   });
 
   it('an HTTP error whose response arrives as the deadline fires', async () => {

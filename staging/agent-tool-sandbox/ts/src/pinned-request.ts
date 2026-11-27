@@ -16,7 +16,8 @@
  * It reproduces what callers of the earlier fetch()-based version could
  * observe (README "Pinning: differences from fetch()"): fetch's request
  * headers, content decoding (gzip, deflate, br, zstd), the Fetch-standard
- * bad-port list, the credentials-in-URL TypeError, `TypeError('fetch failed',
+ * bad-port list, the credentials-in-URL TypeError (its URL redacted),
+ * `TypeError('fetch failed',
  * { cause })` for network errors, `TypeError('terminated', { cause })` for a
  * body that breaks mid-read, and a null body for 101/204/205/304.
  *
@@ -30,6 +31,7 @@ import * as https from 'node:https';
 import * as net from 'node:net';
 import { pipeline, Transform, type Readable, type TransformCallback } from 'node:stream';
 import * as zlib from 'node:zlib';
+import { redactUrl } from './redact-url.js';
 
 /** A validated address the socket may connect to. */
 export interface PinnedAddress {
@@ -127,15 +129,18 @@ function requestHeaders(url: URL, isHttps: boolean): http.OutgoingHttpHeaders {
 /** One GET to `url` whose socket can reach only `init.addresses`. Never follows redirects. */
 export function pinnedRequest(url: string, init: TransportInit): Promise<TransportResponse> {
   return new Promise<TransportResponse>((resolve, reject) => {
+    // fetch()'s messages, except that the URL is redacted (gate G7, staged only):
+    // fetch() repeats it whole, credentials included. Node's parse error is not
+    // kept as the cause either, since its enumerable `input` is the raw URL.
     let parsed: URL;
     try {
       parsed = new URL(url);
-    } catch (err) {
-      reject(new TypeError(`Failed to parse URL from ${url}`, { cause: err }));
+    } catch {
+      reject(new TypeError(`Failed to parse URL from ${redactUrl(url)}`));
       return;
     }
     if (parsed.username !== '' || parsed.password !== '') {
-      reject(new TypeError(`Request cannot be constructed from a URL that includes credentials: ${url}`));
+      reject(new TypeError(`Request cannot be constructed from a URL that includes credentials: ${redactUrl(url)}`));
       return;
     }
     const isHttps = parsed.protocol === 'https:';
@@ -158,7 +163,13 @@ export function pinnedRequest(url: string, init: TransportInit): Promise<Transpo
     // another hop or call can carry this request, and no proxy is used, since
     // an Agent proxies only when given proxyEnv (HTTP_PROXY, HTTPS_PROXY and
     // NODE_USE_ENV_PROXY are never read). A proxy would resolve the name itself.
-    const agent = new mod.Agent({ keepAlive: false });
+    // rejectUnauthorized is explicit (pinning review PR-04, 2026-11-26): left
+    // unset, Node takes it from NODE_TLS_REJECT_UNAUTHORIZED, and '0' there
+    // turned certificate verification off for every request. It is set on the
+    // agent too, because an agent's own options win over the request's.
+    const agent = isHttps
+      ? new https.Agent({ keepAlive: false, rejectUnauthorized: true })
+      : new http.Agent({ keepAlive: false });
     const options: https.RequestOptions = {
       method: 'GET',
       host,
@@ -170,8 +181,11 @@ export function pinnedRequest(url: string, init: TransportInit): Promise<Transpo
       signal: init.signal,
     };
     // SNI carries the name (never an IP literal, RFC 6066); certificate
-    // verification stays on and checks the same name.
-    if (isHttps && net.isIP(host) === 0) options.servername = host;
+    // verification is always on and checks the same name.
+    if (isHttps) {
+      options.rejectUnauthorized = true;
+      if (net.isIP(host) === 0) options.servername = host;
+    }
 
     let req: http.ClientRequest;
     try {

@@ -10,13 +10,17 @@
  * WireServer); the AlienClaw-specific LEADERBOARD_POLICY / leaderboardFetch
  * wrapper was removed, and connection pinning (staged only, 2026-11-26)
  * replaced the fetch() call with the node:http / node:https transport in
- * pinned-request.ts. validateUrl also refuses port 0 (staged only).
+ * pinned-request.ts. validateUrl also refuses port 0, isBlockedHost also
+ * blocks the RFC 6761 localhost names, a resolved-address refusal no longer
+ * names the address, and URLs in error messages are redacted (all staged
+ * only, 2026-11-26).
  *
  * What the code does:
  *   - Parses the URL with WHATWG `new URL()` (which canonicalises decimal,
  *     octal, hex and short-form IPv4 and IPv6 literals), enforces a protocol
  *     allowlist (default https + http), rejects blocked IP literals and
- *     localhost tokens, and applies an optional exact-hostname allowlist.
+ *     localhost names (`localhost`, `*.localhost`, trailing dots included),
+ *     and applies an optional exact-hostname allowlist.
  *   - Resolves the hostname ONCE per hop, via dns.promises.lookup({ all: true })
  *     or the policy's `resolve` hook, and rejects the request if ANY answer
  *     is in a blocked range (or is not a canonical IP string).
@@ -39,6 +43,9 @@
  *     omitted optional fields get the defaults, anything else is a TypeError.
  *   - Enforces a response size cap and ONE time budget that covers DNS,
  *     connect, headers and the full body read across every hop.
+ *   - Keeps error messages safe to show a model: a refused DNS answer is not
+ *     named (it is on the error's non-enumerable `blockedAddress`), and a URL
+ *     in a message has its userinfo, query and fragment redacted.
  *
  * What it does NOT do (see README "Not covered"):
  *   - It does not judge the resolver: whatever the resolver answers is what
@@ -53,6 +60,7 @@
 import * as dns  from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { transport, type PinnedAddress } from './pinned-request.js';
+import { redactUrl } from './redact-url.js';
 
 // ---------------------------------------------------------------------------
 // Policy types
@@ -248,15 +256,31 @@ function isBlockedIpv6(hostNoBrackets: string): boolean {
 const BLOCKED_HOSTNAMES = new Set(['localhost', 'ip6-localhost', 'ip6-loopback']);
 
 /**
+ * True for a name of the local host: a BLOCKED_HOSTNAMES token, or `localhost`
+ * and every name under `.localhost` (RFC 6761 §6.3), with any trailing dots
+ * ignored (`localhost.`, `foo.localhost.`). Staged only, 2026-11-26 (gate G7):
+ * before, only the bare tokens were caught and the rest relied on DNS
+ * answering loopback. `lower` must already be lower case. The trailing dots are
+ * counted by hand: a regex such as /\.+$/ is quadratic on a long run of dots.
+ */
+function isLocalhostName(lower: string): boolean {
+  let end = lower.length;
+  while (end > 0 && lower.charCodeAt(end - 1) === 0x2e) end--;
+  const name = end === lower.length ? lower : lower.slice(0, end);
+  return BLOCKED_HOSTNAMES.has(name) || name.endsWith('.localhost');
+}
+
+/**
  * Exported for unit testing.
- * True if `hostname` (as produced by new URL(...).hostname) is a blocked address.
+ * True if `hostname` (as produced by new URL(...).hostname) is a blocked address
+ * or a localhost name (see isLocalhostName).
  * Resolving DNS is NOT done here — this only classifies already-resolved addresses
  * or literal IPs. For DNS-resolved addresses, validateResolvedAddresses() is used.
  */
 export function isBlockedHost(hostname: string): boolean {
   if (hostname.length === 0) return true;
   const lower = hostname.toLowerCase();
-  if (BLOCKED_HOSTNAMES.has(lower)) return true;
+  if (isLocalhostName(lower)) return true;
   if (lower.startsWith('[') && lower.endsWith(']')) return isBlockedIpv6(lower.slice(1, -1));
   if (lower.includes(':')) return isBlockedIpv6(lower);
   const v4 = parseIpv4Octets(lower);
@@ -271,19 +295,51 @@ export function isBlockedHost(hostname: string): boolean {
 /** Address entry as returned by `dns.lookup(hostname, { all: true })`. */
 export interface ResolvedAddress { address: string; family: number; }
 
+/**
+ * What a resolved-address refusal carries besides its message. It is still a
+ * plain Error; these two properties are non-enumerable and read-only, so
+ * util.inspect, JSON.stringify and loggers that copy own enumerable fields do
+ * not print them. A caller that wants them in its own logs reads them by name.
+ */
+export interface AddressRejection extends Error {
+  /** The resolved address that was refused. */
+  readonly blockedAddress: string;
+  /** Its address family as the resolver reported it. */
+  readonly addressFamily: number;
+}
+
+const BLOCKED_RANGE = 'SSRF rejected: a resolved address is in a blocked range';
+
+/**
+ * A refusal of a resolved address whose message does not name the address
+ * (pinning review PR-03, staged only, 2026-11-26). In an agent tool the error
+ * text goes back to the model, so naming the address let a prompt-injected
+ * page map internal DNS (ask for http://vault.corp/, read the refusal) without
+ * a connection ever being made. The detail moves to AddressRejection's
+ * properties. An IP-literal refusal still quotes the literal: the caller wrote it.
+ */
+function addressRejected(message: string, address: string, family: number): AddressRejection {
+  const err = new Error(message);
+  Object.defineProperties(err, {
+    blockedAddress: { value: address, enumerable: false, writable: false, configurable: true },
+    addressFamily:  { value: family,  enumerable: false, writable: false, configurable: true },
+  });
+  return err as AddressRejection;
+}
+
 export function validateResolvedAddresses(addresses: ResolvedAddress[]): void {
   for (const { address, family } of addresses) {
     if (family === 4) {
       const octets = parseIpv4Octets(address);
       if (!octets || isBlockedIpv4(octets)) {
-        throw new Error(`SSRF rejected: resolved address ${address} is in a blocked range`);
+        throw addressRejected(BLOCKED_RANGE, address, family);
       }
     } else if (family === 6) {
       if (isBlockedIpv6(address)) {
-        throw new Error(`SSRF rejected: resolved IPv6 address ${address} is in a blocked range`);
+        throw addressRejected(BLOCKED_RANGE, address, family);
       }
     } else {
-      throw new Error(`SSRF rejected: unknown address family ${family} for ${address}`);
+      throw addressRejected(`SSRF rejected: unknown address family ${family} for a resolved address`, address, family);
     }
   }
   if (addresses.length === 0) {
@@ -378,7 +434,8 @@ function validateUrl(urlStr: string, policy: CheckedPolicy): URL {
   try {
     parsed = new URL(urlStr);
   } catch {
-    throw new Error(`Invalid URL: ${urlStr}`);
+    // Redacted (gate G7, staged only): the input may carry a password or a token.
+    throw new Error(`Invalid URL: ${redactUrl(urlStr)}`);
   }
 
   const allowedProtocols = policy.protocols;
@@ -452,7 +509,7 @@ async function resolveAndValidate(hostname: string, resolve: Resolver | undefine
   // inet_aton. net.isIP rejects every non-canonical spelling.
   for (const { address, family } of addresses) {
     if (isIP(address) !== family) {
-      throw new Error(`SSRF rejected: resolved address ${address} is not a canonical IPv${family} address`);
+      throw addressRejected(`SSRF rejected: a resolved address is not a canonical IPv${family} address`, address, family);
     }
   }
   return addresses.map(({ address, family }) => ({ address, family }));
@@ -540,8 +597,17 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
         if (redirectsLeft <= 0) {
           throw new Error(`Too many redirects (>${p.maxRedirects})`);
         }
-        // Resolve relative redirect URLs against current URL
-        currentUrl = new URL(location, currentUrl).toString();
+        // Resolve relative redirect URLs against current URL. Node's own
+        // TypeError for a bad Location carries the raw Location and the
+        // current URL as enumerable `input` / `base` properties, so it is
+        // replaced by one that names only the redacted Location (gate G7, staged only).
+        let next: URL;
+        try {
+          next = new URL(location, currentUrl);
+        } catch {
+          throw new TypeError(`Invalid redirect Location: ${redactUrl(location)}`);
+        }
+        currentUrl = next.toString();
         redirectsLeft--;
         continue;  // re-validate the new URL from the top of the loop
       }

@@ -7,6 +7,13 @@
  * 2026-11-26 corpus-gap fixes (vectors/DIFFERENCES.md): 6to4 2002::/16, Teredo
  * 2001:0::/32 and site-local fec0::/10 blocked whole, the Azure WireServer
  * address 168.63.129.16 (and so its NAT64 embedding), and port 0 refused.
+ * Two more are staged-only pre-publication fixes (2026-11-26): the localhost
+ * names `localhost.`, `*.localhost` and `*.localhost.` are blocked by the
+ * literal check (gate G7), and a resolved-address refusal no longer names the
+ * address in its message (pinning review PR-03; the address moved to the
+ * error's non-enumerable blockedAddress property). inTreeAsStaged() maps an
+ * in-tree message to that form, so every comparison still checks the
+ * decision, the reason and the refused address.
  * CGNAT 100.64.0.0/10 was already blocked in-tree, and the other 2026-11-26
  * fixes (policy validation, whole-call deadline, NAT64, deadline-only timeout
  * reporting) were made in both modules. The corpus below covers the NAT64
@@ -73,18 +80,55 @@ function groupsInDeclaredRange(g: readonly number[]): boolean {
     g[6] === 0xa83f && g[7] === 0x8110;
 }
 
+const LOCALHOST_TOKENS = ['localhost', 'ip6-localhost', 'ip6-loopback'];
+
+/**
+ * Declared name divergence (gate G7, staged only, 2026-11-26): localhost names
+ * that the in-tree literal check leaves to DNS. In-tree blocks only the bare
+ * tokens (any case); staged also blocks them with trailing dots and every name
+ * under .localhost (RFC 6761), with or without trailing dots.
+ */
+function inDeclaredName(h: string): boolean {
+  const lower = h.toLowerCase();
+  if (LOCALHOST_TOKENS.includes(lower)) return false;  // in-tree blocks these too
+  const name = lower.replace(/\.+$/, '');
+  return LOCALHOST_TOKENS.includes(name) || name.endsWith('.localhost');
+}
+
 /** The divergence a declared input must show: staged blocks, in-tree allows. */
 function declaredHostDiff(h: string): Decision {
   return { input: `isBlockedHost(${JSON.stringify(h)})`, staged: 'ok:true', inTree: 'ok:false' };
 }
 function declaredResolvedDiff(set: Addr[]): Decision {
-  const { address, family } = set[0]!;
-  const v = family === 6 ? 'IPv6 address' : 'address';
+  const { address } = set[0]!;
   return {
     input: `validateResolvedAddresses(${JSON.stringify(set)})`,
-    staged: `throw:SSRF rejected: resolved ${v} ${address} is in a blocked range`,
+    staged: `throw:SSRF rejected: a resolved address is in a blocked range [blockedAddress=${address}]`,
     inTree: 'ok:undefined',
   };
+}
+
+/**
+ * Declared message divergence (pinning review PR-03, staged only, 2026-11-26).
+ * The in-tree refusal of a resolved address names it in the message; the
+ * staged one does not and carries it as blockedAddress. Both sides are
+ * rendered as "<staged message> [blockedAddress=<address>]".
+ */
+function inTreeAsStaged(message: string): string {
+  let m = /^SSRF rejected: resolved (?:IPv6 )?address (.*) is in a blocked range$/s.exec(message);
+  if (m) return `SSRF rejected: a resolved address is in a blocked range [blockedAddress=${m[1]}]`;
+  m = /^SSRF rejected: unknown address family (.*) for (.*)$/s.exec(message);
+  if (m) return `SSRF rejected: unknown address family ${m[1]} for a resolved address [blockedAddress=${m[2]}]`;
+  return message;
+}
+
+function stagedRendering(err: unknown): string {
+  const { message, blockedAddress } = err as Error & { blockedAddress?: unknown };
+  return blockedAddress === undefined ? message : `${message} [blockedAddress=${String(blockedAddress)}]`;
+}
+
+function inTreeRendering(err: unknown): string {
+  return inTreeAsStaged((err as Error).message);
 }
 
 const lookup = vi.mocked(dnsModule.lookup);
@@ -94,19 +138,23 @@ afterEach(() => {
   lookup.mockReset();
 });
 
-function outcome(fn: () => unknown): string {
+type Render = (err: unknown) => string;
+
+function outcome(fn: () => unknown, render: Render): string {
   try {
     return `ok:${JSON.stringify(fn())}`;
   } catch (err) {
-    return `throw:${(err as Error).message}`;
+    return `throw:${render(err)}`;
   }
 }
+const stagedOutcome = (fn: () => unknown): string => outcome(fn, stagedRendering);
+const inTreeOutcome = (fn: () => unknown): string => outcome(fn, inTreeRendering);
 
-async function asyncOutcome(fn: () => Promise<unknown>): Promise<string> {
+async function asyncOutcome(fn: () => Promise<unknown>, render: Render): Promise<string> {
   try {
     return `ok:${JSON.stringify(await fn())}`;
   } catch (err) {
-    return `throw:${(err as Error).message}`;
+    return `throw:${render(err)}`;
   }
 }
 
@@ -152,6 +200,9 @@ const IPV6 = [
 const RAW_HOSTNAMES = [
   '', 'localhost', 'LOCALHOST', 'localhost.', 'foo.localhost', 'ip6-localhost', 'ip6-loopback',
   'IP6-LOOPBACK', 'example.com', 'example.com.', 'xn--nxasmq6b', '169.254.169.254.nip.io',
+  // localhost names (declared divergence, gate G7) and their neighbours (no divergence)
+  'foo.localhost.', 'LOCALHOST..', 'a.b.localhost', 'ip6-localhost.', 'IP6-LOOPBACK.', 'Foo.LocalHost',
+  'localhost.example.com', 'localhost.example.com.', 'notlocalhost', 'foo.localhost.example', 'localhostx',
   // raw obfuscated IPv4 (NOT canonicalised: both must return the same answer)
   '0177.0.0.1', '2130706433', '0x7f000001', '127.1', '127.0.0.1.', '0x7f.0.0.1', '256.0.0.1',
   '1.2.3', '01.02.03.04', '127.000.000.001', '1.2.3.4.5',
@@ -202,8 +253,8 @@ const RESOLVED_CORPUS: Addr[][] = [
 function hostnameDiffs(inputs: string[]): Decision[] {
   const diffs: Decision[] = [];
   for (const h of inputs) {
-    const s = outcome(() => staged.isBlockedHost(h));
-    const t = outcome(() => inTree.isBlockedHost(h));
+    const s = stagedOutcome(() => staged.isBlockedHost(h));
+    const t = inTreeOutcome(() => inTree.isBlockedHost(h));
     if (s !== t) diffs.push({ input: `isBlockedHost(${JSON.stringify(h)})`, staged: s, inTree: t });
   }
   return diffs;
@@ -212,8 +263,8 @@ function hostnameDiffs(inputs: string[]): Decision[] {
 function resolvedDiffs(inputs: Addr[][]): Decision[] {
   const diffs: Decision[] = [];
   for (const set of inputs) {
-    const s = outcome(() => staged.validateResolvedAddresses(set));
-    const t = outcome(() => inTree.validateResolvedAddresses(set));
+    const s = stagedOutcome(() => staged.validateResolvedAddresses(set));
+    const t = inTreeOutcome(() => inTree.validateResolvedAddresses(set));
     if (s !== t) diffs.push({ input: `validateResolvedAddresses(${JSON.stringify(set)})`, staged: s, inTree: t });
   }
   return diffs;
@@ -257,13 +308,14 @@ describe('parity: deterministic corpus', () => {
     expect(CANONICAL_HOSTNAMES).toContain('localhost');
   });
 
-  it(`isBlockedHost decisions match, except the declared ranges (${DECLARED_RANGES})`, () => {
-    const declared = HOSTNAME_CORPUS.filter((h) => inDeclaredRange(h)).map(declaredHostDiff);
+  it(`isBlockedHost decisions match, except the declared ranges (${DECLARED_RANGES}) and localhost names`, () => {
+    const declared = HOSTNAME_CORPUS.filter((h) => inDeclaredRange(h) || inDeclaredName(h)).map(declaredHostDiff);
     expect(declared.length).toBeGreaterThanOrEqual(20);
+    expect(HOSTNAME_CORPUS.filter(inDeclaredName).length).toBeGreaterThanOrEqual(8);
     expect(hostnameDiffs(HOSTNAME_CORPUS)).toEqual(declared);
   });
 
-  it('validateResolvedAddresses outcomes (including error messages) match, except the declared ranges', () => {
+  it('validateResolvedAddresses outcomes (error messages as inTreeAsStaged maps them) match, except the declared ranges', () => {
     const declared = RESOLVED_CORPUS
       .filter((set) => set.length === 1 && isIP(set[0]!.address) === set[0]!.family && inDeclaredRange(set[0]!.address))
       .map(declaredResolvedDiff);
@@ -284,6 +336,24 @@ describe('parity: deterministic corpus', () => {
       expect(inDeclaredRange(a), a).toBe(false);
       expect(staged.isBlockedHost(a.includes(':') ? `[${a}]` : a), a).toBe(false);
     }
+    for (const h of ['localhost.', 'foo.localhost', 'foo.localhost.', 'ip6-loopback.']) {
+      expect(inDeclaredName(h), h).toBe(true);
+      expect(staged.isBlockedHost(h), h).toBe(true);
+      expect(inTree.isBlockedHost(h), `in-tree now blocks ${h}: drop the localhost-name divergence`).toBe(false);
+    }
+    for (const h of ['localhost.example.com', 'notlocalhost', 'foo.localhost.example']) {
+      expect(inDeclaredName(h), h).toBe(false);
+      expect(staged.isBlockedHost(h), h).toBe(false);
+    }
+  });
+
+  it('the PR-03 message divergence is real today: in-tree names the resolved address, staged does not', () => {
+    const set = [{ address: '10.0.0.1', family: 4 }];
+    const t = (() => { try { inTree.validateResolvedAddresses(set); } catch (e) { return e as Error; } })();
+    const s = (() => { try { staged.validateResolvedAddresses(set); } catch (e) { return e as Error; } })();
+    expect(t?.message, 'in-tree no longer names the address: drop inTreeAsStaged').toContain('10.0.0.1');
+    expect(s?.message).not.toContain('10.0.0.1');
+    expect((s as Error & { blockedAddress?: string }).blockedAddress).toBe('10.0.0.1');
   });
 });
 
@@ -302,8 +372,8 @@ describe('parity: property-based', () => {
         return;
       }
       expect(staged.isBlockedHost(ip)).toBe(inTree.isBlockedHost(ip));
-      expect(outcome(() => staged.validateResolvedAddresses([{ address: ip, family: 4 }])))
-        .toBe(outcome(() => inTree.validateResolvedAddresses([{ address: ip, family: 4 }])));
+      expect(stagedOutcome(() => staged.validateResolvedAddresses([{ address: ip, family: 4 }])))
+        .toBe(inTreeOutcome(() => inTree.validateResolvedAddresses([{ address: ip, family: 4 }])));
     }), { numRuns: 3000 });
   });
 
@@ -316,15 +386,15 @@ describe('parity: property-based', () => {
         for (const h of [full, `[${full}]`, canonical]) {
           expect(staged.isBlockedHost(h) && !inTree.isBlockedHost(h), h).toBe(true);
         }
-        expect(outcome(() => inTree.validateResolvedAddresses([{ address: bare, family: 6 }]))).toBe('ok:undefined');
+        expect(inTreeOutcome(() => inTree.validateResolvedAddresses([{ address: bare, family: 6 }]))).toBe('ok:undefined');
         expect(() => staged.validateResolvedAddresses([{ address: bare, family: 6 }])).toThrow(/blocked range/);
         return;
       }
       for (const h of [full, `[${full}]`, canonical]) {
         expect(staged.isBlockedHost(h)).toBe(inTree.isBlockedHost(h));
       }
-      expect(outcome(() => staged.validateResolvedAddresses([{ address: bare, family: 6 }])))
-        .toBe(outcome(() => inTree.validateResolvedAddresses([{ address: bare, family: 6 }])));
+      expect(stagedOutcome(() => staged.validateResolvedAddresses([{ address: bare, family: 6 }])))
+        .toBe(inTreeOutcome(() => inTree.validateResolvedAddresses([{ address: bare, family: 6 }])));
     }), { numRuns: 3000 });
   });
 
@@ -339,15 +409,15 @@ describe('parity: property-based', () => {
           continue;
         }
         expect(staged.isBlockedHost(`[${addr}]`)).toBe(inTree.isBlockedHost(`[${addr}]`));
-        expect(outcome(() => staged.validateResolvedAddresses([{ address: addr, family: 6 }])))
-          .toBe(outcome(() => inTree.validateResolvedAddresses([{ address: addr, family: 6 }])));
+        expect(stagedOutcome(() => staged.validateResolvedAddresses([{ address: addr, family: 6 }])))
+          .toBe(inTreeOutcome(() => inTree.validateResolvedAddresses([{ address: addr, family: 6 }])));
       }
     }), { numRuns: 2000 });
   });
 
   it('arbitrary strings get the same isBlockedHost decision', () => {
     fc.assert(fc.property(fc.string({ maxLength: 48 }), (s) => {
-      expect(staged.isBlockedHost(s)).toBe(inTree.isBlockedHost(s) || inDeclaredRange(s.split('%')[0]!));
+      expect(staged.isBlockedHost(s)).toBe(inTree.isBlockedHost(s) || inDeclaredRange(s.split('%')[0]!) || inDeclaredName(s));
     }), { numRuns: 3000 });
   });
 });
@@ -430,7 +500,7 @@ describe('parity: hardenedFetch end-to-end (stubbed DNS + fetch / transport)', (
         const spy = seam === 'transport'
           ? vi.spyOn(transport, 'request').mockImplementation(next)
           : vi.spyOn(globalThis, 'fetch').mockImplementation(next);
-        const result = await asyncOutcome(() => impl(sc.url, sc.policy));
+        const result = await asyncOutcome(() => impl(sc.url, sc.policy), seam === 'transport' ? stagedRendering : inTreeRendering);
         const fetched = spy.mock.calls.map((c) => c[0]);
         spy.mockRestore();
         return { result, fetched };
@@ -453,6 +523,9 @@ describe('parity: declared end-to-end divergences', () => {
     { name: '6to4 literal embedding metadata', url: 'http://[2002:a9fe:a9fe::]/latest/meta-data/',
       stagedError: 'SSRF rejected: hostname "[2002:a9fe:a9fe::]" is blocked' },
     { name: 'port 0', url: 'http://example.com:0/', stagedError: 'Port rejected: 0 is not a port from 1 to 65535' },
+    // gate G7 (2026-11-26): localhost names are refused by the literal check, before DNS
+    { name: 'localhost. (trailing dot)', url: 'http://localhost./', stagedError: 'SSRF rejected: hostname "localhost." is blocked' },
+    { name: '*.localhost', url: 'http://admin.localhost/', stagedError: 'SSRF rejected: hostname "admin.localhost" is blocked' },
   ];
   for (const c of cases) {
     it(`${c.name}: staged refuses, in-tree fetches`, async () => {
@@ -467,4 +540,10 @@ describe('parity: declared end-to-end divergences', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
   }
+
+  it('an unparseable URL: staged redacts its userinfo and query in the message, in-tree repeats them (gate G7)', async () => {
+    const url = 'http://alice:s3cret@example.com:99999/?token=t0k';
+    await expect(staged.hardenedFetch(url, policy)).rejects.toThrow(/^Invalid URL: http:\/\/<redacted>@example\.com:99999\/\?<redacted>$/);
+    await expect(inTree.hardenedFetch(url, policy), 'in-tree now redacts: drop this divergence').rejects.toThrow(`Invalid URL: ${url}`);
+  });
 });
