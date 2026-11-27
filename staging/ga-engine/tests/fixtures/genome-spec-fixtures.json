@@ -1,0 +1,1175 @@
+{
+  "$schema_version": "1.0",
+  "$schema_doc": "Cross-language genome spec compliance fixture. Kinds: checksum, assemble, parse, round_trip, validate, mutate_invariant, crossover_invariant.",
+  "$generated": "2026-09-07 by scripts/gen-testvectors.py (PKT-P1 T2)",
+  "$genome_spec_version": "1.0",
+  "cases": [
+    {
+      "name": "checksum-all-zeros",
+      "kind": "checksum",
+      "input": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected": "k0HIgFGKReu5AgRwYDyInsMpUErCKBGQZY6Fye3cOfK830UXQKbssnKSXecRKohS"
+    },
+    {
+      "name": "checksum-all-A",
+      "kind": "checksum",
+      "input": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": "OAJcWvemxeshCWnAa5I4vO6dOY7089M4tKs5IEH4qRi41MsfMQxQMnkQzY41kA5O"
+    },
+    {
+      "name": "checksum-all-z",
+      "kind": "checksum",
+      "input": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "expected": "84DWex6mZK6xaU1669WOhGk3WkZsGhQS7iiJ8OnAKF22TsG500LEAjE6TqYJmmdI"
+    },
+    {
+      "name": "checksum-web-body",
+      "kind": "checksum",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000",
+      "expected": "tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf"
+    },
+    {
+      "name": "checksum-fr-body",
+      "kind": "checksum",
+      "input": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000",
+      "expected": "NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad"
+    },
+    {
+      "name": "checksum-fw-body",
+      "kind": "checksum",
+      "input": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm00000000000000000000000000000000000",
+      "expected": "6I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU"
+    },
+    {
+      "name": "checksum-mixed",
+      "kind": "checksum",
+      "input": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567890AABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567890AABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567890A",
+      "expected": "xPtJRDLLBbtrB31VlzRfnR3BnVrlHvfdFbffd1vLbJX3Xb5Rv7fvdzJdNrnVTJjF"
+    },
+    {
+      "name": "checksum-single-change",
+      "kind": "checksum",
+      "input": "A00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected": "w78I1E6lwkvYQraoHE2fy0JA8tKGfwOvySVsC7saR62faI7s4bao9EeZ2Kp823kk"
+    },
+    {
+      "name": "assemble-web",
+      "kind": "assemble",
+      "input": {
+        "identity": "WEB00001G1AlienClaw1WebSearchFamily00000000000000000000000000000",
+        "execution": "3RSequentialPerfBalanced0000000000000000000000000000000000000000",
+        "behavior": "EscalateStdOutputJSONArray00000000000000000000000000000000000000"
+      },
+      "expected_genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf"
+    },
+    {
+      "name": "assemble-fr",
+      "kind": "assemble",
+      "input": {
+        "identity": "FREAD001G1AlienClaw1FileReadFamily000000000000000000000000000000",
+        "execution": "2RSequentialPerfFast00000000000000000000000000000000000000000000",
+        "behavior": "EscalateStdOutputFileContent000000000000000000000000000000000000"
+      },
+      "expected_genome": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad"
+    },
+    {
+      "name": "assemble-fw",
+      "kind": "assemble",
+      "input": {
+        "identity": "FWRITE01G1AlienClaw1FileWriteFamily00000000000000000000000000000",
+        "execution": "2RSequentialPerfSafe00000000000000000000000000000000000000000000",
+        "behavior": "EscalateStdOutputWriteConfirm00000000000000000000000000000000000"
+      },
+      "expected_genome": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm000000000000000000000000000000000006I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU"
+    },
+    {
+      "name": "assemble-zeros",
+      "kind": "assemble",
+      "input": {
+        "identity": "0000000000000000000000000000000000000000000000000000000000000000",
+        "execution": "0000000000000000000000000000000000000000000000000000000000000000",
+        "behavior": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected_genome": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000k0HIgFGKReu5AgRwYDyInsMpUErCKBGQZY6Fye3cOfK830UXQKbssnKSXecRKohS"
+    },
+    {
+      "name": "assemble-z",
+      "kind": "assemble",
+      "input": {
+        "identity": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "execution": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "behavior": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      },
+      "expected_genome": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz84DWex6mZK6xaU1669WOhGk3WkZsGhQS7iiJ8OnAKF22TsG500LEAjE6TqYJmmdI"
+    },
+    {
+      "name": "assemble-fail-fwd",
+      "kind": "assemble",
+      "input": {
+        "identity": "WEB00001G1AlienClaw1WebSearchFamily00000000000000000000000000000",
+        "execution": "3RSequentialPerfBalanced0000000000000000000000000000000000000000",
+        "behavior": "FscalateStdOutputJSONArray00000000000000000000000000000000000000"
+      },
+      "expected_genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000FscalateStdOutputJSONArray00000000000000000000000000000000000000Uv8ABsyXM0Loi5CadWqbA4vo0vcGxYoBuoLgKnwwDM2B263gsJGInM2HiyLQERKS"
+    },
+    {
+      "name": "parse-web",
+      "kind": "parse",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected": {
+        "identity": "WEB00001G1AlienClaw1WebSearchFamily00000000000000000000000000000",
+        "execution": "3RSequentialPerfBalanced0000000000000000000000000000000000000000",
+        "behavior": "EscalateStdOutputJSONArray00000000000000000000000000000000000000",
+        "checksum": "tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "checksum_valid": true
+      }
+    },
+    {
+      "name": "parse-fr",
+      "kind": "parse",
+      "input": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad",
+      "expected": {
+        "identity": "FREAD001G1AlienClaw1FileReadFamily000000000000000000000000000000",
+        "execution": "2RSequentialPerfFast00000000000000000000000000000000000000000000",
+        "behavior": "EscalateStdOutputFileContent000000000000000000000000000000000000",
+        "checksum": "NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad",
+        "checksum_valid": true
+      }
+    },
+    {
+      "name": "parse-fw",
+      "kind": "parse",
+      "input": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm000000000000000000000000000000000006I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU",
+      "expected": {
+        "identity": "FWRITE01G1AlienClaw1FileWriteFamily00000000000000000000000000000",
+        "execution": "2RSequentialPerfSafe00000000000000000000000000000000000000000000",
+        "behavior": "EscalateStdOutputWriteConfirm00000000000000000000000000000000000",
+        "checksum": "6I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU",
+        "checksum_valid": true
+      }
+    },
+    {
+      "name": "parse-zeros",
+      "kind": "parse",
+      "input": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000k0HIgFGKReu5AgRwYDyInsMpUErCKBGQZY6Fye3cOfK830UXQKbssnKSXecRKohS",
+      "expected": {
+        "identity": "0000000000000000000000000000000000000000000000000000000000000000",
+        "execution": "0000000000000000000000000000000000000000000000000000000000000000",
+        "behavior": "0000000000000000000000000000000000000000000000000000000000000000",
+        "checksum": "k0HIgFGKReu5AgRwYDyInsMpUErCKBGQZY6Fye3cOfK830UXQKbssnKSXecRKohS",
+        "checksum_valid": true
+      }
+    },
+    {
+      "name": "parse-z",
+      "kind": "parse",
+      "input": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz84DWex6mZK6xaU1669WOhGk3WkZsGhQS7iiJ8OnAKF22TsG500LEAjE6TqYJmmdI",
+      "expected": {
+        "identity": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "execution": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "behavior": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "checksum": "84DWex6mZK6xaU1669WOhGk3WkZsGhQS7iiJ8OnAKF22TsG500LEAjE6TqYJmmdI",
+        "checksum_valid": true
+      }
+    },
+    {
+      "name": "parse-fail-fwd",
+      "kind": "parse",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000FscalateStdOutputJSONArray00000000000000000000000000000000000000Uv8ABsyXM0Loi5CadWqbA4vo0vcGxYoBuoLgKnwwDM2B263gsJGInM2HiyLQERKS",
+      "expected": {
+        "identity": "WEB00001G1AlienClaw1WebSearchFamily00000000000000000000000000000",
+        "execution": "3RSequentialPerfBalanced0000000000000000000000000000000000000000",
+        "behavior": "FscalateStdOutputJSONArray00000000000000000000000000000000000000",
+        "checksum": "Uv8ABsyXM0Loi5CadWqbA4vo0vcGxYoBuoLgKnwwDM2B263gsJGInM2HiyLQERKS",
+        "checksum_valid": true
+      }
+    },
+    {
+      "name": "round-trip-00",
+      "kind": "round_trip",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_invariant": "encode_decode_identity"
+    },
+    {
+      "name": "round-trip-01",
+      "kind": "round_trip",
+      "input": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad",
+      "expected_invariant": "encode_decode_identity"
+    },
+    {
+      "name": "round-trip-02",
+      "kind": "round_trip",
+      "input": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm000000000000000000000000000000000006I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU",
+      "expected_invariant": "encode_decode_identity"
+    },
+    {
+      "name": "round-trip-03",
+      "kind": "round_trip",
+      "input": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000k0HIgFGKReu5AgRwYDyInsMpUErCKBGQZY6Fye3cOfK830UXQKbssnKSXecRKohS",
+      "expected_invariant": "encode_decode_identity"
+    },
+    {
+      "name": "round-trip-04",
+      "kind": "round_trip",
+      "input": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz84DWex6mZK6xaU1669WOhGk3WkZsGhQS7iiJ8OnAKF22TsG500LEAjE6TqYJmmdI",
+      "expected_invariant": "encode_decode_identity"
+    },
+    {
+      "name": "round-trip-05",
+      "kind": "round_trip",
+      "input": "RTST0000G1AlienClaw19SlhjQnX4S2vwKJlCBBLcxDxYto9e70OlZBquERdt7YybimVHaWLqMTloteFquilVUa9frAkh73aDJcekZK07BWiCOwOiceTXh9ns2CF58d74wOXTLSCZF9CPvbyOGiBzOGGIwzYE04IdcqoLfRjBy1cLn8t0jhVANRD9qYGcd8apWI1yKnUwZo6LCgTkKdAedokfcO9Eq1amJOqZW6l4GtIkhmq9yqriyzIWrGap0g1",
+      "expected_invariant": "encode_decode_identity"
+    },
+    {
+      "name": "round-trip-06",
+      "kind": "round_trip",
+      "input": "RTST0001G1AlienClaw1a6IrZDOShr52R1965c5Zx8laAwjNt6pq7umuHjmL20VX7d3TVC2tqa1Wxlg2ZEz0Ds7IIshvB5Llcvi5JCGfRk0uAkq2Xy0UQNCBGDItwG1GrAf5LAcMlWP1p2UznMvGaZiHOKujLlcFU6D45cppDwKgaTgthVrkNyP2xwXkh6ncjJdffdL1VnfLx7NLBXP75LtZRjXTfdxrhN3Tn7HDDJVldNvbdXF51r9ZB9Jn9tbV",
+      "expected_invariant": "encode_decode_identity"
+    },
+    {
+      "name": "round-trip-07",
+      "kind": "round_trip",
+      "input": "RTST0002G1AlienClaw1xTHlYs2guB5UedWLizVOyBYqnkgRx0QRiHCRdWsTCdO1O6dujx8plETAJWOOif7Zm1k1QN14fGWAcvkMxLHQzNIXdlhfPRyUlM0OWODA3hWorkntuotLztoqkZWvHdvG9JRVEE9T8LAdcEzHuIYaZKncYTHPjizjzKHzQZr77SC3xrTHlf7pJppd3bz7bJJX1zHVjnnDfHNzPlv9VTXhpvdD57Xxzbh9rZfxZFh1nPLl",
+      "expected_invariant": "encode_decode_identity"
+    },
+    {
+      "name": "validate-pass-00",
+      "kind": "validate",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-pass-01",
+      "kind": "validate",
+      "input": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-pass-02",
+      "kind": "validate",
+      "input": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm000000000000000000000000000000000006I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-pass-03",
+      "kind": "validate",
+      "input": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000k0HIgFGKReu5AgRwYDyInsMpUErCKBGQZY6Fye3cOfK830UXQKbssnKSXecRKohS",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-pass-04",
+      "kind": "validate",
+      "input": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz84DWex6mZK6xaU1669WOhGk3WkZsGhQS7iiJ8OnAKF22TsG500LEAjE6TqYJmmdI",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-pass-05",
+      "kind": "validate",
+      "input": "VPST0000G1AlienClaw12Ch8rG0RA1HSBqIhL6QgUd788UrNo6Dfmn9XEkZgmzSzHs6itYMpoiLV0WJf1R7LyldM61XzjDyD2VR4vIO20wxc3880nS1GSWW8n6Rj61zgBe6p26DcrFmPSfEhL9dV2wlRnl13UQfA8Nz1xaL6RQ3OvxhOr2ih9MPnaEoUmMKKfGyH6yrWaxCgxEGxyYTk8xUoRYU3AEpq4pgOryIZ6qtCID8MhqaxEUd0Qn2SfceN",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-pass-06",
+      "kind": "validate",
+      "input": "VPST0001G1AlienClaw1AleObgx85swiXxs5goHouUQaoezUK9iYbzrkcGVKTzZobRsdLQfs45dH9tbAvR11AsekejKPRjMkDSX55dASucebGAGABVYjX7OM9xCiBUDvhpzIQXirWOrDW8bQ1lwT1wKd2bnINx4V1Nn5abpnigujF1gVw8IfNNRMrxHH3SzPoi166LOwHGAhKE3Oyla0xmcbq2r8GfQYv6SVSWpU234U10udKWD829SyjCsbE2Xy",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-pass-07",
+      "kind": "validate",
+      "input": "VPST0002G1AlienClaw1B9LqhprHhwpmCIV9hoS1Vs6gO6uSr4CLh1i624Xrz8NZfSC7Bvnq4OfqRbbhzgsTdk78fM5MPLIQNDPSnVOSGQGYRr5xtj1iImHYnNG3bFIeqJUSw0PUDllVMOAmGx9hEUiz5I7NZlspRqxyS7hA8FUp5WkjMO89TNulPMMnfBLKgwzw4BccNae7mmxCMXQYVwmTYY74Urs63Q0tMaJQqH4WJ0wLmmbCAxWY3WYFMkp4",
+      "expected_pass": true
+    },
+    {
+      "name": "validate-fail-short",
+      "kind": "validate",
+      "input": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_pass": false,
+      "expected_error_contains": "256"
+    },
+    {
+      "name": "validate-fail-long",
+      "kind": "validate",
+      "input": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_pass": false,
+      "expected_error_contains": "256"
+    },
+    {
+      "name": "validate-fail-empty",
+      "kind": "validate",
+      "input": "",
+      "expected_pass": false,
+      "expected_error_contains": "256"
+    },
+    {
+      "name": "validate-fail-plus",
+      "kind": "validate",
+      "input": "+EB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error_contains": "Base62"
+    },
+    {
+      "name": "validate-fail-equals",
+      "kind": "validate",
+      "input": "=EB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error_contains": "Base62"
+    },
+    {
+      "name": "validate-fail-space",
+      "kind": "validate",
+      "input": " EB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error_contains": "Base62"
+    },
+    {
+      "name": "validate-fail-chk-first",
+      "kind": "validate",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000AJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error_contains": "checksum"
+    },
+    {
+      "name": "validate-fail-chk-last",
+      "kind": "validate",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJA",
+      "expected_pass": false,
+      "expected_error_contains": "checksum"
+    },
+    {
+      "name": "validate-fail-chk-mid",
+      "kind": "validate",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlA993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error_contains": "checksum"
+    },
+    {
+      "name": "validate-fail-body-tampered",
+      "kind": "validate",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000A00000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error_contains": "checksum"
+    },
+    {
+      "name": "mutate-invariant-00",
+      "kind": "mutate_invariant",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "seed": 42,
+      "rate": 0.00390625,
+      "python_output": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_invariants": {
+        "valid_genome": true,
+        "id_tag_unchanged": true,
+        "length_256": true
+      }
+    },
+    {
+      "name": "mutate-invariant-01",
+      "kind": "mutate_invariant",
+      "input": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad",
+      "seed": 43,
+      "rate": 0.00390625,
+      "python_output": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad",
+      "expected_invariants": {
+        "valid_genome": true,
+        "id_tag_unchanged": true,
+        "length_256": true
+      }
+    },
+    {
+      "name": "mutate-invariant-02",
+      "kind": "mutate_invariant",
+      "input": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm000000000000000000000000000000000006I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU",
+      "seed": 44,
+      "rate": 0.00390625,
+      "python_output": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm000000000000000000000000000000000006I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU",
+      "expected_invariants": {
+        "valid_genome": true,
+        "id_tag_unchanged": true,
+        "length_256": true
+      }
+    },
+    {
+      "name": "mutate-invariant-03",
+      "kind": "mutate_invariant",
+      "input": "MUST0000G1AlienClaw1bL0LpQZAQM8F5rVVlgIsYxHL4ncoNuko2pxjRcGCtdsEPo8WSEkeOly5zGQC3Z7bwoACrWzMZO5UVNzhB05973mJMORLWZIV9CKKJVgZ70BBnpBnreZKcGLfFvJ6bGPYCCfu56763cVHMPKk6MS7QCh5C84aDpU0Kymu978hs55VexC87IGlW6xseZuKhko5sUn8mzAuzuE1sMVYMlyU5EQLKWtAYraY7YWbsKvcwHuU",
+      "seed": 45,
+      "rate": 0.00390625,
+      "python_output": "MUST0000G1AlienClaw1bL0LpQZAQM8F5rVVlgIsYxHL4ncoNuko2pxjRcGCtdsEPo8WSEkeOly5zGQC3Z7bwoACrWzMZO5UVNzhB05973mJMORLWZIV9CKKJVgZ70BBnpBnreZKcGLfFvJ6bGPYCCfu56763cVHMPKk6MS7QCh5C84aDpU0Kymu978hs55VexC87IGlW6xseZuKhko5sUn8mzAuzuE1sMVYMlyU5EQLKWtAYraY7YWbsKvcwHuU",
+      "expected_invariants": {
+        "valid_genome": true,
+        "id_tag_unchanged": true,
+        "length_256": true
+      }
+    },
+    {
+      "name": "mutate-invariant-04",
+      "kind": "mutate_invariant",
+      "input": "MUST0001G1AlienClaw1HOQxFjCYT2wfZwd5KDzvipU4ynulOb6wqDbEOdITvtmrGabw2keXTanRgKucsKtSxo7TOEI3y9sjIIpP8Sc0cAXmnFoQOXMUwnK4k1YbwhmXSSx1hCRT77dy7FYQBgcMXNLJ7p1WiZBYlTcGIxPjn0ydBYlC280Yz8nk0wbEypOmfvNfZNdFJtVlRZx1f755lpdjbZXnvJ3Ljv9R3XNBxLhB3njtDTrfbBLXjnjNFJr1",
+      "seed": 46,
+      "rate": 0.00390625,
+      "python_output": "MUST0001G1AlienClaw1HOQxFjCYT2wfZwd5KDzvipU4ynulOb6wqDbEOdITvtmrGabw2keXTanRgKucsKtSxo7TOEI3y9sjIIpP8Sc0cAXmnFoQOXMUwnK4k1YbwhmXSSx1hCRT77dy7FYQBgcMXNLJ7p1WiZBYlTcGIxPjn0ydBYlC280Yz8nk0wZEypOm0oTe09OybCK1eohwSV6CTqQposrMqzSMpkC9sCpcwPUuHaeJSaJyITUKlUAzYePU",
+      "expected_invariants": {
+        "valid_genome": true,
+        "id_tag_unchanged": true,
+        "length_256": true
+      }
+    },
+    {
+      "name": "mutate-invariant-05",
+      "kind": "mutate_invariant",
+      "input": "MUST0002G1AlienClaw1dPINttlMO8cyefGNc3oUOXnhf6tTUDKjaD813ykl1iGinhbQdHOAD2w6jUkRl1dOYKkRplN8gISBrrT4OrsrPsV9C5Vi5YjmaJnaoPPYc7sE9SKDWxMZDfhHkKpuscXAb1xqj3cYD619Z9DneYPXbpd6fJQtdtkaCyaTohaWSdzCq3KI5gOpOaLs6DQox8kni2hG27QOteUdOwVoUvoY9Wq3soXeCBqMxWW1E0rYYtmw",
+      "seed": 47,
+      "rate": 0.00390625,
+      "python_output": "MUST0002G1AlienClaw1dPINttlMO8cyefGNc3oUOXnhf6tTUDKjaD813ykl1iGinhbQdHOAD2w6jUkRl1dOYKkRplN8gISBrrT4OrsrPsV9C5Vi5YjmaJnaoPPYc7sE9SKDWxMZDfhHkKpuscXAb1xqj3cYD619Z9DneYPXbpd6fJQtdtkaCyaTohaWSdzCq3KI5gOpOaLs6DQox8kni2hG27QOteUdOwVoUvoY9Wq3soXeCBqMxWW1E0rYYtmw",
+      "expected_invariants": {
+        "valid_genome": true,
+        "id_tag_unchanged": true,
+        "length_256": true
+      }
+    },
+    {
+      "name": "mutate-invariant-06",
+      "kind": "mutate_invariant",
+      "input": "MUST0003G1AlienClaw1rSQs6OWtiWA3a8sAmR0yzWffXZxOYPFR8EZzfV8tplhy9etFczzkFxugduIoFCS3DZjILKZntxGfcwLlrwoVm5V0ejr0lGz4qtZXznV8dbRIAxB80FK24RJzZeWNTW77nSq5XO0JUemQxcf1NbYCEd3c2Em2CuD5y7abg7iPoUwyrX3TDb7rbRtJ5jTX9X9rZrjXpVhPLlnBZbNFzZfn1nbXtH1rfTlx7PT9l1Z7FZTp",
+      "seed": 48,
+      "rate": 0.00390625,
+      "python_output": "MUST0003G1AlienClaw1rSQs6OWtiWA3a8sAmR0yzWffXZxOYPFR8EZzfV8tplhy9etFczzkFxugduIoFCS3DZjILKZntxGfcwLlrwoVm5V0ejr0lGz4qtZXznV8dbRIAxB80FK24RJzZeWNTW77nSq5XO0JUemQxcf1NbYCEd3c2Em2DuD5y7abg7iPoUwywtyS9eW3ua7GIVcutQMhcIH6OrUIRGSn8o9OErkGdMCnCoxKyhaoFq8tqa9sed4e",
+      "expected_invariants": {
+        "valid_genome": true,
+        "id_tag_unchanged": true,
+        "length_256": true
+      }
+    },
+    {
+      "name": "crossover-invariant-00",
+      "kind": "crossover_invariant",
+      "input": {
+        "parent_a": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "parent_b": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad"
+      },
+      "seed": 100,
+      "python_output": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000bt9x5Vn7Pf9J53hhdvZtVRTBdDBThZDZhjt3frFvbLHxXlNnRFxpvV79HD3htDX1",
+      "python_section_sources": [
+        "A",
+        "A",
+        "B"
+      ],
+      "expected_invariants": {
+        "valid_genome": true,
+        "length_256": true,
+        "sections_from_parents": true
+      }
+    },
+    {
+      "name": "crossover-invariant-01",
+      "kind": "crossover_invariant",
+      "input": {
+        "parent_a": "FREAD001G1AlienClaw1FileReadFamily0000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputFileContent000000000000000000000000000000000000NW4rmy9gG7ACvqS3a4XCudu6Pgqxe0NEknWufo0rE6tYMzgUdsEVamTke58kV8ad",
+        "parent_b": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm000000000000000000000000000000000006I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU"
+      },
+      "seed": 101,
+      "python_output": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfFast00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm00000000000000000000000000000000000g9SA7Am9Cwx4m9KMrAaB6mbwkhqut6UTWSrmo7OwPiO1sO1WkNQ8famz8qXGujmw",
+      "python_section_sources": [
+        "B",
+        "A",
+        "B"
+      ],
+      "expected_invariants": {
+        "valid_genome": true,
+        "length_256": true,
+        "sections_from_parents": true
+      }
+    },
+    {
+      "name": "crossover-invariant-02",
+      "kind": "crossover_invariant",
+      "input": {
+        "parent_a": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "parent_b": "FWRITE01G1AlienClaw1FileWriteFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputWriteConfirm000000000000000000000000000000000006I56yz2IX44J26ZQwTuoXGYH8oliuTQYhkenE4haCD28DMSBWQnQez2gJigveKXU"
+      },
+      "seed": 102,
+      "python_output": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000002RSequentialPerfSafe00000000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000caPOczEeVs6D8ONaoD8u1gGxSyVWKJ6CBWgn0S9KujGWNeS1M6DceHmUZ8ITCsLO",
+      "python_section_sources": [
+        "A",
+        "B",
+        "A"
+      ],
+      "expected_invariants": {
+        "valid_genome": true,
+        "length_256": true,
+        "sections_from_parents": true
+      }
+    },
+    {
+      "name": "crossover-invariant-03",
+      "kind": "crossover_invariant",
+      "input": {
+        "parent_a": "CRX00000G1AlienClaw1JFoZmSwqXwHDtwni2Fl0JEvD6Kvarlrzd35tYzczPtrtQHgfHjsqAXhbE9bv4nHOwk7ORfjnJgXMSXqrJTiO1l2l73KLFkmCngZjoZ3a4zVadTaMDLfMXtQ9FYsy2lles6gZ4q9YETxGmvmISI8xfnIgQdxtp3QHBrcku8m2kO51tKcpGG7eC3kkFaw32yPA8RaOtMaJmCvgYzEwJoCfOAjwmLg4ro6v86bWy5QQr6qH",
+        "parent_b": "CRY00000G1AlienClaw1E09IxkSDytoTPBPuYPIR6jXGBSo9yNX0KVEV1qNUaWRwMC1DhXD7JjDFPXsp1CoOPVhqt1oiqwAGjjOrkikUaLIkaCnfuSyGKBhPPhcHkLyXe6u0iwNjVVhbejrr0AlV1xFyb8jipaSPXVqOVvHdRvjvMK1Z1LzJWzu3rMD0ol42E3YEV8EJMUbiyxu0P8mxYGRkEPCwNi8pW8V40pEy7QkJU8P4WxqupkCh6otyWRoc"
+      },
+      "seed": 103,
+      "python_output": "CRY00000G1AlienClaw1E09IxkSDytoTPBPuYPIR6jXGBSo9yNX0KVEV1qNUaWRwQHgfHjsqAXhbE9bv4nHOwk7ORfjnJgXMSXqrJTiO1l2l73KLFkmCngZjoZ3a4zVae6u0iwNjVVhbejrr0AlV1xFyb8jipaSPXVqOVvHdRvjvMK1Z1LzJWzu3rMD0ol42F3rJRzfppNDvRbH7vFp19b1z3JNTbVRD9V1Nrn1D3HF7njBfhTdDv55NJvdBZp1d",
+      "python_section_sources": [
+        "B",
+        "A",
+        "B"
+      ],
+      "expected_invariants": {
+        "valid_genome": true,
+        "length_256": true,
+        "sections_from_parents": true
+      }
+    },
+    {
+      "name": "crossover-invariant-04",
+      "kind": "crossover_invariant",
+      "input": {
+        "parent_a": "CRX00001G1AlienClaw1bXoGKWzIsZLihvocFLUropt6h1yxvwtrKS4Oo5TLuoEmo2d8GmqtV1Y90rJvUX6nqkK9czcXXi7EBYmIHdTmsrcUgqErsloMcrpbosgVgxIvlkdRQ8b6VlFmwDUoAECFYYyCof8he1uwX1QOxuhvKAKtlgmze80C3uLFatpjQ3Dxm0XCEz6Q5KKPMavoa52ENwiTiiPUMjEebwwJmkJsYBIgvYMzkep0ExYIB8qVaqv6",
+        "parent_b": "CRY00001G1AlienClaw1MDkSqIdgVFnJ42aT8gewKDB7cQmOL2PB8YgSaLplaiXxqD2x571QK5QmzDKgWOxBI8TmaxLyrJCFMNd3M4BDkYcdKxsuMMoFKMnYOgl8BfJ4yKj3MleToSZBkJkmq16pGhZwik6qiYXYrWJGFZcXUFrEmeFuu6Px3DDyidm2vp6FNLhhvL5vvbR5lJdNvFztVfLdZDfDZZzpzRRfX3TFXpH3dFBlpJhrf9Rt1xRNhtRN"
+      },
+      "seed": 104,
+      "python_output": "CRY00001G1AlienClaw1MDkSqIdgVFnJ42aT8gewKDB7cQmOL2PB8YgSaLplaiXxqD2x571QK5QmzDKgWOxBI8TmaxLyrJCFMNd3M4BDkYcdKxsuMMoFKMnYOgl8BfJ4yKj3MleToSZBkJkmq16pGhZwik6qiYXYrWJGFZcXUFrEmeFuu6Px3DDyidm2vp6FNLhhvL5vvbR5lJdNvFztVfLdZDfDZZzpzRRfX3TFXpH3dFBlpJhrf9Rt1xRNhtRN",
+      "python_section_sources": [
+        "B",
+        "B",
+        "B"
+      ],
+      "expected_invariants": {
+        "valid_genome": true,
+        "length_256": true,
+        "sections_from_parents": true
+      }
+    },
+    {
+      "name": "crossover-invariant-05",
+      "kind": "crossover_invariant",
+      "input": {
+        "parent_a": "CRX00002G1AlienClaw1Kkrjk8kC8LbbbdWP7ROjt5Q5A9AaBkQ2dx7gjJgTvdqPPr8i3hLAJnszTxvDwm1oW7jyZsey7WcEjP1cOQrnXaFPvMzuXcuvO0FZOfaybMfQcj1wCDTlCxgZGL4QdHH1XORHvF1gLGTLloM8HGamGpNQkADCusKj4eUG1f3XAYbywSvYmZ6KDoo9IyFWAToOtKm5Yad8ulmQtEQdkSD0oRoUTOYlcI5UQjmCLimxSQdS",
+        "parent_b": "CRY00002G1AlienClaw16cGBOodNBzlA1sl3jphdx2DvRDLSsYwvV0G63ULApfIi7d9Nv8yTqt3BRO4uVOTI7ozopJGHQzjASvDZgljCouWwZtHF99PTydMj0hCMHa5qWZ56RNYjI79HszV1lSuoX9hVfLqUAWnPkF0aETpjEz42Xn1tiAeDXAeTEL2Ygpba53zxHH5NV1lbXXDtVVjHfXdRj3tbzjBxRZ9FVbZ5N5nX1hxPfjxHjv7NxZDV3NFr"
+      },
+      "seed": 105,
+      "python_output": "CRY00002G1AlienClaw16cGBOodNBzlA1sl3jphdx2DvRDLSsYwvV0G63ULApfIiPr8i3hLAJnszTxvDwm1oW7jyZsey7WcEjP1cOQrnXaFPvMzuXcuvO0FZOfaybMfQWZ56RNYjI79HszV1lSuoX9hVfLqUAWnPkF0aETpjEz42Xn1tiAeDXAeTEL2Ygpba71dDHz7dvTPthd3RhLBTl1Dbn7lJbrRrL9zbzrD13RbDfBHJBlv5bll9Z9JZV91x",
+      "python_section_sources": [
+        "B",
+        "A",
+        "B"
+      ],
+      "expected_invariants": {
+        "valid_genome": true,
+        "length_256": true,
+        "sections_from_parents": true
+      }
+    },
+    {
+      "name": "crossover-invariant-06",
+      "kind": "crossover_invariant",
+      "input": {
+        "parent_a": "CRX00003G1AlienClaw17rH5ZgAkVQRKqLW1a2GPkmvLTzJ6DaCNTlqE70yN7okw4GugroEvQ5IzYCrcLwZGGB0BIXZdQiXReACpzKcq8SUNZHu6AJfjDj6DgULAibmGg5kNxf4XWI6eaDptWd6ZczzrXGoGoQIqjxOqhvRtE5zTLbvwkyF4rp61SMfu0tXIHDH5hxXr73tlBnFpvVFD5JFt3NvRtrHhfXPDrn7L1DHlZ3PldrRfv77THLd9bbD3",
+        "parent_b": "CRY00003G1AlienClaw1ilnkYcC75XcYRT8fzxRUo0GTcNlVNmejIyFBxjFxEb9CxT2i2GmDFPNrTmQVEGDyjLgFtdq3IeZkFG2JK2nJ6nJE9PbmNE14PS7mGsOjGEtm3VzhnKHhigE042qrguYVaMa6wAPFALdtlU3Fyfw6NUasMxVrJFjEMEEfmFjq8e4FLrh9NVPDNlFzlBbdRBhxNZB7ljR9LrJ5Pr9td1nl7thzjxr7pJXLfdBxvjR9BN5F"
+      },
+      "seed": 106,
+      "python_output": "CRY00003G1AlienClaw1ilnkYcC75XcYRT8fzxRUo0GTcNlVNmejIyFBxjFxEb9CxT2i2GmDFPNrTmQVEGDyjLgFtdq3IeZkFG2JK2nJ6nJE9PbmNE14PS7mGsOjGEtmg5kNxf4XWI6eaDptWd6ZczzrXGoGoQIqjxOqhvRtE5zTLbvwkyF4rp61SMfu0tXI5d7nvzb7PzDZx3lbNTnJT9NdvX1fZXJn9Lnfjz1HtJz3ZlVRXjJhPzFRnvh5Dxhx",
+      "python_section_sources": [
+        "B",
+        "B",
+        "A"
+      ],
+      "expected_invariants": {
+        "valid_genome": true,
+        "length_256": true,
+        "sections_from_parents": true
+      }
+    },
+    {
+      "name": "xcode-decode-slot0-idx0",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 0,
+        "xcode_index": 0
+      },
+      "expected": 879
+    },
+    {
+      "name": "xcode-decode-slot1-idx0",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 1,
+        "xcode_index": 0
+      },
+      "expected": 1702
+    },
+    {
+      "name": "xcode-decode-slot2-idx0",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 2,
+        "xcode_index": 0
+      },
+      "expected": 3386
+    },
+    {
+      "name": "xcode-decode-slot3-idx30",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 3,
+        "xcode_index": 30
+      },
+      "expected": 949
+    },
+    {
+      "name": "xcode-decode-slot3-idx0",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 3,
+        "xcode_index": 0
+      },
+      "expected": 1197
+    },
+    {
+      "name": "xcode-decode-slot1-idx5",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 1,
+        "xcode_index": 5
+      },
+      "expected": 2939
+    },
+    {
+      "name": "xcode-decode-slot2-idx15",
+      "kind": "xcode_decode",
+      "input": {
+        "genome": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+        "slot_index": 2,
+        "xcode_index": 15
+      },
+      "expected": 0
+    },
+    {
+      "name": "xcode-encode-0",
+      "kind": "xcode_encode",
+      "input": 0,
+      "expected": "00"
+    },
+    {
+      "name": "xcode-encode-3843",
+      "kind": "xcode_encode",
+      "input": 3843,
+      "expected": "zz"
+    },
+    {
+      "name": "xcode-encode-62",
+      "kind": "xcode_encode",
+      "input": 62,
+      "expected": "10"
+    },
+    {
+      "name": "xcode-encode-61",
+      "kind": "xcode_encode",
+      "input": 61,
+      "expected": "0z"
+    },
+    {
+      "name": "xcode-encode-1",
+      "kind": "xcode_encode",
+      "input": 1,
+      "expected": "01"
+    },
+    {
+      "name": "xcode-encode-1922",
+      "kind": "xcode_encode",
+      "input": 1922,
+      "expected": "V0"
+    },
+    {
+      "name": "xcode-encode-3842",
+      "kind": "xcode_encode",
+      "input": 3842,
+      "expected": "zy"
+    },
+    {
+      "name": "xcode-to-param-x0-r1-5",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 0,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected": 1
+    },
+    {
+      "name": "xcode-to-param-x3843-r1-5",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3843,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected": 5
+    },
+    {
+      "name": "xcode-to-param-x0-r0-1",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 0,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected": 0
+    },
+    {
+      "name": "xcode-to-param-x3843-r0-1",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3843,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected": 1
+    },
+    {
+      "name": "xcode-to-param-x1921-r0-1",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 1921,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected": 0
+    },
+    {
+      "name": "xcode-to-param-x1922-r0-1",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 1922,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected": 1
+    },
+    {
+      "name": "xcode-to-param-x0-r1-3",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 0,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected": 1
+    },
+    {
+      "name": "xcode-to-param-x3843-r1-3",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3843,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected": 3
+    },
+    {
+      "name": "xcode-to-param-x1922-r1-3",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 1922,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected": 2
+    },
+    {
+      "name": "xcode-to-param-x1000-r1-100",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 1000,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected": 27
+    },
+    {
+      "name": "xcode-to-param-x3000-r1-100",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3000,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected": 79
+    },
+    {
+      "name": "xcode-to-param-x3843-r1-100",
+      "kind": "xcode_to_param",
+      "input": {
+        "xcode_value": 3843,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected": 100
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r1-5",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v5-r1-5",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 5,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected_xcode": 3076,
+      "expected_decoded_value": 5
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v3-r1-5",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 3,
+        "range_min": 1,
+        "range_max": 5
+      },
+      "expected_xcode": 1538,
+      "expected_decoded_value": 3
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v0-r0-1",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 0,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 0
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r0-1",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 0,
+        "range_max": 1
+      },
+      "expected_xcode": 1922,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r1-3",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v2-r1-3",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 2,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected_xcode": 1282,
+      "expected_decoded_value": 2
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v3-r1-3",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 3,
+        "range_min": 1,
+        "range_max": 3
+      },
+      "expected_xcode": 2563,
+      "expected_decoded_value": 3
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r1-10",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 1,
+        "range_max": 10
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v10-r1-10",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 10,
+        "range_min": 1,
+        "range_max": 10
+      },
+      "expected_xcode": 3460,
+      "expected_decoded_value": 10
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v5-r1-10",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 5,
+        "range_min": 1,
+        "range_max": 10
+      },
+      "expected_xcode": 1538,
+      "expected_decoded_value": 5
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v1-r1-100",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 1,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected_xcode": 0,
+      "expected_decoded_value": 1
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v50-r1-100",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 50,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected_xcode": 1884,
+      "expected_decoded_value": 50
+    },
+    {
+      "name": "param-to-xcode-roundtrip-v100-r1-100",
+      "kind": "param_to_xcode_roundtrip",
+      "input": {
+        "param_value": 100,
+        "range_min": 1,
+        "range_max": 100
+      },
+      "expected_xcode": 3806,
+      "expected_decoded_value": 100
+    },
+    {
+      "name": "adversarial-invalid-length-255",
+      "kind": "validate",
+      "input": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected_pass": false,
+      "expected_error": "INVALID_LENGTH"
+    },
+    {
+      "name": "adversarial-invalid-length-257",
+      "kind": "validate",
+      "input": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected_pass": false,
+      "expected_error": "INVALID_LENGTH"
+    },
+    {
+      "name": "adversarial-invalid-length-0",
+      "kind": "validate",
+      "input": "",
+      "expected_pass": false,
+      "expected_error": "INVALID_LENGTH"
+    },
+    {
+      "name": "adversarial-invalid-char-exclamation",
+      "kind": "validate",
+      "input": "!AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAJcWvemxeshCWnAa5I4vO6dOY7089M4tKs5IEH4qRi41MsfMQxQMnkQzY41kA5O",
+      "expected_pass": false,
+      "expected_error": "INVALID_CHARACTER"
+    },
+    {
+      "name": "adversarial-invalid-char-at",
+      "kind": "validate",
+      "input": "@AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAJcWvemxeshCWnAa5I4vO6dOY7089M4tKs5IEH4qRi41MsfMQxQMnkQzY41kA5O",
+      "expected_pass": false,
+      "expected_error": "INVALID_CHARACTER"
+    },
+    {
+      "name": "adversarial-invalid-char-space",
+      "kind": "validate",
+      "input": " AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAJcWvemxeshCWnAa5I4vO6dOY7089M4tKs5IEH4qRi41MsfMQxQMnkQzY41kA5O",
+      "expected_pass": false,
+      "expected_error": "INVALID_CHARACTER"
+    },
+    {
+      "name": "adversarial-confusable-0-to-O",
+      "kind": "validate",
+      "input": "WEBO0001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error": "CHECKSUM_MISMATCH"
+    },
+    {
+      "name": "adversarial-confusable-1-to-l",
+      "kind": "validate",
+      "input": "WEB0000lG1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error": "CHECKSUM_MISMATCH"
+    },
+    {
+      "name": "adversarial-bad-checksum-last-char",
+      "kind": "validate",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000tJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJg",
+      "expected_pass": false,
+      "expected_error": "CHECKSUM_MISMATCH"
+    },
+    {
+      "name": "adversarial-bad-checksum-first-char",
+      "kind": "validate",
+      "input": "WEB00001G1AlienClaw1WebSearchFamily000000000000000000000000000003RSequentialPerfBalanced0000000000000000000000000000000000000000EscalateStdOutputJSONArray00000000000000000000000000000000000000uJJXbhzJHtv5BTBt9Bh3nX7P5FjlL993rf9Zlvljvx3LVnHTz9RnjT9hvjrjJFJf",
+      "expected_pass": false,
+      "expected_error": "CHECKSUM_MISMATCH"
+    },
+    {
+      "name": "adversarial-all-minimum",
+      "kind": "validate",
+      "input": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000k0HIgFGKReu5AgRwYDyInsMpUErCKBGQZY6Fye3cOfK830UXQKbssnKSXecRKohS",
+      "expected_pass": true
+    },
+    {
+      "name": "adversarial-all-maximum",
+      "kind": "validate",
+      "input": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz84DWex6mZK6xaU1669WOhGk3WkZsGhQS7iiJ8OnAKF22TsG500LEAjE6TqYJmmdI",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-00",
+      "kind": "validate",
+      "input": "e71lHFE8l6hlvY5bR215DEWc1ZCjfiYQESbHpt0mpAiRLH9DzmL65O6MsMcGp2kTY7xO5ZIredutNaCj42gEnI5sEt6OHTerNANMDgHixhf4ceAYkFATOHxeiZEhKrnn3Eq2pKPH4DwyaujKDfVPuwfT9G8FlZYGlbRvbPNE8WV5m3t79eAohRc4OOcTXGZtgjyiNwOpImZAqvaQVeIlawrIS1umZmAVMI92w9c8XKW1M4HEUvMupAUriivOq3QW",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-01",
+      "kind": "validate",
+      "input": "y0hk7huYmHnfL7IRAT0zkukGWmBWw6teJreWcC9NmAYznxXw0cKV17xNurpJF3Fuay55kVq4mYn88gUyZAGXtcRzDxYmkiCjJPgfNSvXS7FE4L1bZEbE04je3E4v2tL4WFHgVDY8kxuaaUFoUpQC66gRMRQTtk3hff63PkLpt6FCCYS8RBHTFtx4SptsZ63fO0LU0Z6An6CxG6rYUfYoduWTusVauj4MjYC52YjC4N6wzuCRWmFsYh84JMANko1c",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-02",
+      "kind": "validate",
+      "input": "Yr05xmsFAQVUDtPv3AO0OGxooTIRizkoZgjV9CIDz3blY3lK33bUWwsXA3zW5sB4c4htFP7yuaFbc2d5QgbaXKxGDgjKFGP8gfJTKxmx40Tda64YDWG8xMu4uFNIASrYjJdpfX0gqZJxg6yu8G7u6lZ9HIcDjLDhesGWVGvws35eRrH20Ln8eGAlSZjRZ074w4NWsBi4lOSVkMtWerAcRQOhcapmahKwJaCbeA7kShIaVUspICPyA1Uoh4aD2MJs",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-03",
+      "kind": "validate",
+      "input": "yuiv9Y2rNbZ9R82JNvxot2vMDhFg6MnZutQdl9xxFtAppBuQ1BlxLoxQpgtlpFHAoi6Ot2sUECqwTMJqotEE1gCPLHt4znHMfWPhrYLy17uGBbzG26cRMkoKRcW7OvaCG2jR0XxpYhkyllgCNR4ygwLdKgs7kvJWJgQKPiIZ8CQgyOhlvBdaJPZr0JIDRobc3Cwl4kj4eBKcbQulAejeMjeizO0V62jusT2ctm4pAyXQgHYEVYOXEetogVaMTuaF",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-04",
+      "kind": "validate",
+      "input": "fKTSShDWUovzolAg5IWgedL5qymFhJEpC912FUdsn4TQueaCjiOVPF9fi0vmtnu6nREBpziXT3ZFws7T8pTgXZcKymvSdqkvWRrwZSvAltUSGmFreHnnXVeFHS4jIFHLKvY589EOi9jD4QQLYTQ3DrQOvnbyi1sumaOU0yMJmOsvzrQYllYpcvEVEHRV1OLgtaUJAkfeAJIQd4ArcIpsCFIwHogRIaDc0R2SF8ARwGze63oebE4j4U9o6NiG7OKn",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-05",
+      "kind": "validate",
+      "input": "hpPkArTw8dY1wPbag15fR8tTB3GOKDTKLmuOHmyrQGr5U1lY3yMEf4nzf2m1yFCr1d9F8Ug7ayDTiGnNAcczlj7nqAzJ6b1xJahwzOPyjC4bireF6inJshcp7oao2MYRgN4WfL0sQqV6RzNevrTj9RBkXzfHdpwYnUTRqkbHKsFrx5HuSFmTadgOL1VsKBVD89yGHiqJ0GzCS3S4Bqe50MLQC10uLsI7467q2rUIPMGNQcLCGriSNssVSuLk6DWw",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-06",
+      "kind": "validate",
+      "input": "MpGLHuciuHZ0XyC5FkQVZmFiUfjVSo15IEPiFJgbNUZXMRlZLMiTHJGE7kCK7lYymiBCDlUHkbmXcI6rCIENBJ0jY8H23ZIiy8etmV6t0aIUUSLBz3GytU7q4PV4aeh399payJ5F7ZmQccodEnXOSwSJtbRJad3dzl6ymDeDGg5AFBZ4A0QSicUI2EIjIitTg5wQ3GqDeq9e4NkQXUgJwQZA07Sc3myD86xGUpa01aOvAsTkirq8tqmHg2RModoM",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-07",
+      "kind": "validate",
+      "input": "4hExGooebgpxCR7YEf9wHq943AoJclqawIS7TiJiPyHWYVS5c2uRlKcG15Ezhrtaby1mhqHa2mmBUXfSwHBbReqV5UMQLKg6sALQiVIgyPqmZ2T5KGK7nPtWq0gtYTQ3CXNdmVeSm3DHZ8xISuiV71ecpFjAJZ0ZQ5Erw7Ty7fr9VxjIWjHQrUUFTZ9OCwcWjhJhfJTHHZpt5PjVxZvdpDz5tzDVbvLtpf9nRdpFDP5Lbp5PzPVLVd9BJZ77nvDz",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-08",
+      "kind": "validate",
+      "input": "lu8t4HnosQLxoWHq0IkJrbbgVt9SYUMLZmYOTxKtCiFaOEsnQ2KlUjwpOOgoqf9Vz28WzbLt6tsS6XwT0k9Qtf94UoGLdiPf5sLshsYOzKejumVtY2d4FehwIEl5R6mejt6SAiJv12Ko3IMNR9FXQahoBAB5dtOdhFVwb9ETeGTGg0vpTvIhYA4SyMbJezRiyMViANoiVQ4L4Sj8SHSy3oQFcy7GeF6wlcy72gl8wdeIVc0jgW1K4FKmb0A1aOn4",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-09",
+      "kind": "validate",
+      "input": "GTsJCOsU6FOaMaIiI1rgPH0athnl3wclVrvvInpEcpMEeCdGhmknghr8e6vef2JoS2bNk85wIKlQBC8oYuNXWwHrAGwqyUzpIltLp7Tz49mzEthkhPzspZN5oP0GY7TNhlhGbOqeyN6hEU1duyZKwdEf4eqTwiJfQ782y2JV76FuY8OTNgyliyYQblk9uQf62WJkYDu2bKuboKdqG9UOPmu3wgNmshK4fOGNsSP2ODMKtcarukF2CF8YTSoVAwHM",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-10",
+      "kind": "validate",
+      "input": "rVdQyyH2iNDSSyFsN6hNYvfM3PHCz7ysqT5gDfec13oLF8oaD4rmZDbDqtELn9ovc0Hs98YGpB7gt180MooFbK1BG38lQX7l4USnNWb6SWEyd2kowtgXJTfz13UsPRh6VjwS4v5Kc948HdebZjKOcXITWcR6oi7sffunZktDRSuEQLqTPQk6KRKgGNz9hxU4FZBfTvFDL3pHtLTfjFNhBhhfV53n9l53t3pJBNXv3llZHDFxfFzpJfDdfjV5tFzV",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-11",
+      "kind": "validate",
+      "input": "5r55R6llNp8Z3bzZZLg7QMtgymRtwk3zIcJM6aWD9gUEs6MsZN7mHaEpRsZnqddhfZ1cxgriH1BHimJwLM0Bt9agP49le15lXDOQTLANJkKnyac5u39Amd3h5HSgRVcSQHDmW7MR7IhhbVXgJ2EPc30DJyDn8mGIK70VlRB8OYjEWZrgpM4Ptl2R1Tw4tKaRxMOpweFi8L2A7akDsKZe4PkGbYqdgeJAYpMyVyQdKcTe0RG65S0nMqNSidsMdWkR",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-12",
+      "kind": "validate",
+      "input": "aPjeQI7P1zKApydTriwN5Rs6FRbPX5PtJlLELnA4We7XWCvnMMkzqfq9F69GCBc9mmf4ByneVTmambShxuafedKteK9S4USeJoHb3MW4JTS23NrI4fts5dcWOTbZzolv2SwpafCKcUW9z3S6pvrLj5WfB2FjSSXXdANNwIOQnLhc3oefL4L6ZhOIGksgzwctPjHpZ9ttVBhv7dt3P7bPdpbX3PHd17LZLTHJt9BfnPPtxbp9JZlFXzj9fTt1LxPv",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-13",
+      "kind": "validate",
+      "input": "9L5bg9wMJzfigP8cjy5JZOfoLq8girylhwX5fgRWN1NJByDLynVCE894Iso6WnYrluX2gLund8cO9ABrindpvAkS2QNhkFSdImloSEYFJzpoUvrCNhyaSTnInOWXQzAqCpc8tG3fUtNZx6jsXs7I5mAHSvW9rR5ywEqSuMx1Q3PWNFO5NE1Kx6rjfLo982Iw803UgxSuLM4nicpUS1c8zAEbCcv4kB8GzcihIwxQEheYNuATESRGUXcsBkkbKyzA",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-14",
+      "kind": "validate",
+      "input": "rUir8mjUSd0v51GDr9ZykcXR7nIFJ73FQeodT47rvVcY1eWaFj9IR0dMFaQBgg5XN4zXYWoWZ1OtU2eONGl1Mo4MFkge6nblmL82MYLqfBrnhTiUeBp84jnyT2IC2oCu2KxJWPqYUG2mfCIMtn3tfLH7pNRuPlSvzOLBViVNxpXHp5kR5RcqBYIK65KgIJSceWt06PWExoONWaHQAzkmD4cv0O1s450adIulum5iGRIEBcQvmK50IHaSFS6hMSpA",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-15",
+      "kind": "validate",
+      "input": "jRAiSMS2ktwMdRHeoy34gePNWplhAy19schoS284FnfNNOya2c9hSyNNSm4a8XNPKfHFz71lBVXOwZ7GnGjSDdIiwVC78s4SBvjS5phzsKgMj4ZYIvJsAjjxieBoNWE7Co8FoV1NZaNTpZ8du54JPjkUXQnQqa48Kf4SThXM8urnZebBnz8RWwt3r7X9JAAKWZCofg41kEHu2z04Fw8fqePqEvKSnWy5i4luOTsORaKlG2RKSDuypCwBekR8Yvkq",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-16",
+      "kind": "validate",
+      "input": "xjEMyyXvIs5GCezZH8eJdY5WfAbyb9AgdkvcLrxa2qt152yfnaGfDnaQde1VueYIfzJUFpphPJT4i3ASQUTDLc9KtjKktMP8mNWZ6KFT7HSF963IyOtdQFztvAqKxakKCmAVWTVuJV15yPWTzFDbM33IVcurfhUIY0s6R8uGkNmPN2P3aZCNZI4OWSmZHqdh7T5dhd9FlHBRDpTPXp7xTDpbpFFFJPrRL5RlbV3RnDhtRjf1Tfp9JNBjb5l35FTd",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-17",
+      "kind": "validate",
+      "input": "d786PNoLZyNm9CcWPW2228jLpUXT9cvW8KxdKAPdlrJbLWrWYVjaJUq1NLh7QbJovktie1cUGzfonbaEk3bUAXekdnrO9qhF2ayi7C1SKQ9QiDQWndwUtslk3j8XDZKgUXOKzBTwYLYMhntkhfpiGdUCzFHZJEyJnIjDijVKUMZxxokHI7ahYOvPqMznp9I2bNnJlrpdtv7VP1rLTV3vz1tD9p9Tl5xjjNF1HvLpNFDBTxfr9vD157fpFbbtNXvJ",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-18",
+      "kind": "validate",
+      "input": "Izj5MxSfGlUDCqYHxZiH86dlbFF3gvXEeE36QLjU6hn80zZxAQfxuuUUfCmzIKIf3wn5faEYlksx2wwBQurBxw2rPoVBxlztxIu20Jac6xLITfYXVuy8sWTHCp7LAkTfGjB0lLoIahmCBdsevPqRWK5Pg6B8UKxF0GOFSmHzLJbka0GfNiF3g7TJAPhWxvujqeNIYrYg3eGDIMdaETgKJowpEYVs4nMMhAcRUMt48lIInG0b0AVgMNeExaedAw3C",
+      "expected_pass": true
+    },
+    {
+      "name": "seeded-random-19",
+      "kind": "validate",
+      "input": "nJi7ewyINdEEz8U9TlcNQiZwUmYpgqDmFhmcto5XSXjN4wa73rZvWCaY9AKsXS7hDjbV5vWSp3T8WQTa3ZThpJk1PGq0lDb42RMi4Y3xv4xU2IQBn8nfkfzQNvOStwwOO5hzgtY8ftM7BYPX8kEr0m1JThkYRYOqEFTM9HCxukm72pgQdnxuu1FD46c2Schjr4ytO6xAofcerwUHmE3ukvMkFaExUkD42f42jciFUSTuyVuo3wcHGCnsCdIWneMN",
+      "expected_pass": true
+    }
+  ],
+  "$adversarial_count": 12,
+  "$seeded_random_count": 20
+}

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alienclaw-ga"
+version = "0.0.0.dev0"
+description = "AlienClaw's genetic-algorithm engine: checksummed Base62 genome codec, GA spine, diagnostics"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "See LICENSE in the AlienClaw repository" }
+# genome/ and evolution/ are stdlib-only.
+dependencies = []
+
+[project.optional-dependencies]
+# alienclaw_ga.diagnostics: dynamics_summary + genome_information need numpy;
+# bayesian_optimizer needs scikit-learn and scipy.
+diagnostics = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+]
+test = [
+    "pytest>=7.4,<10.0",
+    "pytest-cov>=4.1,<8.0",
+    "hypothesis>=6.0,<7.0",
+    "ruff>=0.1,<1.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+# Diagnostics were never in the in-tree CI ruff scope. These ignores keep the
+# copies verbatim: math notation (N, H_x, X_obs), and the public CaptureHook()
+# context-manager name / N= keyword argument that callers already use.
+"src/alienclaw_ga/diagnostics/*.py" = ["N802", "N803", "N806"]
+"src/alienclaw_ga/diagnostics/genome_information.py" = ["N806", "E501"]
+"tests/diagnostics/*.py" = ["N802", "N806"]
+
+[tool.coverage.run]
+source = ["alienclaw_ga"]
