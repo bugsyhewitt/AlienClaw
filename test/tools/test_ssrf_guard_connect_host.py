@@ -191,4 +191,7 @@ def test_tool_fetches_and_reports_canonical_url(tool, transport) -> None:
     r = tool.run({"url": "http://Public.Example/x"})
     assert r.ok is True, r.error
     assert transport.hosts == ["public.example"]
-    assert r.output["url"] == "http://public.example/x"
+    # `url` stays the caller's input; the canonical URL fetched is `fetched_url`
+    # (see test_fetch_output_url.py).
+    assert r.output["url"] == "http://Public.Example/x"
+    assert r.output["fetched_url"] == "http://public.example/x"

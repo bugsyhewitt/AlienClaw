@@ -1,8 +1,9 @@
-import urllib.request
 import urllib.error
+import urllib.request
 from typing import Any
-from .types import RunResult
+
 from ._ssrf_guard import SsrfBlockedError, assert_safe_fetch_url, build_no_redirect_opener
+from .types import RunResult
 
 _TIMEOUT_S = 30
 _MAX_RESPONSE_BYTES = 1 * 1024 * 1024
@@ -12,9 +13,12 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     url = inputs.get("url", "")
     if not url:
         return RunResult(ok=False, error="Missing 'url' field", correctness=0.0)
-    # PKT-577: SSRF core guard (scheme allowlist + IP-literal block; no host allowlist per rejection rationale)
+    # PKT-577: SSRF core guard (scheme allowlist + IP-literal block; no host allowlist
+    # per rejection rationale)
     try:
-        url = assert_safe_fetch_url(url)
+        # Fetch the canonical URL the guard vetted; output `url` stays the caller's
+        # input and `fetched_url` reports what was requested (2026-11-26 review).
+        fetched_url = assert_safe_fetch_url(url)
     except SsrfBlockedError as exc:
         return RunResult(ok=False, error=str(exc), correctness=0.0)
     opener = build_no_redirect_opener()
@@ -39,7 +43,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         truncated = False
         transient_failure = False
         for _ in range(request_count):
-            req = urllib.request.Request(url, headers=headers, method="GET")
+            req = urllib.request.Request(fetched_url, headers=headers, method="GET")
             try:
                 with opener.open(req, timeout=_TIMEOUT_S) as resp:
                     status = resp.status
@@ -57,7 +61,9 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
                     content_type = resp.headers.get("Content-Type", "")
             except SsrfBlockedError as exc:
                 total_tool_calls += 1
-                return RunResult(ok=False, error=str(exc), tool_calls=total_tool_calls, correctness=0.0)
+                return RunResult(
+                    ok=False, error=str(exc), tool_calls=total_tool_calls, correctness=0.0
+                )
             except urllib.error.HTTPError as exc:
                 total_tool_calls += 1
                 return RunResult(
@@ -79,13 +85,19 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             # content, bytesReturned, contentType, truncated. body_preview is an extension kept
             # for backwards compat with callers using the legacy param name.
             output: dict[str, Any] = {}
-            if field_count >= 1: output["url"] = url
-            if field_count >= 2: output["statusCode"] = status
-            if field_count >= 3: output["content"] = body
-            if field_count >= 4: output["bytesReturned"] = body_bytes
-            if field_count >= 5: output["contentType"] = content_type
+            if field_count >= 1:
+                output["url"] = url
+            output["fetched_url"] = fetched_url  # the canonical URL requested; always present
+            if field_count >= 2:
+                output["statusCode"] = status
+            if field_count >= 3:
+                output["content"] = body
+            if field_count >= 4:
+                output["bytesReturned"] = body_bytes
+            if field_count >= 5:
+                output["contentType"] = content_type
             output["truncated"] = truncated
-            # body_preview: include first N lines of body as a "preview" field (distinct for each 1-10)
+            # body_preview: first N lines of body as a "preview" field (distinct for each 1-10)
             body_lines = body.splitlines()
             output["body_preview"] = "\n".join(body_lines[:body_preview])
             return RunResult(ok=True, output=output, tool_calls=total_tool_calls, correctness=1.0)

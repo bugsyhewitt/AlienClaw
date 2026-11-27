@@ -132,23 +132,40 @@ def assert_inside_boundary(path_str: str, boundary: Path) -> Path:
     return resolved
 
 
+def _is_symlink(path: Path, operation: str) -> bool:
+    """path.is_symlink(), failing closed when the component cannot be inspected.
+
+    Python 3.12's is_symlink() swallows only ENOENT/ENOTDIR/EBADF/ELOOP from lstat
+    and re-raises the rest (EACCES under a directory the bridge user cannot search,
+    e.g. "/root/.ssh/id_rsa"); 3.13+ returns False instead. Callers catch only
+    ValueError, so any OSError becomes one: a component that cannot be inspected
+    cannot be shown not to be a symlink.
+    """
+    try:
+        return path.is_symlink()
+    except OSError as exc:
+        reason = exc.strerror or str(exc) or type(exc).__name__
+        raise ValueError(f'Path not inspectable on {operation}: "{path}" ({reason})') from exc
+
+
 def assert_no_symlink(resolved_path: Path, *, operation: str = "write") -> None:
-    """Raise ValueError if the path is a symlink.
+    """Raise ValueError if the path is a symlink or cannot be inspected.
 
     Pass the UNRESOLVED path. Used on write paths (file_write) and read paths
     (file_read, since 2026-11-26) to prevent symlink-escape attacks; ``operation``
     only names the operation in the error message. Any component of the path that
-    is a symlink is also checked.
+    is a symlink is also checked, and an OSError while inspecting a component
+    (target or ancestor) is a ValueError too.
     """
     # Check the target itself
-    if resolved_path.is_symlink():
+    if _is_symlink(resolved_path, operation):
         raise ValueError(
             f'Symlink rejected on {operation}: "{resolved_path}" is a symbolic link'
         )
     # Check all ancestors up to the filesystem root
     current = resolved_path.parent
     while current != current.parent:
-        if current.is_symlink():
+        if _is_symlink(current, operation):
             raise ValueError(
                 f'Symlink in path rejected on {operation}: "{current}" is a symbolic link'
             )
