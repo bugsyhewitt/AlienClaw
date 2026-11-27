@@ -340,7 +340,9 @@ vectors/v1/
 | G6 | **Partial** | 296 SSRF vectors and 105 filesystem vectors, asserted by both languages. The TS side runs in AlienClaw CI through root vitest; the Python side runs locally (`staging/ci-staging.patch` adds it to CI). The parity-in-tree suites stay while the code lives in AlienClaw. |
 | G7 | **Mostly met** | Both languages ignore env proxies, block `localhost.`/`*.localhost` pre-DNS, and redact credentials, query and fragment from URLs in errors. TS cancels redirect bodies and forces `rejectUnauthorized`. Open: secrets in URL paths, and NXDOMAIN-vs-internal timing. |
 | G8 | **Not met as defined** | Two AI security reviews are done (`SANDBOX-SECURITY-REVIEW.md`, `PINNING-SECURITY-REVIEW.md`). The gate asks for a reviewer who is neither the author nor an AI agent. |
-| G9–G14 | **Not started** | Repo-level work for after Bugsy picks the home, names and license. |
+| G9–G11, G13 | **Not started** | Repo-level work for after Bugsy picks the home, names and license. |
+| G12 | **Tooling ready** | `tools/wall_check.py` reports 17 AlienClaw-specific lines in 4 publishable files (37 in 11 with tests). They are cleared in the import commit. |
+| G14 | **Dry runs pass** | TS: `tsconfig.build.json` → `dist/` (ESM + `.d.ts`); `npm pack --dry-run` lists only README, package.json and dist; the tarball smoke-imports on Node 22/24. Python: an offline setuptools wheel (5 modules + metadata) installs with `--no-index` and imports on 3.11/3.14. Open: LICENSE file (G11), TestPyPI dry run. |
 | G15 | **Met (staged)** | The TS `fs-jail.ts` port (`d772a7fa`) runs the shared 105-vector filesystem corpus; one difference (the `.env\0` reason) is declared. POSIX only. |
 
 ---
