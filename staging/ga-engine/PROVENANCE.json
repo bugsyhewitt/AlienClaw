@@ -35,7 +35,7 @@
     {
       "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/genome_information.py",
       "source": "src/alienclaw/diagnostics/genome_information.py",
-      "source_blob": "6c3546b3dd12ffce3c92580c7c5526fe9869291b",
+      "source_blob": "8ab9a8471ff98ee366acce1c853c7a953557d976",
       "relation": "verbatim"
     },
     {
@@ -221,7 +221,7 @@
     {
       "staged": "staging/ga-engine/tests/diagnostics/test_mi_bias_correction.py",
       "source": "test/diagnostics/test_mi_bias_correction.py",
-      "source_blob": "7f36ce39d53947938f9c59424ce53e1fafa10780",
+      "source_blob": "f4c0c84be132090368ae7237fd2e8e9aa0a17a96",
       "relation": "adapted"
     },
     {
@@ -367,6 +367,12 @@
       "source": "test/genome/test_xcode_helpers.py",
       "source_blob": "4c7dbba67fff500d606b97675cedb962e8d26fd5",
       "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_mi_noise_regression.py",
+      "source": "test/diagnostics/test_mi_noise_regression.py",
+      "source_blob": "812a2482b31c9a0f378bf13258ea699e27b5893a",
+      "relation": "adapted"
     }
   ],
   "divergences": [
@@ -383,6 +389,7 @@
     "Unchanged on purpose for tuner compatibility: ALIENCLAW_POPULATIONS_ROOT and the ~/.alienclaw/populations default in evolution/storage.py, the ALIENCLAW_DIAGNOSTICS flag, the 'martian_type' naming throughout, and the RunMartianCallback alias.",
     "Comments and docstrings that point at in-tree files are left as-is, e.g. the src/alienclaw/registry/genome-codec.ts TS mirror in genome/*, bridge/server.py as the instrumentation producer, and '# list[Optional[BrainSpec]]' in operators.mutate_directed.",
     "New, not derived from a source: src/alienclaw_ga/__init__.py, tests/__init__.py, tests/conftest.py (pins HOME and ALIENCLAW_POPULATIONS_ROOT to tmp_path, disables the Hypothesis example database), tests/test_tuner_contract.py, tests/test_no_drop_imports.py, pyproject.toml, README.md.",
-    "2026-11-26 (review follow-up): mutual_information's bias term is now Miller-Madow, MI_plugin - (m_joint - m_x - m_y + 1) / (2N), floored at 0; the old term (m_x * m_y - m_joint - 1) / (2N) and PKT-1477's min(raw_mi, corrected) clamp are gone, and the local names H_x/H_y/H_joint became h_x/h_y/h_joint (ruff-clean in-tree). Applied to both sides: genome_information.py is still verbatim, tests/diagnostics/test_mi_bias_correction.py still differs only by the import rewrite."
+    "2026-11-26 (review follow-up): mutual_information's bias term is now Miller-Madow, MI_plugin - (m_joint - m_x - m_y + 1) / (2N), floored at 0; the old term (m_x * m_y - m_joint - 1) / (2N) and PKT-1477's min(raw_mi, corrected) clamp are gone, and the local names H_x/H_y/H_joint became h_x/h_y/h_joint (ruff-clean in-tree). Applied to both sides: genome_information.py is still verbatim, tests/diagnostics/test_mi_bias_correction.py still differs only by the import rewrite.",
+    "2026-11-26: Miller-Madow MI change reverted in-tree and here (it inflated noise MI ~5x on sparse tables); the PKT-1477 clamp is the current behaviour"
   ]
 }
