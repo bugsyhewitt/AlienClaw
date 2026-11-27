@@ -104,9 +104,20 @@ def mutual_information(
     n_x = len(x_counts)
     n_y = len(y_counts)
     n_joint = len(joint)
+    # PKT-1477: the bias correction may only REDUCE the plug-in estimate.
+    # `n_x * n_y - n_joint - 1` is NEGATIVE whenever the joint table is
+    # saturated (n_x * n_y <= n_joint) — which includes the ubiquitous case
+    # of a CONSTANT X, where n_x == 1 and n_joint == n_y. A negative
+    # correction made `raw_mi - correction` LARGER than `raw_mi`, so the
+    # "bias correction" inflated the estimate and a provably-zero-information
+    # input reported a strictly positive MI (1/(2n) at constant X: 0.125 at
+    # n=4, 0.0125 at n=40). The `max(0.0, ...)` clamp below only guarded the
+    # lower bound, so the inflation escaped. Clamp the corrected value to the
+    # plug-in estimate: a bias correction can never add information.
     correction = (n_x * n_y - n_joint - 1) / (2.0 * total)
+    corrected_mi = raw_mi - correction
 
-    return max(0.0, raw_mi - correction)
+    return max(0.0, min(raw_mi, corrected_mi))
 
 
 def genome_byte_mutual_information(
