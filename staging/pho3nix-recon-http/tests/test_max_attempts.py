@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import urllib.error
 from io import BytesIO
+from types import SimpleNamespace
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -54,14 +55,15 @@ def _raise_url_error(msg: str = "Name or service not known") -> urllib.error.URL
 
 def _bypass_ssrf_and_link_opener(mod):
     """Bypass the SSRF guard and bridge opener.open() → urllib.request.urlopen so the
-    mock-urllib tests keep their call_count assertions intact."""
+    mock-urllib tests keep their call_count assertions intact. (The staged tools
+    resolve once with resolve_and_validate and fetch through build_pinned_opener.)"""
     fake_opener = MagicMock()
     fake_opener.open.side_effect = (
         lambda req, timeout=None: mod.urllib.request.urlopen(req, timeout=timeout)
     )
     name = mod.__name__
-    with mock.patch(f"{name}.assert_safe_fetch_url", lambda u: u):
-        with mock.patch(f"{name}.build_no_redirect_opener", return_value=fake_opener):
+    with mock.patch(f"{name}.resolve_and_validate", lambda u: SimpleNamespace(canonical_url=u)):
+        with mock.patch(f"{name}.build_pinned_opener", return_value=fake_opener):
             yield
 
 

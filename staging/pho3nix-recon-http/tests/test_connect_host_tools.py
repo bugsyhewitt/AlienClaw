@@ -3,7 +3,8 @@
 Ported from the tool-level part of the in-tree test_ssrf_guard_connect_host.py (the
 guard-level part already lives in agent_tool_sandbox's tests/test_connect_host.py).
 The guard refuses every URL spelling on which parsers can disagree and returns a
-canonical URL; the tools must fetch THAT URL and report it in ``output["url"]``.
+canonical URL; the tools must fetch THAT URL and report it in ``output["fetched_url"]``,
+while ``output["url"]`` stays the caller's input (see test_fetch_output_url.py).
 
 Network-free: every NAME resolves to a public address (wildcard fake DNS), IP
 literals keep their real meaning, and the transport is in-process.
@@ -51,4 +52,7 @@ def test_tool_fetches_and_reports_canonical_url(tool, raw, canonical, host, tran
     r = tool.run({"url": raw})
     assert r.ok is True, r.error
     assert [s.host for s in handler.requests] == [host]
-    assert r.output["url"] == canonical
+    # `url` stays the caller's input; the canonical URL fetched is `fetched_url`
+    # (see test_fetch_output_url.py).
+    assert r.output["url"] == raw
+    assert r.output["fetched_url"] == canonical

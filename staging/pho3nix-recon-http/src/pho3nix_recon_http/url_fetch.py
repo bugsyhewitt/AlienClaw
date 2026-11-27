@@ -2,12 +2,10 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from agent_tool_sandbox.ssrf_guard import (
-    SsrfBlockedError,
-    assert_safe_fetch_url,
-    build_no_redirect_opener,
-)
+from agent_tool_sandbox.pinning import build_pinned_opener, resolve_and_validate
+from agent_tool_sandbox.ssrf_guard import SsrfBlockedError
 
+from ._inputs import InvalidInputError, headers_input, int_param
 from .types import RunResult
 
 _TIMEOUT_S = 30
@@ -20,24 +18,34 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     url = inputs.get("url", "")
     if not url:
         return RunResult(ok=False, error="Missing 'url' field", correctness=0.0)
-    # SSRF core guard (scheme allowlist + IP block on every resolved address; no host
-    # allowlist). It returns a canonical URL: fetch THAT, never the raw input.
+    # SSRF core guard, resolving the name ONCE, and an opener pinned to the addresses
+    # that passed: see http_get.py. Fetch the canonical URL the guard vetted; output
+    # `url` stays the caller's input and `fetched_url` reports what was requested.
     try:
-        url = assert_safe_fetch_url(url)
+        target = resolve_and_validate(url)
+        opener = build_pinned_opener(target)
     except SsrfBlockedError as exc:
         return RunResult(ok=False, error=str(exc), correctness=0.0)
-    opener = build_no_redirect_opener()
-    # max_attempts (slot 0): transient-retry budget per the MSB PARAMETER_SCHEMA.
-    max_attempts = max(1, min(5, int(params.get("max_attempts", 1))))
-    field_count = max(1, min(5, int(params.get("field_count", 3))))
-    content_preview = max(1, min(10, int(params.get("content_preview", 2))))
-    # request_count: make N sequential requests per attempt; every urlopen
-    # counts toward tool_calls, so retries cost fitness.
-    request_count = max(1, min(5, int(params.get("request_count", 1))))
-    method = str(inputs.get("method", "GET")).upper()
-    headers = inputs.get("headers", {}) or {}
-    body_data = inputs.get("body")
-    encoded_body = str(body_data).encode() if body_data is not None else None
+    fetched_url = target.canonical_url
+    try:
+        # max_attempts (slot 0): transient-retry budget per the MSB PARAMETER_SCHEMA.
+        max_attempts = max(1, min(5, int_param(params, "max_attempts", 1)))
+        field_count = max(1, min(5, int_param(params, "field_count", 3)))
+        content_preview = max(1, min(10, int_param(params, "content_preview", 2)))
+        # request_count: make N sequential requests per attempt; every urlopen
+        # counts toward tool_calls, so retries cost fitness.
+        request_count = max(1, min(5, int_param(params, "request_count", 1)))
+        headers = headers_input(inputs.get("headers", {}))
+        method = str(inputs.get("method", "GET")).upper()
+        body_data = inputs.get("body")
+        try:
+            encoded_body = str(body_data).encode() if body_data is not None else None
+        except UnicodeEncodeError as exc:  # a lone surrogate, e.g. from JSON "\ud800"
+            raise InvalidInputError(
+                f"Invalid 'body': not encodable as UTF-8 ({exc.reason})"
+            ) from None
+    except InvalidInputError as exc:
+        return RunResult(ok=False, error=str(exc), correctness=0.0)
 
     # Transient retry loop — same fatal-vs-transient split as http_get.py.
     last_error: str | None = None
@@ -48,7 +56,9 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         content_type = ""
         transient_failure = False
         for _ in range(request_count):
-            req = urllib.request.Request(url, data=encoded_body, headers=headers, method=method)
+            req = urllib.request.Request(
+                fetched_url, data=encoded_body, headers=headers, method=method
+            )
             try:
                 with opener.open(req, timeout=_TIMEOUT_S) as resp:
                     status = resp.status
@@ -85,6 +95,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
             output: dict[str, Any] = {}
             if field_count >= 1:
                 output["url"] = url
+            output["fetched_url"] = fetched_url  # the canonical URL requested; always present
             if field_count >= 2:
                 output["statusCode"] = status
             if field_count >= 3:

@@ -6,11 +6,21 @@ same outcome: every RunResult field (or the same exception type and message). Fo
 the fetch tools the sequence of requests reaching the transport (URL, host, method,
 headers, body) must also match, and for web_search the backend URLs and timeouts.
 
-One difference is declared and asserted explicitly rather than tolerated: CGNAT.
-The staged guard (agent_tool_sandbox) blocks RFC 6598 100.64.0.0/10 and the in-tree
-guard does not (see agent_tool_sandbox's PROVENANCE.json). For a URL that resolves
-into CGNAT the staged tool refuses and the in-tree tool fetches. Every other URL
-must agree. If the in-tree guard starts blocking CGNAT, this test fails on purpose.
+Declared differences are asserted explicitly rather than tolerated, each by its own
+test, and their inputs are kept out of the agreement corpora. Each test fails on
+purpose if the in-tree side starts behaving like the staged one:
+
+- CGNAT: the staged guard (agent_tool_sandbox) blocks RFC 6598 100.64.0.0/10 and the
+  in-tree guard does not (see agent_tool_sandbox's PROVENANCE.json).
+- DNS pinning (http_get, url_fetch): the staged tools resolve once and dial only the
+  vetted addresses; the in-tree tools resolve again at connect time (rebinding).
+- Env proxies: the staged pinned opener uses none; the in-tree opener honors them.
+- Host header: the staged tools refuse one that names another host; the in-tree
+  tools send it.
+- Bad input types (http_get, url_fetch, search_text): the in-tree tools raise; the
+  staged ones return ok=False with an "Invalid ..." error.
+- search_text off the main thread: the in-tree tool raises ValueError; the staged
+  one returns its normal result.
 
 Network-free: both sides share the conftest fake DNS and connect stub. Each side gets
 its own in-process transport (or fake urlopen), built fresh for every call so that
@@ -24,7 +34,9 @@ import dataclasses
 import inspect
 import json
 import os
+import socket
 import sys
+import threading
 import urllib.error
 import urllib.request
 from io import BytesIO
@@ -33,7 +45,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from conftest import Reply, install_transport
+from conftest import PUBLIC_V4, Reply, install_transport
 from pho3nix_recon_http import TOOL_REGISTRY, http_get, limits, search_text, url_fetch, web_search
 from pho3nix_recon_http.web_search import SEARCH_URL_ENV
 
@@ -162,7 +174,17 @@ FETCH_PARAMS = [
     {"field_count": 5}, {"field_count": -5}, {"field_count": 99}, {"request_count": 3},
     {"request_count": 99}, {"max_attempts": 3}, {"max_attempts": 2, "request_count": 2},
     {"body_preview": 0, "content_preview": 0}, {"body_preview": 3, "content_preview": 7},
-    {"body_preview": 99, "content_preview": 99}, {"max_attempts": "2"}, {"field_count": "x"},
+    {"body_preview": 99, "content_preview": 99}, {"max_attempts": "2"},
+]
+# Declared divergence (bad input types): in-tree raises, staged returns an error.
+BAD_FETCH_PARAMS = [
+    {"field_count": "x"}, {"max_attempts": None}, {"request_count": [2]},
+    {"body_preview": "1.5", "content_preview": "1.5"}, {"field_count": float("inf")},
+]
+BAD_FETCH_INPUTS = [
+    {"url": "http://public.example/p", "headers": "X-A: 1"},
+    {"url": "http://public.example/p", "headers": [("X-A", "1")]},
+    {"url": "http://public.example/p", "headers": {1: "v"}},
 ]
 
 CGNAT_URLS = [
@@ -202,7 +224,7 @@ INPUT_VARIANTS = [
     {"url": U, "headers": {"X-Test": "1", "User-Agent": "recon/1"}},
     {"url": U, "headers": None},
     {"url": U, "headers": {}},
-    {"url": U, "headers": {"Host": "internal.vhost"}},
+    {"url": U, "headers": {"Host": "public.example"}},
     {"url": U, "method": "post", "body": {"a": 1}},
     {"url": U, "method": "PUT", "body": 0},
     {"url": U, "method": "HEAD"},
@@ -265,6 +287,83 @@ def test_fetch_tools_agree_on_input_variants(name) -> None:
             if (staged, s_reqs) != (ref, r_reqs):
                 mismatches.append((inputs, responder, staged, ref, s_reqs, r_reqs))
     assert not mismatches, mismatches
+
+
+def _is_invalid_input(outcome) -> bool:
+    return (outcome[0] == "result" and outcome[3]["ok"] is False
+            and outcome[3]["correctness"] == 0.0 and outcome[3]["error"].startswith("Invalid "))
+
+
+def _ref_raised(outcome) -> bool:
+    return outcome[0] == "raised" and outcome[1] in ("TypeError", "ValueError",
+                                                     "AttributeError", "OverflowError")
+
+
+@pytest.mark.parametrize("name", sorted(FETCH))
+def test_bad_input_types_are_a_declared_divergence(name) -> None:
+    cases = [({"url": U}, p) for p in BAD_FETCH_PARAMS] + [(i, {}) for i in BAD_FETCH_INPUTS]
+    for inputs, params in cases:
+        (staged, staged_reqs), (ref, _ref_reqs) = _fetch_both(name, inputs, params)
+        assert _is_invalid_input(staged), (inputs, params, staged)
+        assert staged_reqs == []
+        assert _ref_raised(ref), ("in-tree no longer raises: drop this divergence", ref)
+
+
+@pytest.mark.parametrize("name", sorted(FETCH))
+def test_foreign_host_header_is_a_declared_divergence(name) -> None:
+    inputs = {"url": U, "headers": {"Host": "internal.vhost"}}
+    (staged, staged_reqs), (ref, ref_reqs) = _fetch_both(name, inputs, {})
+    assert staged[3]["ok"] is False
+    assert staged[3]["error"] == (
+        "Refusing Host header 'internal.vhost': the pinned request is for 'public.example'"
+    )
+    assert staged_reqs == []
+    assert ref[3]["ok"] is True, "in-tree now refuses a foreign Host: drop this divergence"
+    assert [r.header("Host") for r in ref_reqs] == ["internal.vhost"]
+
+
+def _dials(mod, monkeypatch, url="http://rebind.example/"):
+    """Run mod's tool with NO transport; return the addresses it tried to connect to."""
+    attempts: list = []
+
+    def connect(self, address, *args, **kwargs):
+        attempts.append(address[:2])
+        raise ConnectionRefusedError(111, "Connection refused")
+
+    with monkeypatch.context() as mp:
+        mp.setattr(socket.socket, "connect", connect)
+        mod.run({"url": url})
+    return attempts
+
+
+@pytest.mark.parametrize("name", sorted(FETCH))
+def test_dns_pinning_is_a_declared_divergence(name, monkeypatch) -> None:
+    staged_mod, ref_mod = FETCH[name]
+    results = []
+    for mod in (staged_mod, ref_mod):
+        answers = iter([PUBLIC_V4])  # public for the check, loopback afterwards
+
+        def rebinding(host, port, family=0, type=0, proto=0, flags=0, answers=answers):
+            addr = next(answers, "127.0.0.1")
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (addr, port or 0))]
+
+        monkeypatch.setattr(socket, "getaddrinfo", rebinding)
+        results.append(_dials(mod, monkeypatch))
+    staged, ref = results
+    assert staged == [(PUBLIC_V4, 80)]
+    assert ref == [("127.0.0.1", 80)], "in-tree now pins: drop this divergence"
+
+
+@pytest.mark.parametrize("name", sorted(FETCH))
+def test_env_proxy_is_a_declared_divergence(name, monkeypatch, fake_dns) -> None:
+    monkeypatch.setenv("http_proxy", "http://proxy.example:3128")
+    fake_dns.records["proxy.example"] = ["198.51.100.7"]
+    staged_mod, ref_mod = FETCH[name]
+    url = "http://public.example/"
+    assert _dials(staged_mod, monkeypatch, url) == [(PUBLIC_V4, 80)]
+    assert _dials(ref_mod, monkeypatch, url) == [("198.51.100.7", 3128)], (
+        "in-tree no longer uses the env proxy: drop this divergence"
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -394,12 +493,18 @@ ST_INPUTS = [
     {"text": "café\nCAFÉ\nstraße", "pattern": "CAFÉ"},
     {"text": "a\r\nfoo\r\nb", "pattern": "foo"},
     {"text": TEXT, "pattern": "^$", "regex": True},
-    {"text": ["not", "a", "string"], "pattern": "a"},
-    {"text": TEXT, "pattern": 123},
 ]
 ST_PARAMS = [
     _NO_PARAMS, {}, {"max_results": 1}, {"max_results": 0}, {"max_results": 5},
-    {"context_lines": 0}, {"context_lines": 3}, {"context_lines": 99}, {"max_results": "x"},
+    {"context_lines": 0}, {"context_lines": 3}, {"context_lines": 99},
+]
+# Declared divergence (bad input types): in-tree raises, staged returns an error.
+BAD_ST_CASES = [
+    ({"text": ["not", "a", "string"], "pattern": "a"}, {}),
+    ({"text": b"bytes", "pattern": "a"}, {}),
+    ({"text": TEXT, "pattern": 123}, {}),
+    ({"text": TEXT, "pattern": "foo"}, {"max_results": "x"}),
+    ({"text": TEXT, "pattern": "foo"}, {"context_lines": None}),
 ]
 
 
@@ -418,3 +523,30 @@ def test_search_text_agrees_on_size_cap() -> None:
     for size in (limits.MAX_TOOL_IO_BYTES, limits.MAX_TOOL_IO_BYTES + 1):
         inputs = {"text": "x" * size, "pattern": "y"}
         assert _outcome(search_text.run, inputs, {}) == _outcome(ref_search_text.run, inputs, {})
+
+
+def test_search_text_bad_input_types_are_a_declared_divergence() -> None:
+    for inputs, params in BAD_ST_CASES:
+        staged = _outcome(search_text.run, inputs, params)
+        ref = _outcome(ref_search_text.run, inputs, params)
+        assert _is_invalid_input(staged), (inputs, params, staged)
+        assert _ref_raised(ref), ("in-tree no longer raises: drop this divergence", ref)
+
+
+def test_search_text_off_main_thread_is_a_declared_divergence() -> None:
+    inputs = {"text": TEXT, "pattern": "f.o", "regex": True}
+    want = _outcome(search_text.run, inputs, {})  # main thread: both sides agree here
+    assert want == _outcome(ref_search_text.run, inputs, {})
+    got: dict = {}
+
+    def work() -> None:
+        got["staged"] = _outcome(search_text.run, inputs, {})
+        got["ref"] = _outcome(ref_search_text.run, inputs, {})
+
+    t = threading.Thread(target=work)
+    t.start()
+    t.join(timeout=60)
+    assert got["staged"] == want
+    assert got["ref"][:2] == ("raised", "ValueError"), (
+        "in-tree now works off the main thread: drop this divergence", got["ref"]
+    )

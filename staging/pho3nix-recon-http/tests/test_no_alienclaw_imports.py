@@ -33,9 +33,12 @@ def test_fetch_tools_use_the_sandbox_guard() -> None:
     from pho3nix_recon_http import http_get, url_fetch
 
     for mod in (http_get, url_fetch):
-        assert mod.assert_safe_fetch_url is agent_tool_sandbox.assert_safe_fetch_url
-        assert mod.build_no_redirect_opener is agent_tool_sandbox.build_no_redirect_opener
+        assert mod.resolve_and_validate is agent_tool_sandbox.resolve_and_validate
+        assert mod.build_pinned_opener is agent_tool_sandbox.build_pinned_opener
         assert mod.SsrfBlockedError is agent_tool_sandbox.SsrfBlockedError
+        # The unpinned pieces are gone, so nothing can fall back to them.
+        assert not hasattr(mod, "assert_safe_fetch_url")
+        assert not hasattr(mod, "build_no_redirect_opener")
 
 
 def test_every_module_imports_in_a_clean_interpreter(tmp_path: Path) -> None:

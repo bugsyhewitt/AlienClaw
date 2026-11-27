@@ -12,9 +12,15 @@
 - ``_clean_env`` (autouse): drops proxy variables (``build_opener`` would install a
   ProxyHandler from them) and the web_search backend variable, so the developer's
   environment never leaks into a test. Tests that need a backend set a dummy URL.
-- ``transport``: installs an in-process urllib handler into the openers the fetch
-  tools build (the tools' own no-redirect opener is kept), answering with a canned
-  ``Reply`` or raising whatever the responder raises.
+- ``transport``: answers the fetch tools' requests in-process with a canned ``Reply``
+  (or raises whatever the responder raises). The staged tools fetch through
+  agent_tool_sandbox's PINNED opener; there the transport replaces only the TCP/TLS
+  connection (``PinnedHTTPConnection`` / ``PinnedHTTPSConnection``, real ``__init__``
+  kept), so the pinned handler's own checks (scheme, host and port, Host header,
+  address re-check) and the no-redirect handler still run. ``handler.dials`` records
+  each connection: scheme, host, port, SNI name and the pinned addresses. For an
+  unpinned opener (the in-tree tools in the parity test) it is an urllib handler
+  added in front of the stock ones, as before.
 
 ``urllib.request.urlopen`` (web_search) is mocked per test with ``unittest.mock``.
 
@@ -41,6 +47,7 @@ from dataclasses import dataclass, field  # noqa: E402
 from types import ModuleType  # noqa: E402
 
 import pytest  # noqa: E402
+from agent_tool_sandbox import pinning  # noqa: E402
 
 from pho3nix_recon_http import http_get, url_fetch  # noqa: E402
 from pho3nix_recon_http.web_search import SEARCH_URL_ENV  # noqa: E402
@@ -147,6 +154,17 @@ class SeenRequest:
         return {k.lower(): v for k, v in self.headers}.get(name.lower())
 
 
+@dataclass(frozen=True)
+class Dial:
+    """One pinned connection: where it was allowed to go and what TLS would name."""
+
+    scheme: str
+    host: str
+    port: int
+    addresses: tuple[str, ...]
+    server_hostname: str | None  # SNI / certificate name (https only)
+
+
 Responder = Callable[[urllib.request.Request], Reply]
 
 
@@ -158,23 +176,81 @@ class FakeHTTPHandler(urllib.request.BaseHandler):
     def __init__(self, responder: Responder) -> None:
         self.responder = responder
         self.requests: list[SeenRequest] = []
+        self.dials: list[Dial] = []
 
-    def _serve(self, req: urllib.request.Request):
+    def record(self, req: urllib.request.Request) -> None:
         self.requests.append(
             SeenRequest(
                 req.full_url, req.host, req.get_method(),
                 tuple(sorted(req.header_items())), req.data,
             )
         )
+
+    def respond(self, req: urllib.request.Request):
         reply = self.responder(req)
         msg = email.message.Message()
         for name, value in reply.headers.items():
             msg[name] = value
         resp = urllib.response.addinfourl(io.BytesIO(reply.body), msg, req.full_url, reply.status)
-        resp.msg = http.client.responses.get(reply.status, "")  # read by HTTPErrorProcessor
+        resp.reason = http.client.responses.get(reply.status, "")  # urllib's do_open reads it
+        resp.msg = resp.reason  # read by HTTPErrorProcessor
         return resp
 
+    def _serve(self, req: urllib.request.Request):
+        self.record(req)
+        return self.respond(req)
+
     http_open = https_open = _serve
+
+
+class _RequestTap(urllib.request.BaseHandler):
+    """Pinned openers only: hands the final urllib Request to the fake connection.
+
+    Runs after the pinned handler's own request processing (order 500), so the
+    headers are the ones the pinned handler will send. The request is recorded only
+    when the connection sends it, so one the pinned handler refuses is never seen.
+    """
+
+    handler_order = 1000
+
+    def __init__(self) -> None:
+        self.pending: urllib.request.Request | None = None
+
+    def _tap(self, req: urllib.request.Request) -> urllib.request.Request:
+        self.pending = req
+        return req
+
+    http_request = https_request = _tap
+
+
+def _fake_connection_class(base: type, handler: FakeHTTPHandler, tap: _RequestTap) -> type:
+    """``base`` (a Pinned*Connection) with the socket work replaced by the handler."""
+
+    class FakePinnedConnection(base):  # type: ignore[misc, valid-type]
+        def connect(self) -> None:
+            context = getattr(self, "_pinned_tls_context", None)
+            handler.dials.append(Dial(
+                "https" if context is not None else "http", self.host, self.port,
+                tuple(str(ip) for ip in self.pinned_addresses),
+                self.host if context is not None else None,
+            ))
+
+        def request(self, method, url, body=None, headers={}, *, encode_chunked=False):
+            assert tap.pending is not None and tap.pending.selector == url
+            self.connect()
+            self._fake_req = tap.pending
+            handler.record(self._fake_req)
+
+        def getresponse(self):
+            # Raised here, not in request(): urllib wraps an OSError from request()
+            # in URLError, but lets getresponse() errors through unchanged, which is
+            # what an in-front handler does too.
+            return handler.respond(self._fake_req)
+
+        def close(self) -> None:
+            pass
+
+    return FakePinnedConnection
 
 
 def reply_with(
@@ -190,17 +266,39 @@ def reply_with(
 def install_transport(
     monkeypatch: pytest.MonkeyPatch, modules: Iterable[ModuleType], responder: Responder,
 ) -> FakeHTTPHandler:
-    """Add one FakeHTTPHandler to every opener the given tool modules build."""
+    """Answer every request the given tool modules make with one FakeHTTPHandler.
+
+    A module with ``build_pinned_opener`` (the staged tools) keeps its real pinned
+    opener and gets fake connections; one with ``build_no_redirect_opener`` (the
+    in-tree tools) gets the handler added in front of the stock ones.
+    """
     handler = FakeHTTPHandler(responder)
+    tap = _RequestTap()
+    pinned = False
     for mod in modules:
-        real_build = mod.build_no_redirect_opener
+        if hasattr(mod, "build_pinned_opener"):
+            pinned = True
+            real_pinned = mod.build_pinned_opener
 
-        def build(real_build=real_build):
-            opener = real_build()
-            opener.add_handler(handler)
-            return opener
+            def build_pinned(target, *, context=None, real_pinned=real_pinned):
+                opener = real_pinned(target, context=context)
+                opener.add_handler(tap)
+                return opener
 
-        monkeypatch.setattr(mod, "build_no_redirect_opener", build)
+            monkeypatch.setattr(mod, "build_pinned_opener", build_pinned)
+        else:
+            real_build = mod.build_no_redirect_opener
+
+            def build(real_build=real_build):
+                opener = real_build()
+                opener.add_handler(handler)
+                return opener
+
+            monkeypatch.setattr(mod, "build_no_redirect_opener", build)
+    if pinned:
+        for name in ("PinnedHTTPConnection", "PinnedHTTPSConnection"):
+            fake = _fake_connection_class(getattr(pinning, name), handler, tap)
+            monkeypatch.setattr(pinning, name, fake)
     return handler
 
 

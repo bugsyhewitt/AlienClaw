@@ -17,13 +17,13 @@
     {
       "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/http_get.py",
       "source": "src/alienclaw/tools/http_get.py",
-      "source_blob": "3edfaffba73259d20b28c1fd5dc498b12b0b2925",
+      "source_blob": "6d704e6aebbdb57bea62e69a9d2bfe2fed7594ec",
       "relation": "adapted"
     },
     {
       "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/url_fetch.py",
       "source": "src/alienclaw/tools/url_fetch.py",
-      "source_blob": "ec7b297d246a3a2814638b450240e55349670181",
+      "source_blob": "da0a08bc48ab7cd3ef0ae8adf40fe46cea3a3a21",
       "relation": "adapted"
     },
     {
@@ -34,6 +34,12 @@
     },
     {
       "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/search_text.py",
+      "source": "src/alienclaw/tools/search_text.py",
+      "source_blob": "30b9863acc4301124e26df5b3e828d7a1c1d2e25",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/_scan.py",
       "source": "src/alienclaw/tools/search_text.py",
       "source_blob": "30b9863acc4301124e26df5b3e828d7a1c1d2e25",
       "relation": "adapted"
@@ -95,7 +101,13 @@
     {
       "staged": "staging/pho3nix-recon-http/tests/test_connect_host_tools.py",
       "source": "test/tools/test_ssrf_guard_connect_host.py",
-      "source_blob": "36c8ede1111765a6df130fe484666fae3caf76c9",
+      "source_blob": "add7591d27b92e5d2596358c0c77b6638c640361",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_fetch_output_url.py",
+      "source": "test/tools/test_fetch_output_url.py",
+      "source_blob": "02d0c8b66a363e390d9d6ce649b59bc3fa14c1fe",
       "relation": "adapted"
     },
     {
@@ -106,7 +118,7 @@
     }
   ],
   "divergences": [
-    "Guard import: http_get.py and url_fetch.py import SsrfBlockedError, assert_safe_fetch_url and build_no_redirect_opener from agent_tool_sandbox.ssrf_guard (staging/agent-tool-sandbox/python) instead of the in-tree ._ssrf_guard. The names stay module globals, so tests patch them the same way. Both tools keep fetching the canonical URL the guard returns. Inherited consequence, the ONLY behavior difference: agent_tool_sandbox blocks RFC 6598 CGNAT 100.64.0.0/10 and the in-tree guard does not (see the sandbox's PROVENANCE.json), so a URL that resolves into CGNAT is refused by the staged tools and fetched by the in-tree ones. tests/test_parity_in_tree.py asserts this explicitly and fails if the in-tree guard starts blocking CGNAT.",
+    "Guard import: http_get.py and url_fetch.py import SsrfBlockedError from agent_tool_sandbox.ssrf_guard and resolve_and_validate and build_pinned_opener from agent_tool_sandbox.pinning (staging/agent-tool-sandbox/python) instead of the in-tree ._ssrf_guard's assert_safe_fetch_url and build_no_redirect_opener (see the DNS pinning entry). The names stay module globals, so tests patch them the same way. Inherited consequence: agent_tool_sandbox blocks RFC 6598 CGNAT 100.64.0.0/10 and the in-tree guard does not (see the sandbox's PROVENANCE.json), so a URL that resolves into CGNAT is refused by the staged tools and fetched by the in-tree ones. tests/test_parity_in_tree.py asserts this explicitly and fails if the in-tree guard starts blocking CGNAT.",
     "Formatting only (ruff E/F/W/I/N, 100 columns) in http_get.py, url_fetch.py, web_search.py and search_text.py: import blocks sorted, one-line 'if ...: ...' statements split, long lines wrapped, trailing newline added. Logic, messages and constants are unchanged; test_parity_in_tree.py compares module constants, signatures and full RunResult fields.",
     "Comments: references to repo files removed (seed/msb/*.msb paths, src/alienclaw/constants.ts and the diagnostics stub server); the PKT-577 guard comment in http_get/url_fetch now says the guard returns a canonical URL that must be fetched. limits.py: docstring generalised, value unchanged.",
     "web_search.py: the environment variable name is a module constant SEARCH_URL_ENV = 'ALIENCLAW_SEARCH_URL', used both for the lookup and in the 'backend not configured' message (same text as in-tree). The name was kept for parity; renaming it for Pho3nix is a one-line change.",
@@ -115,12 +127,21 @@
     "Test renames and reshapes: camelCase test names became snake_case for ruff N802 (for example test_field_count_3_returns_statusCode_content became test_field_count_3_returns_status_code_content). The 9 TestMalformedResponse cases are one parametrized test with the same 9 bodies. The SIG_DFL and SIG_IGN restore cases are one parametrized test. test_max_attempts.py's two class-level bypass fixtures share one helper.",
     "Test additions with no in-tree counterpart: redirect matrix (301/302/303/307/308, for url_fetch across GET/POST/PUT, for http_get with an internal Location); names that resolve to internal addresses (localhost, metadata.google.internal, mixed.example, mapped-metadata.example, cgnat.example) added to BLOCKED_URLS; url_fetch method/body pass-through; web_search request-URL format, cross-page dedup and whitespace-only backend; search_text SIGALRM timeout-path restore.",
     "Not ported: the compute half of test_signal_handler_save_restore.py (compute is not staged) and the guard-level half of test_ssrf_guard_connect_host.py (it lives in staging/agent-tool-sandbox/python/tests/test_connect_host.py). tests/test_connect_host_tools.py keeps the tool-level half and adds three vectors (%31%36%39 metadata, %23, tab) plus two canonical-URL cases.",
-    "tests/conftest.py follows the FakeResolver and in-process handler pattern of staging/agent-tool-sandbox/python/tests/conftest.py, and adds a wildcard resolver switch, a connect stub that records addresses, proxy and backend env clearing, and request recording (URL, host, method, headers, body)."
+    "tests/conftest.py follows the FakeResolver and in-process handler pattern of staging/agent-tool-sandbox/python/tests/conftest.py, and adds a wildcard resolver switch, a connect stub that records addresses, proxy and backend env clearing, and request recording (URL, host, method, headers, body).",
+    "2026-11-26 mirror of in-tree 29a0746d (http_get/url_fetch half; the _boundary half has no staged counterpart here): output 'url' is the caller's input again and the new 'fetched_url' (always present on success, at every field_count) is the canonical URL requested. Same code as in-tree, so not a divergence. tests/test_connect_host_tools.py got the same one-assert change as test/tools/test_ssrf_guard_connect_host.py; tests/test_fetch_output_url.py is adapted from test/tools/test_fetch_output_url.py (conftest wildcard resolver and transport instead of the file's own resolver and recording handler; same cases and asserts).",
+    "DNS pinning (staged only, 2026-11-26): http_get and url_fetch call resolve_and_validate (the same checks, order and messages as assert_safe_fetch_url, ONE getaddrinfo per run(), reused across retries and request_count) and fetch target.canonical_url through build_pinned_opener(target): it dials only the vetted IPs in resolver order with fallback, sends Host/SNI/certificate name for the original host, refuses 301/302/303/307/308 like before (other 3xx/4xx/5xx are HTTPError like before). Behavior differences from in-tree, each asserted in tests/test_parity_in_tree.py: (1) a name that rebinds after the check is still dialed at the vetted address (in-tree dials the new answer); (2) http_proxy/https_proxy/all_proxy are ignored (in-tree's build_opener honors them, and the proxy resolves the name past every IP check); (3) a caller Host header that names another host is refused with 'Refusing Host header ...' and nothing is sent (in-tree forwards it: virtual-host probing). A Host header equal to the URL's authority (any case) is still sent as given. Regression tests: tests/test_dns_pinning.py (its test_connection_goes_only_to_vetted_addresses was the strict xfail in tests/test_known_gaps.py). tests/conftest.py's transport now replaces only the pinned connection classes, so the pinned handler's checks run in every fetch test; tests/test_max_attempts.py patches resolve_and_validate/build_pinned_opener instead of assert_safe_fetch_url/build_no_redirect_opener.",
+    "search_text off the main thread (staged only, 2026-11-26): on the main thread with SIGALRM the SIGALRM path is unchanged (same handler save/restore). Anywhere else (worker threads, sub-interpreters where signal.signal raises ValueError, platforms without SIGALRM) the in-tree tool raised ValueError (or had no timeout); the staged one runs the compile+scan in a child interpreter ([sys.executable, '-I', '-S', _scan.py]) killed at _REGEX_TIMEOUT_S, with the same timeout and 'Regex error' messages, except a literal search with len(text)*len(pattern) <= 10,000,000, which runs in-process. With no usable interpreter (sys.frozen, empty sys.executable) glob/regex/large-literal searches off the main thread return an error. The compile/scan code moved, unchanged, into src/pho3nix_recon_http/_scan.py (shared by both paths); match entries are built from (line, start, end) after the scan (matchText = line[start:end], identical to m.group()). Tests: tests/test_search_text_threads.py (its worker-thread test was the strict xfail) and a declared-divergence test in tests/test_parity_in_tree.py.",
+    "Input validation (staged only, 2026-11-26): http_get, url_fetch and search_text return RunResult(ok=False, correctness=0.0, error='Invalid ...') where in-tree raises: a param int() refuses ('x', None, '1.5', inf, nan, lists), non-mapping headers or a non-str header name (fetch tools), a url_fetch body with a lone surrogate, non-str text or pattern (search_text). Checks sit where the in-tree int()/use was, so a guard refusal or a Missing-field error still comes first; values int() accepts are unchanged. search_text also counts a lone surrogate in text (encode with surrogatepass) instead of raising UnicodeEncodeError. New module src/pho3nix_recon_http/_inputs.py; tests tests/test_input_validation.py; the parity corpus moved these inputs into BAD_FETCH_PARAMS, BAD_FETCH_INPUTS and BAD_ST_CASES, asserted as a declared divergence. web_search is unchanged (still raises; strict xfail in tests/test_known_gaps.py).",
+    "tests/test_known_gaps.py now holds only the web_search bad-number strict xfail; its former rebinding, worker-thread and Host-header tests moved to test_dns_pinning.py and test_search_text_threads.py (the Host-header test now asserts the refusal)."
   ],
   "new_files": [
     "staging/pho3nix-recon-http/tests/conftest.py",
     "staging/pho3nix-recon-http/tests/test_parity_in_tree.py",
     "staging/pho3nix-recon-http/tests/test_no_alienclaw_imports.py",
-    "staging/pho3nix-recon-http/tests/test_known_gaps.py"
+    "staging/pho3nix-recon-http/tests/test_known_gaps.py",
+    "staging/pho3nix-recon-http/src/pho3nix_recon_http/_inputs.py",
+    "staging/pho3nix-recon-http/tests/test_dns_pinning.py",
+    "staging/pho3nix-recon-http/tests/test_search_text_threads.py",
+    "staging/pho3nix-recon-http/tests/test_input_validation.py"
   ]
 }
