@@ -334,14 +334,14 @@ vectors/v1/
 |---|---|---|
 | G1 | **Mostly met** | `.env/`, `.env/./` and symlink-to-dotfile are rejected; checked host = connected host (percent-encoding, backslash, multi-colon and userinfo are refused, and the returned canonical URL is the one requested); the read path has the symlink gate and `O_NOFOLLOW`; uninspectable paths fail closed. Fixed both in-tree (`c4527f06`, `29a0746d`) and staged. **Open:** `.git/config` is still allowed, matching the existing rule. Whether dot-directories are denied by default is Bugsy's call. |
 | G2 | **Met (staged)** | Python `agent_tool_sandbox.pinning` (`31d58950`) and the TS pinned transport (`111e43b4`). Second review: 0 C/H/M (`PINNING-SECURITY-REVIEW.md`); its Low PR-01 is fixed (`35685b7c`). In-tree tools are still unpinned. |
-| G3 | **Not met** | The corpus records today's verdicts; `vectors/DIFFERENCES.md` has the strictest-wins proposal. The clear-cut gaps (TS 6to4/Teredo/fec0 literals, Azure WireServer, port 0) are being closed tonight. There is no `blocklist.v1.json` codegen yet. |
-| G4 | **TS met, Python open** | TS: one deadline covers DNS through the body (`2601a4b8`, `d18c5c5d`). Python: no total deadline (PR-02). |
-| G5 | **Not met** | TS follows redirects with per-hop re-check and re-pinning; Python refuses all 3xx. The downgrade and cookie rules are not implemented. |
-| G6 | **Partial** | `vectors/ssrf-vectors.json` has 296 vectors and both suites assert it. The TS side runs in AlienClaw CI through root vitest; the Python side runs locally only. The parity-in-tree suites stay while the code lives in AlienClaw. |
-| G7 | **Partial** | Env proxies are ignored by both pinned paths, and TS cancels redirect bodies. `localhost.` / `*.localhost` and credential redaction are unverified. |
+| G3 | **Not met (needs Bugsy)** | The clear-cut gaps are closed in both languages: TS 6to4/Teredo/fec0 literals, Azure WireServer, port 0, Python pre-DNS localhost. Python vs TS went from 68 differences to 50, and the strictest-wins table for the rest is in `vectors/DIFFERENCES.md`. There is no `blocklist.v1.json` codegen yet. |
+| G4 | **Met (staged)** | TS: one deadline covers DNS through the body. Python: `pinned_urlopen(timeout=…)` is one total budget, with bounded DNS, every connect, TLS and every body read (`349ba7c1`). Open: the recon tools build their own opener without `deadline=`. |
+| G5 | **Partial** | TS follows with per-hop re-validation and re-pinning. Python has opt-in `follow_redirects=N` with the full rule set: no downgrade, credentials stripped across origins, 303 → GET. Its default is still refuse-all, so the two defaults differ. Aligning them is a decision. |
+| G6 | **Partial** | 296 SSRF vectors and 105 filesystem vectors, asserted by both languages. The TS side runs in AlienClaw CI through root vitest; the Python side runs locally (`staging/ci-staging.patch` adds it to CI). The parity-in-tree suites stay while the code lives in AlienClaw. |
+| G7 | **Mostly met** | Both languages ignore env proxies, block `localhost.`/`*.localhost` pre-DNS, and redact credentials, query and fragment from URLs in errors. TS cancels redirect bodies and forces `rejectUnauthorized`. Open: secrets in URL paths, and NXDOMAIN-vs-internal timing. |
 | G8 | **Not met as defined** | Two AI security reviews are done (`SANDBOX-SECURITY-REVIEW.md`, `PINNING-SECURITY-REVIEW.md`). The gate asks for a reviewer who is neither the author nor an AI agent. |
 | G9–G14 | **Not started** | Repo-level work for after Bugsy picks the home, names and license. |
-| G15 | **Not started** | |
+| G15 | **Met (staged)** | The TS `fs-jail.ts` port (`d772a7fa`) runs the shared 105-vector filesystem corpus; one difference (the `.env\0` reason) is declared. POSIX only. |
 
 ---
 
