@@ -56,9 +56,22 @@ web_search 0.5 for an empty result).
 | `search_text` | `text` (or `content`), `pattern` (or `query`), `flavor` literal/glob/regex, `regex` (alias), `case_sensitive` | `max_results` >=1 (100), `context_lines` 1-10 (1) | `pattern`, `flavor`, `caseSensitive`, `totalMatches`, `truncated`, `matches` [{matchText, lineNumber, startOffset, endOffset, contextBefore, contextAfter}] |
 
 Response caps: http_get reads at most 1 MiB (and sets `truncated` when the server
-announces a larger `Content-Length`), and url_fetch reads at most 2 MiB. Each
-request has a 30 s timeout (20 s for web_search). search_text refuses text over
-10 MiB and patterns over 200 characters.
+announces a larger `Content-Length`), and url_fetch reads at most 2 MiB.
+search_text refuses text over 10 MiB and patterns over 200 characters.
+
+Timeouts: http_get and url_fetch have one **total** 30 s budget per `run()` (staged
+only, 2026-11-26): they pass `deadline=time.monotonic() + _TIMEOUT_S`, taken when
+`run()` starts, to `build_pinned_opener`, so every connect attempt, TLS handshake,
+send and body read of every request and retry spends the same 30 s. A name with 12
+blackholed A records, or a server that drips one byte at a time, ends the run at the
+budget (`<prefix>total timeout exceeded while connecting` / `... while reading the
+response`, where the prefix is `Request failed: ` for http_get and `Fetch failed: `
+for url_fetch). The in-tree tools give each socket operation its own 30 s. The
+one DNS resolution is counted but not interrupted: `resolve_and_validate` calls
+`getaddrinfo` directly, so a stalled system resolver can still outlast the budget
+(`agent_tool_sandbox.pinned_urlopen` bounds it; these tools do not use it, since they
+reuse one resolution for every request and retry). web_search keeps a 20 s
+per-operation timeout.
 
 Params are clamped to the ranges shown. A value `int()` refuses (`"x"`, `None`,
 `"1.5"`, a list) returns `ok=False` with `Invalid param '<name>': expected an
@@ -67,7 +80,8 @@ integer, got ...` (web_search excepted, see Known gaps).
 Retries: an HTTP status of 4xx or 5xx fails at once with `statusCode` in the
 output. Any other failure (DNS, refused, timeout, invalid JSON from the search
 backend) is retried up to `max_attempts` times, and every attempt counts in
-`tool_calls`.
+`tool_calls`. Exception: once http_get or url_fetch has spent its total budget, it
+fails at once (a retry could only fail again), so `tool_calls` stops there.
 
 web_search reads its backend from the `ALIENCLAW_SEARCH_URL` environment variable
 (`web_search.SEARCH_URL_ENV`). There is no default. When the variable is unset or

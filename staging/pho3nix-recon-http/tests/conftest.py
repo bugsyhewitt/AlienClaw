@@ -280,8 +280,8 @@ def install_transport(
             pinned = True
             real_pinned = mod.build_pinned_opener
 
-            def build_pinned(target, *, context=None, real_pinned=real_pinned):
-                opener = real_pinned(target, context=context)
+            def build_pinned(target, *, context=None, deadline=None, real_pinned=real_pinned):
+                opener = real_pinned(target, context=context, deadline=deadline)
                 opener.add_handler(tap)
                 return opener
 
