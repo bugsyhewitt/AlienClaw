@@ -10,14 +10,19 @@ Two small, stdlib-only guards for tools that an LLM agent can call:
 - **Filesystem jail** (`boundary`): decides whether a path the agent supplied stays inside
   a directory you choose, and refuses symlinks on write paths.
 
-Status: staging copy, version `0.0.0.dev0`, not published or built. It was lifted from a
+Status: staging copy, version `0.0.0.dev0`, not published. It builds offline (setuptools):
+the wheel holds only the five package modules and metadata, and the sdist leaves the tests
+out (`MANIFEST.in`). It was lifted from a
 larger project's tool layer and keeps that code's behaviour, with the differences listed
 under [Divergences](#divergences-from-the-reference-sources).
 
 License: MIT, the same as the source repository ("Copyright (c) 2026 Bugsy Hewitt"). The
 license for an open-source release has **not been decided yet**; that is Bugsy's call.
 
-Requires Python 3.10 or later and has no runtime dependencies.
+Requires Python 3.11 or later and has no runtime dependencies. `requires-python` is
+`>=3.11` because 3.10 reached end of life in October 2026 (PEP 619) and a security library
+should not advertise an interpreter that no longer gets security fixes. The code itself
+still runs on 3.10 (nothing 3.11-only is used), but that is not supported.
 
 ## API
 
@@ -67,7 +72,12 @@ Returns a **canonical URL** if `raw_url` passes, and raises `SsrfBlockedError` o
 The canonical URL is rebuilt from the validated parts: lower-case scheme and host, the
 host IDNA-encoded to ASCII, the port only if one was given (normalised, so `:080` becomes
 `:80` and an empty `:` is dropped), no userinfo, and the path, query and fragment as
-parsed. **Fetch the returned URL, not `raw_url`:** it is the only string whose host has
+parsed, with every non-ASCII character percent-encoded as UTF-8 (an IRI such as
+`http://bücher.example/café` becomes `http://xn--bcher-kva.example/caf%C3%A9`, as WHATWG
+parsers write it; existing `%XX` escapes are left alone). That encoding happens after the
+character rule below and before every other check, so the checks see the canonical form,
+and urllib can send it (it raises `UnicodeEncodeError` on a non-ASCII request line).
+**Fetch the returned URL, not `raw_url`:** it is the only string whose host has
 been checked against what urllib, urllib3, httpx and yarl will connect to. It rejects a
 URL when:
 
@@ -509,6 +519,13 @@ Regression tests: `tests/test_wireserver_port_zero.py`.
     shared-corpus verdict and message is unchanged, and so is every parity-corpus
     decision. Tests: `tests/test_blocklist_data.py` (drift: the generated module must
     equal a fresh render of the JSON).
+
+12. **Caller IRIs** (staged only, 2026-11-26). A non-ASCII path, query or fragment in the
+    URL the caller passes is percent-encoded as UTF-8 before validation, as the redirect
+    path already did for a non-ASCII `Location`, so `assert_safe_fetch_url` returns an
+    ASCII URL and `pinned_urlopen` no longer lets `UnicodeEncodeError` escape. The
+    reference returns them unchanged (same decision, different URL: `IRI_DIVERGENT_URLS`
+    in the parity test). No shared-corpus verdict changed. Tests: `tests/test_caller_iri.py`.
 
 The 2026-11-26 fixes (the dotfile rule, the read-path symlink gate, and the checked-host
 vs connected-host refusals with the canonical return value) were applied to both sides

@@ -152,8 +152,8 @@ re-reads a non-ASCII Location as UTF-8 (`normalizeBinaryStringToUtf8`), as brows
 Python percent-encodes non-ASCII in the path, query and fragment as WHATWG does (the guard
 still IDNA-encodes or refuses the host) and TS lets `new URL()` do it. Both request
 `/caf%C3%A9`, as `fetch()` and browsers do. A non-ASCII URL passed by the *caller* (not a
-Location) still raises `UnicodeEncodeError` in Python, as `urllib.request.urlopen` does; it
-is outside this corpus.
+Location) is percent-encoded the same way since the caller-IRI fix (2026-11-26); it is
+outside this corpus.
 
 **B7. https to http downgrade** (`scheme-https-to-http`, `scheme-https-to-http-uppercase`).
 Python refuses the hop (`downgrade`) before resolving it. TS follows it, as documented:

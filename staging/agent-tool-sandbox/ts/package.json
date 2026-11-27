@@ -9,14 +9,23 @@
     "node": ">=22"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./hardened-fetch": "./src/hardened-fetch.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./hardened-fetch": {
+      "types": "./dist/hardened-fetch.d.ts",
+      "default": "./dist/hardened-fetch.js"
+    },
+    "./package.json": "./package.json"
   },
+  "types": "./dist/index.d.ts",
   "files": [
-    "src",
+    "dist",
     "README.md"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   }

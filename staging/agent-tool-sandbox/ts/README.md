@@ -362,6 +362,25 @@ anything but loopback, and uses the global `fetch` against the same listener as 
 `test/parity-in-tree.test.ts` imports the in-tree module by relative path. Delete it, or point it at a pinned copy,
 when the package leaves the repo.
 
+## Packaging
+
+`package.json` describes the published shape: `exports` (`.` and `./hardened-fetch`, each with a `types` condition)
+and `types` point at `dist/`, which `tsconfig.build.json` fills with ESM `.js` plus `.d.ts` from `src/` only (tests
+are not compiled). `files` is `dist` and `README.md`; npm adds `package.json` (and a `LICENSE` file once one is
+added at the package root). The tests do **not** go through `exports`: they import `../src/*.js` by relative path,
+which vitest and `tsc` resolve to the `.ts` sources, so they always run against `src/` and need no build step and
+no custom export condition. Nothing in the repo imports the package by name.
+
+```bash
+# from this directory; never into the repo (dist/ is gitignored, keep it out anyway)
+../../../node_modules/.bin/tsc -p tsconfig.build.json --outDir /tmp/some-dir
+npm pack --dry-run --json      # lists README.md, package.json and dist/** only, offline
+```
+
+`private: true` stays until the publication decision; there is no `prepack` script, so a pack without a fresh build
+would ship a stale or missing `dist/`. Add `"prepack": "npm run build"` when the package moves to its own repo with
+its own devDependencies.
+
 ## License
 
 The AlienClaw repository is MIT-licensed (`LICENSE`, Copyright (c) 2026 Bugsy Hewitt), and this staged copy is under the

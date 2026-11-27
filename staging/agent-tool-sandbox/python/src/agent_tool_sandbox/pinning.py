@@ -37,7 +37,7 @@ import urllib.request
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Union
-from urllib.parse import quote, urljoin, urlsplit, urlunsplit
+from urllib.parse import urljoin, urlsplit
 
 from .ssrf_guard import (
     SsrfBlockedError,
@@ -673,9 +673,6 @@ class _HandBackRedirect(urllib.request.HTTPRedirectHandler):
     http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
 
 
-_NON_ASCII = re.compile(r"[^\x00-\x7f]+")
-
-
 def _location_text(location: str) -> str:
     """A Location header as the text its sender meant: its bytes read as UTF-8.
 
@@ -691,29 +688,6 @@ def _location_text(location: str) -> str:
     except UnicodeEncodeError:  # not a Latin-1 decoding of header bytes: keep it as it is
         return location
     return raw.decode("utf-8", "replace")
-
-
-def _percent_encode_non_ascii(url: str) -> str:
-    """Percent-encode, as UTF-8, every non-ASCII character of the path, query and fragment.
-
-    What a WHATWG URL parser does to them (and what the TS twin sends). http.client cannot
-    put them in a request line: before this a non-ASCII Location escaped ``pinned_urlopen``
-    as ``UnicodeEncodeError``. The authority is left alone: the guard IDNA-encodes the host
-    or refuses it.
-    """
-    if url.isascii():
-        return url
-    try:
-        parts = urlsplit(url)
-    except ValueError:
-        return url  # malformed: the guard refuses it
-
-    def encode(text: str) -> str:
-        return _NON_ASCII.sub(lambda m: quote(m.group(0), safe=""), text)
-
-    return urlunsplit(parts._replace(
-        path=encode(parts.path), query=encode(parts.query), fragment=encode(parts.fragment)
-    ))
 
 
 def _redirect_limit(follow_redirects: Any) -> int:
@@ -793,10 +767,11 @@ def pinned_urlopen(
                 raise SsrfBlockedError(
                     f"Refusing redirect to {_redact_url(next_url)!r}: https to http downgrade"
                 ) from None
-            # The guard's character rule on the decoded URL first, so that percent-encoding
-            # cannot turn whitespace or a control character into an accepted %XX.
+            # The guard applies its character rule to the decoded URL, then percent-encodes
+            # non-ASCII in the path, query and fragment, as it does for the caller's URL.
+            # The rule runs here too, so a refusal does not wait for a resolver slot.
             _assert_unambiguous_chars(next_url)
-            next_target = _resolve_within(_percent_encode_non_ascii(next_url), deadline)
+            next_target = _resolve_within(next_url, deadline)
             if redirect.code in (301, 302, 303):
                 method = "HEAD" if request.get_method() == "HEAD" else "GET"
                 data = None

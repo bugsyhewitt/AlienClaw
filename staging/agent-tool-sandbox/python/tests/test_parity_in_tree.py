@@ -2,7 +2,7 @@
 
 Puts ``<repo>/src`` on sys.path (or ``$AGENT_TOOL_SANDBOX_REFERENCE_SRC``), imports
 the reference guard and jail, and asserts identical decisions AND identical
-messages on a shared vector corpus. Six differences are declared, and each is
+messages on a shared vector corpus. Seven differences are declared, and each is
 asserted explicitly rather than tolerated:
 
 1. CGNAT (a DECISION difference): the staged guard blocks 100.64.0.0/10
@@ -29,6 +29,9 @@ asserted explicitly rather than tolerated:
    ``*.localhost`` (trailing dots too) and ip6-localhost/ip6-loopback by name, before DNS;
    the reference refuses them only through the resolver's 127.0.0.1 answer. Same decision
    here (the fake DNS answers loopback), different message.
+7. Caller IRIs (staged only, 2026-11-26): the staged guard percent-encodes, as UTF-8, the
+   non-ASCII characters of the path, query and fragment before validating, so the URL it
+   returns is ASCII; the reference returns them unchanged. Same decision, different URL.
 
 Network-free: DNS is the fake resolver from conftest.py (shared by both
 implementations, since both call ``socket.getaddrinfo`` at call time).
@@ -106,6 +109,7 @@ URL_CORPUS = [
     "http://my_host.public.example/", "http://public.example/a b", "http://[::1]:80:80/",
     # ── IDNA / unicode
     "http://bücher.example/", "http://xn--bcher-kva.example/",
+    "http://bücher.example/café", "https://public.example/s?q=é#é", "http://10.0.0.1/café",
     "http://ｌｏｃａｌｈｏｓｔ/",  # fullwidth localhost
     "http://ⓛⓞⓒⓐⓛⓗⓞⓢⓣ/",  # circled localhost
     "http://127。0。0。1/",                                # ideographic full stop
@@ -178,6 +182,12 @@ LOOPBACK_NAME_URLS = frozenset({
     "http://ｌｏｃａｌｈｏｓｔ/", "http://ⓛⓞⓒⓐⓛⓗⓞⓢⓣ/",
 })
 
+# Same decision (allow); staged returns the path, query and fragment percent-encoded.
+IRI_DIVERGENT_URLS = {
+    "http://bücher.example/café": "http://xn--bcher-kva.example/caf%C3%A9",
+    "https://public.example/s?q=é#é": "https://public.example/s?q=%C3%A9#%C3%A9",
+}
+
 NON_STRING_INPUTS = [None, b"http://public.example/", 123, ["http://public.example/"]]
 
 
@@ -220,6 +230,7 @@ def test_corpus_has_no_duplicates() -> None:
     assert WIRESERVER_DIVERGENT_URLS <= set(URL_CORPUS)
     assert PORT_ZERO_DIVERGENT_URLS <= set(URL_CORPUS)
     assert LOOPBACK_NAME_URLS <= set(URL_CORPUS)
+    assert set(IRI_DIVERGENT_URLS) <= set(URL_CORPUS)
 
 
 @pytest.mark.parametrize("url", URL_CORPUS)
@@ -248,6 +259,12 @@ def test_url_decision_parity(url: str) -> None:
         assert staged[0] == "block" and staged[1].endswith(
             ": reserved loopback name (RFC 6761)"), staged
         assert ref[0] == "block" and ref[1].startswith("Refusing blocked IP 127.0.0.1 "), ref
+    elif url in IRI_DIVERGENT_URLS:
+        assert staged == ("allow", IRI_DIVERGENT_URLS[url]), staged
+        assert ref[0] == "allow" and not ref[1].isascii(), (
+            f"reference now returns {ref!r} for {url!r}: drop the IRI divergence "
+            "from PROVENANCE.json and this test"
+        )
     else:
         assert staged == ref
 

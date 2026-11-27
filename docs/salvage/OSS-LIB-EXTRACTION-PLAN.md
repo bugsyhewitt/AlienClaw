@@ -152,7 +152,7 @@ publish a real `0.1.0rc1` once G1–G7 pass, or accept the small squatting risk 
 
 ### 3.1 Staged API today (committed)
 
-**Python** (`agent_tool_sandbox`, v`0.0.0.dev0`, `requires-python >=3.10`, no dependencies):
+**Python** (`agent_tool_sandbox`, v`0.0.0.dev0`, `requires-python >=3.11` since the packaging pass, no dependencies):
 
 ```python
 SsrfBlockedError(ValueError)

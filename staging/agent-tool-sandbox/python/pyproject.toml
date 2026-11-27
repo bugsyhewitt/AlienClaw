@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]  # PEP 639 license expression
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,14 +7,18 @@ name = "agent-tool-sandbox"
 version = "0.0.0.dev0"
 description = "SSRF guard and filesystem-boundary jail for LLM agent tools (stdlib only)."
 readme = "README.md"
-requires-python = ">=3.10"
-license = { text = "MIT" }
+requires-python = ">=3.11"  # 3.10 reached end of life in October 2026 (PEP 619)
+license = "MIT"  # staged license; the release license is still to be decided
 authors = [{ name = "Bugsy Hewitt" }]
 dependencies = []
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Security",
 ]
 
@@ -30,7 +34,7 @@ pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 src = ["src", "tests"]
 
 [tool.ruff.lint]

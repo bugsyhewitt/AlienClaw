@@ -21,6 +21,9 @@ Scope:
     (backslash, whitespace, control chars, userinfo, '%' in the host, a second ':'
     outside brackets, host chars outside [a-z0-9._-] after IDNA) and returns a
     canonical URL rebuilt from the validated parts. Callers fetch THAT URL.
+  - IRIs: after the character rule, non-ASCII in the path, query and fragment is
+    percent-encoded as UTF-8 (as WHATWG parsers do) BEFORE any other check, so the checks
+    and the returned URL see the canonical, ASCII form; the host is IDNA-encoded.
 
 NOT in scope:
   - Host allowlist.
@@ -39,7 +42,7 @@ import re
 import socket
 import urllib.request
 from typing import Final, NamedTuple
-from urllib.parse import ParseResult, urlparse, urlunparse
+from urllib.parse import ParseResult, quote, urlparse, urlunparse
 
 from . import _blocklist_data as _blocklist
 
@@ -237,6 +240,29 @@ def _assert_unambiguous_chars(raw_url: str) -> None:
             )
 
 
+# What comes before the path: an optional scheme and an optional "//" authority, which
+# ends at the first '/', '?' or '#' (urlsplit's rule; '\\' is already refused).
+_BEFORE_PATH: Final = re.compile(r"(?:[A-Za-z][A-Za-z0-9+.\-]*:)?(?://[^/?#]*)?")
+_NON_ASCII: Final = re.compile(r"[^\x00-\x7f]+")
+
+
+def _percent_encode_non_ascii(url: str) -> str:
+    """Percent-encode, as UTF-8, every non-ASCII character of the path, query and fragment.
+
+    What a WHATWG URL parser does to them (and what the TS twin sends): ``/café`` becomes
+    ``/caf%C3%A9``; existing ``%XX`` escapes and ASCII are left exactly as they are.
+    http.client cannot put non-ASCII in a request line (it raised ``UnicodeEncodeError``).
+    The scheme and authority are left alone: the guard IDNA-encodes the host or refuses
+    it. Run ``_assert_unambiguous_chars`` first, on the URL as given, so that encoding
+    cannot turn whitespace or a control character into an accepted ``%XX``.
+    """
+    if url.isascii():
+        return url
+    head = _BEFORE_PATH.match(url)
+    cut = head.end() if head else 0
+    return url[:cut] + _NON_ASCII.sub(lambda m: quote(m.group(0), safe=""), url[cut:])
+
+
 def _assert_plain_authority(netloc: str) -> None:
     """Refuse authority spellings that URL parsers split differently.
 
@@ -345,6 +371,9 @@ def _validate_fetch_url(raw_url: str) -> _ValidatedUrl:
     if not isinstance(raw_url, str) or not raw_url:
         raise SsrfBlockedError("Missing or non-string URL")
     _assert_unambiguous_chars(raw_url)
+    # An IRI's path, query and fragment become UTF-8 %XX here, before anything else looks
+    # at them, so every check below and the returned URL see the canonical form.
+    raw_url = _percent_encode_non_ascii(raw_url)
     try:
         parsed = urlparse(raw_url)
     except Exception as exc:
