@@ -126,3 +126,26 @@ tag and a bundle). They check classification, blob shas, LOC, edge detection, ty
 flagging, pass-1 status, CI mapping, the archive block, `.env*` exclusion and
 byte-identical output. A smoke test runs against the real worktree, and is skipped when
 the worktree isn't a git repository or the pass-1 ref is missing.
+
+## check_drift.py
+
+Keeps staged copies honest. Every `staging/<package>/PROVENANCE.json` records, per staged file,
+its in-tree source and the source's git blob sha at staging time. The checker reports:
+
+- **DRIFT**: the source changed since staging (`git hash-object <source>` ≠ `source_blob`), or a
+  `verbatim` copy was edited.
+- **ERROR**: a staged file or source is missing, or a PROVENANCE.json is malformed.
+- **INFO**: a staged code file has no provenance entry. New files can be declared in an optional
+  top-level `new_files` list, which accepts paths or globs.
+
+```bash
+python3 staging/tools/check_drift.py            # human report; exit 0 clean, 1 drift/error, 2 can't run
+python3 staging/tools/check_drift.py --json     # machine-readable
+```
+
+Hidden, cache and `node_modules` folders are skipped, and so is any subfolder that has its own
+PROVENANCE.json. Tests: `staging/tools/tests/test_check_drift.py` (synthetic repos in `tmp_path`,
+plus a smoke run against this worktree).
+
+When a source is fixed in-tree, re-port the fix into the staged copy and refresh `source_blob`
+with `git hash-object <source>`.
