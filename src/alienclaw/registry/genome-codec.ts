@@ -180,9 +180,14 @@ export function decodeXcode(genome: string, slotIndex: number, xcodeIndex: numbe
 
 /**
  * Encode an int in [0, XCODE_MAX] as 2 Base62 chars.
+ * Throws `xcode value out of range [0,3843]: <value>` for anything that is not
+ * an integer in [0, XCODE_MAX]: a non-integer (1.5), NaN or +/-Infinity gets the
+ * same error instead of "0undefined" or NaN. Mirrors Python encode_xcode.
  */
 export function encodeXcode(value: number): string {
-  if (value < 0 || value > XCODE_MAX) throw new Error(`xcode value out of range [0,${XCODE_MAX}]: ${value}`);
+  if (!Number.isInteger(value) || value < 0 || value > XCODE_MAX) {
+    throw new Error(`xcode value out of range [0,${XCODE_MAX}]: ${value}`);
+  }
   return BASE62_ALPHABET[Math.floor(value / 62)]! + BASE62_ALPHABET[value % 62]!;
 }
 
