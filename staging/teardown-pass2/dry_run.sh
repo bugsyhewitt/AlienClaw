@@ -34,7 +34,7 @@
 #
 # Not reproducible here (see README): the MySQL-backed API suites and the
 # "Run migrations" steps, the API coverage thresholds (they need the DB), actionlint,
-# shellcheck, and the non-required jobs.
+# the shell linter, and the non-required jobs.
 #
 # Bash 3.2 compatible: no mapfile, no associative arrays, no ${x,,}, no |&.
 set -u
