@@ -28,7 +28,7 @@ import re
 import socket
 import urllib.request
 from typing import Final
-from urllib.parse import ParseResult, urlparse, urlunparse
+from urllib.parse import urlparse, urlsplit, urlunsplit
 
 _ALLOWED_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
 _DEFAULT_PORTS: Final[dict[str, int]] = {"http": 80, "https": 443}
@@ -173,14 +173,17 @@ def _assert_connects_to(url: str, host: str, port: int) -> None:
         )
 
 
-def _canonical_url(parsed: ParseResult, ascii_host: str, port: int | None) -> str:
-    """Rebuild the URL from validated parts: no userinfo, IDNA host, the given port."""
+def _canonical_url(url: str, ascii_host: str, port: int | None) -> str:
+    """Rebuild the URL from validated parts: no userinfo, IDNA host, the given port.
+
+    Uses urlsplit(): urlparse() splits ';params' off the last segment and urlunparse()
+    drops an EMPTY one, so '/a;' came back as '/a', another resource.
+    """
+    split = urlsplit(url)
     netloc = f"[{ascii_host}]" if ":" in ascii_host else ascii_host
     if port is not None:
         netloc = f"{netloc}:{port}"
-    return urlunparse(
-        (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
-    )
+    return urlunsplit((split.scheme, netloc, split.path, split.query, split.fragment))
 
 
 def assert_safe_fetch_url(raw_url: str) -> str:
@@ -226,7 +229,7 @@ def assert_safe_fetch_url(raw_url: str) -> str:
         if _ip_is_blocked(ip):
             raise SsrfBlockedError(f"Refusing blocked IP {ip} (resolved from {host!r})")
 
-    canonical = _canonical_url(parsed, ascii_host, port)
+    canonical = _canonical_url(raw_url, ascii_host, port)
     _assert_connects_to(canonical, ascii_host, effective_port)
     return canonical
 
