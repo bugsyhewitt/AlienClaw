@@ -19,12 +19,17 @@
 #                  then `git apply` decoupling.patch and ci-pass2.patch (working tree
 #                  only: nothing is staged or committed)
 #   3. guard       the patched ci.yml still has the three required job names, has no
-#                  install-smoke job and no DROP path, and contains every command
-#                  this script runs (so the rehearsal cannot drift from the workflow)
+#                  install-smoke job and no DROP path, contains every command this
+#                  script runs (so the rehearsal cannot drift from the workflow), and
+#                  has the KEEP TypeScript coverage step inside the TypeScript
+#                  typecheck job, with line and branch thresholds
 #   4. suites      ONE heavy.sh call re-enters this script with --inner and runs the
 #                  CI-equivalent steps of the three required jobs with HOME pointed
 #                  at a temp dir (CI's `rm -rf ~/.alienclaw/...` never touches the
-#                  real home) and ALIENCLAW_TEST_DB_URL unset (no MySQL here)
+#                  real home) and ALIENCLAW_TEST_DB_URL unset (no MySQL here). The
+#                  KEEP TypeScript coverage step runs the `run:` block read out of the
+#                  patched ci.yml verbatim, thresholds included. One kit-only step
+#                  (tag `kit`, not in CI) runs the conformance tests that D-1 keeps.
 #   5. summary     per-step PASS/FAIL, test counts, coverage; exit 1 on any failure
 #
 # Not reproducible here (see README): the MySQL-backed API suites and the
@@ -47,6 +52,27 @@ floor_for() {
   awk -v mod="--cov=$1" '
     index($0, mod) { f = 1 }
     f && match($0, /--cov-fail-under=[0-9]+/) { print substr($0, RSTART + 17, RLENGTH - 17); exit }
+  ' "$2/.github/workflows/ci.yml"
+}
+
+# The `run: |` body of the ci.yml step named $1, de-indented, so the rehearsal runs
+# exactly what CI runs. Prints nothing if the step or its block is missing.
+KEEP_TS_STEP='KEEP TypeScript tests with coverage'
+ci_run_block() {
+  awk -v want="- name: $1" '
+    !found { s = $0; sub(/^ +/, "", s); if (s == want) found = 1; next }
+    !inrun {
+      if ($0 ~ /^ +- name: /) exit
+      if ($0 ~ /^ +run: \|$/) { inrun = 1; match($0, /^ +/); ind = RLENGTH }
+      next
+    }
+    {
+      if ($0 ~ /^ *$/) { print ""; next }
+      match($0, /^ */)
+      if (RLENGTH <= ind) exit
+      if (!bi) bi = RLENGTH
+      print substr($0, bi + 1)
+    }
   ' "$2/.github/workflows/ci.yml"
 }
 
@@ -114,6 +140,7 @@ print(f'Fixture OK: {len(data[\"cases\"])} cases')
   step ts "Typecheck" npx tsc --noEmit
   step ts "Cross-language genome spec compliance (TypeScript side)" \
     npx vitest run test/genome/ts-fixture-runner.test.ts
+  step ts "$KEEP_TS_STEP (run: block from ci.yml)" bash -c "$(ci_run_block "$KEEP_TS_STEP" "$WT")"
   step ts "API surface tests (DB-less: coverage REPORTED, thresholds NOT enforced)" \
     npx vitest run test/api/ --no-file-parallelism --coverage --coverage.provider=v8 \
       --coverage.reporter=text-summary '--coverage.include=src/alienclaw/api/**'
@@ -131,6 +158,12 @@ print(f'Fixture OK: {len(data[\"cases\"])} cases')
   step py "Verify no leak directories" py_leak_check
   step py "Run diagnostics tests with coverage" py_diagnostics
   step py "Web search backend test" env PYTHONPATH=src pytest test/tools/test_web_search_backend.py -v
+
+  # Kit-only, not a CI step: D-1 keeps fitness/conformance.py, and its tests sit outside
+  # CI's pytest scope, so the rehearsal runs them (and the rest of test/fitness/) here.
+  step kit "Conformance + fitness tests (not in CI)" env PYTHONPATH=src pytest test/fitness/ \
+    test/tools/test_pkt087_extract_json_empty_extracted.py \
+    --cov=alienclaw.fitness.conformance --cov-report=term-missing -q
 
   rm -rf "$RUN_HOME"
   return 0
@@ -209,7 +242,18 @@ for m in alienclaw.genome alienclaw.evolution alienclaw.diagnostics; do
   fl="$(floor_for "$m" "$WT")"
   [ -n "$fl" ] || { echo "guard: no --cov-fail-under found for $m"; guard_fail=1; }
 done
-[ "$guard_fail" -eq 0 ] && echo "guard: ci.yml OK (3 required jobs, no DROP refs, commands in sync)"
+# The KEEP TypeScript gate must sit inside the required "TypeScript typecheck" job
+# (from its name line up to the next top-level job key) and carry both thresholds.
+awk '/^    name: TypeScript typecheck$/ { f = 1; next } f && /^  [A-Za-z0-9_-]+:$/ { exit } f' "$CI" \
+  | grep -qF -- "- name: $KEEP_TS_STEP" \
+  || { echo "guard: '$KEEP_TS_STEP' step missing from the TypeScript typecheck job"; guard_fail=1; }
+KEEP_TS_BLOCK="$(ci_run_block "$KEEP_TS_STEP" "$WT")"
+for c in 'npx vitest run' '--coverage.thresholds.lines=' '--coverage.thresholds.branches=' \
+         '--coverage.include="src/alienclaw/net/**"'; do
+  printf '%s\n' "$KEEP_TS_BLOCK" | grep -qF -- "$c" \
+    || { echo "guard: '$KEEP_TS_STEP' run block lacks: $c"; guard_fail=1; }
+done
+[ "$guard_fail" -eq 0 ] && echo "guard: ci.yml OK (3 required jobs, no DROP refs, commands in sync, KEEP TS gate in place)"
 
 # 4. suites — one heavy.sh call for everything
 "$HEAVY" bash "$KIT_DIR/dry_run.sh" --inner "$WT" "$LOGDIR"
@@ -235,9 +279,12 @@ strip() { tr -d '\033' < "$1" | sed 's/\[[0-9;]*m//g'; }
     pt="$(strip "$log" | grep -E '[0-9]+ (passed|failed|error)' | tail -1 | sed 's/=//g; s/^ *//; s/ *$//')"
     cv="$(strip "$log" | grep -E '^TOTAL ' | tail -1 | awk '{print "coverage " $NF}')"
     vc="$(strip "$log" | grep -E '^(Statements|Branches|Lines) +:' | sed 's/ *: */ /' | awk '{printf "%s %s; ", $1, $2}')"
+    va="$(strip "$log" | grep -E '^All files +\|' | tail -1 \
+          | awk -F'|' '{for (i = 2; i <= 5; i++) gsub(/ /, "", $i); printf "Statements %s%%; Branches %s%%; Lines %s%%; ", $2, $3, $5}')"
     if [ -n "$vt" ]; then detail="$vf | $vt"; elif [ -n "$pt" ]; then detail="$pt"; fi
     [ -n "$cv" ] && detail="$detail | $cv"
     [ -n "$vc" ] && detail="$detail | v8: $vc"
+    [ -z "$vc" ] && [ -n "$va" ] && detail="$detail | v8: $va"
     printf '%-5s %-14s %-72s %6s  %s\n' "$job" "$st" "$name" "$dt" "$detail"
   done < "$LOGDIR/status.tsv"
   echo
@@ -245,6 +292,8 @@ strip() { tr -d '\033' < "$1" | sed 's/\[[0-9;]*m//g'; }
   echo "(lines 75 / branches 63) in TypeScript typecheck; 'Run migrations' in Unit tests (DB suites"
   echo "self-skip without ALIENCLAW_TEST_DB_URL); actionlint; shellcheck; non-required jobs."
   echo "floors enforced (from patched ci.yml): genome=$(floor_for alienclaw.genome "$WT") evolution=$(floor_for alienclaw.evolution "$WT") diagnostics=$(floor_for alienclaw.diagnostics "$WT")"
+  echo "KEEP TS thresholds (from patched ci.yml): $(printf '%s\n' "$KEEP_TS_BLOCK" | grep -oE 'thresholds\.(lines|branches)=[0-9]+' | sed 's/thresholds\.//' | tr '\n' ' ')"
+  echo "'kit' rows are the kit's own checks, not CI steps."
   echo "logs: $LOGDIR"
   if [ "$fails" -eq 0 ] && [ "$guard_fail" -eq 0 ] && [ "$heavy_rc" -eq 0 ]; then
     echo "RESULT: GREEN"

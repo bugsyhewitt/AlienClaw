@@ -145,7 +145,6 @@ src/alienclaw/diagnostics/sensitivity_audit.py
 src/alienclaw/diagnostics/synthetic_compositions.py
 src/alienclaw/evolution/bridge_runner.py
 src/alienclaw/evolution/live_evo.py
-src/alienclaw/fitness/conformance.py
 src/alienclaw/governance/common/advisor-bot.ts
 src/alienclaw/governance/common/boss-bot.ts
 src/alienclaw/governance/common/comm-graph.ts
@@ -275,8 +274,6 @@ test/evolution/test_composition_evolution.py
 test/evolution/test_end_to_end.py
 test/evolution/test_live_evo.py
 test/evolution/test_main_cli.py
-test/fitness/test_conformance.py
-test/fitness/test_field_valid_branches.py
 test/fixtures/brain-registry-fixtures.json
 test/fixtures/bridge-fixture.json
 test/fixtures/martian-registry-fixtures.json
@@ -395,7 +392,6 @@ test/registry/seed-installer-pad64.test.ts
 test/registry/seed-installer.test.ts
 test/rule5-channel-isolation.test.ts
 test/site/leaderboard.test.ts
-test/tools/test_pkt087_extract_json_empty_extracted.py
 test/wiring/advise-from-telemetry.test.ts
 test/wiring/fitness-update-summary.test.ts
 test/wiring/hierarchy-bootstrap-call-live-evo-bridge-timer-leak.test.ts

@@ -1,0 +1,39 @@
+npm warn Unknown project config "onlyBuiltDependencies". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.7 /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun2
+      Coverage enabled with v8
+
+
+ Test Files  13 passed (13)
+      Tests  506 passed (506)
+   Start at  19:43:02
+   Duration  1.91s (transform 1.82s, setup 0ms, import 2.48s, tests 2.83s, environment 2ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   96.04 |    92.92 |    98.5 |   98.18 |                   
+ alienclaw         |   99.03 |    96.55 |   91.66 |   98.75 |                   
+  constants.ts     |     100 |       50 |     100 |     100 | 75                
+  utils.ts         |   98.68 |      100 |   91.66 |   98.07 | 42                
+ alienclaw/net     |   92.43 |    90.78 |     100 |    96.8 |                   
+  ...ened-fetch.ts |   92.43 |    90.78 |     100 |    96.8 | ...25,357,416,428 
+ ...nclaw/registry |   99.24 |      100 |     100 |    99.1 |                   
+  ...-operators.ts |   97.82 |      100 |     100 |   97.29 | 50                
+ ...claw/telemetry |   96.99 |    91.13 |     100 |   99.13 |                   
+  ...try-reader.ts |   96.73 |    92.45 |     100 |     100 | 70,74,160,214     
+  ...try-writer.ts |   97.56 |    88.46 |     100 |   97.56 | 124               
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 96.04% ( 583/607 )
+Branches     : 92.92% ( 368/396 )
+Functions    : 98.5% ( 66/67 )
+Lines        : 98.18% ( 486/495 )
+================================================================================
+npm notice
+npm notice New major version of npm available! 11.16.0 -> 12.2.3
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.3
+npm notice To update run: npm install -g npm@12.2.3
+npm notice

@@ -1,0 +1,35 @@
+npm warn Unknown project config "onlyBuiltDependencies". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.7 /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun2
+      Coverage enabled with v8
+
+(node:2426429) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[api] /v1/genomes handler throw: Error: mocked unhandled boom
+[api] /v1/genomes handler throw: Error: sensitive-marker-pkt-593
+[api] /v1/genomes handler throw: Error: ER_DUP_ENTRY: Duplicate entry 'sub_xyz' on host 10.0.7.21:3306
+[api] /v1/install non-structured throw: Error: mocked install handler boom
+[api] unhandled error: Error: mocked stats handler boom
+(node:2426462) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:2426470) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:2426478) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[audit-log] WARNING: failed to write entry: Error: EEXIST: file already exists, mkdir '/tmp/audit-test-yr35JO/audit'
+[migrate] Applied 900_blk.sql
+[migrate] Applied 901_line.sql
+
+ Test Files  24 passed (24)
+      Tests  382 passed | 32 skipped (414)
+   Start at  19:38:52
+   Duration  13.02s (transform 425ms, setup 0ms, import 1.18s, tests 8.10s, environment 3ms)
+
+ % Coverage report from v8
+
+=============================== Coverage summary ===============================
+Statements   : 83.95% ( 607/723 )
+Branches     : 77.84% ( 383/492 )
+Functions    : 87.5% ( 105/120 )
+Lines        : 85.75% ( 548/639 )
+================================================================================

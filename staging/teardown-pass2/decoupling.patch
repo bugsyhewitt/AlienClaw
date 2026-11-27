@@ -519,6 +519,224 @@ index 00d7ad7c..63ea9b2b 100644
 +    brain: Any | None = None
      selection_strategy: str = "tournament"
      truncation_top_fraction: float = 0.5
+diff --git a/src/alienclaw/fitness/conformance.py b/src/alienclaw/fitness/conformance.py
+index ed8dd029..03ee6756 100644
+--- a/src/alienclaw/fitness/conformance.py
++++ b/src/alienclaw/fitness/conformance.py
+@@ -3,17 +3,20 @@
+ The fitness `correctness` input was binary (1.0 = ran, 0.0 = errored), which gave
+ selection no gradient on output quality — evolution optimized tool-call efficiency
+ alone (the 2026-07-16 SIGNAL_PARTIAL finding). This grades a *successful* tool
+-output by how completely it matches its MSB OUTPUT CONTRACT: the fraction of
+-contract fields present and type-valid, in [0, 1].
++output by how completely it matches its OUTPUT CONTRACT: the fraction of contract
++fields present and type-valid, in [0, 1].
+ 
+ "Quality" here means output completeness / well-formedness, NOT answer-accuracy —
+ these deterministic tools compute their own ground truth, and there is no labeled
+ task set to compare against.
+ 
+-Contracts are read from each brain's OUTPUT CONTRACT block in `seed/msb/*.msb`, so
+-the `.msb` files are the single source of truth (no hand-maintained duplicate that
+-can drift). Tools whose contract cannot be loaded fall through to their existing
+-binary correctness (`conformance_for` returns None).
++Contracts are an explicit input; this module has no built-in contract source. A
++caller builds them once with `load_contracts(source)` — from a mapping, a JSON
++file, or a directory of spec files that each carry an `OUTPUT CONTRACT:` block —
++and passes the result to `conformance_for`. That keeps the scorer a per-domain
++adapter plug: each domain brings its own contracts. Tools absent from the loaded
++contracts fall through to their existing binary correctness (`conformance_for`
++returns None).
+ 
+ The gradient only exists where the genome actually varies output completeness —
+ e.g. compute's `output_format` (1-5), and `field_count` (1-5) in url_fetch /
+@@ -23,43 +26,44 @@ is genome-independent score a constant conformance, which is correct and expecte
+ from __future__ import annotations
+ 
+ import json
++import os
+ import re
++from collections.abc import Mapping
+ from pathlib import Path
+-from typing import Any, Optional
++from typing import Any, Optional, Union
+ 
+ # OUTPUT CONTRACT block: everything up to the next ALL-CAPS section header or EOF.
+ _CONTRACT_RE = re.compile(
+     r"^OUTPUT CONTRACT:\s*\n(.*?)(?=\n[A-Z][A-Z ]+:|\Z)", re.S | re.M
+ )
+ 
+-# Fallback contract for compute, used only if seed/msb/ cannot be read (e.g. an
+-# installed package without the seed tree). Mirrors seed/msb/compute.msb.
+-_COMPUTE_FALLBACK: dict[str, Any] = {
+-    "input": "any",
+-    "operation": "string",
+-    "result": "any",
+-    "resultType": "string",
+-    "precision": "string",
+-    "steps": ["string"],
+-}
++# What `load_contracts` accepts: a mapping of tool name -> contract, or a path.
++ContractSource = Union[Mapping[str, Any], str, os.PathLike]
+ 
+-# Lazily-populated cache: tool name -> contract field map (or None once loaded empty).
+-_CONTRACTS: Optional[dict[str, dict[str, Any]]] = None
+ 
++def _flatten_contract(parsed: dict[str, Any]) -> dict[str, Any]:
++    """Reduce a contract object to a `field name -> type decl` map.
+ 
+-def _seed_msb_dir() -> Path:
+-    """Locate seed/msb/ relative to this package, independent of CWD."""
+-    # src/alienclaw/fitness/conformance.py -> parents[3] is the repo root.
+-    return Path(__file__).resolve().parents[3] / "seed" / "msb"
++    Handles both contract shapes:
++      * JSON Schema — {"type": "object", "properties": {...}, "required": [...]}
++        — the `properties` map is flattened to its declared types.
++      * Flat type map — {"field": "string", "other": ["string"]} — returned as is.
++    """
++    if parsed.get("type") == "object" and isinstance(parsed.get("properties"), dict):
++        fields: dict[str, Any] = {}
++        for name, decl in parsed["properties"].items():
++            if isinstance(decl, dict) and "type" in decl:
++                fields[name] = decl["type"]
++            else:
++                fields[name] = "any"
++        return fields
++    return parsed
+ 
+ 
+ def _parse_contract(text: str) -> Optional[dict[str, Any]]:
+-    """Parse an OUTPUT CONTRACT block into a `field name -> type decl` map.
++    """Parse a contract's JSON text into a `field name -> type decl` map.
+ 
+-    Handles both shapes present in seed/msb/:
+-      * JSON Schema — {"type": "object", "properties": {...}, "required": [...]}
+-        (url_fetch) — the `properties` map is flattened to its declared types.
+-      * Flat type map — {"field": "string", "other": ["string"]} (the other 7).
++    Returns None when the text is not JSON or not a JSON object.
+     """
+     try:
+         parsed = json.loads(text)
+@@ -67,50 +71,59 @@ def _parse_contract(text: str) -> Optional[dict[str, Any]]:
+         return None
+     if not isinstance(parsed, dict):
+         return None
++    return _flatten_contract(parsed)
+ 
+-    # JSON Schema form: lift `properties`, reducing each to its declared type.
+-    if parsed.get("type") == "object" and isinstance(parsed.get("properties"), dict):
+-        fields: dict[str, Any] = {}
+-        for name, decl in parsed["properties"].items():
+-            if isinstance(decl, dict) and "type" in decl:
+-                fields[name] = decl["type"]
+-            else:
+-                fields[name] = "any"
+-        return fields
+ 
+-    return parsed
++def _spec_contract_text(text: str) -> Optional[str]:
++    """The JSON text of a spec file's `OUTPUT CONTRACT:` block, or None if absent."""
++    match = _CONTRACT_RE.search(text)
++    return match.group(1).strip() if match else None
+ 
+ 
+-def _load_contracts() -> dict[str, dict[str, Any]]:
+-    """Read and cache every brain's OUTPUT CONTRACT from seed/msb/."""
+-    global _CONTRACTS
+-    if _CONTRACTS is not None:
+-        return _CONTRACTS
++def load_contracts(
++    source: ContractSource, *, pattern: str = "*.msb"
++) -> dict[str, dict[str, Any]]:
++    """Build the `tool name -> contract field map` that `conformance_for` reads.
+ 
+-    contracts: dict[str, dict[str, Any]] = {}
+-    msb_dir = _seed_msb_dir()
+-    try:
+-        paths = sorted(msb_dir.glob("*.msb"))
+-    except OSError:
+-        paths = []
+-
+-    for path in paths:
+-        try:
+-            match = _CONTRACT_RE.search(path.read_text(encoding="utf-8"))
+-        except OSError:
+-            continue
+-        if not match:
+-            continue
+-        fields = _parse_contract(match.group(1).strip())
+-        if fields:
+-            contracts[path.stem] = fields
++    `source` is one of:
++      * a mapping of tool name -> contract, each a dict (flat type map or JSON
++        Schema object) or its JSON text;
++      * a path to a JSON file holding such a mapping;
++      * a path to a directory of spec files, each carrying an `OUTPUT CONTRACT:`
++        block; the file stem is the tool name and `pattern` selects the files.
+ 
+-    if not contracts:
+-        # Seed tree unavailable — keep compute graded rather than regressing it.
+-        contracts = {"compute": _COMPUTE_FALLBACK}
++    Entries whose contract does not parse, or is empty, are skipped, so those tools
++    fall through to binary correctness. A path that is neither a file nor a
++    directory raises FileNotFoundError: a named source that is missing is a caller
++    error, not something to paper over with a fallback.
++    """
++    if isinstance(source, Mapping):
++        entries: Mapping[str, Any] = source
++    else:
++        path = Path(source)
++        if path.is_dir():
++            entries = {
++                spec.stem: _spec_contract_text(spec.read_text(encoding="utf-8"))
++                for spec in sorted(path.glob(pattern))
++            }
++        elif path.is_file():
++            entries = json.loads(path.read_text(encoding="utf-8"))
++            if not isinstance(entries, dict):
++                raise ValueError(f"{path}: expected a JSON object of tool -> contract")
++        else:
++            raise FileNotFoundError(f"contract source not found: {path}")
+ 
+-    _CONTRACTS = contracts
+-    return _CONTRACTS
++    contracts: dict[str, dict[str, Any]] = {}
++    for name, decl in entries.items():
++        if isinstance(decl, str):
++            fields = _parse_contract(decl)
++        elif isinstance(decl, dict):
++            fields = _flatten_contract(decl)
++        else:
++            fields = None
++        if fields:
++            contracts[name] = fields
++    return contracts
+ 
+ 
+ def _field_valid(value: Any, decl: Any) -> bool:
+@@ -184,13 +197,18 @@ def conformance_score(contract: dict[str, Any], output: dict[str, Any]) -> float
+     return hits / len(contract)
+ 
+ 
+-def conformance_for(tool_name: str, output: dict[str, Any]) -> Optional[float]:
++def conformance_for(
++    tool_name: str,
++    output: dict[str, Any],
++    contracts: Mapping[str, dict[str, Any]],
++) -> Optional[float]:
+     """Graded correctness for a successful tool output.
+ 
+-    Returns the conformance score for a tool whose OUTPUT CONTRACT could be read
+-    from seed/msb/, or None if it could not (caller keeps its binary correctness).
++    `contracts` is what `load_contracts` returned. Returns the conformance score
++    for a tool that has a contract there, or None if it has none (the caller keeps
++    its binary correctness).
+     """
+-    contract = _load_contracts().get(tool_name)
++    contract = contracts.get(tool_name)
+     if contract is None:
+         return None
+     return conformance_score(contract, output)
 diff --git a/src/alienclaw/index.ts b/src/alienclaw/index.ts
 index c123283a..190be725 100644
 --- a/src/alienclaw/index.ts
@@ -658,6 +876,199 @@ index 7921fbb4..b885deba 100644
          parameter_schema=(
              ParameterSchemaField(
                  name="max_attempts",
+diff --git a/test/fitness/test_conformance.py b/test/fitness/test_conformance.py
+index b1b707c6..77dffe27 100644
+--- a/test/fitness/test_conformance.py
++++ b/test/fitness/test_conformance.py
+@@ -1,7 +1,24 @@
+-"""Unit tests for output-contract conformance scoring (graded correctness)."""
++"""Unit tests for output-contract conformance scoring (graded correctness).
++
++The contracts come from `fixtures/output_contracts.json`: the OUTPUT CONTRACT blocks
++of the eight retired `seed/msb/*.msb` brains, copied verbatim (as parsed JSON) from
++origin/main 401f4099 so these tests own their data. The scorer has no built-in
++contract source; every call names one.
++"""
++import inspect
++import json
++from pathlib import Path
++
+ import pytest
+ 
+-from alienclaw.fitness.conformance import conformance_for, conformance_score
++from alienclaw.fitness.conformance import (
++    conformance_for,
++    conformance_score,
++    load_contracts,
++)
++
++FIXTURE = Path(__file__).parent / "fixtures" / "output_contracts.json"
++CONTRACTS = load_contracts(FIXTURE)
+ 
+ # The compute OUTPUT CONTRACT, mirroring compute.py's output_format 1-5 emission.
+ FULL_COMPUTE_OUTPUT = {
+@@ -15,12 +32,12 @@ FULL_COMPUTE_OUTPUT = {
+ 
+ 
+ def test_full_conformance_scores_one():
+-    assert conformance_for("compute", FULL_COMPUTE_OUTPUT) == pytest.approx(1.0)
++    assert conformance_for("compute", FULL_COMPUTE_OUTPUT, CONTRACTS) == pytest.approx(1.0)
+ 
+ 
+ def test_result_only_scores_one_sixth():
+     # output_format=1 emits {result} only → 1 of 6 contract fields.
+-    assert conformance_for("compute", {"result": 4}) == pytest.approx(1 / 6)
++    assert conformance_for("compute", {"result": 4}, CONTRACTS) == pytest.approx(1 / 6)
+ 
+ 
+ @pytest.mark.parametrize(
+@@ -35,7 +52,7 @@ def test_result_only_scores_one_sixth():
+     ],
+ )
+ def test_gradient_across_output_formats(output, expected):
+-    assert conformance_for("compute", output) == pytest.approx(expected)
++    assert conformance_for("compute", output, CONTRACTS) == pytest.approx(expected)
+ 
+ 
+ def test_type_invalid_fields_do_not_count():
+@@ -49,16 +66,16 @@ def test_type_invalid_fields_do_not_count():
+         "steps": "not-a-list",         # not a list → invalid
+     }
+     # 4 valid of 6 (result, input, operation, precision).
+-    assert conformance_for("compute", bad) == pytest.approx(4 / 6)
++    assert conformance_for("compute", bad, CONTRACTS) == pytest.approx(4 / 6)
+ 
+ 
+ def test_empty_output_scores_zero():
+-    assert conformance_for("compute", {}) == pytest.approx(0.0)
++    assert conformance_for("compute", {}, CONTRACTS) == pytest.approx(0.0)
+ 
+ 
+ def test_tool_with_no_contract_returns_none():
+-    # A tool with no OUTPUT CONTRACT in seed/msb/ falls through to binary correctness.
+-    assert conformance_for("no_such_tool", {"content": "x"}) is None
++    # A tool with no contract in the loaded set falls through to binary correctness.
++    assert conformance_for("no_such_tool", {"content": "x"}, CONTRACTS) is None
+ 
+ 
+ def test_empty_contract_scores_one():
+@@ -68,14 +85,16 @@ def test_empty_contract_scores_one():
+ # ── Generic contract loading (all 8 brains, not just compute) ─────────────────
+ 
+ 
+-def test_all_seed_brains_have_loadable_contracts():
+-    # Every brain in seed/msb/ must yield a usable contract; a parse regression
+-    # would silently drop that tool back to binary correctness.
++def test_all_fixture_contracts_are_loadable():
++    # Every contract in the fixture must yield a usable field map; a parse
++    # regression would silently drop that tool back to binary correctness.
+     for tool in [
+         "compute", "extract_json", "file_read", "file_write",
+         "http_get", "search_text", "url_fetch", "web_search",
+     ]:
+-        assert conformance_for(tool, {}) is not None, f"{tool} contract failed to load"
++        assert conformance_for(tool, {}, CONTRACTS) is not None, (
++            f"{tool} contract failed to load"
++        )
+ 
+ 
+ @pytest.mark.parametrize(
+@@ -91,13 +110,13 @@ def test_all_seed_brains_have_loadable_contracts():
+ def test_url_fetch_gradient_from_json_schema_contract(output, expected):
+     # url_fetch's contract is JSON Schema shaped (not a flat type map); its
+     # genome-controlled field_count must still produce a conformance gradient.
+-    assert conformance_for("url_fetch", output) == pytest.approx(expected)
++    assert conformance_for("url_fetch", output, CONTRACTS) == pytest.approx(expected)
+ 
+ 
+ def test_integer_and_boolean_types_are_enforced():
+     # http_get declares statusCode/bytesReturned as integer and truncated as boolean.
+-    ok = conformance_for("http_get", {"statusCode": 200, "truncated": False})
+-    bad = conformance_for("http_get", {"statusCode": "200", "truncated": "no"})
++    ok = conformance_for("http_get", {"statusCode": 200, "truncated": False}, CONTRACTS)
++    bad = conformance_for("http_get", {"statusCode": "200", "truncated": "no"}, CONTRACTS)
+     assert ok > bad
+ 
+ 
+@@ -107,3 +126,78 @@ def test_bool_does_not_satisfy_integer():
+     assert _field_valid(True, "boolean") is True
+     assert _field_valid(True, "integer") is False
+     assert _field_valid(1, "integer") is True
++
++
++# ── Contract sources: an explicit input with no built-in default ──────────────
++
++
++def test_contract_source_is_a_required_input():
++    # Decoupled from seed/msb/: neither the loader nor the scorer has a default
++    # source to fall back on.
++    source = inspect.signature(load_contracts).parameters["source"]
++    contracts = inspect.signature(conformance_for).parameters["contracts"]
++    assert source.default is inspect.Parameter.empty
++    assert contracts.default is inspect.Parameter.empty
++
++
++def test_mapping_source_matches_json_file_source():
++    data = json.loads(FIXTURE.read_text(encoding="utf-8"))
++    assert load_contracts(data) == CONTRACTS
++    assert load_contracts(str(FIXTURE)) == CONTRACTS
++
++
++def test_mapping_source_takes_json_text_and_skips_unusable_entries():
++    compute_text = json.dumps(json.loads(FIXTURE.read_text(encoding="utf-8"))["compute"])
++    contracts = load_contracts({
++        "compute": compute_text,
++        "broken": "{not json",
++        "not_a_map": ["string"],
++        "empty": {},
++    })
++    assert contracts == {"compute": CONTRACTS["compute"]}
++
++
++def test_json_schema_contract_is_flattened():
++    assert CONTRACTS["url_fetch"] == {
++        "url": "string",
++        "statusCode": "integer",
++        "content": "string",
++        "contentType": "string",
++    }
++
++
++def test_directory_source_reads_output_contract_blocks(tmp_path):
++    # Spec files carrying an OUTPUT CONTRACT block, which ends at the next ALL-CAPS
++    # header or at EOF; the file stem is the tool name.
++    (tmp_path / "compute.msb").write_text(
++        "NAME: compute\n\nOUTPUT CONTRACT:\n"
++        + json.dumps({"result": "any", "steps": ["string"]})
++        + "\n\nPARAMETER SCHEMA:\nprecision_digits|2|1|10|6|none\n",
++        encoding="utf-8",
++    )
++    (tmp_path / "url_fetch.msb").write_text(
++        "OUTPUT CONTRACT:\n"
++        + json.dumps({"type": "object", "properties": {"url": {"type": "string"}}}),
++        encoding="utf-8",
++    )
++    (tmp_path / "no_block.msb").write_text("NAME: no_block\n", encoding="utf-8")
++    (tmp_path / "bad_json.msb").write_text("OUTPUT CONTRACT:\n{nope\n", encoding="utf-8")
++    (tmp_path / "other.txt").write_text('OUTPUT CONTRACT:\n{"x": "string"}\n', encoding="utf-8")
++
++    assert load_contracts(tmp_path) == {
++        "compute": {"result": "any", "steps": ["string"]},
++        "url_fetch": {"url": "string"},
++    }
++    assert load_contracts(tmp_path, pattern="*.txt") == {"other": {"x": "string"}}
++
++
++def test_missing_path_source_raises(tmp_path):
++    with pytest.raises(FileNotFoundError):
++        load_contracts(tmp_path / "nowhere")
++
++
++def test_json_file_that_is_not_an_object_raises(tmp_path):
++    bad = tmp_path / "contracts.json"
++    bad.write_text("[1, 2]", encoding="utf-8")
++    with pytest.raises(ValueError):
++        load_contracts(bad)
 diff --git a/test/genome/test_step_mutation.py b/test/genome/test_step_mutation.py
 index bb291b27..0ccafe5c 100644
 --- a/test/genome/test_step_mutation.py
@@ -803,6 +1214,53 @@ index fea2e363..e927cbd0 100644
    it('R-016 — streaming reads preserve observable behavior on small fixtures (regression guard)', async () => {
      // Existing R-002 invariant: aggregateOnlineFitness returns {count:3, mean:0.8} on a
      // 4-entry log with 3 compute + 1 http_get.
+diff --git a/test/tools/test_pkt087_extract_json_empty_extracted.py b/test/tools/test_pkt087_extract_json_empty_extracted.py
+index 515f49f3..d4058227 100644
+--- a/test/tools/test_pkt087_extract_json_empty_extracted.py
++++ b/test/tools/test_pkt087_extract_json_empty_extracted.py
+@@ -20,6 +20,20 @@ from alienclaw.tools import extract_json
+ 
+ JSON_IN = '{"a": 1}'
+ 
++# extract_json's OUTPUT CONTRACT, verbatim from the retired seed/msb/extract_json.msb
++# (origin/main 401f4099). The conformance scorer takes its contracts as an explicit
++# input, so this test carries its own.
++EXTRACT_JSON_CONTRACT = {
++    "extracted": {
++        "<path>": {
++            "value": "any",
++            "type": "string",
++            "found": "boolean",
++        }
++    },
++    "inputKeys": ["string"],
++}
++
+ 
+ def _run(path: str | None, **params):
+     """Call extract_json.run. Genome params (result_format, extraction_passes)
+@@ -61,16 +75,16 @@ class TestParityWithSiblingTools:
+     """The codebase already fixes this class; extract_json must match."""
+ 
+     def test_shape_matches_web_search_penalty(self):
+-        from alienclaw.fitness.conformance import _load_contracts, conformance_for
++        from alienclaw.fitness.conformance import conformance_for, load_contracts
+ 
+         empty = _run(path="")
+         full = _run(path="a", result_format=3)
+         default_fmt = _run(path="a")  # default result_format=2 -> no "found"
+-        contracts = _load_contracts()
++        contracts = load_contracts({"extract_json": EXTRACT_JSON_CONTRACT})
+ 
+-        empty_graded = conformance_for("extract_json", empty.output or {})
+-        full_graded = conformance_for("extract_json", full.output or {})
+-        default_graded = conformance_for("extract_json", default_fmt.output or {})
++        empty_graded = conformance_for("extract_json", empty.output or {}, contracts)
++        full_graded = conformance_for("extract_json", full.output or {}, contracts)
++        default_graded = conformance_for("extract_json", default_fmt.output or {}, contracts)
+ 
+         # The shared predicate is deliberately left alone per the verdict, and it
+         # genuinely cannot rank these cases: the wildcard branch passes an empty
 diff --git a/test/wall-check.test.ts b/test/wall-check.test.ts
 index 9f48314d..cd5650a3 100644
 --- a/test/wall-check.test.ts
@@ -920,3 +1378,108 @@ index 00000000..28656a2e
 +            runners_audited=d["runners_audited"],
 +            sensitivities=sensitivities,
 +        )
+diff --git a/test/fitness/fixtures/output_contracts.json b/test/fitness/fixtures/output_contracts.json
+new file mode 100644
+index 00000000..3b8549e6
+--- /dev/null
++++ b/test/fitness/fixtures/output_contracts.json
+@@ -0,0 +1,99 @@
++{
++  "compute": {
++    "input": "any",
++    "operation": "string",
++    "result": "any",
++    "resultType": "string",
++    "precision": "string",
++    "steps": [
++      "string"
++    ]
++  },
++  "extract_json": {
++    "extracted": {
++      "<path>": {
++        "value": "any",
++        "type": "string",
++        "found": "boolean"
++      }
++    },
++    "inputKeys": [
++      "string"
++    ]
++  },
++  "file_read": {
++    "path": "string",
++    "content": "string",
++    "encoding": "string",
++    "sizeBytes": "number"
++  },
++  "file_write": {
++    "path": "string",
++    "bytesWritten": "number",
++    "encoding": "string"
++  },
++  "http_get": {
++    "url": "string",
++    "finalUrl": "string",
++    "statusCode": "integer",
++    "content": "string",
++    "contentType": "string",
++    "truncated": "boolean",
++    "bytesReturned": "integer"
++  },
++  "search_text": {
++    "pattern": "string",
++    "flavor": "string",
++    "caseSensitive": "boolean",
++    "totalMatches": "integer",
++    "truncated": "boolean",
++    "matches": [
++      {
++        "matchText": "string",
++        "lineNumber": "integer",
++        "startOffset": "integer",
++        "endOffset": "integer",
++        "contextBefore": [
++          "string"
++        ],
++        "contextAfter": [
++          "string"
++        ]
++      }
++    ]
++  },
++  "url_fetch": {
++    "type": "object",
++    "properties": {
++      "url": {
++        "type": "string"
++      },
++      "statusCode": {
++        "type": "integer"
++      },
++      "content": {
++        "type": "string"
++      },
++      "contentType": {
++        "type": "string"
++      }
++    },
++    "required": [
++      "url",
++      "statusCode",
++      "content"
++    ]
++  },
++  "web_search": {
++    "results": [
++      {
++        "title": "string",
++        "url": "string",
++        "excerpt": "string",
++        "rank": "number"
++      }
++    ],
++    "query": "string",
++    "totalResults": "number"
++  }
++}

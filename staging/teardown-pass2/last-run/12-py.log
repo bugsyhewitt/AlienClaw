@@ -2,35 +2,57 @@
 The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
 
   warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
-============================= test session starts ==============================
-platform linux -- Python 3.14.9, pytest-9.2.0, pluggy-1.7.0 -- /usr/bin/python
-cachedir: .pytest_cache
-hypothesis profile 'default'
-PySide6 6.12.0 -- Qt runtime 6.12.0 -- Qt compiled 6.12.0
-rootdir: /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun
-configfile: pyproject.toml
-plugins: respx-0.23.1, hypothesis-6.155.6, forked-1.7.5, qt-4.5.0, socket-0.8.1, asyncio-1.4.0, pytest_httpserver-1.1.5, logfire-4.37.0, langsmith-0.10.2, timeout-2.4.0, anyio-4.16.0, requests-mock-1.12.1, platformdirs-4.14.3, inline-snapshot-0.36.0, cov-7.1.0
-asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collecting ... collected 19 items
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 95%]
+..............                                                           [100%]
+=============================== warnings summary ===============================
+test/diagnostics/test_bayesian_optimizer.py::TestBayesianOptimize::test_maximizes_hill_function
+test/diagnostics/test_bayesian_optimizer.py::TestBayesianOptimize::test_evaluation_count
+test/diagnostics/test_bayesian_optimizer.py::TestBayesianOptimize::test_bounds_respected
+test/diagnostics/test_bayesian_optimizer.py::TestBayesianOptimize::test_monotone_objective
+  /home/xil/.local/lib/python3.14/site-packages/sklearn/gaussian_process/_gpr.py:670: ConvergenceWarning: lbfgs failed to converge after 4 iteration(s) (status=2):
+  ABNORMAL: 
+  
+  You might also want to scale the data as shown in:
+      https://scikit-learn.org/stable/modules/preprocessing.html
+    _check_optimize_result("lbfgs", opt_res)
 
-test/tools/test_web_search_backend.py::TestNoBackend::test_missing_url_returns_failure PASSED [  5%]
-test/tools/test_web_search_backend.py::TestNoBackend::test_missing_url_returns_tool_calls_1 PASSED [ 10%]
-test/tools/test_web_search_backend.py::TestNoBackend::test_empty_url_returns_failure PASSED [ 15%]
-test/tools/test_web_search_backend.py::TestWithStub::test_stub_url_returns_results PASSED [ 21%]
-test/tools/test_web_search_backend.py::TestWithStub::test_stub_url_page_count_sets_tool_calls PASSED [ 26%]
-test/tools/test_web_search_backend.py::TestWithStub::test_stub_failure_returns_error PASSED [ 31%]
-test/tools/test_web_search_backend.py::TestWithStub::test_missing_query_still_fails PASSED [ 36%]
-test/tools/test_web_search_backend.py::TestWithStub::test_negative_num_results_clamped_to_one PASSED [ 42%]
-test/tools/test_web_search_backend.py::TestWithStub::test_zero_num_results_clamped_to_one PASSED [ 47%]
-test/tools/test_web_search_backend.py::TestWithStub::test_sensitivity_audit_still_works PASSED [ 52%]
-test/tools/test_web_search_backend.py::TestMalformedResponse::test_null_body PASSED [ 57%]
-test/tools/test_web_search_backend.py::TestMalformedResponse::test_string_body PASSED [ 63%]
-test/tools/test_web_search_backend.py::TestMalformedResponse::test_number_body PASSED [ 68%]
-test/tools/test_web_search_backend.py::TestMalformedResponse::test_bool_body PASSED [ 73%]
-test/tools/test_web_search_backend.py::TestMalformedResponse::test_list_of_strings PASSED [ 78%]
-test/tools/test_web_search_backend.py::TestMalformedResponse::test_list_of_ints PASSED [ 84%]
-test/tools/test_web_search_backend.py::TestMalformedResponse::test_dict_with_null_results PASSED [ 89%]
-test/tools/test_web_search_backend.py::TestMalformedResponse::test_dict_with_string_results PASSED [ 94%]
-test/tools/test_web_search_backend.py::TestMalformedResponse::test_dict_with_int_results PASSED [100%]
+test/diagnostics/test_bayesian_optimizer.py::TestBayesianOptimize::test_result_type
+test/diagnostics/test_bayesian_optimizer.py::TestBayesianOptimize::test_result_type
+  /home/xil/.local/lib/python3.14/site-packages/sklearn/gaussian_process/kernels.py:440: ConvergenceWarning: The optimal value found for dimension 0 of parameter length_scale is close to the specified lower bound 1e-05. Decreasing the bound and calling fit again may find a better value.
+    warnings.warn(
 
-============================== 19 passed in 2.84s ==============================
+test/diagnostics/test_bayesian_optimizer.py::TestBayesianOptimize::test_monotone_objective
+  /home/xil/.local/lib/python3.14/site-packages/sklearn/gaussian_process/_gpr.py:670: ConvergenceWarning: lbfgs failed to converge after 5 iteration(s) (status=2):
+  ABNORMAL: 
+  
+  You might also want to scale the data as shown in:
+      https://scikit-learn.org/stable/modules/preprocessing.html
+    _check_optimize_result("lbfgs", opt_res)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.14.9-final-0 ________________
+
+Name                                                      Stmts   Miss  Cover   Missing
+---------------------------------------------------------------------------------------
+src/alienclaw/diagnostics/__init__.py                         2      0   100%
+src/alienclaw/diagnostics/audit_types.py                     57      0   100%
+src/alienclaw/diagnostics/bayesian_optimizer.py              51      0   100%
+src/alienclaw/diagnostics/diversity_tracker.py               24      0   100%
+src/alienclaw/diagnostics/dynamics_summary.py                74      0   100%
+src/alienclaw/diagnostics/fitness_ceiling.py                 28      0   100%
+src/alienclaw/diagnostics/fitness_formula_candidates.py      65      2    97%   55-56
+src/alienclaw/diagnostics/fixation_theory.py                 55      1    98%   78
+src/alienclaw/diagnostics/genome_information.py              77      1    99%   37
+src/alienclaw/diagnostics/instrumentation.py                 50      2    96%   77-78
+src/alienclaw/diagnostics/martian_stub_generator.py          28      0   100%
+src/alienclaw/diagnostics/plateau_detector.py                65      0   100%
+src/alienclaw/diagnostics/reporting.py                       68      0   100%
+src/alienclaw/diagnostics/stub_servers.py                    33      0   100%
+---------------------------------------------------------------------------------------
+TOTAL                                                       677      6    99%
+Required test coverage of 98% reached. Total coverage: 99.11%
+302 passed, 7 warnings in 5.68s

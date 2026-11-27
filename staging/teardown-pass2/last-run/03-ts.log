@@ -1,35 +1,34 @@
 npm warn Unknown project config "onlyBuiltDependencies". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
 
- RUN  v4.1.7 /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun
+ RUN  v4.1.7 /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun2
       Coverage enabled with v8
 
-(node:2347855) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-[api] /v1/genomes handler throw: Error: mocked unhandled boom
-[api] /v1/genomes handler throw: Error: sensitive-marker-pkt-593
-[api] /v1/genomes handler throw: Error: ER_DUP_ENTRY: Duplicate entry 'sub_xyz' on host 10.0.7.21:3306
-[api] /v1/install non-structured throw: Error: mocked install handler boom
-[api] unhandled error: Error: mocked stats handler boom
-(node:2347865) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-(node:2348090) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-(node:2348270) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-[audit-log] WARNING: failed to write entry: Error: EEXIST: file already exists, mkdir '/tmp/audit-test-Vrle9c/audit'
-[migrate] Applied 900_blk.sql
-[migrate] Applied 901_line.sql
 
- Test Files  24 passed (24)
-      Tests  382 passed | 32 skipped (414)
-   Start at  19:08:37
-   Duration  27.13s (transform 949ms, setup 0ms, import 2.40s, tests 17.15s, environment 5ms)
+ Test Files  12 passed (12)
+      Tests  442 passed (442)
+   Start at  19:38:50
+   Duration  1.19s (transform 2.20s, setup 0ms, import 3.21s, tests 1.54s, environment 2ms)
 
  % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   93.57 |    86.68 |   94.73 |   96.06 |                   
+ alienclaw         |   99.03 |    96.55 |   91.66 |   98.75 |                   
+  constants.ts     |     100 |       50 |     100 |     100 | 75                
+  utils.ts         |   98.68 |      100 |   91.66 |   98.07 | 42                
+ alienclaw/net     |   84.29 |    77.58 |   86.66 |   90.06 |                   
+  ...ened-fetch.ts |   84.29 |    77.58 |   86.66 |   90.06 | ...11,314,323,363 
+ ...nclaw/registry |   99.24 |      100 |     100 |    99.1 |                   
+  ...-operators.ts |   97.82 |      100 |     100 |   97.29 | 50                
+ ...claw/telemetry |   96.99 |    91.13 |     100 |   99.13 |                   
+  ...try-reader.ts |   96.73 |    92.45 |     100 |     100 | 70,74,160,214     
+  ...try-writer.ts |   97.56 |    88.46 |     100 |   97.56 | 124               
+-------------------|---------|----------|---------|---------|-------------------
 
 =============================== Coverage summary ===============================
-Statements   : 83.95% ( 607/723 )
-Branches     : 77.84% ( 383/492 )
-Functions    : 87.5% ( 105/120 )
-Lines        : 85.75% ( 548/639 )
+Statements   : 93.57% ( 524/560 )
+Branches     : 86.68% ( 306/353 )
+Functions    : 94.73% ( 54/57 )
+Lines        : 96.06% ( 440/458 )
 ================================================================================

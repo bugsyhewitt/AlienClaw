@@ -44,7 +44,6 @@ src/alienclaw/diagnostics/composition_decoder_audit.py
 src/alienclaw/diagnostics/synthetic_compositions.py
 src/alienclaw/diagnostics/sensitivity_audit.py
 src/alienclaw/diagnostics/scaling_experiment.py
-src/alienclaw/fitness/conformance.py
 seed
 site
 scripts/check-seed-drift.sh
@@ -94,10 +93,11 @@ test/diagnostics/test_sensitivity_audit.py
 test/diagnostics/test_martian_sensitivity_audit.py
 test/diagnostics/test_scaling_experiment.py
 test/diagnostics/test_instrumentation.py
-test/fitness/test_conformance.py
-test/fitness/test_field_valid_branches.py
-test/tools/test_pkt087_extract_json_empty_extracted.py
 '
+# Not listed on purpose (D-1, resolved KEEP): src/alienclaw/fitness/conformance.py and
+# its tests (test/fitness/test_conformance.py, test/fitness/test_field_valid_branches.py,
+# test/tools/test_pkt087_extract_json_empty_extracted.py). decoupling.patch makes the
+# scorer take its contracts as an explicit input, so it survives seed/msb/ going.
 
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT

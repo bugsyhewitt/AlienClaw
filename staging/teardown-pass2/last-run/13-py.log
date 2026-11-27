@@ -1,0 +1,36 @@
+/home/xil/.local/lib/python3.14/site-packages/pytest_asyncio/plugin.py:299: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+============================= test session starts ==============================
+platform linux -- Python 3.14.9, pytest-9.2.0, pluggy-1.7.0 -- /usr/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+PySide6 6.12.0 -- Qt runtime 6.12.0 -- Qt compiled 6.12.0
+rootdir: /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun2
+configfile: pyproject.toml
+plugins: respx-0.23.1, hypothesis-6.155.6, forked-1.7.5, qt-4.5.0, socket-0.8.1, asyncio-1.4.0, pytest_httpserver-1.1.5, logfire-4.37.0, langsmith-0.10.2, timeout-2.4.0, anyio-4.16.0, requests-mock-1.12.1, platformdirs-4.14.3, inline-snapshot-0.36.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 19 items
+
+test/tools/test_web_search_backend.py::TestNoBackend::test_missing_url_returns_failure PASSED [  5%]
+test/tools/test_web_search_backend.py::TestNoBackend::test_missing_url_returns_tool_calls_1 PASSED [ 10%]
+test/tools/test_web_search_backend.py::TestNoBackend::test_empty_url_returns_failure PASSED [ 15%]
+test/tools/test_web_search_backend.py::TestWithStub::test_stub_url_returns_results PASSED [ 21%]
+test/tools/test_web_search_backend.py::TestWithStub::test_stub_url_page_count_sets_tool_calls PASSED [ 26%]
+test/tools/test_web_search_backend.py::TestWithStub::test_stub_failure_returns_error PASSED [ 31%]
+test/tools/test_web_search_backend.py::TestWithStub::test_missing_query_still_fails PASSED [ 36%]
+test/tools/test_web_search_backend.py::TestWithStub::test_negative_num_results_clamped_to_one PASSED [ 42%]
+test/tools/test_web_search_backend.py::TestWithStub::test_zero_num_results_clamped_to_one PASSED [ 47%]
+test/tools/test_web_search_backend.py::TestWithStub::test_sensitivity_audit_still_works PASSED [ 52%]
+test/tools/test_web_search_backend.py::TestMalformedResponse::test_null_body PASSED [ 57%]
+test/tools/test_web_search_backend.py::TestMalformedResponse::test_string_body PASSED [ 63%]
+test/tools/test_web_search_backend.py::TestMalformedResponse::test_number_body PASSED [ 68%]
+test/tools/test_web_search_backend.py::TestMalformedResponse::test_bool_body PASSED [ 73%]
+test/tools/test_web_search_backend.py::TestMalformedResponse::test_list_of_strings PASSED [ 78%]
+test/tools/test_web_search_backend.py::TestMalformedResponse::test_list_of_ints PASSED [ 84%]
+test/tools/test_web_search_backend.py::TestMalformedResponse::test_dict_with_null_results PASSED [ 89%]
+test/tools/test_web_search_backend.py::TestMalformedResponse::test_dict_with_string_results PASSED [ 94%]
+test/tools/test_web_search_backend.py::TestMalformedResponse::test_dict_with_int_results PASSED [100%]
+
+============================== 19 passed in 2.94s ==============================

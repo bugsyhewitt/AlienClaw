@@ -1,8 +1,8 @@
 diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
-index 8d99e9d4..5dfdea55 100644
+index 8d99e9d4..a9d82a74 100644
 --- a/.github/workflows/ci.yml
 +++ b/.github/workflows/ci.yml
-@@ -37,22 +37,9 @@ jobs:
+@@ -37,22 +37,47 @@ jobs:
          run: npx tsc --noEmit
        - name: Cross-language genome spec compliance (TypeScript side)
          run: npx vitest run test/genome/ts-fixture-runner.test.ts
@@ -12,12 +12,48 @@ index 8d99e9d4..5dfdea55 100644
 -      # the packet-090+ test campaign and salvage rounds landed; thresholds
 -      # sit just below measured to absorb v8 jitter while locking the gains.
 -      - name: Governance loop tests with coverage
--        run: |
++      # ── KEEP TypeScript coverage gate ──────────────────────────────────────
++      # Added 2026-11-26 with teardown pass 2, replacing the governance gate.
++      # Covers the engine-side TypeScript that survives the teardown: the
++      # hardened fetch, the genome codec + operators, telemetry, and the
++      # constants/utils they import. The test files are named explicitly (not
++      # whole directories) so the gate measures the same thing before and after
++      # the DROP tests are deleted. test/net/ is the one directory: it holds only
++      # hardened-fetch tests (none on main as of 401f4099), so hardened-fetch
++      # tests added there are gated without another workflow edit; vitest skips
++      # a filter that matches nothing. The streaming-cap probe is left out: it is
++      # an RSS bound, which v8 instrumentation would distort, and the Unit tests
++      # job already runs it. Thresholds sit just below the measured 96.06%
++      # lines / 86.68% branches (440/458, 306/353) to absorb v8 jitter.
++      - name: KEEP TypeScript tests with coverage
+         run: |
 -          npx vitest run test/governance/ \
--            --coverage --coverage.provider=v8 \
++          npx vitest run \
++            test/registry/genome-codec.test.ts \
++            test/registry/genome-operators.test.ts \
++            test/genome/ts-fixture-runner.test.ts \
++            test/genome/xcode-helpers.test.ts \
++            test/telemetry/telemetry-reader.test.ts \
++            test/telemetry/telemetry-writer.test.ts \
++            test/telemetry/online-fitness-reader.test.ts \
++            test/utils.test.ts \
++            test/utils/atomic-write.test.ts \
++            test/utils/atomic-write-d2-cleanup.test.ts \
++            test/ssrf-vectors.test.ts \
++            test/jail-hostile-genomes.test.ts \
++            test/net/ \
+             --coverage --coverage.provider=v8 \
 -            --coverage.thresholds.lines=82 \
 -            --coverage.thresholds.branches=77 \
 -            --coverage.include="src/alienclaw/governance/**/*.ts"
++            --coverage.thresholds.lines=95 \
++            --coverage.thresholds.branches=85 \
++            --coverage.include="src/alienclaw/net/**" \
++            --coverage.include="src/alienclaw/telemetry/**" \
++            --coverage.include="src/alienclaw/registry/genome-codec.ts" \
++            --coverage.include="src/alienclaw/registry/genome-operators.ts" \
++            --coverage.include="src/alienclaw/constants.ts" \
++            --coverage.include="src/alienclaw/utils.ts"
        # ── API surface coverage gate ──────────────────────────────────────────
        # Ratchets coverage over the community API tree (src/alienclaw/api/**).
 -      # The recursive ** glob includes api/handlers/** — unlike the governance
@@ -26,7 +62,7 @@ index 8d99e9d4..5dfdea55 100644
        # the measured baseline (lines 76.31% / branches 64.07% on the DB-backed
        # api suite) so the gate is green on merge and ratchets future regressions
        # while leaving margin for v8 measurement jitter. As the open api-test PRs
-@@ -128,19 +115,8 @@ jobs:
+@@ -128,48 +153,19 @@ jobs:
            assert data.get('\$schema_version') == '1.0', 'fixture schema version unexpected'
            print(f'Fixture OK: {len(data[\"cases\"])} cases')
            "
@@ -44,20 +80,25 @@ index 8d99e9d4..5dfdea55 100644
        - name: Lint Python files
 -        run: ruff check src/alienclaw/genome/ test/genome/ src/alienclaw/brains/ test/brains/
 +        run: ruff check src/alienclaw/genome/ test/genome/
++      # Floors ratcheted 2026-11-26 (teardown pass 2): measured genome 99.65% /
++      # evolution 99.61% / diagnostics 99.11% on the trimmed tree, and 99.65% /
++      # 99.66% / 98.74% on main before the cut. pytest-cov is deterministic, so
++      # a floor about 1 point below the lower measurement is enough margin.
        - name: Test genome module with coverage
          run: |
            PYTHONPATH=src pytest test/genome/ \
-@@ -148,28 +124,6 @@ jobs:
+             --cov=alienclaw.genome \
              --cov-report=term-missing \
-             --cov-fail-under=95 \
-             -q
+-            --cov-fail-under=95 \
+-            -q
 -      - name: Test brain registry with coverage
 -        run: |
 -          PYTHONPATH=src pytest test/brains/ \
 -            --cov=alienclaw.brains \
 -            --cov-report=term-missing \
 -            --cov-fail-under=90 \
--            -q
++            --cov-fail-under=98 \
+             -q
 -      - name: Lint seed/msb/ brains
 -        run: |
 -          PYTHONPATH=src python3 -c "
@@ -76,7 +117,16 @@ index 8d99e9d4..5dfdea55 100644
        - name: Lint evolution module
          run: ruff check src/alienclaw/evolution/ test/evolution/
        - name: Run evolution tests with coverage
-@@ -189,14 +143,6 @@ jobs:
+@@ -180,7 +176,7 @@ jobs:
+           pytest test/evolution/ \
+             --cov=alienclaw.evolution \
+             --cov-report=term-missing \
+-            --cov-fail-under=85 \
++            --cov-fail-under=98 \
+             -q
+       - name: Verify no leak directories
+         run: |
+@@ -189,14 +185,6 @@ jobs:
              ls -la "$HOME/.alienclaw/populations/"
              exit 1
            fi
@@ -91,7 +141,16 @@ index 8d99e9d4..5dfdea55 100644
            echo "Leak check: OK — no leftover directories"
        - name: Run diagnostics tests with coverage
          env:
-@@ -221,21 +167,6 @@ jobs:
+@@ -206,7 +194,7 @@ jobs:
+           pytest test/diagnostics/ \
+             --cov=alienclaw.diagnostics \
+             --cov-report=term-missing \
+-            --cov-fail-under=90 \
++            --cov-fail-under=98 \
+             -q
+           if [ -d "$HOME/.alienclaw/diagnostics/" ]; then
+             echo "FAIL: diagnostics tests left ~/.alienclaw/diagnostics/ behind"
+@@ -221,21 +209,6 @@ jobs:
            PYTHONPATH: src
          run: |
            pytest test/tools/test_web_search_backend.py -v
@@ -113,7 +172,7 @@ index 8d99e9d4..5dfdea55 100644
  
    shell:
      name: Shell script lint
-@@ -253,22 +184,3 @@ jobs:
+@@ -253,22 +226,3 @@ jobs:
            else
              echo "No shell scripts found, skipping"
            fi
