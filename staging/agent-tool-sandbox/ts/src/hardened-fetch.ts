@@ -4,17 +4,24 @@
  *
  * Staged copy of AlienClaw's src/alienclaw/net/hardened-fetch.ts. See
  * PROVENANCE.json for the source commit and blob, and README.md for the
- * threat model. Function bodies are verbatim; the AlienClaw-specific
- * LEADERBOARD_POLICY / leaderboardFetch wrapper and two unused imports
- * (node:http, node:https) were removed.
+ * threat model. The address classifiers (isBlockedHost,
+ * validateResolvedAddresses and their helpers) are verbatim; the
+ * AlienClaw-specific LEADERBOARD_POLICY / leaderboardFetch wrapper was
+ * removed, and connection pinning (staged only, 2026-11-26) replaced the
+ * fetch() call with the node:http / node:https transport in
+ * pinned-request.ts.
  *
  * What the code does:
  *   - Parses the URL with WHATWG `new URL()` (which canonicalises decimal,
  *     octal, hex and short-form IPv4 and IPv6 literals), enforces a protocol
  *     allowlist (default https + http), rejects blocked IP literals and
  *     localhost tokens, and applies an optional exact-hostname allowlist.
- *   - Resolves DNS via dns.promises.lookup({ all: true }) and rejects the
- *     request if ANY resolved address is in a blocked range.
+ *   - Resolves the hostname ONCE per hop, via dns.promises.lookup({ all: true })
+ *     or the policy's `resolve` hook, and rejects the request if ANY answer
+ *     is in a blocked range (or is not a canonical IP string).
+ *   - Pins the connection to that validated answer: the socket's `lookup`
+ *     returns only those addresses, so a DNS-rebinding second answer is never
+ *     asked for. Host header, TLS SNI and the certificate check keep the name.
  *   - Blocks loopback, RFC1918, link-local (169.254.x.x incl. cloud metadata),
  *     CGNAT 100.64.0.0/10, benchmarking, IETF 192.0.0.0/24, multicast,
  *     reserved, IPv6 ULA / link-local / multicast / unspecified, the whole
@@ -29,15 +36,18 @@
  *     connect, headers and the full body read across every hop.
  *
  * What it does NOT do (see README "Not covered"):
- *   - It does not pin the connection to the validated address. fetch() does
- *     its own DNS resolution after validation, so a DNS-rebinding answer that
- *     changes between the two lookups is not caught.
+ *   - It does not judge the resolver: whatever the resolver answers is what
+ *     gets validated and pinned. An attacker who controls DNS can still pick
+ *     any PUBLIC address, which is not SSRF.
+ *   - It does not use a proxy (proxy env vars are ignored, see pinned-request.ts).
  *   - getaddrinfo cannot be cancelled: a lookup that outlives the budget is
  *     abandoned (the call still fails at the deadline) and finishes in the
  *     background.
  */
 
 import * as dns  from 'node:dns/promises';
+import { isIP } from 'node:net';
+import { transport, type PinnedAddress } from './pinned-request.js';
 
 // ---------------------------------------------------------------------------
 // Policy types
@@ -63,7 +73,18 @@ export interface FetchPolicy {
   allowedHosts?: Set<string>;
   /** Maximum number of redirect hops to follow. Integer, 0 to 20. Default: 5. */
   maxRedirects?: number;
+  /**
+   * Optional resolver (custom DNS, or a fake one in tests). Called once per
+   * hop with the URL's hostname (an IPv6 literal without its brackets); its
+   * answer gets exactly the checks a DNS answer gets, and the connection may
+   * use only those addresses. A throw or a malformed answer fails the call.
+   * Default: dns.promises.lookup(hostname, { all: true }).
+   */
+  resolve?:      Resolver;
 }
+
+/** A FetchPolicy `resolve` hook: the addresses `hostname` resolves to. */
+export type Resolver = (hostname: string) => Promise<readonly ResolvedAddress[]> | readonly ResolvedAddress[];
 
 export const DEFAULT_PROTOCOLS = ['https', 'http'] as const;
 export const MAX_REDIRECTS      = 5;
@@ -262,6 +283,7 @@ interface CheckedPolicy {
   readonly maxRedirects: number;
   readonly protocols:    readonly string[];
   readonly allowedHosts: Set<string> | undefined;
+  readonly resolve:      Resolver | undefined;
 }
 
 /** A short description of a rejected value for an error message (objects are not echoed). */
@@ -312,12 +334,19 @@ function checkPolicy(policy: unknown): CheckedPolicy {
       `Invalid FetchPolicy: allowedHosts must be a Set of hostnames (got ${describeValue(allowedHosts)})`,
     );
   }
+  const resolve = p.resolve;
+  if (resolve !== undefined && typeof resolve !== 'function') {
+    throw new TypeError(
+      `Invalid FetchPolicy: resolve must be a function (got ${describeValue(resolve)})`,
+    );
+  }
   return {
     timeoutMs,
     maxBytes,
     maxRedirects,
     protocols: (protocols as string[] | undefined) ?? [...DEFAULT_PROTOCOLS],
     allowedHosts: allowedHosts as Set<string> | undefined,
+    resolve: resolve as Resolver | undefined,
   };
 }
 
@@ -357,14 +386,47 @@ function validateUrl(urlStr: string, policy: CheckedPolicy): URL {
 // DNS resolution and validation
 // ---------------------------------------------------------------------------
 
-async function resolveAndValidate(hostname: string): Promise<void> {
+/** A resolve hook's answer as plain {address, family} copies; anything else throws. */
+function checkAnswer(answer: unknown): ResolvedAddress[] {
+  if (!Array.isArray(answer)) {
+    throw new Error(`resolve hook returned ${describeValue(answer)}, not an array of addresses`);
+  }
+  return answer.map((entry: unknown) => {
+    const { address, family } = (typeof entry === 'object' && entry !== null ? entry : {}) as
+      { address?: unknown; family?: unknown };
+    if (typeof address !== 'string' || typeof family !== 'number') {
+      throw new Error('resolve hook returned an entry without a string address and a numeric family');
+    }
+    return { address, family };
+  });
+}
+
+/**
+ * Resolve `hostname` once and validate every answer. The returned list is
+ * the pin: the transport's socket may connect only to these addresses.
+ */
+async function resolveAndValidate(hostname: string, resolve: Resolver | undefined): Promise<PinnedAddress[]> {
+  // URL.hostname keeps the brackets of an IPv6 literal; resolvers want the bare address.
+  const name = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
   let addresses: ResolvedAddress[];
   try {
-    addresses = await dns.lookup(hostname, { all: true });
+    addresses = resolve === undefined
+      ? await dns.lookup(name, { all: true })
+      : checkAnswer(await resolve(name));
   } catch (err) {
     throw new Error(`DNS resolution failed for "${hostname}": ${(err as Error).message}`);
   }
   validateResolvedAddresses(addresses);
+  // The socket connects to the address string itself, so it must be the
+  // canonical form the classifier read. A resolve hook could answer
+  // '012.0.0.1' (family 4): 12.0.0.1 to parseIpv4Octets, octal 10.0.0.1 to
+  // inet_aton. net.isIP rejects every non-canonical spelling.
+  for (const { address, family } of addresses) {
+    if (isIP(address) !== family) {
+      throw new Error(`SSRF rejected: resolved address ${address} is not a canonical IPv${family} address`);
+    }
+  }
+  return addresses.map(({ address, family }) => ({ address, family }));
 }
 
 // ---------------------------------------------------------------------------
@@ -385,9 +447,10 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
   const p = checkPolicy(policy);
 
   // One deadline for the whole call: DNS, connect, headers and the full body
-  // read, across every redirect hop. The signal goes to fetch() (so undici
-  // tears the socket down), and every await below also races `expired`, so a
-  // lookup or a body stream that ignores the signal cannot outlive the budget.
+  // read, across every redirect hop. The signal goes to the transport (so
+  // node:http destroys the socket), and every await below also races
+  // `expired`, so a lookup or a body stream that ignores the signal cannot
+  // outlive the budget.
   const controller = new AbortController();
   const { signal } = controller;
   const timeoutError = (): Error => new Error(`Fetch timeout: exceeded ${p.timeoutMs}ms budget`);
@@ -408,17 +471,17 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
       // 1. Validate URL (protocol, literal-IP check, host allowlist)
       const parsed = validateUrl(currentUrl, p);
 
-      // 2. Resolve DNS and validate every returned address
-      await beforeDeadline(resolveAndValidate(parsed.hostname));
+      // 2. Resolve once and validate every returned address: this is the pin
+      const addresses = await beforeDeadline(resolveAndValidate(parsed.hostname, p.resolve));
 
-      // 3. Perform the request under the shared deadline
-      const response = await beforeDeadline(fetch(currentUrl, {
-        signal,
-        redirect: 'manual',  // handle redirects ourselves for re-validation
-      }));
+      // 3. Perform the request under the shared deadline. The transport's
+      //    socket connects only to `addresses` and never follows redirects.
+      const response = await beforeDeadline(transport.request(currentUrl, { signal, addresses }));
 
       // 4. Handle redirects (3xx)
       if (response.status >= 300 && response.status < 400) {
+        // The redirect body is never read; release its connection now.
+        response.body?.cancel().catch(() => { /* already closed */ });
         const location = response.headers.get('location');
         if (!location) {
           throw new Error(`Redirect with no Location header (status ${response.status})`);
@@ -432,7 +495,7 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
         continue;  // re-validate the new URL from the top of the loop
       }
 
-      if (!response.ok) {
+      if (response.status < 200 || response.status > 299) {
         throw new Error(`HTTP ${response.status} from ${parsed.hostname}`);
       }
 
@@ -461,7 +524,7 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
     }
   } catch (err) {
     // Once the timer has fired, report a timeout whatever surfaced first
-    // (our deadline, undici's AbortError, or a stream error from the abort).
+    // (our deadline, the transport's AbortError, or a stream error from the abort).
     if (signal.aborted) throw timeoutError();
     throw err;
   } finally {

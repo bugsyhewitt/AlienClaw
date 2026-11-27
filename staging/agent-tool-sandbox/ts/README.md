@@ -1,11 +1,15 @@
 # @v3x/hardened-fetch (TypeScript, staging)
 
-An SSRF-hardened `fetch` for Node 18+. It has no runtime dependencies (only
-`node:dns/promises` and the global `fetch`).
+An SSRF-hardened HTTP GET for Node 18+ with **connection pinning**: the socket
+connects only to the addresses that were validated. It has no runtime
+dependencies (only Node built-ins: `node:dns/promises`, `node:http`,
+`node:https`, `node:net`, `node:stream`, `node:zlib`).
 
 This is a **staged copy** of AlienClaw's `src/alienclaw/net/hardened-fetch.ts`.
-The code here is the in-tree code minus the AlienClaw leaderboard wrapper.
-`PROVENANCE.json` records the source commit and blob. The package is
+The code here is the in-tree code minus the AlienClaw leaderboard wrapper, plus
+connection pinning, which exists **only in this staged copy** (2026-11-26): the
+in-tree module still calls the global `fetch()` and is still open to DNS
+rebinding. `PROVENANCE.json` records the source commit and blob. The package is
 `private` and versioned `0.0.0-dev`. Nothing has been published.
 
 ## API
@@ -21,10 +25,10 @@ const body: string = await hardenedFetch('https://example.com/data.json', {
 
 | Export | Kind | What it does |
 |---|---|---|
-| `hardenedFetch(url, policy)` | `Promise<string>` | Validates the policy, validates the URL, resolves DNS and rejects if any answer is blocked, fetches with `redirect: 'manual'`, re-validates every redirect hop, caps the size, and decodes the body as UTF-8, all under one deadline. Throws `TypeError` for an invalid policy and `Error` on any other rejection. |
+| `hardenedFetch(url, policy)` | `Promise<string>` | Validates the policy, validates the URL, resolves the host once and rejects if any answer is blocked, sends a GET whose socket can connect only to that validated answer, handles redirects itself and re-validates (and re-pins) every hop, caps the size, and decodes the body as UTF-8, all under one deadline. Throws `TypeError` for an invalid policy, `TypeError('fetch failed', { cause })` for a network failure (as `fetch()` did), and `Error` on any other rejection. |
 | `isBlockedHost(hostname)` | `boolean` | Classifies a **`new URL(...).hostname`** string: IP literal (bracketed or bare IPv6, dotted-quad IPv4) or the tokens `localhost`, `ip6-localhost`, `ip6-loopback`. Returns `false` for ordinary DNS names, which are left to the post-DNS check. |
 | `validateResolvedAddresses(addrs)` | `void` / throws | Checks a `dns.lookup(host, { all: true })` answer. Throws if any address is blocked, if the family is not 4 or 6, if a family-4 address does not parse, or if the list is empty. |
-| `FetchPolicy`, `ResolvedAddress` | types | See below. |
+| `FetchPolicy`, `ResolvedAddress`, `Resolver` | types | See below. `Resolver` is the type of the `resolve` hook. |
 | `DEFAULT_PROTOCOLS` | `['https', 'http']` | The protocols allowed when `policy.protocols` is unset. |
 | `MAX_REDIRECTS` | `5` | The redirect cap when `policy.maxRedirects` is unset. |
 
@@ -38,11 +42,12 @@ literals. `isBlockedHost('0177.0.0.1')` on the raw string returns `false`.
 
 | Field | Required | Valid values | Meaning |
 |---|---|---|---|
-| `timeoutMs` | yes | integer, 1 to 2,147,483,647 | One wall-clock deadline for the whole call: DNS, connect, headers and the full body read, redirects included. A single `AbortController` is passed to every `fetch()`, and every await (lookup, fetch, each body read) also races the deadline, so a slow-drip body aborts at `timeoutMs`. The ceiling is the largest delay Node's `setTimeout` honours (above it Node fires after 1 ms). |
+| `timeoutMs` | yes | integer, 1 to 2,147,483,647 | One wall-clock deadline for the whole call: DNS, connect, headers and the full body read, redirects included. A single `AbortController` is passed to every request (aborting it destroys the socket), and every await (lookup, request, each body read) also races the deadline, so a slow-drip body aborts at `timeoutMs`. The ceiling is the largest delay Node's `setTimeout` honours (above it Node fires after 1 ms). |
 | `maxBytes` | yes | integer, 0 to 268,435,456 (256 MiB) | The body size cap. The body is streamed, and the read is cancelled as soon as the running total exceeds the cap. The ceiling exists because the body is buffered and decoded into one string. |
 | `protocols` | no | array of strings | The protocols allowed, written without the colon. Default `['https', 'http']`. It is checked on every hop, so `['https']` also stops an https-to-http downgrade redirect. |
 | `allowedHosts` | no | a `Set` | An exact `URL.hostname` allowlist, checked on every hop. The match is exact (`api.example.com.` with a trailing dot does not match `api.example.com`). The block list and the DNS check still run for hosts on the list. |
 | `maxRedirects` | no | integer, 0 to 20 | The number of hops to follow. Default 5 (`MAX_REDIRECTS`). `0` refuses the first redirect. The ceiling is the WHATWG Fetch standard's own redirect limit. |
+| `resolve` | no | a function `(hostname) => ResolvedAddress[]` or a promise of one | A custom resolver (your own DNS, or a fake one in tests). Called once per hop with the URL hostname, an IPv6 literal without its brackets. Its answer gets exactly the checks a DNS answer gets and becomes the pin. A throw, a non-array or an entry without a string `address` and numeric `family` fails the call with `DNS resolution failed for "<host>": ...`. It runs under the deadline. Default: `dns.promises.lookup(hostname, { all: true })`. |
 
 **The policy is validated before any DNS or network I/O, and it fails closed.** A value outside the table above
 throws `TypeError: Invalid FetchPolicy: <field> must be ... (got <value>)`. Only `undefined` counts as "omitted" for
@@ -61,12 +66,64 @@ each hop, in this order, all under that one deadline (`Fetch timeout: exceeded <
 3. `isBlockedHost(hostname)` on the literal (`SSRF rejected: hostname ... is blocked`).
    This happens before any DNS lookup.
 4. `allowedHosts`, if set (`Host not in allowlist`).
-5. `dns.promises.lookup(hostname, { all: true })`. A failure gives `DNS resolution failed`.
-   Every address goes through `validateResolvedAddresses`, so a single blocked answer rejects the request.
-6. `fetch(url, { redirect: 'manual', signal })`. A 3xx response needs a `Location` header, which is resolved
-   against the current URL; the hop counter goes down and the loop returns to step 1. Any other non-2xx response
-   throws `HTTP <status> from <host>`.
+5. One resolution: `policy.resolve(hostname)` if set, else `dns.promises.lookup(hostname, { all: true })`.
+   A failure gives `DNS resolution failed`. Every address goes through `validateResolvedAddresses`, so a single
+   blocked answer rejects the request, and every address must be a canonical IP string (`net.isIP` agrees with
+   its family), so `SSRF rejected: resolved address ... is not a canonical IPv4 address` stops spellings such as
+   `012.0.0.1` that the classifier and `inet_aton` would read differently. The validated list is the pin.
+6. One GET through the pinned transport (`src/pinned-request.ts`, see "Connection pinning"). A 3xx response needs a
+   `Location` header, which is resolved against the current URL; the unread redirect body is cancelled, the hop
+   counter goes down and the loop returns to step 1, so the next hop resolves once and is pinned again. Any other
+   non-2xx response throws `HTTP <status> from <host>`.
 7. Streamed body with the size cap. Each chunk read races the deadline, so the body read is covered too.
+
+## Connection pinning
+
+Before 2026-11-26 the code validated a `dns.lookup()` answer and then called `fetch(url)`, which resolved the name
+again when it connected. A hostile authoritative server with a short TTL could answer a public address to the check
+and `127.0.0.1` (or the metadata address) to the connect. Now:
+
+- The request is made with `node:http` / `node:https` to the **original hostname**, so the `Host` header, the TLS SNI
+  (`servername`) and the certificate check (Node's default `checkServerIdentity`, against the default CA store) all
+  use the name.
+- Its `lookup` option is a pinned lookup that answers **only** from the validated list and never calls DNS. It
+  supports the `{ all: true }` form that Node's `autoSelectFamily` (happy eyeballs) uses, filters by family when
+  asked, and refuses any other hostname. With several validated addresses Node may try any of them; all were
+  validated.
+- Every redirect hop goes through the same path: one resolution, validation, a new pin.
+- Each request gets a fresh `http.Agent` / `https.Agent` (`keepAlive: false`), so no pooled socket from another hop
+  or call is reused, and **no proxy is ever used**: `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `NODE_USE_ENV_PROXY` and
+  `http.setGlobalProxyFromEnv()` are ignored (they configure only the global agents and the global fetch). A proxy
+  would resolve the name itself and void the pin.
+
+`test/pinning.test.ts` proves it without network access. A resolver answers `203.0.113.10` first and `127.0.0.1`
+afterwards; a wrapper around `net.Socket.prototype.connect` records the address Node reports in the socket's
+`lookup` event (the address it is about to dial) and destroys the socket before it dials. The target is
+`203.0.113.10` and the resolver ran once. A second wrapper records what the pinned lookup hands the socket and then
+dials a 127.0.0.1 listener instead, which is how the Host header, SNI, certificate (a throwaway self-signed cert made
+with `openssl` at test time; skipped if `openssl` is missing), redirect-hop and decoding tests get a real server.
+Replacing the pin with a second resolution makes five of those tests fail.
+
+### Differences from `fetch()`
+
+The transport reproduces what callers of the `fetch()` version could observe, and the parity tests compare it with
+the real global `fetch` against the same local server:
+
+| Behaviour | Now | Before (`fetch()`) |
+|---|---|---|
+| Request headers | `host`, `accept: */*`, `accept-language: *`, `sec-fetch-mode: cors`, `user-agent: node`, `accept-encoding: gzip, deflate` (`br, gzip, deflate` over https) | same, except **`connection: keep-alive`**; now **`connection: close`** (no reuse, one TCP/TLS connection per hop) |
+| Content decoding | gzip / x-gzip, deflate (zlib-wrapped or raw, chosen from the RFC 1950 header), br, zstd where `zlib` has it, stacked codings decoded last-first, more than 5 codings refused, an unknown coding passes the body through undecoded; `maxBytes` counts decoded bytes | same (undici picks raw deflate from the first byte only) |
+| Bad ports (Fetch standard list: 22, 25, 6000, ...) | `TypeError: fetch failed`, cause `bad port`, no connect | same |
+| URL with credentials | `TypeError: Request cannot be constructed from a URL that includes credentials: <url>` | same |
+| Network errors | `TypeError: fetch failed` with the Node error as `cause` | same shape; the `cause` is Node's error, not undici's |
+| Body broken mid-read | `TypeError: terminated` | same |
+| 101 / 204 / 205 / 304 | null body (a 204 still ends in `No response body`) | same |
+| Redirect bodies | cancelled before the next hop | left open until the call ended |
+| IPv6-literal URLs (`http://[2001:db8::1]/`) | resolved without brackets, validated, fetched | always failed: the bracketed name went to `dns.lookup` (SR-09) |
+| Proxy env vars / `NODE_USE_ENV_PROXY` | ignored | honoured by Node's fetch (no pinning possible) |
+| Idle timers | only the policy deadline | undici's 300 s headers and body timeouts also applied |
+| TLS ALPN | none offered | `http/1.1` offered |
+| Protocol | HTTP/1.1 | HTTP/1.1 (undici's default; `allowH2` is off) |
 
 ### Block list
 
@@ -116,15 +173,21 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
 - Malformed policies (`NaN`, `undefined`, strings, out-of-range values): they throw before any I/O instead of
   removing a limit.
 - NAT64 addresses (`64:ff9b::/96` with a blocked embedded IPv4, and all of `64:ff9b:1::/48`).
+- **DNS rebinding (TOCTOU)**, in this staged copy only: the host is resolved once per hop and the socket is pinned to
+  that validated answer (see "Connection pinning"). The in-tree module is still exposed.
+- Proxies cannot carry the request around the check: proxy configuration is ignored.
 
 ### Not covered
 
-- **DNS rebinding (TOCTOU).** Validation calls `dns.lookup()`, then `fetch()` gets the
-  *hostname* URL and resolves it again through its own lookup. A hostile authoritative server with a short TTL can
-  answer with a public address first and a private one second. The connection is not pinned to the validated
-  address. The in-tree source comment says resolver-inconsistency attacks are "impossible"; that claim is wrong, and the
-  staged comment has been corrected. To close the window, connect to the validated IP yourself (for example with an undici
-  `Agent` whose `connect.lookup` returns only the addresses you validated, keeping SNI and the Host header set to the name).
+- **The resolver is trusted to answer, not to be honest.** Whatever it returns is validated and pinned. An attacker
+  who controls DNS can still choose any *public* address (that is not SSRF), and the pin lasts one hop: a redirect is
+  resolved again.
+- **IP-literal URLs** skip the pinned lookup: Node dials the literal itself, which the literal check already passed.
+  The resolver is still called for them (as before) and its answer is validated, but the socket uses the literal.
+- **Only `hardenedFetch` is pinned.** Code that validates with `isBlockedHost` / `validateResolvedAddresses` and then
+  calls its own client gets no pin.
+- **Other client features are absent:** no proxy support, no connection reuse, no custom CA / client certificate /
+  TLS options (the default CA store is used), no HTTP/2, GET only.
 - **`getaddrinfo` cannot be cancelled.** The lookup is raced against the deadline, so the call still fails at
   `timeoutMs`, but a lookup that is still running is abandoned and finishes in the background (on libuv's threadpool).
 - **The other IPv6 transition prefixes that embed IPv4 are not blocked:** 6to4 `2002::/16` and Teredo `2001::/32`.
@@ -135,16 +198,14 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
   `192.88.99.0/24` are not blocked.
 - **`localhost.` and `*.localhost`** are not caught by the literal check. They are blocked only if DNS resolves them to
   loopback, which is the normal case.
-- **Proxies.** If Node's global `fetch` is configured to use an HTTP proxy (for example `NODE_USE_ENV_PROXY`), the proxy
-  resolves the name, and the local DNS check no longer describes the real destination.
 - **Downgrade.** The default `protocols` allows an https-to-http redirect. Set `protocols: ['https']` to forbid it.
 - **Credential leakage in errors.** `Invalid URL: <url>` repeats the input, userinfo included.
-- **Redirect bodies are not drained or cancelled** before the next hop.
 
 `test/hardened-fetch.test.ts` pins the testable gaps above under "KNOWN GAPS (pinned)". Fixing one should flip its test on purpose.
-The NAT64 and body-read gaps were fixed on 2026-11-26: their pinned tests were flipped into "fixed gaps (formerly
-pinned)", and `test/hardening.test.ts` holds the full regression set for those two fixes and for policy validation
-(including a real undici fetch against a 127.0.0.1 slow-drip listener).
+The NAT64, body-read and DNS-rebinding gaps were fixed on 2026-11-26: their pinned tests were flipped into "fixed gaps
+(formerly pinned)". `test/hardening.test.ts` holds the full regression set for the first two and for policy
+validation (including the real transport against a 127.0.0.1 slow-drip listener), and `test/pinning.test.ts` the one
+for connection pinning.
 
 ## Divergences from the in-tree source
 
@@ -152,7 +213,8 @@ pinned)", and `test/hardening.test.ts` holds the full regression set for those t
 |---|---|
 | Exports | `LEADERBOARD_POLICY` and `leaderboardFetch` (AlienClaw-specific) are removed. Every other export is identical. |
 | Block list | **None.** CGNAT `100.64.0.0/10` was already blocked in-tree, so nothing was added. `test/parity-in-tree.test.ts` asserts that the decision divergence set is empty. |
-| Non-behavioural | The unused `node:http` / `node:https` imports are removed, and the header comment is rewritten (consumer list dropped, rebinding claim corrected). |
+| Transport (staged only, 2026-11-26) | `fetch()` is replaced by the pinned `node:http` / `node:https` transport in `src/pinned-request.ts`, and `FetchPolicy` gains `resolve`. The classifiers (`isBlockedHost`, `validateResolvedAddresses`) are unchanged, so the decision parity below still holds; `test/parity-in-tree.test.ts` stubs the transport for the staged module and `fetch` for the in-tree one with the same responses. See "Differences from `fetch()`" for every observable change. |
+| Non-behavioural | The header comment is rewritten (consumer list dropped, rebinding claim corrected). |
 | Tests | The ported vectors fix the in-tree `'[::])'` typo and replace four vacuous "obfuscated IPv4" assertions with real `new URL()` canonicalisation. The two `expect(true)` jail notes are not ported. `test/hardening.test.ts` is the in-tree `test/net/hardened-fetch-hardening.test.ts` without its `leaderboardFetch` block. |
 
 ## Differences from the Python twin (`src/alienclaw/tools/_ssrf_guard.py`)
@@ -185,9 +247,14 @@ node_modules/.bin/vitest run staging/agent-tool-sandbox/ts
 node_modules/.bin/tsc -p staging/agent-tool-sandbox/ts/tsconfig.json
 ```
 
-The tests make no external network calls: `node:dns/promises` is replaced with `vi.mock` and `globalThis.fetch` is spied on.
-The one exception is the slow-drip test in `test/hardening.test.ts`, which starts a 127.0.0.1 listener, forwards the
-stubbed `fetch` to it through the real global `fetch`, and closes it afterwards.
+The tests make no external network calls. `node:dns/promises` is replaced with `vi.mock`, and the decision tests stub
+the internal `transport.request` seam in `src/pinned-request.ts` (it took the place of `globalThis.fetch`; it is not
+exported from the package entry points), with a throwing guard in `beforeEach`. Tests that need a real server use
+127.0.0.1 listeners they start and close: the slow-drip test in `test/hardening.test.ts`, and `test/pinning.test.ts`,
+which feeds hardenedFetch a fake `resolve` hook, wraps `net.Socket.prototype.connect` so that no socket can dial
+anything but loopback, and uses the global `fetch` against the same listener as the reference for the parity checks.
+**New tests that reach the transport must stub `transport.request` (or use the pinning instruments), not
+`globalThis.fetch`: a `fetch` stub is never called now, and the request would go to the real network.**
 `test/parity-in-tree.test.ts` imports the in-tree module by relative path. Delete it, or point it at a pinned copy,
 when the package leaves the repo.
 

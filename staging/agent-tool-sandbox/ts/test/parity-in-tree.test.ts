@@ -27,6 +27,7 @@ import * as dnsModule from 'node:dns/promises';
 import * as staged from '../src/hardened-fetch.js';
 import * as stagedIndex from '../src/index.js';
 import * as inTree from '../../../../src/alienclaw/net/hardened-fetch.js';
+import { transport } from '../src/pinned-request.js';
 
 type Decision = { input: string; staged: string; inTree: string };
 
@@ -261,7 +262,11 @@ describe('parity: property-based', () => {
   });
 });
 
-describe('parity: hardenedFetch end-to-end (stubbed DNS + fetch)', () => {
+// The staged module sends its requests through the internal pinned
+// `transport` (connection pinning, staged only); the in-tree module still
+// calls the global fetch. Each run stubs its own module's seam with the same
+// response queue, so the comparison covers every decision but the socket.
+describe('parity: hardenedFetch end-to-end (stubbed DNS + fetch / transport)', () => {
   type Scenario = {
     name: string;
     url: string;
@@ -320,22 +325,28 @@ describe('parity: hardenedFetch end-to-end (stubbed DNS + fetch)', () => {
 
   for (const sc of scenarios) {
     it(`same outcome: ${sc.name}`, async () => {
-      const run = async (impl: typeof staged.hardenedFetch): Promise<{ result: string; fetched: unknown[] }> => {
+      const run = async (
+        impl: typeof staged.hardenedFetch,
+        seam: 'transport' | 'fetch',
+      ): Promise<{ result: string; fetched: unknown[] }> => {
         lookup.mockReset();
         lookup.mockResolvedValue(sc.dns as never);
         const queue = sc.responses();
-        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
-          const next = queue.shift();
-          if (!next) throw new Error('test: unexpected extra fetch');
-          return next;
-        });
+        const next = async (): Promise<Response> => {
+          const response = queue.shift();
+          if (!response) throw new Error('test: unexpected extra fetch');
+          return response;
+        };
+        const spy = seam === 'transport'
+          ? vi.spyOn(transport, 'request').mockImplementation(next)
+          : vi.spyOn(globalThis, 'fetch').mockImplementation(next);
         const result = await asyncOutcome(() => impl(sc.url, sc.policy));
-        const fetched = fetchSpy.mock.calls.map((c) => c[0]);
-        fetchSpy.mockRestore();
+        const fetched = spy.mock.calls.map((c) => c[0]);
+        spy.mockRestore();
         return { result, fetched };
       };
-      const a = await run(staged.hardenedFetch);
-      const b = await run(inTree.hardenedFetch);
+      const a = await run(staged.hardenedFetch, 'transport');
+      const b = await run(inTree.hardenedFetch, 'fetch');
       expect(a).toEqual(b);
     });
   }

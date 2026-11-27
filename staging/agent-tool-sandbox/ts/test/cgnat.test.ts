@@ -10,7 +10,7 @@
  * inside this range.
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('node:dns/promises', () => ({
   lookup: vi.fn(),
@@ -18,9 +18,17 @@ vi.mock('node:dns/promises', () => ({
 
 import * as dnsModule from 'node:dns/promises';
 import { hardenedFetch, isBlockedHost, validateResolvedAddresses, type FetchPolicy } from '../src/index.js';
+import { transport } from '../src/pinned-request.js';
 
 const POLICY: FetchPolicy = { timeoutMs: 5_000, maxBytes: 64 * 1024 };
 const lookup = vi.mocked(dnsModule.lookup);
+
+beforeEach(() => {
+  // Guard: no test may reach the real transport (and so the network).
+  vi.spyOn(transport, 'request').mockImplementation(async () => {
+    throw new Error('test: unexpected real request');
+  });
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -68,7 +76,7 @@ describe('CGNAT: validateResolvedAddresses', () => {
 
 describe('CGNAT: hardenedFetch', () => {
   it('rejects a literal CGNAT URL before DNS', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const fetchSpy = vi.spyOn(transport, 'request');
     await expect(hardenedFetch('http://100.100.100.200/latest/meta-data/', POLICY))
       .rejects.toThrow(/SSRF rejected.*is blocked/);
     expect(lookup).not.toHaveBeenCalled();
@@ -77,14 +85,14 @@ describe('CGNAT: hardenedFetch', () => {
 
   it('rejects a hostname that DNS resolves into CGNAT', async () => {
     lookup.mockResolvedValue([{ address: '100.64.12.34', family: 4 }] as never);
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const fetchSpy = vi.spyOn(transport, 'request');
     await expect(hardenedFetch('https://cgnat.example/', POLICY)).rejects.toThrow(/blocked range/);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('rejects a redirect hop into CGNAT', async () => {
     lookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as never);
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () =>
       new Response(null, { status: 302, headers: { location: 'http://100.100.100.200/' } }));
     await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow(/SSRF rejected.*is blocked/);
     expect(fetchSpy).toHaveBeenCalledTimes(1);

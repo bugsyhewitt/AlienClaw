@@ -2,11 +2,15 @@
  * hardenedFetch behaviour: success path, redirects, policy options, errors,
  * plus pinned KNOWN GAPS (current behaviour that is not a guarantee; see
  * README "Not covered"). A fix for a gap should flip its pinned test on
- * purpose. The NAT64 and body-read gaps were fixed on 2026-11-26 and their
- * pinned tests flipped into "fixed gaps" below; test/hardening.test.ts has
- * the full regression set for those fixes and for policy validation.
+ * purpose. The NAT64, body-read and DNS-rebinding gaps were fixed on
+ * 2026-11-26 and their pinned tests flipped into "fixed gaps" below;
+ * test/hardening.test.ts has the full regression set for the first two and
+ * for policy validation, test/pinning.test.ts for connection pinning.
  *
- * Network-free: DNS via vi.mock, fetch via vi.spyOn.
+ * Network-free: DNS via vi.mock, the HTTP transport via vi.spyOn on the
+ * internal `transport` seam (these tests stubbed globalThis.fetch until
+ * connection pinning replaced fetch(); test/pinning.test.ts drives the real
+ * transport).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -24,6 +28,7 @@ import {
   validateResolvedAddresses,
   type FetchPolicy,
 } from '../src/index.js';
+import { transport } from '../src/pinned-request.js';
 
 const POLICY: FetchPolicy = { timeoutMs: 5_000, maxBytes: 1024 };
 const PUBLIC = [{ address: '93.184.216.34', family: 4 }];
@@ -35,6 +40,11 @@ function redirect(location: string, status = 302): Response {
 
 beforeEach(() => {
   lookup.mockResolvedValue(PUBLIC as never);
+  // Guard: no test may reach the real transport (and so the network).
+  // Tests that expect a request re-stub it (vi.spyOn reuses this spy).
+  vi.spyOn(transport, 'request').mockImplementation(async () => {
+    throw new Error('test: unexpected real request');
+  });
 });
 
 afterEach(() => {
@@ -50,23 +60,23 @@ describe('defaults', () => {
 });
 
 describe('success path', () => {
-  it('returns the decoded body and calls fetch with redirect: manual and a signal', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('héllo', { status: 200 }));
+  it('returns the decoded body and calls the transport with the validated addresses and a signal', async () => {
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('héllo', { status: 200 }));
     await expect(hardenedFetch('https://example.com/a?b=1', POLICY)).resolves.toBe('héllo');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe('https://example.com/a?b=1');
-    expect(init?.redirect).toBe('manual');
-    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    expect(init.addresses).toEqual(PUBLIC);
+    expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('accepts a body of exactly maxBytes', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('x'.repeat(16), { status: 200 }));
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response('x'.repeat(16), { status: 200 }));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, maxBytes: 16 })).resolves.toBe('x'.repeat(16));
   });
 
   it('rejects maxBytes + 1', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('x'.repeat(17), { status: 200 }));
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response('x'.repeat(17), { status: 200 }));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, maxBytes: 16 }))
       .rejects.toThrow('Response exceeds 16 bytes');
   });
@@ -74,7 +84,7 @@ describe('success path', () => {
 
 describe('redirects', () => {
   it('follows a relative redirect and re-resolves DNS for the new hop', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const fetchSpy = vi.spyOn(transport, 'request')
       .mockResolvedValueOnce(redirect('/next'))
       .mockResolvedValueOnce(new Response('done', { status: 200 }));
     await expect(hardenedFetch('https://example.com/start', POLICY)).resolves.toBe('done');
@@ -86,48 +96,48 @@ describe('redirects', () => {
     lookup
       .mockResolvedValueOnce(PUBLIC as never)
       .mockResolvedValueOnce([{ address: '10.1.2.3', family: 4 }] as never);
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(redirect('https://internal.example/'));
+    const fetchSpy = vi.spyOn(transport, 'request').mockResolvedValueOnce(redirect('https://internal.example/'));
     await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow(/blocked range/);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it('caps hops at maxRedirects', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => redirect('https://example.com/loop'));
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => redirect('https://example.com/loop'));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, maxRedirects: 2 }))
       .rejects.toThrow('Too many redirects (>2)');
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
   it('defaults to MAX_REDIRECTS hops', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => redirect('https://example.com/loop'));
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => redirect('https://example.com/loop'));
     await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow(`Too many redirects (>${MAX_REDIRECTS})`);
     expect(fetchSpy).toHaveBeenCalledTimes(MAX_REDIRECTS + 1);
   });
 
   it('maxRedirects: 0 refuses the first redirect', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => redirect('https://example.com/x'));
+    vi.spyOn(transport, 'request').mockImplementation(async () => redirect('https://example.com/x'));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, maxRedirects: 0 }))
       .rejects.toThrow('Too many redirects (>0)');
   });
 
   it('rejects a 3xx with no Location header', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(null, { status: 301 }));
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response(null, { status: 301 }));
     await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow('Redirect with no Location header (status 301)');
   });
 
   it("protocols: ['https'] blocks an https-to-http downgrade redirect", async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => redirect('http://example.com/'));
+    vi.spyOn(transport, 'request').mockImplementation(async () => redirect('http://example.com/'));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, protocols: ['https'] }))
       .rejects.toThrow(/Protocol rejected: http:/);
   });
 
   it('rejects a redirect to a non-http(s) scheme', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => redirect('file:///etc/passwd'));
+    vi.spyOn(transport, 'request').mockImplementation(async () => redirect('file:///etc/passwd'));
     await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow(/Protocol rejected: file:/);
   });
 
   it('time budget spans hops: a slow first hop exhausts it before the second', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(
+    vi.spyOn(transport, 'request').mockImplementation(
       () => new Promise((resolve) => setTimeout(() => resolve(redirect('https://example.com/2')), 60)),
     );
     await expect(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 30 }))
@@ -139,14 +149,14 @@ describe('allowedHosts', () => {
   const policy: FetchPolicy = { ...POLICY, allowedHosts: new Set(['api.example.com']) };
 
   it('rejects an off-list host before DNS', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const fetchSpy = vi.spyOn(transport, 'request');
     await expect(hardenedFetch('https://other.example.com/', policy)).rejects.toThrow('Host not in allowlist: "other.example.com"');
     expect(lookup).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('allows a listed host (hostname is lowercased by the URL parser)', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok', { status: 200 }));
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok', { status: 200 }));
     await expect(hardenedFetch('https://API.Example.COM/', policy)).resolves.toBe('ok');
   });
 
@@ -155,7 +165,7 @@ describe('allowedHosts', () => {
   });
 
   it('applies to redirect hops', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => redirect('https://evil.example/'));
+    vi.spyOn(transport, 'request').mockImplementation(async () => redirect('https://evil.example/'));
     await expect(hardenedFetch('https://api.example.com/', policy)).rejects.toThrow('Host not in allowlist: "evil.example"');
   });
 
@@ -182,18 +192,18 @@ describe('errors', () => {
   });
 
   it('rejects non-2xx final responses', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('nope', { status: 500 }));
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response('nope', { status: 500 }));
     await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toThrow('HTTP 500 from example.com');
   });
 
   it('propagates non-abort fetch errors unchanged', async () => {
     const boom = new TypeError('fetch failed');
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(boom);
+    vi.spyOn(transport, 'request').mockRejectedValue(boom);
     await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toBe(boom);
   });
 
   it('rejects a zero time budget as an invalid policy before doing anything', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const fetchSpy = vi.spyOn(transport, 'request');
     await expect(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 0 }))
       .rejects.toThrow(/^Invalid FetchPolicy: timeoutMs must be an integer from 1 to 2147483647 \(got 0\)$/);
     expect(lookup).not.toHaveBeenCalled();
@@ -213,7 +223,7 @@ describe('fixed gaps (formerly pinned)', () => {
   });
 
   it('the time budget covers the body read', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response(
       new ReadableStream<Uint8Array>({
         start(controller) {
           setTimeout(() => {
@@ -226,6 +236,25 @@ describe('fixed gaps (formerly pinned)', () => {
     ));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 30 }))
       .rejects.toThrow('Fetch timeout: exceeded 30ms budget');
+  });
+
+  it('DNS rebinding window closed: DNS is asked once and the transport gets that validated answer', async () => {
+    // Was "fetch() receives the hostname URL and resolves it again itself".
+    // The transport now pins its socket to `addresses`; test/pinning.test.ts
+    // asserts the real socket target.
+    lookup.mockResolvedValueOnce(PUBLIC as never).mockResolvedValue([{ address: '127.0.0.1', family: 4 }] as never);
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok', { status: 200 }));
+    await expect(hardenedFetch('https://rebind.example/', POLICY)).resolves.toBe('ok');
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0]![0]).toBe('https://rebind.example/');
+    expect(fetchSpy.mock.calls[0]![1].addresses).toEqual(PUBLIC);
+  });
+
+  it('an IPv6-literal URL is resolved without its brackets (was a guaranteed DNS failure)', async () => {
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response('v6', { status: 200 }));
+    lookup.mockResolvedValue([{ address: '2001:4860:4860::8888', family: 6 }] as never);
+    await expect(hardenedFetch('https://[2001:4860:4860::8888]/', POLICY)).resolves.toBe('v6');
+    expect(lookup).toHaveBeenCalledWith('2001:4860:4860::8888', { all: true });
   });
 });
 
@@ -247,18 +276,8 @@ describe('KNOWN GAPS (pinned)', () => {
     expect(isBlockedHost('foo.localhost')).toBe(false);
   });
 
-  it('DNS rebinding window: fetch() receives the hostname URL and resolves it again itself', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok', { status: 200 }));
-    await hardenedFetch('https://rebind.example/', POLICY);
-    // Validation used lookup(); the connection is made by fetch() from the
-    // hostname, not the validated address, so a second, different DNS answer
-    // is never checked.
-    expect(lookup).toHaveBeenCalledTimes(1);
-    expect(fetchSpy.mock.calls[0]![0]).toBe('https://rebind.example/');
-  });
-
   it('the default protocol list allows an https-to-http downgrade redirect', async () => {
-    vi.spyOn(globalThis, 'fetch')
+    vi.spyOn(transport, 'request')
       .mockResolvedValueOnce(redirect('http://example.com/plain'))
       .mockResolvedValueOnce(new Response('plaintext', { status: 200 }));
     await expect(hardenedFetch('https://example.com/', POLICY)).resolves.toBe('plaintext');

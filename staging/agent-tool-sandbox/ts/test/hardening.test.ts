@@ -11,8 +11,10 @@
  *   SR-12  NAT64 64:ff9b::/96 with an embedded blocked IPv4 was allowed
  *          (64:ff9b::7f00:1 = 127.0.0.1, 64:ff9b::a9fe:a9fe = IMDS).
  *
- * Network-free: DNS via vi.mock, fetch via vi.spyOn. The one integration test
- * forwards fetch to a 127.0.0.1 listener that this file starts and closes.
+ * Network-free: DNS via vi.mock, the HTTP transport via vi.spyOn on the
+ * internal `transport` seam (globalThis.fetch until connection pinning
+ * replaced it). The one integration test forwards the request to the real
+ * transport, pointed at a 127.0.0.1 listener that this file starts and closes.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -32,17 +34,17 @@ import {
   validateResolvedAddresses,
   type FetchPolicy,
 } from '../src/index.js';
+import { pinnedRequest, transport } from '../src/pinned-request.js';
 
 const lookup = vi.mocked(dnsModule.lookup);
 const PUBLIC = [{ address: '93.184.216.34', family: 4 }];
 const POLICY: FetchPolicy = { timeoutMs: 5_000, maxBytes: 1024 };
-const realFetch = globalThis.fetch;
 
 beforeEach(() => {
   lookup.mockResolvedValue(PUBLIC as never);
   // Guard: no test may reach the real network, even on an unfixed build.
   // Tests that expect a fetch re-stub it (vi.spyOn reuses this spy).
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+  vi.spyOn(transport, 'request').mockImplementation(async () => {
     throw new Error('test: unexpected real fetch');
   });
 });
@@ -130,7 +132,7 @@ describe('SR-05: FetchPolicy is validated up front and fails closed', () => {
   ];
   for (const [label, value] of badMaxBytes) {
     it(`maxBytes ${label}: TypeError before DNS or fetch (10 MiB body never read)`, async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => bigBody(TEN_MIB));
+      const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => bigBody(TEN_MIB));
       const err = await rejection({ ...POLICY, maxBytes: value });
       expect(err).toBeInstanceOf(TypeError);
       expect(err.message).toMatch(/^Invalid FetchPolicy: maxBytes must be an integer from 0 to 268435456 /);
@@ -151,7 +153,7 @@ describe('SR-05: FetchPolicy is validated up front and fails closed', () => {
   ];
   for (const [label, value] of badTimeouts) {
     it(`timeoutMs ${label}: TypeError before DNS or fetch`, async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok'));
+      const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok'));
       const err = await rejection({ ...POLICY, timeoutMs: value });
       expect(err).toBeInstanceOf(TypeError);
       expect(err.message).toMatch(/^Invalid FetchPolicy: timeoutMs must be an integer from 1 to 2147483647 /);
@@ -171,7 +173,7 @@ describe('SR-05: FetchPolicy is validated up front and fails closed', () => {
   ];
   for (const [label, value] of badRedirects) {
     it(`maxRedirects ${label}: TypeError, no hops followed`, async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => redirect('https://example.com/loop'));
+      const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => redirect('https://example.com/loop'));
       // A short budget so an unfixed build ends its NaN redirect loop quickly.
       const err = await rejection({ ...POLICY, timeoutMs: 200, maxRedirects: value });
       expect(err).toBeInstanceOf(TypeError);
@@ -188,7 +190,7 @@ describe('SR-05: FetchPolicy is validated up front and fails closed', () => {
   ];
   for (const [label, value] of badProtocols) {
     it(`protocols ${label}: TypeError`, async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok'));
+      const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok'));
       const err = await rejection({ ...POLICY, protocols: value }, 'http://example.com/');
       expect(err).toBeInstanceOf(TypeError);
       expect(err.message).toMatch(/^Invalid FetchPolicy: protocols must be an array of strings /);
@@ -204,7 +206,7 @@ describe('SR-05: FetchPolicy is validated up front and fails closed', () => {
   ];
   for (const [label, value] of badAllowedHosts) {
     it(`allowedHosts ${label}: TypeError`, async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok'));
+      const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok'));
       const err = await rejection({ ...POLICY, allowedHosts: value }, 'https://other.example/');
       expect(err).toBeInstanceOf(TypeError);
       expect(err.message).toMatch(/^Invalid FetchPolicy: allowedHosts must be a Set of hostnames /);
@@ -229,18 +231,18 @@ describe('SR-05: FetchPolicy is validated up front and fails closed', () => {
   // --- boundaries that must stay accepted ---------------------------------
 
   it('maxBytes 0 accepts an empty body; the 256 MiB ceiling itself is accepted', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(''));
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response(''));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, maxBytes: 0 })).resolves.toBe('');
     await expect(hardenedFetch('https://example.com/', { ...POLICY, maxBytes: MAX_BYTES_CEILING })).resolves.toBe('');
   });
 
   it('timeoutMs 2147483647 (the largest timer Node honours) is accepted', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok'));
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok'));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 2_147_483_647 })).resolves.toBe('ok');
   });
 
   it('maxRedirects 20 follows 20 hops; omitted or undefined defaults to MAX_REDIRECTS', async () => {
-    const twenty = vi.spyOn(globalThis, 'fetch');
+    const twenty = vi.spyOn(transport, 'request');
     for (let i = 0; i < 20; i++) twenty.mockResolvedValueOnce(redirect(`/hop${i}`));
     twenty.mockResolvedValueOnce(new Response('landed'));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, maxRedirects: 20 })).resolves.toBe('landed');
@@ -248,7 +250,7 @@ describe('SR-05: FetchPolicy is validated up front and fails closed', () => {
     twenty.mockClear();
 
     for (const policy of [POLICY, { ...POLICY, maxRedirects: undefined }]) {
-      const loop = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => redirect('https://example.com/loop'));
+      const loop = vi.spyOn(transport, 'request').mockImplementation(async () => redirect('https://example.com/loop'));
       await expect(hardenedFetch('https://example.com/', policy))
         .rejects.toThrow(`Too many redirects (>${MAX_REDIRECTS})`);
       expect(loop).toHaveBeenCalledTimes(MAX_REDIRECTS + 1);
@@ -257,7 +259,7 @@ describe('SR-05: FetchPolicy is validated up front and fails closed', () => {
   });
 
   it('explicitly undefined protocols / allowedHosts fall back to the defaults', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok'));
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok'));
     await expect(hardenedFetch('http://example.com/', { ...POLICY, protocols: undefined, allowedHosts: undefined }))
       .resolves.toBe('ok');
     await expect(hardenedFetch('ftp://example.com/', { ...POLICY, protocols: undefined }))
@@ -271,7 +273,7 @@ describe('SR-05: FetchPolicy is validated up front and fails closed', () => {
 
 describe('SR-07: the time budget covers the whole call, body read included', () => {
   it('a slow-drip body aborts at the policy timeout (stubbed stream)', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(() => dripResponse(40, 60));
+    vi.spyOn(transport, 'request').mockImplementation(() => dripResponse(40, 60));
     const started = Date.now();
     const result = await outcomeWithin(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 200 }), 1_500);
     expect(result).toBe('rejected: Fetch timeout: exceeded 200ms budget');
@@ -280,25 +282,25 @@ describe('SR-07: the time budget covers the whole call, body read included', () 
 
   it('time spent before the headers counts against the body read (one budget, not two)', async () => {
     // Headers at ~130 ms, then one byte every 40 ms: well past 200 ms in total.
-    vi.spyOn(globalThis, 'fetch').mockImplementation(() => dripResponse(40, 5, 130));
+    vi.spyOn(transport, 'request').mockImplementation(() => dripResponse(40, 5, 130));
     const result = await outcomeWithin(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 200 }), 1_500);
     expect(result).toBe('rejected: Fetch timeout: exceeded 200ms budget');
   });
 
   it('a DNS lookup that never answers aborts at the policy timeout', async () => {
     lookup.mockImplementation(() => new Promise(() => { /* never settles */ }) as never);
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('reached'));
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('reached'));
     const result = await outcomeWithin(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 200 }), 1_000);
     expect(result).toBe('rejected: Fetch timeout: exceeded 200ms budget');
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('a body that finishes inside the budget is still returned whole', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(() => dripResponse(5, 4));
+    vi.spyOn(transport, 'request').mockImplementation(() => dripResponse(5, 4));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 2_000 })).resolves.toBe('xxxx');
   });
 
-  describe('real undici against a 127.0.0.1 slow-drip listener', () => {
+  describe('the real node:http transport against a 127.0.0.1 slow-drip listener', () => {
     let server: http.Server | undefined;
     let clientClosed = false;
     const timers = new Set<NodeJS.Timeout>();
@@ -326,10 +328,11 @@ describe('SR-07: the time budget covers the whole call, body read included', () 
       const { port } = server.address() as AddressInfo;
       const target = `http://127.0.0.1:${port}/drip`;
 
-      // Validation sees a public DNS answer for drip.example; the connection is
-      // forwarded to the local listener through the real global fetch, with the
+      // Validation sees a public DNS answer for drip.example; the request is
+      // forwarded to the local listener through the real transport, with the
       // signal hardenedFetch passed, so abort propagation is real.
-      vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => realFetch(target, init));
+      vi.spyOn(transport, 'request').mockImplementation((_url, init) =>
+        pinnedRequest(target, { signal: init.signal, addresses: [{ address: '127.0.0.1', family: 4 }] }));
 
       const started = Date.now();
       const result = await outcomeWithin(hardenedFetch('https://drip.example/', { ...POLICY, timeoutMs: 200 }), 2_000);
@@ -375,7 +378,7 @@ describe('SR-12: NAT64 prefixes', () => {
   }
 
   it('blocks the dotted and uncompressed spellings after URL canonicalisation, before DNS', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('reached'));
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('reached'));
     for (const url of [
       'http://[64:ff9b::127.0.0.1]/',
       'http://[64:ff9b::169.254.169.254]/latest/meta-data/',
@@ -390,7 +393,7 @@ describe('SR-12: NAT64 prefixes', () => {
   });
 
   it('a DNS64 answer embedding a blocked IPv4 is rejected; a public one is fetched', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('via nat64'));
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('via nat64'));
     lookup.mockResolvedValueOnce([{ address: '64:ff9b::a9fe:a9fe', family: 6 }] as never);
     await expect(hardenedFetch('https://imds.example/', POLICY)).rejects.toThrow(/blocked range/);
     expect(fetchSpy).not.toHaveBeenCalled();

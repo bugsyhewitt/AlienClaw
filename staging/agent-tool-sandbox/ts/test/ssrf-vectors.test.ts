@@ -1,8 +1,10 @@
 /**
  * SSRF bypass corpus, ported from AlienClaw test/ssrf-vectors.test.ts.
  *
- * Network-free: node:dns/promises is replaced by vi.mock and globalThis.fetch
- * is spied on in every test that gets past URL validation.
+ * Network-free: node:dns/promises is replaced by vi.mock, and the internal
+ * HTTP `transport` seam (globalThis.fetch until connection pinning replaced
+ * it) is stubbed in every test that gets past URL validation, with a
+ * throwing guard in beforeEach for the rest.
  *
  * Port changes vs the in-tree file:
  *   - '[::])' typo fixed to '[::]' (the typo passed only because unparseable
@@ -28,6 +30,7 @@ import {
   type FetchPolicy,
   type ResolvedAddress,
 } from '../src/index.js';
+import { transport } from '../src/pinned-request.js';
 
 const POLICY: FetchPolicy = {
   timeoutMs: 5_000,
@@ -48,6 +51,13 @@ function expectBlocked(hostname: string): void {
 function hostOf(url: string): string {
   return new URL(url).hostname;
 }
+
+beforeEach(() => {
+  // Guard: no test may reach the real transport (and so the network).
+  vi.spyOn(transport, 'request').mockImplementation(async () => {
+    throw new Error('test: unexpected real request');
+  });
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -213,7 +223,7 @@ describe('validateResolvedAddresses', () => {
 describe('hardenedFetch: protocol allowlist', () => {
   for (const url of ['file:///etc/passwd', 'gopher://example.com/', 'ftp://example.com/', 'data:text/plain,hello']) {
     it(`rejects ${url}`, async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      const fetchSpy = vi.spyOn(transport, 'request');
       await expect(hardenedFetch(url, POLICY)).rejects.toThrow(/Protocol rejected/);
       expect(lookup).not.toHaveBeenCalled();
       expect(fetchSpy).not.toHaveBeenCalled();
@@ -237,7 +247,7 @@ describe('hardenedFetch: blocked literal hostnames (rejected before DNS)', () =>
   ];
   for (const url of urls) {
     it(`rejects ${url}`, async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      const fetchSpy = vi.spyOn(transport, 'request');
       await expect(hardenedFetch(url, POLICY)).rejects.toThrow(/SSRF rejected.*is blocked/);
       expect(lookup).not.toHaveBeenCalled();
       expect(fetchSpy).not.toHaveBeenCalled();
@@ -248,7 +258,7 @@ describe('hardenedFetch: blocked literal hostnames (rejected before DNS)', () =>
 describe('hardenedFetch: hostname resolves to private IP (stubbed DNS)', () => {
   it('rejects hostname that DNS resolves to 10.0.0.1', async () => {
     dnsAnswers([{ address: '10.0.0.1', family: 4 }]);
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const fetchSpy = vi.spyOn(transport, 'request');
     await expect(hardenedFetch('https://totally-legit-host.example/', POLICY))
       .rejects.toThrow(/SSRF rejected.*blocked range/i);
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -265,7 +275,7 @@ describe('hardenedFetch: 302 redirect to blocked address (stubbed fetch + DNS)',
     dnsAnswers([{ address: '93.184.216.34', family: 4 }]);
   });
   it('rejects 302 redirect to 169.254.169.254 (cloud metadata)', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(null, {
+    const fetchSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response(null, {
       status: 302,
       headers: { location: 'http://169.254.169.254/latest/meta-data/' },
     }));
@@ -277,7 +287,7 @@ describe('hardenedFetch: 302 redirect to blocked address (stubbed fetch + DNS)',
 describe('hardenedFetch: response size cap (stubbed)', () => {
   it('rejects response that exceeds maxBytes', async () => {
     dnsAnswers([{ address: '93.184.216.34', family: 4 }]);
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+    vi.spyOn(transport, 'request').mockImplementation(async () =>
       new Response(new Uint8Array(120).fill(65), { status: 200 }));
     await expect(hardenedFetch('https://example.com/', { ...POLICY, maxBytes: 100 }))
       .rejects.toThrow(/exceeds.*bytes/i);
@@ -285,12 +295,12 @@ describe('hardenedFetch: response size cap (stubbed)', () => {
 });
 
 describe('hardenedFetch: timeout', () => {
-  it('rejects when fetch exceeds time budget', async () => {
+  it('rejects when the request exceeds the time budget', async () => {
     dnsAnswers([{ address: '93.184.216.34', family: 4 }]);
-    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, opts) =>
+    vi.spyOn(transport, 'request').mockImplementation((_url, opts) =>
       new Promise((_resolve, reject) => {
-        const signal = (opts as RequestInit | undefined)?.signal;
-        signal?.addEventListener('abort', () => {
+        const signal = opts.signal;
+        signal.addEventListener('abort', () => {
           const err = new Error('The operation was aborted');
           err.name = 'AbortError';
           reject(err);
@@ -304,7 +314,7 @@ describe('hardenedFetch: timeout', () => {
 describe('resolver construction', () => {
   it('hardenedFetch validates through dns.promises.lookup with { all: true }', async () => {
     dnsAnswers([{ address: '93.184.216.34', family: 4 }]);
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok', { status: 200 }));
+    vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok', { status: 200 }));
     await expect(hardenedFetch('https://example.com/', POLICY)).resolves.toBe('ok');
     expect(lookup).toHaveBeenCalledWith('example.com', { all: true });
   });
