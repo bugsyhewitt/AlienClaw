@@ -328,6 +328,21 @@ vectors/v1/
 | **G14** Packaging builds (added by this plan) | TS emits ESM JS plus `.d.ts` to `dist/` (staged `exports` point at `.ts`, which npm consumers cannot use). Add its own devDependencies and lockfile, because the staged tests borrow AlienClaw's root `vitest`, `typescript` and `fast-check`. Python: build sdist and wheel, check contents (no tests with internal paths), set `requires-python >=3.11` (3.10 reached end of life in Oct 2026 per PEP 619). Set TS `engines` to `>=22` (Node 18 and 20 are end of life). | `npm pack --dry-run` and `python -m build` with the file lists reviewed; TestPyPI dry run. |
 | **G15** TS fs jail (added by this plan) | Either port the jail to TS for v0.1 (recommended; it is needed for the "dual-language" claim), or ship TS fetch-only and say so plainly. | `fs.json` vectors pass in both languages, or a README scope note. |
 
+### 4.1 Gate status after the overnight run (2026-11-26, about 20:30 ET)
+
+| Gate | Status | Evidence / what is left |
+|---|---|---|
+| G1 | **Mostly met** | `.env/`, `.env/./` and symlink-to-dotfile are rejected; checked host = connected host (percent-encoding, backslash, multi-colon and userinfo are refused, and the returned canonical URL is the one requested); the read path has the symlink gate and `O_NOFOLLOW`; uninspectable paths fail closed. Fixed both in-tree (`c4527f06`, `29a0746d`) and staged. **Open:** `.git/config` is still allowed, matching the existing rule. Whether dot-directories are denied by default is Bugsy's call. |
+| G2 | **Met (staged)** | Python `agent_tool_sandbox.pinning` (`31d58950`) and the TS pinned transport (`111e43b4`). Second review: 0 C/H/M (`PINNING-SECURITY-REVIEW.md`); its Low PR-01 is fixed (`35685b7c`). In-tree tools are still unpinned. |
+| G3 | **Not met** | The corpus records today's verdicts; `vectors/DIFFERENCES.md` has the strictest-wins proposal. The clear-cut gaps (TS 6to4/Teredo/fec0 literals, Azure WireServer, port 0) are being closed tonight. There is no `blocklist.v1.json` codegen yet. |
+| G4 | **TS met, Python open** | TS: one deadline covers DNS through the body (`2601a4b8`, `d18c5c5d`). Python: no total deadline (PR-02). |
+| G5 | **Not met** | TS follows redirects with per-hop re-check and re-pinning; Python refuses all 3xx. The downgrade and cookie rules are not implemented. |
+| G6 | **Partial** | `vectors/ssrf-vectors.json` has 296 vectors and both suites assert it. The TS side runs in AlienClaw CI through root vitest; the Python side runs locally only. The parity-in-tree suites stay while the code lives in AlienClaw. |
+| G7 | **Partial** | Env proxies are ignored by both pinned paths, and TS cancels redirect bodies. `localhost.` / `*.localhost` and credential redaction are unverified. |
+| G8 | **Not met as defined** | Two AI security reviews are done (`SANDBOX-SECURITY-REVIEW.md`, `PINNING-SECURITY-REVIEW.md`). The gate asks for a reviewer who is neither the author nor an AI agent. |
+| G9–G14 | **Not started** | Repo-level work for after Bugsy picks the home, names and license. |
+| G15 | **Not started** | |
+
 ---
 
 ## 5. Repo layout, CI, release, support

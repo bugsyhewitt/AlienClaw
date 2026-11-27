@@ -180,3 +180,38 @@ python pho3nix_tuner/inspect_history.py pho3nix_tuner/data/run_history.sentry.js
 5. **Route KEEP code** — hardened HTTP/sandbox tooling → Pho3nix; tuners → necromancer/Pho3nix; bounds metadata → ToolTime
 6. **Archive the DROP surface** — git tag + bundle `governance/`, `agents/`, `brains/`, `martians/`, `comms/`, `cli/`, installer, chrome-extension, dead specs → `~/archive/`
 7. **Resolve D1/D2/D3** — answer octarig; check sentry history; gate nuclei schema change; then run Phase 3 GA for real
+
+---
+
+## 10. Overnight update (2026-11-26)
+
+Branch `overnight/2026-11-26` (draft PR #654). Details are in `docs/salvage/` and `staging/README.md`.
+
+**Classification corrections** (`docs/salvage/DROP-ARCHIVE-MANIFEST.md`, confirmed by `ARCHITECTURE-REVIEW.md`):
+- `src/alienclaw/constants.ts` and `utils.ts` are **KEEP**: KEEP and DEFER code imports them.
+- `src/alienclaw/fitness/function.py` is **REVIEW**, not DROP: `generation.py` and four diagnostics import its `clamp01`.
+- `fitness/conformance.py` is **KEEP**, with the caller passing in the spec instead of reading `seed/msb`.
+- `evolution/__main__.py` is **gutted, not deleted**: it is the GA's `python -m` entry point.
+- These modules sit in KEEP directories but are DROP-coupled and go with pass 2: `evolution/bridge_runner.py`, `evolution/live_evo.py`, `diagnostics/{sensitivity_audit,composition_decoder_audit,synthetic_compositions,fitness_formula_candidates,scaling_experiment}.py`.
+
+**§2/§3 SELLABLE sandbox:**
+- Staged as `staging/agent-tool-sandbox/{python,ts}`, with DNS-rebinding pinning in both languages and a shared 296-vector corpus.
+- Two AI security reviews have run; the second found 0 Critical/High/Medium.
+- Not yet publishable: see the gate table in `OSS-LIB-EXTRACTION-PLAN.md` §4.1.
+- The in-tree boundary/SSRF bugs that the staging found are fixed on the overnight branch.
+
+**§4:** treat rotating the leaderboard DB password as due now, not something deferred until the `api/` decision. Bugsy has the local notes.
+
+**Tuners:** the Phase 1 and Phase 2 GATE PASS claims are weaker than recorded (`TUNER-EVIDENCE-AUDIT.md`). Re-run them with the corrected protocols before relying on them.
+
+**§9 execution order, status:**
+
+| Step | Status |
+|---|---|
+| 1 Preserve fixes | done (#652) |
+| 2 Clean tree | done |
+| 3 Rotate secret | parked for Bugsy |
+| 4 Extract SELLABLE | staged, not moved |
+| 5 Route KEEP | staged, not moved |
+| 6 Archive DROP | manifest and pass-2 kit ready, not applied |
+| 7 Decisions | D3 resolved (sentry has no history); D1 and D2 parked |
