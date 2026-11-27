@@ -21,6 +21,7 @@ from __future__ import annotations
 import errno
 import http.client
 import ipaddress
+import re
 import socket
 import ssl
 import sys
@@ -38,6 +39,7 @@ from .ssrf_guard import (
 )
 
 IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+_HEADER_TOKEN = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+")  # RFC 9110 §5.6.2 token
 
 __all__ = [
     "PinnedHTTPConnection",
@@ -230,10 +232,16 @@ class PinnedHTTPSConnection(_PinnedConnectionMixin, http.client.HTTPSConnection)
 
 
 def _assert_host_header(req: urllib.request.Request) -> None:
-    """A caller-set Host header must name the pinned authority (no vhost steering)."""
+    """A caller-set Host header must name the pinned authority (no vhost steering).
+
+    Header names must be RFC 9110 tokens: 'Host ' or ' Host' would otherwise skip the
+    check below and still reach the wire as a second Host line.
+    """
     expected = req.host.lower()
     for name, value in (*req.headers.items(), *req.unredirected_hdrs.items()):
-        if name.lower() == "host" and str(value).lower() != expected:
+        if not _HEADER_TOKEN.fullmatch(name):
+            raise SsrfBlockedError(f"Refusing header name {name!r}: not an RFC 9110 token")
+        if name.lower() == "host" and str(value).strip().lower() != expected:
             raise SsrfBlockedError(
                 f"Refusing Host header {value!r}: the pinned request is for {req.host!r}"
             )

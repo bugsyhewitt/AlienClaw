@@ -432,6 +432,14 @@ def test_host_header_override_is_refused(name, wire) -> None:
     assert wire.sockets == []
 
 
+@pytest.mark.parametrize("name", ["Host ", "Host\t", " Host", "Ho st", "Host:"])
+def test_header_names_that_are_not_tokens_are_refused(name, wire) -> None:
+    # PR-01: 'Host ' slipped past the Host check and both Host lines went on the wire.
+    with pytest.raises(SsrfBlockedError, match="Refusing header name"):
+        pinned_urlopen("http://public.example/", headers={name: "internal.corp"}, timeout=5)
+    assert wire.sockets == []
+
+
 def test_host_header_naming_the_same_authority_is_allowed(wire) -> None:
     with pinned_urlopen(
         "http://public.example:8080/", headers={"Host": "PUBLIC.example:8080"}, timeout=5
