@@ -1,0 +1,4810 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-26",
+  "generated_with": {
+    "python": "3.14.9",
+    "node": "24.18.0",
+    "platform": "linux"
+  },
+  "vectors": [
+    {
+      "id": "v4-this-host-0.0.0.0",
+      "category": "ipv4-special",
+      "input": "0.0.0.0",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "'This host on this network'; Linux connects 0.0.0.0 to the local host.",
+      "refs": [
+        "RFC 1122 §3.2.1.3",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-this-net-0.1.2.3",
+      "category": "ipv4-special",
+      "input": "0.1.2.3",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Inside 0.0.0.0/8 'this network'.",
+      "refs": [
+        "RFC 791 §3.2",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-rfc1918-10-mid",
+      "category": "ipv4-special",
+      "input": "10.0.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Typical 10/8 host.",
+      "refs": [
+        "RFC 1918",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-rfc1918-10-last",
+      "category": "ipv4-special",
+      "input": "10.255.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Last address of 10.0.0.0/8.",
+      "refs": [
+        "RFC 1918",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-cgnat-first",
+      "category": "ipv4-special",
+      "input": "100.64.0.0",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "First address of the shared address space (CGNAT, also tailnets).",
+      "refs": [
+        "RFC 6598",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-cgnat-last",
+      "category": "ipv4-special",
+      "input": "100.127.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Last address of 100.64.0.0/10.",
+      "refs": [
+        "RFC 6598",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-edge-100.63.255.255",
+      "category": "ipv4-special",
+      "input": "100.63.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Just below 100.64.0.0/10; public.",
+      "refs": [
+        "RFC 6598"
+      ]
+    },
+    {
+      "id": "v4-edge-100.128.0.0",
+      "category": "ipv4-special",
+      "input": "100.128.0.0",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Just above 100.64.0.0/10; public.",
+      "refs": [
+        "RFC 6598"
+      ]
+    },
+    {
+      "id": "v4-loopback-127.0.0.1",
+      "category": "ipv4-special",
+      "input": "127.0.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Loopback.",
+      "refs": [
+        "RFC 1122 §3.2.1.3",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-loopback-127.1.2.3",
+      "category": "ipv4-special",
+      "input": "127.1.2.3",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Loopback: the whole /8 answers on Linux.",
+      "refs": [
+        "RFC 1122 §3.2.1.3",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-link-local-first",
+      "category": "ipv4-special",
+      "input": "169.254.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4 link-local.",
+      "refs": [
+        "RFC 3927",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-link-local-last",
+      "category": "ipv4-special",
+      "input": "169.254.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Last address of 169.254.0.0/16.",
+      "refs": [
+        "RFC 3927",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-rfc1918-172-first",
+      "category": "ipv4-special",
+      "input": "172.16.0.0",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "First address of 172.16.0.0/12.",
+      "refs": [
+        "RFC 1918",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-rfc1918-172-last",
+      "category": "ipv4-special",
+      "input": "172.31.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Last address of 172.16.0.0/12.",
+      "refs": [
+        "RFC 1918",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-edge-172.15.255.255",
+      "category": "ipv4-special",
+      "input": "172.15.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Just below 172.16.0.0/12; public.",
+      "refs": [
+        "RFC 1918"
+      ]
+    },
+    {
+      "id": "v4-edge-172.32.0.0",
+      "category": "ipv4-special",
+      "input": "172.32.0.0",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Just above 172.16.0.0/12; public.",
+      "refs": [
+        "RFC 1918"
+      ]
+    },
+    {
+      "id": "v4-ietf-service-continuity",
+      "category": "ipv4-special",
+      "input": "192.0.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4 Service Continuity Prefix 192.0.0.0/29 (DS-Lite B4/AFTR).",
+      "refs": [
+        "RFC 7335",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-ietf-dummy",
+      "category": "ipv4-special",
+      "input": "192.0.0.8",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4 dummy address; not globally reachable.",
+      "refs": [
+        "RFC 7600",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-ietf-pcp-anycast",
+      "category": "ipv4-special",
+      "input": "192.0.0.9",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "Port Control Protocol anycast. IANA: globally reachable; routes to the nearest PCP server, which is usually the local gateway.",
+      "refs": [
+        "RFC 7723",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-ietf-turn-anycast",
+      "category": "ipv4-special",
+      "input": "192.0.0.10",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "TURN anycast. IANA: globally reachable; routes to the nearest TURN server.",
+      "refs": [
+        "RFC 8155",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-ietf-nat64-discovery-170",
+      "category": "ipv4-special",
+      "input": "192.0.0.170",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NAT64/DNS64 discovery (ipv4only.arpa).",
+      "refs": [
+        "RFC 8880",
+        "RFC 7050",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-test-net-1-host",
+      "category": "ipv4-special",
+      "input": "192.0.2.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Documentation TEST-NET-1.",
+      "refs": [
+        "RFC 5737",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-as112",
+      "category": "ipv4-special",
+      "input": "192.31.196.1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "AS112-v4; IANA: globally reachable.",
+      "refs": [
+        "RFC 7535",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-amt",
+      "category": "ipv4-special",
+      "input": "192.52.193.1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "AMT relay anycast; IANA: globally reachable.",
+      "refs": [
+        "RFC 7450",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-6to4-relay-anycast",
+      "category": "ipv4-special",
+      "input": "192.88.99.1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Deprecated 6to4 relay anycast prefix.",
+      "refs": [
+        "RFC 7526",
+        "RFC 3068",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-rfc1918-192.168-host",
+      "category": "ipv4-special",
+      "input": "192.168.1.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Typical home router.",
+      "refs": [
+        "RFC 1918",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-rfc1918-192.168-last",
+      "category": "ipv4-special",
+      "input": "192.168.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Last address of 192.168.0.0/16.",
+      "refs": [
+        "RFC 1918",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-as112-direct",
+      "category": "ipv4-special",
+      "input": "192.175.48.1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Direct Delegation AS112 service; IANA: globally reachable.",
+      "refs": [
+        "RFC 7534",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-benchmarking-first",
+      "category": "ipv4-special",
+      "input": "198.18.0.0",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Benchmarking 198.18.0.0/15.",
+      "refs": [
+        "RFC 2544",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-benchmarking-last",
+      "category": "ipv4-special",
+      "input": "198.19.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Last address of 198.18.0.0/15.",
+      "refs": [
+        "RFC 2544",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-edge-198.17.255.255",
+      "category": "ipv4-special",
+      "input": "198.17.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Just below 198.18.0.0/15; public.",
+      "refs": [
+        "RFC 2544"
+      ]
+    },
+    {
+      "id": "v4-edge-198.20.0.0",
+      "category": "ipv4-special",
+      "input": "198.20.0.0",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Just above 198.18.0.0/15; public.",
+      "refs": [
+        "RFC 2544"
+      ]
+    },
+    {
+      "id": "v4-test-net-2",
+      "category": "ipv4-special",
+      "input": "198.51.100.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Documentation TEST-NET-2.",
+      "refs": [
+        "RFC 5737",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-test-net-3",
+      "category": "ipv4-special",
+      "input": "203.0.113.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Documentation TEST-NET-3.",
+      "refs": [
+        "RFC 5737",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-multicast-test-net",
+      "category": "ipv4-special",
+      "input": "233.252.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "MCAST-TEST-NET documentation group.",
+      "refs": [
+        "RFC 6676",
+        "IANA IPv4 Multicast Address Space Registry"
+      ]
+    },
+    {
+      "id": "v4-multicast-last",
+      "category": "ipv4-special",
+      "input": "239.255.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Last multicast address.",
+      "refs": [
+        "RFC 5771",
+        "IANA IPv4 Multicast Address Space Registry"
+      ]
+    },
+    {
+      "id": "v4-reserved-first",
+      "category": "ipv4-special",
+      "input": "240.0.0.0",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Reserved for future use 240.0.0.0/4.",
+      "refs": [
+        "RFC 1112 §4",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-reserved-last-unicast",
+      "category": "ipv4-special",
+      "input": "255.255.255.254",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Last address of 240.0.0.0/4 before broadcast.",
+      "refs": [
+        "RFC 1112 §4",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-limited-broadcast",
+      "category": "ipv4-special",
+      "input": "255.255.255.255",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Limited broadcast.",
+      "refs": [
+        "RFC 8190",
+        "RFC 919 §7",
+        "IANA IPv4 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v4-public-1.1.1.1",
+      "category": "ipv4-special",
+      "input": "1.1.1.1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public control (Cloudflare DNS).",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "v4-public-8.8.8.8",
+      "category": "ipv4-special",
+      "input": "8.8.8.8",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public control (Google DNS).",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "v6-unspecified",
+      "category": "ipv6-special",
+      "input": "::",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Unspecified address.",
+      "refs": [
+        "RFC 4291 §2.5.2",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-loopback",
+      "category": "ipv6-special",
+      "input": "::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Loopback.",
+      "refs": [
+        "RFC 4291 §2.5.3",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-discard-host",
+      "category": "ipv6-special",
+      "input": "100::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Discard-Only prefix 100::/64.",
+      "refs": [
+        "RFC 6666",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-reserved-100-8",
+      "category": "ipv6-special",
+      "input": "100:0:0:1::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Inside 0100::/8 but outside the discard /64; reserved by IETF.",
+      "refs": [
+        "RFC 4291",
+        "IANA IPv6 Address Space registry"
+      ]
+    },
+    {
+      "id": "v6-ietf-2001-23-last",
+      "category": "ipv6-special",
+      "input": "2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Last address of 2001::/23.",
+      "refs": [
+        "RFC 2928",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-edge-2001-200",
+      "category": "ipv6-special",
+      "input": "2001:200::1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "First /23 after 2001::/23; global unicast.",
+      "refs": [
+        "RFC 2928",
+        "control"
+      ]
+    },
+    {
+      "id": "v6-pcp-anycast",
+      "category": "ipv6-special",
+      "input": "2001:1::1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "PCP anycast; IANA: globally reachable (nearest PCP server, usually the local gateway).",
+      "refs": [
+        "RFC 7723",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-turn-anycast",
+      "category": "ipv6-special",
+      "input": "2001:1::2",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "TURN anycast; IANA: globally reachable.",
+      "refs": [
+        "RFC 8155",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-srp-anycast",
+      "category": "ipv6-special",
+      "input": "2001:1::3",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "DNS-SD Service Registration Protocol anycast; IANA: globally reachable (nearest SRP server, typically an on-site border router).",
+      "refs": [
+        "RFC 9665",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-benchmarking",
+      "category": "ipv6-special",
+      "input": "2001:2::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Benchmarking 2001:2::/48.",
+      "refs": [
+        "RFC 5180",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-amt",
+      "category": "ipv6-special",
+      "input": "2001:3::1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "AMT 2001:3::/32; IANA: globally reachable.",
+      "refs": [
+        "RFC 7450",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-as112",
+      "category": "ipv6-special",
+      "input": "2001:4:112::1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "AS112-v6 2001:4:112::/48; IANA: globally reachable.",
+      "refs": [
+        "RFC 7535",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-orchid-deprecated",
+      "category": "ipv6-special",
+      "input": "2001:10::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Deprecated ORCHID 2001:10::/28.",
+      "refs": [
+        "RFC 4843",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-orchid-v2",
+      "category": "ipv6-special",
+      "input": "2001:20::1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "ORCHIDv2 2001:20::/28; IANA: globally reachable.",
+      "refs": [
+        "RFC 7343",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-drone-det",
+      "category": "ipv6-special",
+      "input": "2001:30::1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Drone Remote ID DETs 2001:30::/28; IANA: globally reachable.",
+      "refs": [
+        "RFC 9374",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-doc-2001-db8",
+      "category": "ipv6-special",
+      "input": "2001:db8::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Documentation 2001:db8::/32.",
+      "refs": [
+        "RFC 3849",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-as112-direct",
+      "category": "ipv6-special",
+      "input": "2620:4f:8000::1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Direct Delegation AS112 2620:4f:8000::/48; IANA: globally reachable.",
+      "refs": [
+        "RFC 7534",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-doc-3fff",
+      "category": "ipv6-special",
+      "input": "3fff::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Documentation 3fff::/20.",
+      "refs": [
+        "RFC 9637",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-edge-3fff-1000",
+      "category": "ipv6-special",
+      "input": "3fff:1000::1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Just above 3fff::/20; global unicast.",
+      "refs": [
+        "RFC 9637"
+      ]
+    },
+    {
+      "id": "v6-srv6-sid",
+      "category": "ipv6-special",
+      "input": "5f00::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Segment Routing (SRv6) SIDs 5f00::/16; not globally reachable.",
+      "refs": [
+        "RFC 9602",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-ula-fc00",
+      "category": "ipv6-special",
+      "input": "fc00::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Unique local fc00::/7.",
+      "refs": [
+        "RFC 4193",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-ula-fd00",
+      "category": "ipv6-special",
+      "input": "fd00::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Unique local (locally assigned half).",
+      "refs": [
+        "RFC 4193",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-reserved-fe00",
+      "category": "ipv6-special",
+      "input": "fe00::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "fe00::/9, reserved by IETF (below link-local).",
+      "refs": [
+        "RFC 4291",
+        "IANA IPv6 Address Space registry"
+      ]
+    },
+    {
+      "id": "v6-link-local",
+      "category": "ipv6-special",
+      "input": "fe80::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Link-local unicast.",
+      "refs": [
+        "RFC 4291 §2.5.6",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-link-local-last",
+      "category": "ipv6-special",
+      "input": "febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Last address of fe80::/10.",
+      "refs": [
+        "RFC 4291 §2.5.6",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "v6-site-local",
+      "category": "ipv6-special",
+      "input": "fec0::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Deprecated site-local fec0::/10; still routed inside some enterprise networks.",
+      "refs": [
+        "RFC 3879",
+        "RFC 4291 §2.5.7",
+        "IANA IPv6 Address Space registry"
+      ]
+    },
+    {
+      "id": "v6-multicast-all-nodes",
+      "category": "ipv6-special",
+      "input": "ff02::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Link-local all-nodes multicast.",
+      "refs": [
+        "RFC 4291 §2.7"
+      ]
+    },
+    {
+      "id": "v6-multicast-global",
+      "category": "ipv6-special",
+      "input": "ff0e::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Global-scope multicast.",
+      "refs": [
+        "RFC 4291 §2.7"
+      ]
+    },
+    {
+      "id": "v6-reserved-1-ffff-0-0",
+      "category": "ipv6-special",
+      "input": "::1:ffff:0:0",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "ffff at group 5 with group 4 = 1: not mapped or translated; reserved ::/8 space.",
+      "refs": [
+        "RFC 4291",
+        "IANA IPv6 Address Space registry",
+        "PKT-1079"
+      ]
+    },
+    {
+      "id": "v6-reserved-4000",
+      "category": "ipv6-special",
+      "input": "4000::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Outside 2000::/3; reserved by IETF.",
+      "refs": [
+        "RFC 4291",
+        "IANA IPv6 Address Space registry"
+      ]
+    },
+    {
+      "id": "v6-global-unicast-first",
+      "category": "ipv6-special",
+      "input": "2000::1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "First address of 2000::/3 (global unicast space).",
+      "refs": [
+        "RFC 4291",
+        "IANA IPv6 Address Space registry"
+      ]
+    },
+    {
+      "id": "v6-public-cloudflare",
+      "category": "ipv6-special",
+      "input": "2606:4700:4700::1111",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public control (Cloudflare DNS).",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "v6-public-google",
+      "category": "ipv6-special",
+      "input": "2001:4860:4860::8888",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public control (Google DNS).",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "emb-mapped-loopback",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:127.0.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped loopback.",
+      "refs": [
+        "RFC 4291 §2.5.5.2",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-mapped-loopback-hex",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:7f00:1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped loopback, hex spelling.",
+      "refs": [
+        "RFC 4291 §2.5.5.2",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-mapped-metadata",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:169.254.169.254",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped cloud metadata.",
+      "refs": [
+        "RFC 4291 §2.5.5.2",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-mapped-cgnat",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:100.64.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped CGNAT.",
+      "refs": [
+        "RFC 4291 §2.5.5.2",
+        "IANA IPv6 Special-Purpose Address Registry",
+        "RFC 6598"
+      ]
+    },
+    {
+      "id": "emb-mapped-pcp-anycast",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:192.0.0.9",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped 192.0.0.9.",
+      "refs": [
+        "RFC 4291 §2.5.5.2",
+        "IANA IPv6 Special-Purpose Address Registry",
+        "RFC 7723"
+      ]
+    },
+    {
+      "id": "emb-mapped-test-net",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:192.0.2.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped TEST-NET-1.",
+      "refs": [
+        "RFC 4291 §2.5.5.2",
+        "IANA IPv6 Special-Purpose Address Registry",
+        "RFC 5737"
+      ]
+    },
+    {
+      "id": "emb-mapped-public",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:8.8.8.8",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped public address.",
+      "refs": [
+        "RFC 4291 §2.5.5.2",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-translated-loopback",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:0:127.0.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-translated (SIIT ::ffff:0:0:0/96) loopback.",
+      "refs": [
+        "RFC 2765 §2.1",
+        "RFC 6145",
+        "PKT-1079"
+      ]
+    },
+    {
+      "id": "emb-translated-public",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:0:808:808",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-translated public address.",
+      "refs": [
+        "RFC 2765 §2.1",
+        "RFC 6145"
+      ]
+    },
+    {
+      "id": "emb-ffff-wrong-group",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::ffff:0:0:7f00:1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "ffff marker at group 3, not group 4/5: neither mapped nor translated; reserved ::/8 space.",
+      "refs": [
+        "RFC 4291",
+        "IANA IPv6 Address Space registry"
+      ]
+    },
+    {
+      "id": "emb-compat-loopback",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::127.0.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Deprecated IPv4-compatible loopback.",
+      "refs": [
+        "RFC 4291 §2.5.5.1"
+      ]
+    },
+    {
+      "id": "emb-compat-public",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::8.8.8.8",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Deprecated IPv4-compatible public address.",
+      "refs": [
+        "RFC 4291 §2.5.5.1"
+      ]
+    },
+    {
+      "id": "emb-compat-group5-nonzero",
+      "category": "ipv6-embedded-ipv4",
+      "input": "::1:7f00:1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Groups 0-4 zero, group 5 = 1: not compatible, mapped or translated; reserved ::/8 space.",
+      "refs": [
+        "RFC 4291",
+        "IANA IPv6 Address Space registry"
+      ]
+    },
+    {
+      "id": "emb-nat64-loopback",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b::7f00:1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NAT64 WKP, embedded 127.0.0.1: a translator connects to the embedded IPv4.",
+      "refs": [
+        "RFC 6052 §2.1",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-nat64-loopback-dotted",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b::127.0.0.1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NAT64 WKP, dotted embedded IPv4.",
+      "refs": [
+        "RFC 6052 §2.1",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-nat64-metadata",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b::a9fe:a9fe",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NAT64 WKP, embedded cloud metadata.",
+      "refs": [
+        "RFC 6052 §2.1",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-nat64-cgnat",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b::6440:1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NAT64 WKP, embedded CGNAT 100.64.0.1.",
+      "refs": [
+        "RFC 6052 §2.1",
+        "IANA IPv6 Special-Purpose Address Registry",
+        "RFC 6598"
+      ]
+    },
+    {
+      "id": "emb-nat64-pcp-anycast",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b::c000:9",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NAT64 WKP, embedded 192.0.0.9.",
+      "refs": [
+        "RFC 6052 §2.1",
+        "IANA IPv6 Special-Purpose Address Registry",
+        "RFC 7723"
+      ]
+    },
+    {
+      "id": "emb-nat64-test-net",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b::c000:201",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "NAT64 WKP, embedded TEST-NET-1 192.0.2.1.",
+      "refs": [
+        "RFC 6052 §2.1",
+        "IANA IPv6 Special-Purpose Address Registry",
+        "RFC 5737"
+      ]
+    },
+    {
+      "id": "emb-nat64-public",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b::808:808",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "NAT64 WKP, embedded public 8.8.8.8: what DNS64 synthesises for an IPv4-only public host.",
+      "refs": [
+        "RFC 6052 §2.1",
+        "IANA IPv6 Special-Purpose Address Registry",
+        "RFC 6147"
+      ]
+    },
+    {
+      "id": "emb-nat64-local-public",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b:1::808:808",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Local-use NAT64, low bits 8.8.8.8.",
+      "refs": [
+        "RFC 8215",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-nat64-local-48-loopback",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b:1:7f00:0:100::",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Local-use NAT64 with an RFC 6052 /48 embedding of 127.0.0.1 (bits 48-63 and 72-87).",
+      "refs": [
+        "RFC 8215",
+        "IANA IPv6 Special-Purpose Address Registry",
+        "RFC 6052 §2.2"
+      ]
+    },
+    {
+      "id": "emb-nat64-32-outside-96",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b:0:0:1::7f00:1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Inside 64:ff9b::/32 but outside the /96 WKP and the /48 local-use prefix; reserved ::/8 space.",
+      "refs": [
+        "RFC 6052",
+        "IANA IPv6 Address Space registry"
+      ]
+    },
+    {
+      "id": "emb-nat64-32-outside-48",
+      "category": "ipv6-embedded-ipv4",
+      "input": "64:ff9b:2::a9fe:a9fe",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "64:ff9b:2::, past the local-use /48; reserved ::/8 space.",
+      "refs": [
+        "RFC 6052",
+        "IANA IPv6 Address Space registry"
+      ]
+    },
+    {
+      "id": "emb-6to4-loopback",
+      "category": "ipv6-embedded-ipv4",
+      "input": "2002:7f00:1::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "6to4 with embedded 127.0.0.1: a 6to4 relay or host tunnels to the embedded IPv4.",
+      "refs": [
+        "RFC 3056",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-6to4-metadata",
+      "category": "ipv6-embedded-ipv4",
+      "input": "2002:a9fe:a9fe::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "6to4 with embedded cloud metadata.",
+      "refs": [
+        "RFC 3056",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-6to4-rfc1918",
+      "category": "ipv6-embedded-ipv4",
+      "input": "2002:a00:1::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "6to4 with embedded 10.0.0.1.",
+      "refs": [
+        "RFC 3056",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-6to4-public",
+      "category": "ipv6-embedded-ipv4",
+      "input": "2002:808:808::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "6to4 with embedded public 8.8.8.8.",
+      "refs": [
+        "RFC 3056",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-teredo-prefix",
+      "category": "ipv6-embedded-ipv4",
+      "input": "2001::1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Teredo prefix 2001::/32.",
+      "refs": [
+        "RFC 4380 §4",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-teredo-doc-client",
+      "category": "ipv6-embedded-ipv4",
+      "input": "2001:0:4136:e378:8000:63bf:3fff:fdd2",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Teredo, server 65.54.227.120, obfuscated client 192.0.2.45.",
+      "refs": [
+        "RFC 4380 §4",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-teredo-loopback-client",
+      "category": "ipv6-embedded-ipv4",
+      "input": "2001:0:4136:e378:8000:63bf:80ff:fffe",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Teredo, obfuscated client 127.0.0.1 (bits XOR 0xffffffff).",
+      "refs": [
+        "RFC 4380 §4",
+        "IANA IPv6 Special-Purpose Address Registry"
+      ]
+    },
+    {
+      "id": "emb-isatap-loopback",
+      "category": "ipv6-embedded-ipv4",
+      "input": "2001:4860:4860::5efe:7f00:1",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Global prefix with an ISATAP interface ID embedding 127.0.0.1. Reaches the IPv4 only where the prefix is on-link on an ISATAP interface.",
+      "refs": [
+        "RFC 5214 §6.1"
+      ]
+    },
+    {
+      "id": "zone-ip-link-local",
+      "category": "ipv6-zone-id",
+      "input": "fe80::1%eth0",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Link-local with a zone ID, as a resolver may return it.",
+      "refs": [
+        "RFC 4007 §11",
+        "RFC 6874"
+      ]
+    },
+    {
+      "id": "zone-ip-mapped-loopback",
+      "category": "ipv6-zone-id",
+      "input": "::ffff:127.0.0.1%1",
+      "level": "ip",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped loopback with a numeric zone ID.",
+      "refs": [
+        "RFC 4007 §11",
+        "RFC 6874"
+      ]
+    },
+    {
+      "id": "zone-ip-public",
+      "category": "ipv6-zone-id",
+      "input": "2606:4700:4700::1111%eth0",
+      "level": "ip",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public address with a zone ID.",
+      "refs": [
+        "RFC 4007 §11",
+        "RFC 6874"
+      ]
+    },
+    {
+      "id": "zone-url-rfc6874-link-local",
+      "category": "ipv6-zone-id",
+      "input": "http://[fe80::1%25eth0]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "RFC 6874 zone ID in a URL (%25 = '%'). WHATWG rejects zone IDs.",
+      "refs": [
+        "RFC 4007 §11",
+        "RFC 6874"
+      ]
+    },
+    {
+      "id": "zone-url-raw-link-local",
+      "category": "ipv6-zone-id",
+      "input": "http://[fe80::1%eth0]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Raw (un-encoded) zone ID.",
+      "refs": [
+        "RFC 4007 §11",
+        "RFC 6874"
+      ]
+    },
+    {
+      "id": "zone-url-rfc6874-loopback",
+      "category": "ipv6-zone-id",
+      "input": "http://[::1%25lo]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Loopback with an RFC 6874 zone.",
+      "refs": [
+        "RFC 4007 §11",
+        "RFC 6874"
+      ]
+    },
+    {
+      "id": "zone-url-rfc6874-public",
+      "category": "ipv6-zone-id",
+      "input": "http://[2606:4700:4700::1111%25eth0]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Public address with an RFC 6874 zone ID.",
+      "refs": [
+        "RFC 4007 §11",
+        "RFC 6874"
+      ]
+    },
+    {
+      "id": "zone-url-raw-numeric-public",
+      "category": "ipv6-zone-id",
+      "input": "http://[2606:4700:4700::1111%1]/",
+      "level": "url",
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "Public address with a raw numeric zone ID.",
+      "refs": [
+        "RFC 4007 §11",
+        "RFC 6874"
+      ]
+    },
+    {
+      "id": "meta-aws-imds",
+      "category": "metadata",
+      "input": "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "AWS IMDS (also Azure, GCP, OCI, DigitalOcean, OpenStack).",
+      "refs": [
+        "RFC 3927",
+        "AWS IMDS docs"
+      ]
+    },
+    {
+      "id": "meta-aws-imds-v6",
+      "category": "metadata",
+      "input": "http://[fd00:ec2::254]/latest/meta-data/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "AWS IMDS IPv6 endpoint (ULA).",
+      "refs": [
+        "RFC 4193",
+        "AWS IMDS docs"
+      ]
+    },
+    {
+      "id": "meta-aws-ecs-task",
+      "category": "metadata",
+      "input": "http://169.254.170.2/v2/credentials/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "AWS ECS task credentials endpoint.",
+      "refs": [
+        "RFC 3927",
+        "AWS ECS docs"
+      ]
+    },
+    {
+      "id": "meta-aws-eks-pod-identity",
+      "category": "metadata",
+      "input": "http://169.254.170.23/v1/credentials",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "AWS EKS Pod Identity agent.",
+      "refs": [
+        "RFC 3927",
+        "AWS EKS docs"
+      ]
+    },
+    {
+      "id": "meta-aws-instance-data-name",
+      "category": "metadata",
+      "input": "http://instance-data/latest/meta-data/",
+      "level": "url",
+      "resolves_to": [
+        "169.254.169.254"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Legacy AWS name for IMDS, resolved by the VPC resolver.",
+      "refs": [
+        "AWS IMDS docs"
+      ]
+    },
+    {
+      "id": "meta-gcp-name",
+      "category": "metadata",
+      "input": "http://metadata.google.internal/computeMetadata/v1/",
+      "level": "url",
+      "resolves_to": [
+        "169.254.169.254"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "GCP metadata server name.",
+      "refs": [
+        "GCP metadata docs"
+      ]
+    },
+    {
+      "id": "meta-azure-wireserver",
+      "category": "metadata",
+      "input": "http://168.63.129.16/machine?comp=goalstate",
+      "level": "url",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Azure WireServer / host agent: a PUBLIC address that is answered by the Azure host fabric, not the internet.",
+      "refs": [
+        "Azure docs: What is IP address 168.63.129.16"
+      ]
+    },
+    {
+      "id": "meta-alibaba",
+      "category": "metadata",
+      "input": "http://100.100.100.200/latest/meta-data/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Alibaba Cloud metadata (CGNAT range).",
+      "refs": [
+        "RFC 6598",
+        "Alibaba ECS docs"
+      ]
+    },
+    {
+      "id": "meta-oracle-legacy",
+      "category": "metadata",
+      "input": "http://192.0.0.192/latest/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Oracle Cloud legacy metadata address (192.0.0.0/24).",
+      "refs": [
+        "RFC 6890 §2.1",
+        "OCI docs"
+      ]
+    },
+    {
+      "id": "meta-tencent-name",
+      "category": "metadata",
+      "input": "http://metadata.tencentyun.com/latest/meta-data/",
+      "level": "url",
+      "resolves_to": [
+        "169.254.0.23"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Tencent Cloud metadata name.",
+      "refs": [
+        "Tencent CVM docs"
+      ]
+    },
+    {
+      "id": "meta-k8s-api",
+      "category": "metadata",
+      "input": "https://kubernetes.default.svc/api",
+      "level": "url",
+      "resolves_to": [
+        "10.96.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Kubernetes API service name inside a pod.",
+      "refs": [
+        "Kubernetes docs"
+      ]
+    },
+    {
+      "id": "meta-docker-host",
+      "category": "metadata",
+      "input": "http://host.docker.internal:2375/info",
+      "level": "url",
+      "resolves_to": [
+        "192.168.65.254"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Docker Desktop host name (Docker API port).",
+      "refs": [
+        "Docker docs"
+      ]
+    },
+    {
+      "id": "meta-imds-decimal",
+      "category": "metadata",
+      "input": "http://2852039166/latest/meta-data/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IMDS as one 32-bit decimal number.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "meta-imds-hex",
+      "category": "metadata",
+      "input": "http://0xa9fea9fe/latest/meta-data/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IMDS as one hex number.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "meta-imds-octal",
+      "category": "metadata",
+      "input": "http://0251.0376.0251.0376/latest/meta-data/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IMDS as dotted octal.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "meta-imds-mapped-literal",
+      "category": "metadata",
+      "input": "http://[::ffff:169.254.169.254]/latest/meta-data/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IMDS as an IPv4-mapped literal.",
+      "refs": [
+        "RFC 4291 §2.5.5.2"
+      ]
+    },
+    {
+      "id": "meta-imds-nat64-literal",
+      "category": "metadata",
+      "input": "http://[64:ff9b::a9fe:a9fe]/latest/meta-data/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IMDS through the NAT64 well-known prefix.",
+      "refs": [
+        "RFC 6052"
+      ]
+    },
+    {
+      "id": "meta-imds-6to4-literal",
+      "category": "metadata",
+      "input": "http://[2002:a9fe:a9fe::]/latest/meta-data/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "IMDS embedded in a 6to4 literal.",
+      "refs": [
+        "RFC 3056"
+      ]
+    },
+    {
+      "id": "meta-imds-nip-io",
+      "category": "metadata",
+      "input": "http://169.254.169.254.nip.io/latest/meta-data/",
+      "level": "url",
+      "resolves_to": [
+        "169.254.169.254"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Public wildcard DNS that answers the embedded address.",
+      "refs": [
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "meta-imds-dns-mapped",
+      "category": "metadata",
+      "input": "http://imds-mapped.example/latest/meta-data/",
+      "level": "url",
+      "resolves_to": [
+        "::ffff:169.254.169.254"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "AAAA answer that is IPv4-mapped IMDS.",
+      "refs": [
+        "RFC 4291 §2.5.5.2",
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "meta-imds-dns-nat64",
+      "category": "metadata",
+      "input": "http://imds-nat64.example/latest/meta-data/",
+      "level": "url",
+      "resolves_to": [
+        "64:ff9b::a9fe:a9fe"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "AAAA answer in the NAT64 WKP embedding IMDS.",
+      "refs": [
+        "RFC 6052",
+        "T9 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "meta-imds-dns-6to4",
+      "category": "metadata",
+      "input": "http://imds-6to4.example/latest/meta-data/",
+      "level": "url",
+      "resolves_to": [
+        "2002:a9fe:a9fe::1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "AAAA answer in 6to4 embedding IMDS.",
+      "refs": [
+        "RFC 3056",
+        "T9 (plan §3.3)",
+        "SR-12"
+      ]
+    },
+    {
+      "id": "meta-imds-dns-teredo",
+      "category": "metadata",
+      "input": "http://imds-teredo.example/latest/meta-data/",
+      "level": "url",
+      "resolves_to": [
+        "2001:0:4136:e378:8000:63bf:5601:5601"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "AAAA answer in Teredo with IMDS as the obfuscated client.",
+      "refs": [
+        "RFC 4380",
+        "T9 (plan §3.3)",
+        "SR-12"
+      ]
+    },
+    {
+      "id": "loc-localhost",
+      "category": "localhost",
+      "input": "http://localhost/",
+      "level": "url",
+      "resolves_to": [
+        "127.0.0.1",
+        "::1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "localhost, as /etc/hosts answers it.",
+      "refs": [
+        "RFC 6761 §6.3"
+      ]
+    },
+    {
+      "id": "loc-localhost-upper",
+      "category": "localhost",
+      "input": "http://LOCALHOST/",
+      "level": "url",
+      "resolves_to": [
+        "127.0.0.1",
+        "::1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Upper-case localhost.",
+      "refs": [
+        "RFC 6761 §6.3"
+      ]
+    },
+    {
+      "id": "loc-localhost-lying-resolver",
+      "category": "localhost",
+      "input": "http://localhost/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "localhost with a resolver that answers a public address: only a pre-DNS name rule blocks it.",
+      "refs": [
+        "RFC 6761 §6.3",
+        "plan §3.4 localhost row"
+      ]
+    },
+    {
+      "id": "loc-subdomain",
+      "category": "localhost",
+      "input": "http://foo.localhost/",
+      "level": "url",
+      "resolves_to": [
+        "127.0.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "*.localhost resolves to loopback on systemd-resolved and in browsers.",
+      "refs": [
+        "RFC 6761 §6.3",
+        "G7"
+      ]
+    },
+    {
+      "id": "loc-ip6-localhost",
+      "category": "localhost",
+      "input": "http://ip6-localhost/",
+      "level": "url",
+      "resolves_to": [
+        "::1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Debian /etc/hosts IPv6 alias.",
+      "refs": [
+        "RFC 4291 §2.5.3"
+      ]
+    },
+    {
+      "id": "loc-localtest-me",
+      "category": "localhost",
+      "input": "http://localtest.me/",
+      "level": "url",
+      "resolves_to": [
+        "127.0.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Public DNS name whose A record is 127.0.0.1.",
+      "refs": [
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "loc-127.0.0.1",
+      "category": "localhost",
+      "input": "http://127.0.0.1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Loopback literal.",
+      "refs": [
+        "RFC 1122 §3.2.1.3"
+      ]
+    },
+    {
+      "id": "loc-127.0.0.1-redis",
+      "category": "localhost",
+      "input": "http://127.0.0.1:6379/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Loopback literal, Redis port.",
+      "refs": [
+        "RFC 1122 §3.2.1.3"
+      ]
+    },
+    {
+      "id": "loc-0.0.0.0",
+      "category": "localhost",
+      "input": "http://0.0.0.0/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "0.0.0.0 reaches local listeners on Linux and macOS.",
+      "refs": [
+        "RFC 1122 §3.2.1.3"
+      ]
+    },
+    {
+      "id": "loc-v6-loopback",
+      "category": "localhost",
+      "input": "http://[::1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv6 loopback literal.",
+      "refs": [
+        "RFC 4291 §2.5.3"
+      ]
+    },
+    {
+      "id": "loc-v6-loopback-expanded",
+      "category": "localhost",
+      "input": "http://[0:0:0:0:0:0:0:1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv6 loopback, uncompressed.",
+      "refs": [
+        "RFC 4291 §2.5.3"
+      ]
+    },
+    {
+      "id": "loc-v6-unspecified",
+      "category": "localhost",
+      "input": "http://[::]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv6 unspecified literal.",
+      "refs": [
+        "RFC 4291 §2.5.2"
+      ]
+    },
+    {
+      "id": "ob-decimal",
+      "category": "ipv4-obfuscated",
+      "input": "http://2130706433/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "127.0.0.1 as one decimal number.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-hex",
+      "category": "ipv4-obfuscated",
+      "input": "http://0x7f000001/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "127.0.0.1 as one hex number.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-octal-32",
+      "category": "ipv4-obfuscated",
+      "input": "http://017700000001/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "127.0.0.1 as one octal number.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-octal-dotted",
+      "category": "ipv4-obfuscated",
+      "input": "http://0177.0.0.1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Octal first octet.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-zero-padded",
+      "category": "ipv4-obfuscated",
+      "input": "http://127.000.000.001/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Zero-padded octets (octal 000, 001).",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-hex-first",
+      "category": "ipv4-obfuscated",
+      "input": "http://0x7f.0.0.1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Hex first octet.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-hex-dotted",
+      "category": "ipv4-obfuscated",
+      "input": "http://0x7f.0x0.0x0.0x1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Every octet hex.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-short-2",
+      "category": "ipv4-obfuscated",
+      "input": "http://127.1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Two-part short form.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-short-hex",
+      "category": "ipv4-obfuscated",
+      "input": "http://0x7f.1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Hex two-part short form.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-zero",
+      "category": "ipv4-obfuscated",
+      "input": "http://0/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Bare 0 = 0.0.0.0.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-rfc1918-decimal",
+      "category": "ipv4-obfuscated",
+      "input": "http://3232235777/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "192.168.1.1 as decimal.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-rfc1918-hex-dotted",
+      "category": "ipv4-obfuscated",
+      "input": "http://0x0a.0x0.0x0.0x1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "10.0.0.1 with hex octets.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-broadcast-decimal",
+      "category": "ipv4-obfuscated",
+      "input": "http://4294967295/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "255.255.255.255 as decimal.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-overflow-decimal",
+      "category": "ipv4-obfuscated",
+      "input": "http://4294967296/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "2^32: not an IPv4 address in any parser.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-five-parts",
+      "category": "ipv4-obfuscated",
+      "input": "http://1.2.3.4.5/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Five numeric parts: WHATWG fails, libc treats it as a name.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-octal-trap-public",
+      "category": "ipv4-obfuscated",
+      "input": "http://0127.0.0.1/",
+      "level": "url",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Octal 0127 = 87: this is public 87.0.0.1, not loopback (both parsers agree).",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "ob-public-decimal",
+      "category": "ipv4-obfuscated",
+      "input": "http://16843009/",
+      "level": "url",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "1.1.1.1 as decimal: public.",
+      "refs": [
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "v6url-public",
+      "category": "ipv6-literal",
+      "input": "http://[2606:4700:4700::1111]/",
+      "level": "url",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public IPv6 literal URL.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "SR-09"
+      ]
+    },
+    {
+      "id": "v6url-ula",
+      "category": "ipv6-literal",
+      "input": "http://[fd00::1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "ULA literal.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 4193"
+      ]
+    },
+    {
+      "id": "v6url-link-local",
+      "category": "ipv6-literal",
+      "input": "http://[fe80::1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Link-local literal.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291"
+      ]
+    },
+    {
+      "id": "v6url-site-local",
+      "category": "ipv6-literal",
+      "input": "http://[fec0::1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Deprecated site-local literal.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 3879",
+        "SR-12"
+      ]
+    },
+    {
+      "id": "v6url-doc",
+      "category": "ipv6-literal",
+      "input": "http://[2001:db8::1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Documentation-prefix literal.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 3849"
+      ]
+    },
+    {
+      "id": "v6url-mapped-hex",
+      "category": "ipv6-literal",
+      "input": "http://[::ffff:7f00:1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped loopback, hex.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 4291 §2.5.5.2"
+      ]
+    },
+    {
+      "id": "v6url-mapped-dotted",
+      "category": "ipv6-literal",
+      "input": "http://[::ffff:127.0.0.1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped loopback, dotted.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 4291 §2.5.5.2"
+      ]
+    },
+    {
+      "id": "v6url-mapped-public",
+      "category": "ipv6-literal",
+      "input": "http://[::ffff:8.8.8.8]/",
+      "level": "url",
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "IPv4-mapped public address.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 4291 §2.5.5.2",
+        "plan §3.4 mapped row"
+      ]
+    },
+    {
+      "id": "v6url-translated",
+      "category": "ipv6-literal",
+      "input": "http://[::ffff:0:127.0.0.1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-translated loopback.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 2765",
+        "PKT-1079"
+      ]
+    },
+    {
+      "id": "v6url-compat",
+      "category": "ipv6-literal",
+      "input": "http://[::127.0.0.1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "IPv4-compatible loopback.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 4291 §2.5.5.1"
+      ]
+    },
+    {
+      "id": "v6url-nat64-private",
+      "category": "ipv6-literal",
+      "input": "http://[64:ff9b::7f00:1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NAT64 WKP embedding loopback.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 6052"
+      ]
+    },
+    {
+      "id": "v6url-nat64-public",
+      "category": "ipv6-literal",
+      "input": "http://[64:ff9b::808:808]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "NAT64 WKP embedding a public address.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 6052"
+      ]
+    },
+    {
+      "id": "v6url-6to4-private",
+      "category": "ipv6-literal",
+      "input": "http://[2002:7f00:1::1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "6to4 embedding loopback.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 3056",
+        "SR-12"
+      ]
+    },
+    {
+      "id": "v6url-teredo-loopback",
+      "category": "ipv6-literal",
+      "input": "http://[2001:0:4136:e378:8000:63bf:80ff:fffe]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Teredo with obfuscated client 127.0.0.1.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291",
+        "RFC 4380",
+        "SR-12"
+      ]
+    },
+    {
+      "id": "v6url-unclosed",
+      "category": "ipv6-literal",
+      "input": "http://[::1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Unclosed bracket.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291"
+      ]
+    },
+    {
+      "id": "v6url-double-bracket",
+      "category": "ipv6-literal",
+      "input": "http://[[::1]]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Nested brackets.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291"
+      ]
+    },
+    {
+      "id": "v6url-ipv4-in-brackets",
+      "category": "ipv6-literal",
+      "input": "http://[127.0.0.1]/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "An IPv4 address inside brackets.",
+      "refs": [
+        "RFC 3986 §3.2.2",
+        "RFC 4291"
+      ]
+    },
+    {
+      "id": "v6url-ipvfuture",
+      "category": "ipv6-literal",
+      "input": "http://[v1.fe80::a+en1]/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "IPvFuture literal; a name that reaches the resolver if a parser accepts it.",
+      "refs": [
+        "RFC 3986 §3.2.2"
+      ]
+    },
+    {
+      "id": "idna-fullwidth-digits",
+      "category": "idna",
+      "input": "http://１２７.０.０.１/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Fullwidth digits map to 127.0.0.1.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-ideographic-dot",
+      "category": "idna",
+      "input": "http://127。0。0。1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "U+3002 ideographic full stop as the label separator.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-fullwidth-dot",
+      "category": "idna",
+      "input": "http://127．0．0．1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "U+FF0E fullwidth full stop.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-halfwidth-dot",
+      "category": "idna",
+      "input": "http://127｡0｡0｡1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "U+FF61 halfwidth ideographic full stop.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-circled-digits",
+      "category": "idna",
+      "input": "http://①②⑦.0.0.1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Circled digits (NFKC to 127).",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-circled-localhost",
+      "category": "idna",
+      "input": "http://ⓛocalhost/",
+      "level": "url",
+      "resolves_to": [
+        "127.0.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "U+24DB circled l maps to 'localhost'.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-fullwidth-localhost",
+      "category": "idna",
+      "input": "http://ｌｏｃａｌｈｏｓｔ/",
+      "level": "url",
+      "resolves_to": [
+        "127.0.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Fullwidth 'localhost'.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-unicode-public",
+      "category": "idna",
+      "input": "http://bücher.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Unicode name, public answer.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-punycode-public",
+      "category": "idna",
+      "input": "http://xn--bcher-kva.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Punycode name, public answer.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-soft-hyphen",
+      "category": "idna",
+      "input": "http://exa­mple.com/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "U+00AD soft hyphen is mapped to nothing by IDNA.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-zero-width-space",
+      "category": "idna",
+      "input": "http://exa​mple.com/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "U+200B zero-width space.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-invalid-punycode",
+      "category": "idna",
+      "input": "http://xn--zz.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "Invalid punycode label.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-overlong-label",
+      "category": "idna",
+      "input": "http://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "64-character label (DNS limit is 63).",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII",
+        "RFC 1035 §2.3.4"
+      ]
+    },
+    {
+      "id": "idna-empty-label",
+      "category": "idna",
+      "input": "http://a..example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Empty label.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "idna-nbsp",
+      "category": "idna",
+      "input": "http://public .example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "U+00A0 no-break space in the host.",
+      "refs": [
+        "UTS #46",
+        "RFC 3490 §3.1",
+        "WHATWG URL §3.3 domain to ASCII"
+      ]
+    },
+    {
+      "id": "dot-localhost",
+      "category": "trailing-dot",
+      "input": "http://localhost./",
+      "level": "url",
+      "resolves_to": [
+        "127.0.0.1",
+        "::1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Fully qualified localhost.",
+      "refs": [
+        "RFC 1034 §3.1",
+        "RFC 6761 §6.3",
+        "G7"
+      ]
+    },
+    {
+      "id": "dot-localhost-double",
+      "category": "trailing-dot",
+      "input": "http://localhost../",
+      "level": "url",
+      "resolves_to": [
+        "127.0.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Two trailing dots (empty label).",
+      "refs": [
+        "RFC 1034 §3.1",
+        "RFC 6761 §6.3"
+      ]
+    },
+    {
+      "id": "dot-ipv4",
+      "category": "trailing-dot",
+      "input": "http://127.0.0.1./",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Loopback literal with a trailing dot.",
+      "refs": [
+        "RFC 1034 §3.1",
+        "RFC 6761 §6.3",
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "dot-metadata-literal",
+      "category": "trailing-dot",
+      "input": "http://169.254.169.254./latest/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Metadata literal with a trailing dot.",
+      "refs": [
+        "RFC 1034 §3.1",
+        "RFC 6761 §6.3",
+        "WHATWG URL §3.5 IPv4 parser",
+        "inet_aton(3)"
+      ]
+    },
+    {
+      "id": "dot-metadata-name",
+      "category": "trailing-dot",
+      "input": "http://metadata.google.internal./computeMetadata/v1/",
+      "level": "url",
+      "resolves_to": [
+        "169.254.169.254"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "GCP metadata name, fully qualified.",
+      "refs": [
+        "RFC 1034 §3.1",
+        "RFC 6761 §6.3"
+      ]
+    },
+    {
+      "id": "dot-public",
+      "category": "trailing-dot",
+      "input": "http://public.example./",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public name, fully qualified.",
+      "refs": [
+        "RFC 1034 §3.1",
+        "RFC 6761 §6.3"
+      ]
+    },
+    {
+      "id": "ui-credentials-public",
+      "category": "userinfo",
+      "input": "http://user:pass@public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Credentials before a public host.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "ui-public-at-metadata",
+      "category": "userinfo",
+      "input": "http://public.example@169.254.169.254/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Public-looking userinfo, metadata host.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "ui-metadata-at-public",
+      "category": "userinfo",
+      "input": "http://169.254.169.254@public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Metadata-looking userinfo, public host.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "ui-sr03-evil-at",
+      "category": "userinfo",
+      "input": "http://evil@x.attacker.tld/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-03 repro: urllib connected to 'evil@x.attacker.tld' after the guard checked 'x.attacker.tld'.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "ui-double-at",
+      "category": "userinfo",
+      "input": "http://a@b@127.0.0.1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Two '@': the last one ends userinfo.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "ui-port-in-userinfo",
+      "category": "userinfo",
+      "input": "http://public.example:80@169.254.169.254/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "host:port-looking userinfo.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "ui-empty",
+      "category": "userinfo",
+      "input": "http://@public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Empty userinfo.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "ui-fragment-at",
+      "category": "userinfo",
+      "input": "http://169.254.169.254#@public.example/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "'@' after '#': the host is the metadata address.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "ui-query-at",
+      "category": "userinfo",
+      "input": "http://169.254.169.254?@public.example/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "'@' after '?': the host is the metadata address.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "ui-fragment-at-public-host",
+      "category": "userinfo",
+      "input": "http://public.example#@169.254.169.254/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "'@' inside the fragment of a public URL.",
+      "refs": [
+        "RFC 3986 §3.2.1",
+        "SR-03",
+        "plan §3.4 userinfo row"
+      ]
+    },
+    {
+      "id": "bs-sr01-repro",
+      "category": "backslash",
+      "input": "http://127.0.0.1:41467\\@public.example/../latest/meta-data/iam/security-credentials/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-01 repro: urlparse saw host public.example, requests/urllib3 connected to 127.0.0.1:41467.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "bs-sr01-metadata",
+      "category": "backslash",
+      "input": "http://169.254.169.254\\@example.com/../latest/meta-data/iam/security-credentials/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-01 real-world form.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "bs-sr01-redis",
+      "category": "backslash",
+      "input": "http://10.0.0.1:6379\\@google.com/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-01 variant.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "bs-sr01-localhost",
+      "category": "backslash",
+      "input": "http://localhost\\@public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-01 variant.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "bs-sr01-zero",
+      "category": "backslash",
+      "input": "http://0\\@public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-01 variant.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "bs-sr01-userinfo",
+      "category": "backslash",
+      "input": "http://u:p@127.0.0.1\\@public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-01 variant.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "bs-public-before",
+      "category": "backslash",
+      "input": "http://public.example\\@169.254.169.254/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Public host first: WHATWG ends the authority at the backslash.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "bs-path-separator",
+      "category": "backslash",
+      "input": "http://public.example\\path",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Backslash used as a path separator.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "bs-scheme-slashes-private",
+      "category": "backslash",
+      "input": "http:\\\\127.0.0.1\\",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Backslashes instead of '//'.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "bs-scheme-slashes-public",
+      "category": "backslash",
+      "input": "http:\\\\public.example\\",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Backslashes instead of '//', public host.",
+      "refs": [
+        "SR-01",
+        "WHATWG URL §4.4 (special-scheme backslash)"
+      ]
+    },
+    {
+      "id": "port-sr03-multicolon",
+      "category": "port",
+      "input": "http://a.attacker.tld:b.attacker.tld:80/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-03 third vector: urlparse splits the port at the first ':', http.client at the last.",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "port-multicolon-numeric",
+      "category": "port",
+      "input": "http://public.example:80:80/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Two ports.",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "port-multicolon-private",
+      "category": "port",
+      "input": "http://127.0.0.1:80:public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Loopback first, name after a second ':'.",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "port-zero",
+      "category": "port",
+      "input": "http://public.example:0/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Port 0.",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state"
+      ]
+    },
+    {
+      "id": "port-out-of-range",
+      "category": "port",
+      "input": "http://public.example:65536/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Port 65536.",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state"
+      ]
+    },
+    {
+      "id": "port-fullwidth-digits",
+      "category": "port",
+      "input": "http://public.example:８０/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Fullwidth port digits.",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state"
+      ]
+    },
+    {
+      "id": "port-leading-zeros",
+      "category": "port",
+      "input": "http://public.example:00080/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Port with leading zeros.",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state"
+      ]
+    },
+    {
+      "id": "port-empty",
+      "category": "port",
+      "input": "http://public.example:/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Empty port (default applies).",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state"
+      ]
+    },
+    {
+      "id": "port-redis-public",
+      "category": "port",
+      "input": "http://public.example:6379/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Non-web port on a public host: neither guard has a port policy.",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state",
+        "SR-14"
+      ]
+    },
+    {
+      "id": "port-metadata-explicit",
+      "category": "port",
+      "input": "http://169.254.169.254:80/latest/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Metadata with an explicit default port.",
+      "refs": [
+        "RFC 3986 §3.2.3",
+        "WHATWG URL §4.4 port state"
+      ]
+    },
+    {
+      "id": "pct-sr03-dot",
+      "category": "percent-encoding",
+      "input": "http://a%2ex.attacker.tld/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "SR-03 repro: urllib decoded the host to a.x.attacker.tld after the guard checked the encoded form.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "pct-sr03-slash",
+      "category": "percent-encoding",
+      "input": "http://127.0.0.1%2f.attacker.tld/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-03: %2f decodes to '/'.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "pct-sr03-hash",
+      "category": "percent-encoding",
+      "input": "http://127.0.0.1%23.attacker.tld/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "SR-03: %23 decodes to '#'.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "pct-ipv4-digit",
+      "category": "percent-encoding",
+      "input": "http://127.0.0.%31/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "One encoded digit.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "pct-full-ipv4",
+      "category": "percent-encoding",
+      "input": "http://%31%32%37%2e%30%2e%30%2e%31/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Whole loopback address encoded.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "pct-localhost",
+      "category": "percent-encoding",
+      "input": "http://%6c%6f%63%61%6c%68%6f%73%74/",
+      "level": "url",
+      "resolves_to": [
+        "127.0.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Encoded 'localhost'.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "pct-encoded-at",
+      "category": "percent-encoding",
+      "input": "http://public.example%40127.0.0.1/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "%40 decodes to '@'.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "pct-null",
+      "category": "percent-encoding",
+      "input": "http://public.example%00.attacker.tld/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "%00 in the host.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "pct-double-encoded",
+      "category": "percent-encoding",
+      "input": "http://127.0.0.1%252f.attacker.tld/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Double-encoded '/'.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "pct-path-only",
+      "category": "percent-encoding",
+      "input": "http://public.example/%2e%2e/%2fetc",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Percent-encoding in the path only: harmless.",
+      "refs": [
+        "RFC 3986 §2.1",
+        "WHATWG URL §3.5 host parsing (percent-decode)",
+        "SR-03"
+      ]
+    },
+    {
+      "id": "ws-tab-in-host",
+      "category": "whitespace-control",
+      "input": "http://127.0.0.1\t.public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Tab inside the host: WHATWG removes it, urlsplit removes it, urllib keeps it.",
+      "refs": [
+        "WHATWG URL §4.4 (strip tab/newline, C0 control or space)",
+        "SR-01 fix item 1"
+      ]
+    },
+    {
+      "id": "ws-newline-in-host",
+      "category": "whitespace-control",
+      "input": "http://127.0.0.1\n/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Newline after a loopback host.",
+      "refs": [
+        "WHATWG URL §4.4 (strip tab/newline, C0 control or space)",
+        "SR-01 fix item 1"
+      ]
+    },
+    {
+      "id": "ws-leading-space-private",
+      "category": "whitespace-control",
+      "input": " http://127.0.0.1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Leading space.",
+      "refs": [
+        "WHATWG URL §4.4 (strip tab/newline, C0 control or space)",
+        "SR-01 fix item 1"
+      ]
+    },
+    {
+      "id": "ws-leading-space-public",
+      "category": "whitespace-control",
+      "input": " http://public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Leading space, public host.",
+      "refs": [
+        "WHATWG URL §4.4 (strip tab/newline, C0 control or space)",
+        "SR-01 fix item 1"
+      ]
+    },
+    {
+      "id": "ws-nul-in-host",
+      "category": "whitespace-control",
+      "input": "http://127.0.0.1\u0000.public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NUL: libc truncates the name at it.",
+      "refs": [
+        "WHATWG URL §4.4 (strip tab/newline, C0 control or space)",
+        "SR-01 fix item 1",
+        "SR-15"
+      ]
+    },
+    {
+      "id": "ws-crlf-in-path",
+      "category": "whitespace-control",
+      "input": "http://public.example/\r\nHost: 127.0.0.1",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "CRLF header-injection attempt in the path.",
+      "refs": [
+        "WHATWG URL §4.4 (strip tab/newline, C0 control or space)",
+        "SR-01 fix item 1"
+      ]
+    },
+    {
+      "id": "ws-space-in-host",
+      "category": "whitespace-control",
+      "input": "http://public .example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Space inside the host.",
+      "refs": [
+        "WHATWG URL §4.4 (strip tab/newline, C0 control or space)",
+        "SR-01 fix item 1"
+      ]
+    },
+    {
+      "id": "ws-del-in-host",
+      "category": "whitespace-control",
+      "input": "http://public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "DEL in the host.",
+      "refs": [
+        "WHATWG URL §4.4 (strip tab/newline, C0 control or space)",
+        "SR-01 fix item 1"
+      ]
+    },
+    {
+      "id": "scheme-file",
+      "category": "scheme",
+      "input": "file:///etc/passwd",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Local file.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-file-localhost",
+      "category": "scheme",
+      "input": "file://localhost/etc/passwd",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Local file with a host.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-ftp",
+      "category": "scheme",
+      "input": "ftp://public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "FTP.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-gopher",
+      "category": "scheme",
+      "input": "gopher://127.0.0.1:6379/_INFO",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Gopher smuggling to Redis.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-dict",
+      "category": "scheme",
+      "input": "dict://127.0.0.1:11211/stats",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "dict:// to memcached.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-data",
+      "category": "scheme",
+      "input": "data:text/plain,hello",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "data: URL.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-ws",
+      "category": "scheme",
+      "input": "ws://public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "WebSocket.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-blob",
+      "category": "scheme",
+      "input": "blob:http://public.example/uuid",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "blob: URL.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-relative",
+      "category": "scheme",
+      "input": "//public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Scheme-relative reference.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-missing",
+      "category": "scheme",
+      "input": "public.example",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "No scheme at all.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-upper-http",
+      "category": "scheme",
+      "input": "HTTP://public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Upper-case scheme.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-mixed-https",
+      "category": "scheme",
+      "input": "hTtPs://public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Mixed-case scheme.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-single-slash",
+      "category": "scheme",
+      "input": "http:/public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "One slash after the scheme.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-no-slash",
+      "category": "scheme",
+      "input": "http:public.example",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "No slashes after the scheme.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-triple-slash",
+      "category": "scheme",
+      "input": "http:///public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Three slashes after the scheme.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "scheme-single-slash-private",
+      "category": "scheme",
+      "input": "http:/127.0.0.1/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "One slash, loopback host.",
+      "refs": [
+        "RFC 3986 §3.1",
+        "WHATWG URL §4.1 special schemes",
+        "T1 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "dns-public-v4",
+      "category": "dns-answer",
+      "input": "http://public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public A answer.",
+      "refs": [
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "dns-public-v6",
+      "category": "dns-answer",
+      "input": "http://public6.example/",
+      "level": "url",
+      "resolves_to": [
+        "2606:2800:220:1:248:1893:25c8:1946"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public AAAA answer.",
+      "refs": [
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "dns-dual-stack",
+      "category": "dns-answer",
+      "input": "http://dual.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34",
+        "2606:2800:220:1:248:1893:25c8:1946"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public A and AAAA.",
+      "refs": [
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "dns-mixed-private-last",
+      "category": "dns-answer",
+      "input": "http://mixed.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34",
+        "10.0.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Public then RFC 1918: ANY blocked answer refuses.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 1918"
+      ]
+    },
+    {
+      "id": "dns-mixed-loopback-v6",
+      "category": "dns-answer",
+      "input": "http://mixed6.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34",
+        "::1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Public A plus ::1 AAAA.",
+      "refs": [
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "dns-cgnat",
+      "category": "dns-answer",
+      "input": "http://cgnat.example/",
+      "level": "url",
+      "resolves_to": [
+        "100.64.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "A record in CGNAT.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 6598"
+      ]
+    },
+    {
+      "id": "dns-unspecified-v4",
+      "category": "dns-answer",
+      "input": "http://zero.example/",
+      "level": "url",
+      "resolves_to": [
+        "0.0.0.0"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "A record 0.0.0.0.",
+      "refs": [
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "dns-mapped-loopback",
+      "category": "dns-answer",
+      "input": "http://mapped.example/",
+      "level": "url",
+      "resolves_to": [
+        "::ffff:127.0.0.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "AAAA ::ffff:127.0.0.1.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 4291 §2.5.5.2"
+      ]
+    },
+    {
+      "id": "dns-mapped-public",
+      "category": "dns-answer",
+      "input": "http://mapped-public.example/",
+      "level": "url",
+      "resolves_to": [
+        "::ffff:93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "AAAA ::ffff:93.184.216.34.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 4291 §2.5.5.2",
+        "plan §3.4 mapped row"
+      ]
+    },
+    {
+      "id": "dns-dns64-public",
+      "category": "dns-answer",
+      "input": "http://dns64.example/",
+      "level": "url",
+      "resolves_to": [
+        "64:ff9b::5db8:d822"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "DNS64-synthesised AAAA for a public IPv4-only host (what an IPv6-only client with DNS64 receives).",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 6147",
+        "RFC 6052"
+      ]
+    },
+    {
+      "id": "dns-dns64-private",
+      "category": "dns-answer",
+      "input": "http://dns64-private.example/",
+      "level": "url",
+      "resolves_to": [
+        "64:ff9b::a00:1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NAT64 WKP AAAA embedding 10.0.0.1.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 6052"
+      ]
+    },
+    {
+      "id": "dns-nat64-local-use",
+      "category": "dns-answer",
+      "input": "http://nat64-local.example/",
+      "level": "url",
+      "resolves_to": [
+        "64:ff9b:1::5db8:d822"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Local-use NAT64 AAAA.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 8215"
+      ]
+    },
+    {
+      "id": "dns-6to4-loopback",
+      "category": "dns-answer",
+      "input": "http://sixtofour.example/",
+      "level": "url",
+      "resolves_to": [
+        "2002:7f00:1::1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "6to4 AAAA embedding 127.0.0.1.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 3056",
+        "SR-12"
+      ]
+    },
+    {
+      "id": "dns-teredo-loopback",
+      "category": "dns-answer",
+      "input": "http://teredo.example/",
+      "level": "url",
+      "resolves_to": [
+        "2001:0:4136:e378:8000:63bf:80ff:fffe"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "Teredo AAAA, obfuscated client 127.0.0.1.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 4380",
+        "SR-12"
+      ]
+    },
+    {
+      "id": "dns-site-local",
+      "category": "dns-answer",
+      "input": "http://sitelocal.example/",
+      "level": "url",
+      "resolves_to": [
+        "fec0::1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "AAAA fec0::1.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 3879"
+      ]
+    },
+    {
+      "id": "dns-ula",
+      "category": "dns-answer",
+      "input": "http://ula.example/",
+      "level": "url",
+      "resolves_to": [
+        "fd00::1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "AAAA fd00::1.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 4193"
+      ]
+    },
+    {
+      "id": "dns-pcp-anycast",
+      "category": "dns-answer",
+      "input": "http://pcp.example/",
+      "level": "url",
+      "resolves_to": [
+        "192.0.0.9"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "block"
+      },
+      "rationale": "A record 192.0.0.9.",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 7723"
+      ]
+    },
+    {
+      "id": "dns-test-net",
+      "category": "dns-answer",
+      "input": "http://testnet.example/",
+      "level": "url",
+      "resolves_to": [
+        "192.0.2.1"
+      ],
+      "expected": {
+        "python": "block",
+        "ts": "allow"
+      },
+      "rationale": "A record 192.0.2.1 (TEST-NET-1).",
+      "refs": [
+        "T3 (plan §3.3)",
+        "RFC 5737"
+      ]
+    },
+    {
+      "id": "dns-empty-answer",
+      "category": "dns-answer",
+      "input": "http://empty.example/",
+      "level": "url",
+      "resolves_to": [],
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "Resolver returns no addresses.",
+      "refs": [
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "dns-nxdomain",
+      "category": "dns-answer",
+      "input": "http://nxdomain.example/",
+      "level": "url",
+      "expected": {
+        "python": "block",
+        "ts": "block"
+      },
+      "rationale": "NXDOMAIN.",
+      "refs": [
+        "T3 (plan §3.3)"
+      ]
+    },
+    {
+      "id": "pub-https-full",
+      "category": "public-control",
+      "input": "https://public.example/path?q=1#frag",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Ordinary https URL.",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "pub-http-port",
+      "category": "public-control",
+      "input": "http://public.example:8080/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Ordinary URL with a port.",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "pub-ipv4-literal",
+      "category": "public-control",
+      "input": "http://93.184.216.34/",
+      "level": "url",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public IPv4 literal.",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "pub-cloudflare-doh",
+      "category": "public-control",
+      "input": "https://1.1.1.1/dns-query",
+      "level": "url",
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Public IPv4 literal, https.",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "pub-underscore",
+      "category": "public-control",
+      "input": "http://_dmarc.public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Underscore label.",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "pub-private-looking-name",
+      "category": "public-control",
+      "input": "http://10.0.0.1.public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "Name that starts like a private address; only the answer matters.",
+      "refs": [
+        "control"
+      ]
+    },
+    {
+      "id": "pub-localhost-label",
+      "category": "public-control",
+      "input": "http://localhost.public.example/",
+      "level": "url",
+      "resolves_to": [
+        "93.184.216.34"
+      ],
+      "expected": {
+        "python": "allow",
+        "ts": "allow"
+      },
+      "rationale": "'localhost' as a leftmost label of a public name.",
+      "refs": [
+        "control"
+      ]
+    }
+  ]
+}
