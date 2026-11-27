@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alienclaw.local/staging/tooltime-bounds/tool-param-bounds.schema.json",
+  "title": "ToolTime tool.yaml: params.<name>.bounds extension (proposal)",
+  "description": "Additive extension to pho3nix_config/tool.yaml. Only the parts of tool.yaml this proposal touches are constrained; every other key is left open, so a tool.yaml with no bounds stays valid. Cross-field rules that JSON Schema cannot express (min < max, the range inside the param's hard minimum/maximum, rendered values inside enum, integer-valued min/max being int rather than 5.0) are enforced by validate_bounds.py, which is stricter than this schema.",
+  "type": "object",
+  "properties": {
+    "params": {
+      "description": "Existing ToolTime shape: a mapping of param name -> spec, or null.",
+      "type": ["object", "null"],
+      "additionalProperties": { "$ref": "#/$defs/param" }
+    }
+  },
+  "$defs": {
+    "param": {
+      "description": "An existing param spec (required, type, description, default, enum, flag, validation, minimum, maximum, ...). Only the optional bounds key is new.",
+      "type": "object",
+      "properties": {
+        "bounds": { "$ref": "#/$defs/bounds" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "enum": ["boolean", "array"] } },
+            "required": ["type"]
+          },
+          "then": { "not": { "required": ["bounds"] } }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "integer" } },
+            "required": ["type", "bounds"]
+          },
+          "then": {
+            "properties": {
+              "bounds": {
+                "properties": {
+                  "min": { "type": "integer" },
+                  "max": { "type": "integer" },
+                  "step": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "string" } },
+            "required": ["type", "bounds"]
+          },
+          "then": {
+            "properties": { "bounds": { "required": ["value_template"] } }
+          }
+        }
+      ]
+    },
+    "bounds": {
+      "description": "Tuning search space for one param. Distinct from the param's hard validity limits (minimum/maximum): bounds say which values an automated tuner may try, and must sit inside the hard limits.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direction", "evolvable", "rationale"],
+      "properties": {
+        "min": { "type": "number", "description": "Lowest gene value (inclusive)." },
+        "max": { "type": "number", "description": "Highest gene value (inclusive). Must be > min (validator-enforced)." },
+        "step": { "type": "number", "exclusiveMinimum": 0, "description": "Gene granularity; default 1." },
+        "unit": { "type": "string", "minLength": 1, "description": "Unit of the gene value, e.g. threads, ms, s, requests/s." },
+        "direction": {
+          "enum": ["increases_aggressiveness", "decreases_aggressiveness", "neutral"],
+          "description": "What raising the value does to load on the target. A physical property of the tool, not an optimisation objective."
+        },
+        "evolvable": {
+          "type": "boolean",
+          "description": "true = the catalog owner permits unattended automated search over [min, max]. Consumers may restrict further."
+        },
+        "value_template": {
+          "type": "string",
+          "pattern": "^[^{}]*\\{value\\}[^{}]*$",
+          "description": "How a numeric gene becomes the param value, e.g. '-T{value}' or '{value}ms'. Required for string params; exactly one {value} placeholder, no other braces."
+        },
+        "rationale": { "type": "string", "minLength": 1, "description": "Why these numbers; cite profiles, upstream defaults, or docs." },
+        "source": { "type": "string", "minLength": 1, "description": "Where the numbers came from (file, doc, flag help)." }
+      },
+      "dependentRequired": {
+        "min": ["max"],
+        "max": ["min"]
+      },
+      "if": {
+        "properties": { "evolvable": { "const": true } },
+        "required": ["evolvable"]
+      },
+      "then": { "required": ["min", "max"] }
+    }
+  }
+}

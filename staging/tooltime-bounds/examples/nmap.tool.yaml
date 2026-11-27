@@ -1,0 +1,87 @@
+# PROPOSAL EXAMPLE (staged in AlienClaw, not in ToolTime).
+# Base: ~/dev/tooltime agents/agent-01/tools/nmap/pho3nix_config/tool.yaml (untracked: agents/*/tools/
+# is gitignored), read 2026-11-26, sha256 1d325937be8cec5f...,
+# unchanged except the `bounds:` block under params.timing (marked NEW).
+# Bounds from AlienClaw pho3nix_tuner/tooltime_bounds.py (nmap/timing_t).
+
+# pho3nix_config/tool.yaml
+# Input contract for add_tool.py (lives in the Pho3nix repo).
+# Manually added: Arch mainline (not BlackArch corpus).
+
+name: nmap
+safe_name: nmap
+registry_name: nmap
+version: "7.95"
+description: |
+  Network discovery and security scanner; performs host discovery, port scanning, service/version detection, and OS fingerprinting via crafted packets.
+
+pho3nix_category: network      # recon active analysis exploitation auth mobile cloud osint secrets ad network api
+tier: research
+rest_route: /api/tools/nmap/run
+
+# --- enforcement axes (executor checks these before execute()) ------------
+blast_radius: active              # passive | active | destructive
+scope_aware: true                # true => target/host/url checked vs workspace scope
+read_only: false                    # false => "active", approval required in BALANCED
+timeout_s: 300
+
+# --- modality / environment ----------------------------------------------
+modality: cli                      # cli tui gui library daemon
+hardware_required: none    # none wifi-monitor bluetooth nfc rfid sdr serial-uart usb-device
+privilege: root                    # user | root
+lifecycle: single-shot                    # single-shot | long-running | interactive-session
+os: linux                                  # linux | windows-via-wine | cross-platform
+external_requirements: none  # none api-key cloud-creds target-creds
+output_type: text                # text json pcap binary-artifact image database report-html
+
+# --- invocation -----------------------------------------------------------
+cli_binary: nmap
+cli_template: "nmap -sV -p {ports} {target}"
+params:
+  target:
+    required: true
+    type: string
+    description: "Authorized target host, IP, or CIDR (validated vs workspace scope)."
+  ports:
+    required: false
+    type: string
+    default: "1-1000"
+    description: "Port specification (e.g. '80,443', '1-65535', 'top100')."
+  scan_type:
+    required: false
+    type: string
+    default: "-sV"
+    enum: ["-sV", "-sS", "-sT", "-sU", "-sn", "-sC"]
+    description: "Scan type: -sV (service+version), -sS (SYN/stealth, needs root), -sT (TCP connect), -sU (UDP), -sn (ping sweep), -sC (default scripts)."
+  timing:
+    required: false
+    type: string
+    default: "-T3"
+    enum: ["-T1", "-T2", "-T3", "-T4", "-T5"]
+    description: "Timing template. T1=slow, T3=normal, T4=aggressive, T5=insane."
+    bounds:                                   # NEW (proposal) - tuning search space
+      min: 2
+      max: 5
+      step: 1
+      unit: nmap-T-value
+      value_template: "-T{value}"             # gene 4 -> "-T4"; every rendered value is in enum
+      direction: increases_aggressiveness     # nmap --help: "-T<0-5>: Set timing template (higher is faster)"
+      evolvable: true
+      rationale: "Pho3nix optimization_profiles: stealth=-T2, normal=-T4, aggressive=-T5. T0/T1 excluded: too slow for a scan budget."
+      source: "pho3nix server_core/parameter_optimizer.py optimization_profiles.nmap; nmap 7.95 --help"
+
+# --- lifecycle / state ----------------------------------------------------
+tags:
+  - {tag: network, weight: 10}
+  - {tag: recon, weight: 9}
+  - {tag: fingerprinting, weight: 9}
+  - {tag: active, weight: 9}
+  - {tag: vuln-scanning, weight: 6}
+
+classification: STANDARD_AND_RESEARCH
+classification_source: reviewer_manual
+disabled: false                      # true => add_tool.py records but does NOT wire it
+disabled_reason: ""
+
+# --- Path A (optional rich LLM schema) ------------------------------------
+path_a_rich_schema: true

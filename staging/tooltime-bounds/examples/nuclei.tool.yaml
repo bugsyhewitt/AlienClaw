@@ -1,0 +1,123 @@
+# PROPOSAL EXAMPLE (staged in AlienClaw, not in ToolTime).
+# Base: ~/dev/tooltime agents/agent-09/tools/nuclei/pho3nix_config/tool.yaml (untracked: agents/*/tools/
+# is gitignored), read 2026-11-26, sha256 c7160da242adee13...,
+# unchanged except three NEW params (rate_limit, concurrency, timeout) carrying bounds.
+# CATALOG METADATA ONLY: evolvable is false on all three. Pho3nix does not log these
+# values in run_history, and that logging work is parked by the owner, so the tuner has no
+# fitness signal for them. The bounds document a safe range; they do not enable tuning.
+# Flag names and defaults: /usr/share/doc/nuclei/README.md (Arch package nuclei
+# v3.11.1, RATE-LIMIT and OPTIMIZATIONS sections). The catalog's `version` below is older.
+
+# pho3nix_config/tool.yaml
+# Input contract for add_tool.py (lives in the Pho3nix repo).
+# Bootstrap pre-filled the policy-derived fields. Agent/MiniMax fills the rest.
+
+name: nuclei
+safe_name: nuclei
+registry_name: nuclei
+version: "v3.6.2.r245.g397ffaa"
+description: |
+  Template-based vulnerability scanner; sends HTTP/DNS/network probes using YAML templates to detect CVEs, misconfigs, and exposed services.
+
+pho3nix_category: active      # recon active analysis exploitation auth mobile cloud osint secrets ad network api
+tier: "bug_bounty"
+rest_route: /api/tools/nuclei/run
+
+# --- enforcement axes (executor checks these before execute()) ------------
+blast_radius: active              # passive | active | destructive
+scope_aware: true                # true => target/host/url checked vs workspace scope
+read_only: false                    # false => "active", approval required in BALANCED
+timeout_s: 300
+
+# --- modality / environment ----------------------------------------------
+modality: cli                      # cli tui gui library daemon
+hardware_required: none    # none wifi-monitor bluetooth nfc rfid sdr serial-uart usb-device
+privilege: user                    # user | root
+lifecycle: single-shot                    # single-shot | long-running | interactive-session
+os: linux                                  # linux | windows-via-wine | cross-platform
+external_requirements: none
+output_type: text
+
+# --- invocation -----------------------------------------------------------
+# Fixed template. Named {placeholders} only. NO arbitrary-args passthrough
+# for standard/customer-facing tools. add_tool.py builds the Flask blueprint
+# from this; user-supplied values are shlex-quoted before hitting the shell.
+cli_binary: nuclei
+cli_template: "nuclei -target {target} -t {templates}"
+params:
+  target:
+    required: true
+    type: string
+    description: "Target URL or host."
+  templates:
+    required: false
+    type: string
+    description: "Template path or tag (e.g. cves/, -tags sqli)."
+  rate_limit:                                 # NEW (proposal)
+    required: false
+    type: integer
+    default: 150
+    flag: -rl
+    minimum: 1
+    description: "Maximum number of requests to send per second (nuclei default 150)."
+    bounds:
+      min: 1
+      max: 150
+      step: 1
+      unit: requests/s
+      direction: increases_aggressiveness
+      evolvable: false
+      rationale: "Upstream default (150) is the ceiling: a tuner should never exceed the tool's own default load. Pho3nix's nuclei skill library caps labs at -rate-limit 10."
+      source: "/usr/share/doc/nuclei/README.md RATE-LIMIT: -rl, -rate-limit int (default 150)"
+  concurrency:                                # NEW (proposal)
+    required: false
+    type: integer
+    default: 25
+    flag: -c
+    minimum: 1
+    description: "Maximum number of templates to be executed in parallel (nuclei default 25)."
+    bounds:
+      min: 1
+      max: 25
+      step: 1
+      unit: templates
+      direction: increases_aggressiveness
+      evolvable: false
+      rationale: "Upstream default (25) is the ceiling. Pho3nix's nuclei skill library example uses -concurrency 10."
+      source: "/usr/share/doc/nuclei/README.md RATE-LIMIT: -c, -concurrency int (default 25)"
+  timeout:                                    # NEW (proposal)
+    required: false
+    type: integer
+    default: 10
+    flag: -timeout
+    minimum: 1
+    description: "Time to wait in seconds before timeout (nuclei default 10)."
+    bounds:
+      min: 5
+      max: 30
+      step: 1
+      unit: s
+      direction: decreases_aggressiveness
+      evolvable: false
+      rationale: "Mirrors the gobuster timeout range (5-30 s) around nuclei's default of 10 s; a longer wait lowers request throughput."
+      source: "/usr/share/doc/nuclei/README.md OPTIMIZATIONS: -timeout int (default 10)"
+
+# --- lifecycle / state ----------------------------------------------------
+tags:
+  - {tag: vuln-scanning, weight: 10}
+  - {tag: active, weight: 9}
+  - {tag: web, weight: 8}
+  - {tag: network, weight: 7}
+  - {tag: misconfiguration, weight: 7}
+  - {tag: json-output, weight: 6}
+
+classification: STANDARD_AND_RESEARCH
+classification_source: name_pattern_override
+disabled: false                      # true => add_tool.py records but does NOT wire it
+disabled_reason: ""
+
+# --- Path A (optional rich LLM schema) ------------------------------------
+# Most tools use Path B (auto-wrapped by RestToolWrapper). Set to true only if
+# a reviewer decides this tool needs a hand-coded Tool subclass with a rich
+# schema. If true, also provide path_a_llm_tool.py.draft in this folder.
+path_a_rich_schema: false
