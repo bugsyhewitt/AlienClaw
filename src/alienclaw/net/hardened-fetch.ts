@@ -364,6 +364,17 @@ async function resolveAndValidate(hostname: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
+ * True if `err` is the deadline abort: the deadline's own reason, an error whose
+ * cause is that reason, or an AbortError (DOMException or Error named so).
+ */
+function isDeadlineError(err: unknown, deadline: Error): boolean {
+  if (err === deadline) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { name?: unknown; cause?: unknown };
+  return e.cause === deadline || e.name === 'AbortError';
+}
+
+/**
  * Perform a URL fetch with full SSRF protection and resource limits.
  *
  * @param url     The URL to fetch (string or URL object).
@@ -382,10 +393,14 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
   // lookup or a body stream that ignores the signal cannot outlive the budget.
   const controller = new AbortController();
   const { signal } = controller;
-  const timeoutError = (): Error => new Error(`Fetch timeout: exceeded ${p.timeoutMs}ms budget`);
-  const timer = setTimeout(() => controller.abort(), p.timeoutMs);
+  // The deadline aborts with its own reason, so the errors the deadline causes
+  // can be told apart from errors that merely settle after it: `expired` and
+  // signal.throwIfAborted() reject with it, and so does undici for an aborted
+  // fetch or body read (it rejects with signal.reason).
+  const deadline = new Error(`Fetch timeout: exceeded ${p.timeoutMs}ms budget`);
+  const timer = setTimeout(() => controller.abort(deadline), p.timeoutMs);
   const expired = new Promise<never>((_resolve, reject) => {
-    signal.addEventListener('abort', () => reject(timeoutError()), { once: true });
+    signal.addEventListener('abort', () => reject(deadline), { once: true });
   });
   expired.catch(() => { /* observed through the races below */ });
   const beforeDeadline = <T>(work: Promise<T>): Promise<T> => Promise.race([work, expired]);
@@ -452,9 +467,12 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
       return new TextDecoder().decode(Buffer.concat(chunks));
     }
   } catch (err) {
-    // Once the timer has fired, report a timeout whatever surfaced first
-    // (our deadline, undici's AbortError, or a stream error from the abort).
-    if (signal.aborted) throw timeoutError();
+    // Report a timeout only for an error that IS the deadline firing: its own
+    // reason (or an error caused by it), or an AbortError raised by the abort.
+    // Anything else (an SSRF rejection, an HTTP status, the size cap) that
+    // settled as the deadline fired is reported as itself (2026-11-26 review:
+    // `if (signal.aborted)` alone turned those into timeouts).
+    if (signal.aborted && isDeadlineError(err, deadline)) throw deadline;
     throw err;
   } finally {
     clearTimeout(timer);
