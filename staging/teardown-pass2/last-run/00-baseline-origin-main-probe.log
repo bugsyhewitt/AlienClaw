@@ -1,0 +1,35 @@
+npm warn Unknown project config "onlyBuiltDependencies". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.7 /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun
+
+ × test/telemetry/online-fitness-streaming-cap-probe.test.ts > PKT-1294 unbounded-read cap (online_fitness.jsonl streaming) > R-013 — aggregateOnlineFitness streams (RSS growth ≤ 30 MiB on a 30 MiB fixture) 1703ms
+   → expected 68.19140625 to be less than 30
+ ✓ test/telemetry/online-fitness-streaming-cap-probe.test.ts > PKT-1294 unbounded-read cap (online_fitness.jsonl streaming) > R-014 — OnlineFitnessLog.read() returns all entries from a 30 MiB fixture (regression) 1307ms
+mt0	40000	0.5950
+mt1	40000	0.5960
+mt2	40000	0.5970
+mt3	40000	0.5980
+mt4	40000	0.5990
+ ✓ test/telemetry/online-fitness-streaming-cap-probe.test.ts > PKT-1294 unbounded-read cap (online_fitness.jsonl streaming) > R-015 — status.runStatus() streams online_fitness.jsonl (RSS growth ≤ 30 MiB on a 30 MiB fixture) 1320ms
+ ✓ test/telemetry/online-fitness-streaming-cap-probe.test.ts > PKT-1294 unbounded-read cap (online_fitness.jsonl streaming) > R-016 — streaming reads preserve observable behavior on small fixtures (regression guard) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/telemetry/online-fitness-streaming-cap-probe.test.ts > PKT-1294 unbounded-read cap (online_fitness.jsonl streaming) > R-013 — aggregateOnlineFitness streams (RSS growth ≤ 30 MiB on a 30 MiB fixture)
+AssertionError: expected 68.19140625 to be less than 30
+ ❯ test/telemetry/online-fitness-streaming-cap-probe.test.ts:111:25
+    109|     // Pre-fix: rssDeltaMiB ≈ 115 MiB (entire 30 MiB file materialized…
+    110|     // Post-fix: rssDeltaMiB < 30 MiB (stream + readline buffers only).
+    111|     expect(rssDeltaMiB).toBeLessThan(30);
+       |                         ^
+    112|     // Sanity: the streaming reader still returns the expected aggrega…
+    113|     expect(result.count).toBe(40_000);  // i % 5 → mt1 every 5th entry
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  19:08:27
+   Duration  4.67s (transform 300ms, setup 0ms, import 96ms, tests 4.34s, environment 0ms)
+

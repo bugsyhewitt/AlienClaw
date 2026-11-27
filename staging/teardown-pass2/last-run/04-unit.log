@@ -1,0 +1,1280 @@
+npm warn Unknown project config "onlyBuiltDependencies". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.7 /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun
+
+ × test/telemetry/online-fitness-streaming-cap-probe.test.ts > PKT-1294 unbounded-read cap (online_fitness.jsonl streaming) > R-013 — aggregateOnlineFitness streams (RSS growth ≤ 30 MiB on a 30 MiB fixture) 1615ms
+   → expected 68.3203125 to be less than 30
+ ✓ test/telemetry/online-fitness-streaming-cap-probe.test.ts > PKT-1294 unbounded-read cap (online_fitness.jsonl streaming) > R-016 — streaming reads preserve observable behavior on small fixtures (regression guard) 4ms
+ ✓ test/api/auth.test.ts > generateApiKey > returns a 43-character string 3ms
+ ✓ test/api/auth.test.ts > generateApiKey > 100 consecutive calls produce 100 unique values 3ms
+ ✓ test/api/auth.test.ts > generateApiKey > every character in 10 generated keys is in BASE62_ALPHABET 10ms
+ ✓ test/api/auth.test.ts > hashApiKey > hashApiKey("foo") matches Node SHA-256 digest 1ms
+ ✓ test/api/auth.test.ts > hashApiKey > output is a 64-character lowercase hex string 1ms
+ ✓ test/api/auth.test.ts > isValidApiKeyFormat (re-export) > is a function and accepts a freshly-generated key 0ms
+ ✓ test/api/auth.test.ts > generateApiKey distribution uniformity (PKT-486) > 'z' is reachable at position 0 (N=100K, structural-reachability guard) 3021ms
+ ✓ test/api/auth.test.ts > generateApiKey distribution uniformity (PKT-486) > 'y' at position 0 is not under-represented (count >= 80% of uniform share) 3238ms
+ ✓ test/api/auth.test.ts > generateApiKey distribution uniformity (PKT-486) > position 0 has chi-square < 125 (df=61, alpha=0.001) — no positional bias 3124ms
+ ✓ test/api/auth.test.ts > generateApiKey distribution uniformity (PKT-486) > positions 1-42 remain uniform after fix (regression guard, chi-square < 125) 3205ms
+(node:2350919) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[api] /v1/genomes handler throw: Error: mocked unhandled boom
+[api] /v1/genomes handler throw: Error: sensitive-marker-pkt-593
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes returns 429 RATE_LIMIT_EXCEEDED + Retry-After when rate limiter refuses 51ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with malformed JSON returns 400 MALFORMED_REQUEST 8ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes returns 422 with the apiError body when handleSubmitGenome throws apiError 6ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes returns 500 INTERNAL_ERROR when handleSubmitGenome throws a generic Error (inner catch else branch) (PKT-593) 6ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes sanitized handler throw returns the sanitized message (PKT-593) 5ms
+[api] /v1/genomes handler throw: Error: ER_DUP_ENTRY: Duplicate entry 'sub_xyz' on host 10.0.7.21:3306
+[api] /v1/install non-structured throw: Error: mocked install handler boom
+[api] unhandled error: Error: mocked stats handler boom
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes handler throw does NOT leak the inner message text (PKT-593 regression) 6ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/install with non-structured handler throw returns 400 INSTALL_HANDLER_ERROR (not 500) (PKT-530 / PKT-472 regression) 6ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > GET /v1/stats returns 500 INTERNAL_ERROR when handleStats throws (reaches outer catch on lines 286-288) 17ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/nonexistent returns 404 NOT_FOUND 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/install with present but malformed api_key returns 400 INVALID_API_KEY_FORMAT 5ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > PUT /v1/health returns 405 3ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > GET /v1/genomes/topic returns 404 NOT_FOUND (no prefix shadow) 2ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > GET /v1/genomes/topfoo returns 404 NOT_FOUND (no prefix shadow) 3ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > GET /v1/genomes/top-secret returns 404 NOT_FOUND (no prefix shadow) 3ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > GET /v1/genomes/top/x returns 404 NOT_FOUND (no prefix shadow) 3ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > GET /v1/genomes/top?martian_type=compute returns 200 (legitimate route unaffected) 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/install with JSON null body returns 400 MALFORMED_REQUEST 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/install with JSON array body returns 400 MALFORMED_REQUEST 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/install with null api_key returns 400 INVALID_API_KEY_FORMAT (not 500) (PKT-472) 2ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:'null' (PKT-696 router-coercion defense) returns 422 INVALID_FITNESS_RANGE 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:'true' (PKT-696 router-coercion defense) returns 422 INVALID_FITNESS_RANGE 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:'false' (PKT-696 router-coercion defense) returns 422 INVALID_FITNESS_RANGE 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:'[]' (PKT-696 router-coercion defense) returns 422 INVALID_FITNESS_RANGE 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:'{}' (PKT-696 router-coercion defense) returns 422 INVALID_FITNESS_RANGE 5ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:'"0.5"' (PKT-696 router-coercion defense) returns 422 INVALID_FITNESS_RANGE 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:'"0"' (PKT-696 router-coercion defense) returns 422 INVALID_FITNESS_RANGE 4ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:'"abc"' (PKT-696 router-coercion defense) returns 422 INVALID_FITNESS_RANGE 3ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:0.5 (intended number) still returns 201 (PKT-696 regression) 5ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/genomes with fitness:0 (intended zero) still returns 201 (PKT-696 regression) 3ms
+ ✓ test/api/ts-api-server-route-handler-defensive-paths.test.ts > API server: route-handler defensive paths > POST /v1/install with valid fields but invalid api_key format returns 400 INVALID_API_KEY_FORMAT 4ms
+ ✓ test/genome/xcode-helpers.test.ts > XCODE_MAX > is 62*62 - 1 = 3843 (matches Python XCODE_MAX) 3ms
+ ✓ test/genome/xcode-helpers.test.ts > XCODE_MAX > BASE62_ALPHABET is 62 chars and indexes the full radix 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > encodes 0 -> "00" 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > encodes 1 -> "01" 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > encodes 61 -> "0z" 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > encodes 62 -> "10" 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > encodes 63 -> "11" 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > encodes 123 -> "1z" 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > encodes 1922 -> "V0" 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > encodes 3842 -> "zy" 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > encodes 3843 -> "zz" 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > always returns exactly 2 Base62 chars across the whole domain 241ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > is the positional Base62 representation: hi*62 + lo 1ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > throws below the lower bound 2ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode > throws above the upper bound 1ms
+ ✓ test/genome/xcode-helpers.test.ts > decodeXcode > slot 0, xcode 0 reads bytes 1-2 0ms
+ ✓ test/genome/xcode-helpers.test.ts > decodeXcode > slot 1, xcode 0 reads bytes 65-66 0ms
+ ✓ test/genome/xcode-helpers.test.ts > decodeXcode > slot 2, xcode 0 reads bytes 129-130 0ms
+ ✓ test/genome/xcode-helpers.test.ts > decodeXcode > slot 3, xcode 30 reads the last Xcode pair in the genome (bytes 253-254) 0ms
+ ✓ test/genome/xcode-helpers.test.ts > decodeXcode > throws when slotIndex is out of range [0,3] 0ms
+ ✓ test/genome/xcode-helpers.test.ts > decodeXcode > throws when xcodeIndex is out of range [0,30] 1ms
+ ✓ test/genome/xcode-helpers.test.ts > decodeXcode > throws when genome length is not 256 1ms
+ ✓ test/genome/xcode-helpers.test.ts > decodeXcode > silently maps non-Base62 first char to 0 via ?? 0 (arm1 of branch 13) 0ms
+ ✓ test/genome/xcode-helpers.test.ts > decodeXcode > silently maps non-Base62 second char to 0 via ?? 0 (arm1 of branch 14) 0ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode/decodeXcode round-trip > round-trips EVERY value in [0, XCODE_MAX] through a genome slot 37ms
+ ✓ test/genome/xcode-helpers.test.ts > encodeXcode/decodeXcode round-trip > round-trips across every (slot, xcode) address, not just slot 0 29ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue > maps the low end of the Xcode space to rangeMin 0ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue > maps the high end (XCODE_MAX) to rangeMax 0ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue > is monotonic non-decreasing across the Xcode space 0ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue > splits a binary [0,1] range at the half-space boundary 1921/1922 0ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue > never leaves the [rangeMin, rangeMax] band for any Xcode in domain 17ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue > matches the documented Python formula floor(x*span/(XCODE_MAX+1)) + min 0ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue > throws when rangeMin > rangeMax 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > param 1 in [1,5] -> Xcode 0 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > param 3 in [1,5] -> Xcode 1538 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > param 5 in [1,5] -> Xcode 3076 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > param 0 in [0,1] -> Xcode 0 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > param 1 in [0,1] -> Xcode 1922 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > param 1 in [1,3] -> Xcode 0 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > param 2 in [1,3] -> Xcode 1282 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > param 3 in [1,3] -> Xcode 2563 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > returns the MINIMUM Xcode that maps to the param (ceil-division, L206) 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > mirrors Python ceil-division -(-numer // span) == Math.ceil(numer/span) 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > throws when paramValue is below rangeMin (L201) 0ms
+ ✓ test/genome/xcode-helpers.test.ts > paramValueToXcode > throws when paramValue is above rangeMax (L201) 0ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue / paramValueToXcode inverse consistency > param -> xcode -> param is identity for every value in [0,1] 0ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue / paramValueToXcode inverse consistency > param -> xcode -> param is identity for every value in [1,3] 0ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue / paramValueToXcode inverse consistency > param -> xcode -> param is identity for every value in [1,5] 0ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue / paramValueToXcode inverse consistency > param -> xcode -> param is identity for every value in [0,9] 1ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue / paramValueToXcode inverse consistency > param -> xcode -> param is identity for every value in [10,20] 1ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue / paramValueToXcode inverse consistency > param -> xcode -> param is identity for every value in [-5,5] 1ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue / paramValueToXcode inverse consistency > param -> xcode -> param is identity for every value in [0,100] 7ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue / paramValueToXcode inverse consistency > param -> xcode -> param is identity for every value in [0,3843] 238ms
+ ✓ test/genome/xcode-helpers.test.ts > xcodeToParamValue / paramValueToXcode inverse consistency > full-domain param round-trip when span equals the Xcode cardinality 23ms
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > save() inserts a row into leaderboard_entries
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > topForType() returns submissions sorted by fitness desc
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > countForType() returns correct count from MySQL
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > rankForFitness() ranks 1 for the top submission
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > isNewTop() returns true when no submissions exist
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > isNewTop() returns false when a higher submission exists
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > findDuplicate() returns null for new submissions
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > findDuplicate() finds existing submission within 24h
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > register() inserts a row into installs table
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > register() returns existing install_id on second call
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > exists() returns false for unregistered key
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > exists() returns true after registration
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > count() reflects actual MySQL row count
+ ↓ test/api/ts-storage.test.ts > MySQL storage — persistence assertions > GlobalStats.get() derives values from MySQL aggregates
+ ✓ test/api/ts-storage.test.ts > initPool guard — no database required > throws when called with empty string 4ms
+ ✓ test/api/ts-storage.test.ts > initPool guard — no database required > throws when called with undefined and ALIENCLAW_DB_URL is absent 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > throws on zero (n=0) before touching the pool 2ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > throws on negative (n=-1) before touching the pool 1ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > throws on just above the cap (n=101) before touching the pool 1ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > throws on far above the cap (n=1000000) before touching the pool 1ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > throws on a non-integer float (n=2.5) before touching the pool 1ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > throws on NaN (n=NaN) before touching the pool 1ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > throws on positive Infinity (n=Infinity) before touching the pool 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > throws on negative Infinity (n=-Infinity) before touching the pool 1ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > accepts the lower bound (n=1) and proceeds to the pool 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > accepts the upper bound (n=100) and proceeds to the pool 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > accepts a typical value (n=10) and proceeds to the pool 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > uses the default (10) when n is omitted, and proceeds to the pool 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.topForType — LIMIT boundary assertion > rejects 0 and 101 — the exact off-by-one edges of the [1, 100] range 1ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.save — submission_id entropy > save() returns an ID matching /^sub_[0-9a-f]{16}$/ (8 bytes of entropy) 2ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.save — submission_id entropy > save() IDs are unique over a 1,000-call loop (8 bytes = no birthday zone at N=1000) 196ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.save — submission_id entropy > install_id in InstallStore.register() uses the same 8-byte pattern (consistency check) 1ms
+ ✓ test/api/ts-storage.test.ts > parseRunMetadata — full type matrix (DB-free) > null run_metadata → {} (null guard arm) 1ms
+ ✓ test/api/ts-storage.test.ts > parseRunMetadata — full type matrix (DB-free) > undefined run_metadata → {} (undefined guard arm) 0ms
+ ✓ test/api/ts-storage.test.ts > parseRunMetadata — full type matrix (DB-free) > plain object run_metadata → returned as-is (object passthrough arm) 0ms
+ ✓ test/api/ts-storage.test.ts > parseRunMetadata — full type matrix (DB-free) > array run_metadata → {} (array is object but Array.isArray → falls through to non-string guard) 0ms
+ ✓ test/api/ts-storage.test.ts > parseRunMetadata — full type matrix (DB-free) > number run_metadata → {} (non-string non-object guard arm) 0ms
+ ✓ test/api/ts-storage.test.ts > parseRunMetadata — full type matrix (DB-free) > boolean run_metadata → {} (non-string non-object guard arm) 0ms
+ ✓ test/api/ts-storage.test.ts > parseRunMetadata — full type matrix (DB-free) > valid JSON string run_metadata → parsed object (try-parse success arm) 0ms
+ ✓ test/api/ts-storage.test.ts > parseRunMetadata — full type matrix (DB-free) > valid JSON string run_metadata via findDuplicate() (same guard applies there) 0ms
+ ✓ test/api/ts-storage.test.ts > parseRunMetadata — full type matrix (DB-free) > null run_metadata via findDuplicate() → {} 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.isNewTop — branch coverage (DB-free) > top === null (MAX of empty table) → true 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.isNewTop — branch coverage (DB-free) > rows empty (rows[0] undefined → top === undefined) → true 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.isNewTop — branch coverage (DB-free) > fitness > existing top → true 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.isNewTop — branch coverage (DB-free) > fitness === existing top → true (>= is inclusive) 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore.isNewTop — branch coverage (DB-free) > fitness < existing top → false 0ms
+ ✓ test/api/ts-storage.test.ts > GlobalStats.get() — DB-free > returns zero totals and empty topByType when all rows are empty 0ms
+ ✓ test/api/ts-storage.test.ts > GlobalStats.get() — DB-free > aggregates counts and builds topByType map from populated tables 0ms
+ ✓ test/api/ts-storage.test.ts > GlobalStats.get() — DB-free > total_fitness_evaluations equals total_genomes (both from leaderboard_entries) 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore — run_metadata defensive parse (DB-free) > topForType() returns run_metadata:{} and does not throw on malformed JSON 1ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore — run_metadata defensive parse (DB-free) > findDuplicate() returns run_metadata:{} and does not throw on malformed JSON 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.countForType — DB-free branch coverage > returns cnt from rows[0] when a row exists (happy path) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.countForType — DB-free branch coverage > returns 0 fallback when execute() returns an empty array (rows[0]?.cnt is undefined → ?? 0) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.countForType — DB-free branch coverage > returns 0 fallback when cnt column is null (rows[0]?.cnt is null → ?? 0) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.rankForFitness — DB-free branch coverage > returns cnt+1 from rows[0] when a row exists (happy path, 0 entries → rank 1) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.rankForFitness — DB-free branch coverage > returns cnt+1 when cnt > 0 (rank = N+1 means N entries strictly beat fitness) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.rankForFitness — DB-free branch coverage > returns 0+1 = 1 fallback when execute() returns empty array (rows[0]?.cnt is undefined → ?? 0) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.rankForFitness — DB-free branch coverage > returns 0+1 = 1 fallback when cnt column is null 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.findDuplicate — null-path DB-free > returns null when execute() returns an empty array (no row matches) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.findDuplicate — null-path DB-free > returns the parsed StoredSubmission when a matching row exists (happy path) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.save — return-value shape (DB-free) > reaches the INSERT branch when called (sentinel surfaces) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 SubmissionStore.save — return-value shape (DB-free) > returns [submission_id, submitted_at_iso] tuple on a successful (canned) pool 1ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 InstallStore.register — DB-free branch coverage > returns [install_id, false] when SELECT finds an existing row (early-return branch, L208) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 InstallStore.register — DB-free branch coverage > returns [install_id, true] when SELECT returns empty (L215 INSERT branch) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 InstallStore.register — DB-free branch coverage > generated install_id is 16 hex chars (randomBytes(8).toString("hex")) and returned on success 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 InstallStore.exists — DB-free branch coverage > returns true when SELECT returns at least one row 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 InstallStore.exists — DB-free branch coverage > returns false when SELECT returns an empty array (rows.length === 0) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 InstallStore.count — DB-free branch coverage > returns cnt from rows[0] when a row exists (happy path) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 InstallStore.count — DB-free branch coverage > returns 0 fallback when execute() returns an empty array (rows[0]?.cnt undefined → ?? 0) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 InstallStore.count — DB-free branch coverage > returns 0 fallback when cnt column is null (rows[0]?.cnt null → ?? 0) 0ms
+ ✓ test/api/ts-storage.test.ts > PKT-883 initPool — success-path branch (DB-free) > createPool is called when a valid dbUrl is supplied (L27-28 branch) 1ms
+ ✓ test/api/ts-storage.test.ts > pool() null-guard and initPool() success path — DB-free > pool() throws "Database pool not initialized" when initPool() was never called 2ms
+ ✓ test/api/ts-storage.test.ts > pool() null-guard and initPool() success path — DB-free > initPool() success path — returns a non-null pool when a URL is provided 0ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore — run_metadata defensive parse (DB-free) > topForType() returns run_metadata:{} and does not throw on malformed JSON 1ms
+ ✓ test/api/ts-storage.test.ts > SubmissionStore — run_metadata defensive parse (DB-free) > findDuplicate() returns run_metadata:{} and does not throw on malformed JSON 0ms
+ ✓ test/wall-check.test.ts > wall-check: canonical 3-layer architecture enforcement > R-001: file scanner runs without throwing 55ms
+ ✓ test/wall-check.test.ts > wall-check: canonical 3-layer architecture enforcement > R-002: no banned term appears in src/ outside allowlist 38ms
+ ✓ test/wall-check.test.ts > wall-check: canonical 3-layer architecture enforcement > R-003: no banned term appears in test/ outside allowlist 25ms
+ ✓ test/wall-check.test.ts > wall-check: canonical 3-layer architecture enforcement > R-004: no banned term appears in scripts/ outside allowlist 29ms
+ ✓ test/wall-check.test.ts > wall-check: canonical 3-layer architecture enforcement > R-005: no banned term appears in git-hooks/ outside allowlist 32ms
+ ✓ test/wall-check.test.ts > wall-check: canonical 3-layer architecture enforcement > R-006: BANNED_RULES is non-empty and every rule has a unique id 1ms
+(node:2351035) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ test/api/routing-prefix-mismatch.test.ts > API server — /v1/genomes/top exact-path routing (PKT-533 / PKT-491) > GET /v1/genomes/topology returns 404 NOT_FOUND (no silent dispatch) 25ms
+ ✓ test/api/routing-prefix-mismatch.test.ts > API server — /v1/genomes/top exact-path routing (PKT-533 / PKT-491) > GET /v1/genomes/topsecret returns 404 NOT_FOUND 4ms
+ ✓ test/api/routing-prefix-mismatch.test.ts > API server — /v1/genomes/top exact-path routing (PKT-533 / PKT-491) > GET /v1/genomes/topsecret/anything returns 404 NOT_FOUND 4ms
+ ✓ test/api/routing-prefix-mismatch.test.ts > API server — /v1/genomes/top exact-path routing (PKT-533 / PKT-491) > GET /v1/genomes/topologyx returns 404 NOT_FOUND 4ms
+ ✓ test/api/routing-prefix-mismatch.test.ts > API server — /v1/genomes/top exact-path routing (PKT-533 / PKT-491) > GET /v1/genomes/top (control, exact) still returns 200 with martian_type=compute 5ms
+ ✓ test/api/routing-prefix-mismatch.test.ts > API server — /v1/genomes/top exact-path routing (PKT-533 / PKT-491) > GET /v1/genomes/top/ (trailing slash stripped to exact) still returns 200 3ms
+ ✓ test/api/ts-handle-health-timer-leak.test.ts > handleHealth — Promise.race setTimeout leak (PKT-1096) > R-1096-1: clears the 2s race-loser timer when pool.query wins 54ms
+ ✓ test/api/ts-handle-health-timer-leak.test.ts > handleHealth — Promise.race setTimeout leak (PKT-1096) > R-1096-2: clears the timer on the pool.query-rejects path too 51ms
+ ✓ test/api/ts-handle-health-timer-leak.test.ts > handleHealth — Promise.race setTimeout leak (PKT-1096) > R-1096-3: still reports db=ok when the pool query succeeds 0ms
+ ✓ test/api/ts-handle-health-timer-leak.test.ts > handleHealth — Promise.race setTimeout leak (PKT-1096) > R-1096-4: no-pool path schedules and clears nothing 51ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: negative (-1) is rejected; falls back to default (initPool L27) 82ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: huge (999999999) is rejected; falls back to default (initPool L27) 2ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: huge (MAX_SAFE_INTEGER + 1) is rejected; falls back to default (initPool L27) 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: sci-notation ("1e2") is honoured as 100 (operator intent), not truncated to 1 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: above the ceiling (101) is rejected; falls back to default (initPool L27) 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: at the ceiling (100) is honored (initPool L27) 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: zero (0) is rejected; falls back to default (already protected by || 8) 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: non-numeric ("abc") is rejected; falls back to default (already protected by || 8) 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: empty ("") is rejected; falls back to default 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: decimal ("7.5") is rejected; falls back to default (Number.isInteger guard) 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: valid ("16") is honored (initPool L27) 0ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: maxIdle is also bounded (not just connectionLimit) 0ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: poolStats() also rejects negative (-1); returns default in stats.connectionLimit 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: poolStats() also rejects huge (999999999); returns default 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: MAX_DB_POOL_MAX is exported and equals 100 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: DEFAULT_DB_POOL_MAX is exported and equals 8 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: resolvePoolMax() is exported and returns the default for invalid input 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: resolvePoolMax() honours valid ("16") 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > RED→GREEN: resolvePoolMax() rejects out-of-range and returns default 1ms
+ ✓ test/api/_verify_1087.test.ts > storage.ts: ALIENCLAW_DB_POOL_MAX env coercion (PKT-1087, re-author of REJECTED 1087) > CONTROL: when env is unset, default is honoured 1ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > returns [] when the telemetry root does not exist 18ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > returns [] when telemetry root is empty 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > skips date directories whose name is lexicographically before the cutoff 5ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > reads all reports under a matching date dir regardless of filename 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > skips entries that do not end in .json 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > skips advisory_ and failforward_ prefixed entries (top-level filename prefix check) 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > skips files with malformed JSON (parse error → caught) 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > skips files whose parsed JSON lacks martianId 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > skips files whose ts is before the sinceMs floor 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > skips a date directory whose readdir throws (caught → continue) 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > returns the result sorted by ts ascending 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > skips top-level files whose name starts with the agent-channel prefix 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > skips the agent-channel/ subdirectory via the .json extension guard 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports > aggregates reports across multiple date directories in chronological order 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness > returns rate=0 and zeros when no reports match the martianId 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness > counts outcomes correctly for a single Martian 7ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness > excludes reports whose ts is older than (now - windowMs) 6ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness > returns rate=1 when all matching reports succeed 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness > returns rate=0 when all matching reports fail or escalate 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness > does not double-count irrelevant Martians 4ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness — malformed outcome enum (PKT-615) > PKT615-TR-T1: baseline — 2 SUCCESS + 1 FAILURE returns correct counts without malformed_count 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness — malformed outcome enum (PKT-615) > PKT615-TR-T2: lowercase "unknown" outcome is rejected — runs counts only canonical records 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness — malformed outcome enum (PKT-615) > PKT615-TR-T3: null outcome is rejected — only canonical records count 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness — malformed outcome enum (PKT-615) > PKT615-TR-T4: undefined outcome (missing field) is rejected 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness — malformed outcome enum (PKT-615) > PKT615-TR-T5: titlecase "Success" outcome is rejected 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness — malformed outcome enum (PKT-615) > PKT615-TR-T6: all-malformed — runs=0, rate=0 — now shares "broken Martian" zero-run signature; distinguish only via telemetry-file presence (malformed_count retired) 4ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness — malformed outcome enum (PKT-615) > PKT615-TR-T7: empty relevant set — returns zeros without malformed_count 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness — malformed outcome enum (PKT-615) > PKT615-TR-T8: malformed_count absent (not zero) when all outcomes are canonical (backward-compat) 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose outcome is a number (not a string) 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose outcome is a boolean (true) 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose outcome is null 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose outcome field is absent (undefined) 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose outcome is a string typo (SUCCESSS) 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose outcome is lowercase (success) 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose outcome is an empty string 3ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose ts is a string 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose ts is null (what NaN/Infinity serialise to in JSON) 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose ts is Infinity (non-finite number) 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose martianId is a number 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose martianId is an object 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > skips reports whose martianId is an empty string 2ms
+ ✓ test/telemetry/telemetry-reader.test.ts > readRecentMartianReports — shape validation (PKT-704) > does not drop well-formed reports (regression guard for the predicate) 5ms
+ ✓ test/telemetry/telemetry-reader.test.ts > summarizeFitness — shape validation (PKT-704) > returns zero-counts when ALL reports in window are malformed-shape 3ms
+(node:2351073) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ↓ test/api/ts-api-server.test.ts > Health > GET /v1/health returns 200
+ ↓ test/api/ts-api-server.test.ts > Install > new install returns 201
+ ↓ test/api/ts-api-server.test.ts > Install > known install returns 200
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > valid submission returns 201
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > missing auth returns 401
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > invalid genome length returns 422
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > invalid fitness returns 422
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > unknown martian type returns 422
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > duplicate returns 200 with same submission_id
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > missing leaderboard_name returns 400 MISSING_FIELDS
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > lowercase leaderboard_name returns 422 INVALID_LEADERBOARD_NAME
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > digit in leaderboard_name returns 422 INVALID_LEADERBOARD_NAME
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > symbol in leaderboard_name returns 422
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > 7-char leaderboard_name returns 422
+ ↓ test/api/ts-api-server.test.ts > SubmitGenome > 9-char leaderboard_name returns 422
+ ↓ test/api/ts-api-server.test.ts > TopGenomes > returns 200 with empty board
+ ↓ test/api/ts-api-server.test.ts > TopGenomes > missing martian_type returns 400
+ ↓ test/api/ts-api-server.test.ts > TopGenomes > returns leaderboard_name in each entry
+ ✓ test/api/ts-api-server.test.ts > validateLeaderboardName equivalence > accepts exactly 8 uppercase letters 2ms
+ ✓ test/api/ts-api-server.test.ts > validateLeaderboardName equivalence > rejects lowercase 0ms
+ ✓ test/api/ts-api-server.test.ts > validateLeaderboardName equivalence > rejects digits 0ms
+ ✓ test/api/ts-api-server.test.ts > validateLeaderboardName equivalence > rejects symbols 0ms
+ ✓ test/api/ts-api-server.test.ts > validateLeaderboardName equivalence > rejects wrong length (7) 0ms
+ ✓ test/api/ts-api-server.test.ts > validateLeaderboardName equivalence > rejects wrong length (9) 0ms
+ ✓ test/api/ts-api-server.test.ts > validateLeaderboardName equivalence > rejects empty 0ms
+ ✓ test/api/ts-api-server.test.ts > Body size limit (DoS hardening) > MAX_BODY_BYTES is 64 KiB 0ms
+ ✓ test/api/ts-api-server.test.ts > Body size limit (DoS hardening) > oversized POST /v1/install returns 413 PAYLOAD_TOO_LARGE 48ms
+ ✓ test/api/ts-api-server.test.ts > Body size limit (DoS hardening) > oversized POST /v1/genomes returns 413 PAYLOAD_TOO_LARGE 10ms
+ ✓ test/api/ts-api-server.test.ts > Body size limit (DoS hardening) > oversized body with a TRUTHFUL Content-Length is rejected up front (413) 7ms
+ ✓ test/api/ts-api-server.test.ts > Body size limit (DoS hardening) > oversized CHUNKED body (no Content-Length) is capped by bytes received (413) 8ms
+ ✓ test/api/ts-api-server.test.ts > Body size limit (DoS hardening) > normal-sized POST /v1/install still returns 201 7ms
+ ✓ test/api/ts-api-server.test.ts > Body size limit (DoS hardening) > normal-sized POST /v1/genomes (256-char genome + metadata) still returns 201 6ms
+ ✓ test/api/ts-api-server.test.ts > Body size limit (DoS hardening) > a body just under the cap is accepted (boundary) 5ms
+(node:2351106) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ test/api/_verify_1116.test.ts > GET / index route — PKT-1116 (stale hardcoded 1.0.0 version) > R-001 BUG-CONFIRMED: version is NOT the hardcoded "1.0.0" (real package.json value) 24ms
+ ✓ test/api/_verify_1116.test.ts > GET / index route — PKT-1116 (stale hardcoded 1.0.0 version) > R-002 BUG-CONFIRMED: version matches the calendar-version pattern (YYYY.M.P) 3ms
+ ✓ test/api/_verify_1116.test.ts > GET / index route — PKT-1116 (stale hardcoded 1.0.0 version) > R-003 CONTROL: route is reachable and returns the expected envelope shape 3ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 literals > rejects loopback ::1 2ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 literals > rejects link-local fe80::1 1ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 literals > rejects ULA fc00::1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 literals > rejects unspecified :: 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 literals > rejects IPv4-mapped hex form of 169.254.169.254 (::ffff:a9fe:a9fe) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 literals > rejects IPv4-mapped ::ffff:127.0.0.1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 literals > rejects fd00::/8 ULA (fdaa::1) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 literals > rejects multicast ff02::1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4-translated 4-group suffix (PKT-1079 corpus gap) > rejects ::ffff:0:0:1 (IPv4-translated 0.0.0.1 — this network) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4-translated 4-group suffix (PKT-1079 corpus gap) > rejects ::ffff:0:7f00:1 (IPv4-translated 127.0.0.1 — loopback) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4-translated 4-group suffix (PKT-1079 corpus gap) > rejects ::ffff:0:a9fe:a9fe (IPv4-translated 169.254.169.254 — IMDS) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4-translated 4-group suffix (PKT-1079 corpus gap) > rejects ::ffff:0:a00:1 (IPv4-translated 10.0.0.1 — RFC1918) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4-translated 4-group suffix (PKT-1079 corpus gap) > rejects ::ffff:0:c0a8:101 (IPv4-translated 192.168.1.1 — RFC1918) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4-translated 4-group suffix (PKT-1079 corpus gap) > rejects ::ffff:0:ffff:ffff (IPv4-translated 255.255.255.255 — broadcast) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4-translated 4-group suffix (PKT-1079 corpus gap) > rejects canonicalised ::ffff:0:127.0.0.1 form (URL parser output) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 mapped/translated forms must NOT over-block (PKT-1079 safety) > accepts Google DNS 2001:4860:4860::8888 (global unicast) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 mapped/translated forms must NOT over-block (PKT-1079 safety) > accepts ::1:ffff:0:0 (ffff at pos 5, groups[4]=1 not 0) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv6 mapped/translated forms must NOT over-block (PKT-1079 safety) > accepts Cloudflare DNS 2606:4700:4700::1111 (global unicast) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4 literals > rejects loopback 127.0.0.1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4 literals > rejects RFC1918 10.0.0.1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4 literals > rejects RFC1918 172.16.0.1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4 literals > rejects RFC1918 192.168.1.1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4 literals > rejects cloud metadata 169.254.169.254 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4 literals > rejects CGNAT 100.64.0.1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — IPv4 literals > rejects 0.0.0.0 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — hostname tokens > rejects localhost 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — hostname tokens > rejects ip6-localhost 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — hostname tokens > rejects empty string 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — canonicalised obfuscated IPv4 > rejects canonical 127.0.0.1 (represents 0177.0.0.1 after URL normalization) 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — canonicalised obfuscated IPv4 > rejects decimal 2130706433 → 127.0.0.1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — canonicalised obfuscated IPv4 > rejects hex 0x7f000001 → 127.0.0.1 0ms
+ ✓ test/ssrf-vectors.test.ts > isBlockedHost — canonicalised obfuscated IPv4 > rejects short-form 127.1 → 127.0.0.1 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > rejects IPv4 that resolves to 10.0.0.1 2ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > rejects IPv4 that resolves to 127.0.0.1 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > rejects IPv4 that resolves to 169.254.169.254 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > rejects IPv6 that resolves to ::1 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > rejects IPv6 that resolves to fe80::1 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > rejects IPv6 ::ffff:a9fe:a9fe (hex IPv4-mapped 169.254.169.254) 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > rejects IPv6 ::ffff:0:a9fe:a9fe (IPv4-translated 169.254.169.254 — PKT-1079) 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > rejects IPv6 ::ffff:0:7f00:1 (IPv4-translated 127.0.0.1 — PKT-1079) 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > rejects empty address list 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > accepts public 1.1.1.1 0ms
+ ✓ test/ssrf-vectors.test.ts > validateResolvedAddresses > accepts public 2001:4860:4860::8888 (Google DNS IPv6) 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — protocol allowlist > rejects file:// 2ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — protocol allowlist > rejects gopher:// 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — protocol allowlist > rejects ftp:// 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — protocol allowlist > rejects data: 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — blocked literal hostnames > rejects http://[::1]/ 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — blocked literal hostnames > rejects http://[fe80::1]/ 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — blocked literal hostnames > rejects http://[fc00::1]/ 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — blocked literal hostnames > rejects http://[::ffff:a9fe:a9fe]/ 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — blocked literal hostnames > rejects http://[::ffff:127.0.0.1]/ 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — blocked literal hostnames > rejects http://[::ffff:0:127.0.0.1]/ (RFC 6145 translated form, PKT-1079) 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — blocked literal hostnames > rejects http://[::ffff:0:a9fe:a9fe]/ (canonicalised IMDS, PKT-1079) 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — blocked literal hostnames > rejects http://localhost/ 0ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — hostname resolves to private IP (stubbed DNS) > rejects hostname that DNS resolves to 10.0.0.1 1ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — 302 redirect to blocked address (stubbed fetch + DNS) > rejects 302 redirect to 169.254.169.254 (cloud metadata) 43ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — response size cap (stubbed) > rejects response that exceeds maxBytes 4ms
+ ✓ test/ssrf-vectors.test.ts > hardenedFetch — timeout > rejects when fetch exceeds time budget 52ms
+ ✓ test/ssrf-vectors.test.ts > resolver-inconsistency (construction assertion) > hardenedFetch imports dns.promises.lookup for validation 1ms
+ ✓ test/utils.test.ts > sleep > returns a Promise 4ms
+ ✓ test/utils.test.ts > sleep > resolves after at least the requested ms (using real timers) 41ms
+ ✓ test/utils.test.ts > sleep > resolves to undefined (no return value) 2ms
+ ✓ test/utils.test.ts > extractText > returns "" for an empty content array 1ms
+ ✓ test/utils.test.ts > extractText > joins text parts in order 0ms
+ ✓ test/utils.test.ts > extractText > filters out non-text parts (tool_use, tool_result, etc.) 0ms
+ ✓ test/utils.test.ts > extractText > skips text parts whose text field is undefined (filtered by type-guard) 0ms
+ ✓ test/utils.test.ts > errorMessage > returns err.message when given an Error instance 0ms
+ ✓ test/utils.test.ts > errorMessage > returns String(err) for non-Error values (string, number, object, null) 1ms
+ ✓ test/utils.test.ts > errorMessage > returns "" for an empty string (String("") === "") 0ms
+ ✓ test/utils.test.ts > normalizeInput > trims surrounding whitespace and lowercases the rest 0ms
+ ✓ test/utils.test.ts > normalizeInput > lowercases ASCII A-Z and leaves a-z and digits untouched 0ms
+ ✓ test/utils.test.ts > normalizeInput > preserves internal whitespace (only trims edges) 0ms
+ ✓ test/utils.test.ts > normalizeInput > returns "" for whitespace-only input 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > returns null for empty string 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > returns null for plain text with no JSON bracket 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > extracts object substring from string with prose before 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > extracts array substring from string with prose after 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > extracts JSON from prose on both sides 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > handles nested objects without premature close 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > handles string values that contain } without closing early 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > handles backslash-escaped quotes inside strings 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > returns null when brackets are unclosed (truncated) 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > extracts array of objects 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > pkt703: skips [NOTE] label, returns the JSON object that follows 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > pkt703: skips {note} label, returns the JSON object that follows 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > pkt703: skips conversational [here we go] preamble bracket 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > pkt703: multiple non-JSON brackets before JSON — returns first parseable 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > pkt703: unbalanced leading bracket skipped — extracts JSON nested inside 0ms
+ ✓ test/utils.test.ts > extractJsonSubstring > pkt703: [bracket with no body] label skipped, JSON object returned 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 1: parses fenced ```json block 1ms
+ ✓ test/utils.test.ts > parseModelJson > shape 2: parses fenced ``` block without language tag 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 3: parses JSON prefixed with prose (extraction path) 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 4: parses JSON followed by trailing prose (extraction path) 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 5: parses JSON wrapped in prose on both sides (extraction path) 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 6: parses plain JSON object (fast path) 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 7: parses fenced JSON with trailing text after closing fence (extraction path) 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 8: parses inline backtick-fenced JSON object 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 9: parses JSON from single-backtick-wrapped input (extraction path) 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 10: falls to text path for truncated/incomplete input 0ms
+ ✓ test/utils.test.ts > parseModelJson > shape 11: falls to text path for fence-only input 0ms
+ ✓ test/utils.test.ts > parseModelJson > falls to text path when no JSON present at all 0ms
+ ✓ test/utils.test.ts > parseModelJson > falls to text path when onJson callback throws 0ms
+ ✓ test/utils.test.ts > parseModelJson > pkt703 shape A: prose + [NOTE] + JSON object routes to json path 0ms
+ ✓ test/utils.test.ts > parseModelJson > pkt703 shape B: prose + {draft} + JSON object routes to json path 0ms
+ ✓ test/utils.test.ts > parseModelJson > pkt703 shape C: prose + [NOTE] + JSON array routes to json path 0ms
+ ✓ test/utils/atomic-write-d2-cleanup.test.ts > atomicWrite — D2: cleanup on writeFileSync partial-failure (PKT-919) > T1: ENOSPC mid-write → zero .tmp-* orphans, ENOSPC rethrown, no destination 28ms
+ ✓ test/utils/atomic-write-d2-cleanup.test.ts > atomicWrite — D2: cleanup on writeFileSync partial-failure (PKT-919) > T2: EIO mid-write → zero .tmp-* orphans, EIO rethrown, no destination 20ms
+ ✓ test/utils/atomic-write-d2-cleanup.test.ts > atomicWrite — D2: cleanup on writeFileSync partial-failure (PKT-919) > T3: EMFILE mid-write → zero .tmp-* orphans, EMFILE rethrown, no destination 22ms
+ ✓ test/utils/atomic-write-d2-cleanup.test.ts > atomicWrite — D2: cleanup on writeFileSync partial-failure (PKT-919) > T4: 5x repeated ENOSPC failures do not accumulate .tmp-* orphans 16ms
+ ✓ test/utils/atomic-write-d2-cleanup.test.ts > atomicWrite — D2: cleanup on writeFileSync partial-failure (PKT-919) > T5: happy path unchanged — successful write, no .tmp-* orphans (sanity) 1ms
+ ✓ test/utils/atomic-write.test.ts > atomicWrite — D1: parent directory auto-creation > T1: creates nested parent dirs when they do not exist 5ms
+ ✓ test/utils/atomic-write.test.ts > atomicWrite — happy path > T2: successful write leaves zero .tmp-* leftovers in parent dir 3ms
+ ✓ test/utils/atomic-write.test.ts > atomicWrite — happy path > T2b: overwrites an existing file correctly 1ms
+ ✓ test/utils/atomic-write.test.ts > atomicWrite — D3: cleanup on rename failure > T3: EISDIR — directory at target path → no .tmp-* orphan left behind 2ms
+ ✓ test/utils/atomic-write.test.ts > atomicWrite — D3: cleanup on rename failure > T4: repeated EISDIR failures do not accumulate .tmp-* orphans 1ms
+ ✓ test/utils/atomic-write.test.ts > atomicWrite — D3: cleanup on rename failure > T5: original EISDIR error code is preserved and re-thrown, not swallowed 1ms
+ ✓ test/utils/atomic-write.test.ts > atomicWrite — D2: fsync tmp file before rename > T6: fsyncSync IS called once during atomicWrite (D2 happy path) 23ms
+ ✓ test/utils/atomic-write.test.ts > atomicWrite — D2: fsync tmp file before rename > T7: fsyncSync is called with the tmp fd (a positive integer), and tmp is cleaned up 12ms
+ ✓ test/utils/atomic-write.test.ts > atomicWrite — D2: fsync tmp file before rename > T8: fsyncSync error is re-thrown AND tmp is cleaned up (closes overmind reject) 12ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — path traversal (TS assertInsideBoundary) > rejects ../ traversal 5ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — path traversal (TS assertInsideBoundary) > rejects absolute path outside boundary 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — path traversal (TS assertInsideBoundary) > rejects deeply nested ../ traversal 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — path traversal (TS assertInsideBoundary) > accepts valid relative path inside boundary 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — dotfile denial > rejects .env 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — dotfile denial > rejects .gitconfig 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — dotfile denial > rejects subpath with dotfile filename 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — OpenClaw workspace denial > rejects write targeting ~/.openclaw/agents/bossbot/SOUL.md 0ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — symlink escape > rejects symlink that targets path outside boundary 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — compute exponent guard > blocks 9**9**9 via exponent guard 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — compute exponent guard > blocks 10**101 (exponent > 100) 0ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — search_text ReDoS guard (TS side) > pattern length cap of 200 chars is the guard 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — extract_json depth guard > rejects JSON with depth > 32 (Python side; documented here) 0ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — SSRF through network brains > http_get to 169.254.169.254 is blocked by isBlockedHost 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — SSRF through network brains > url_fetch to 10.0.0.1 is blocked by isBlockedHost 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — SSRF through network brains > web_search stub does not make real network calls 0ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — SSRF through network brains > DNS resolving to private IP is blocked by validateResolvedAddresses 1ms
+ ✓ test/jail-hostile-genomes.test.ts > Jail — oversized fetch body > hardenedFetch maxBytes cap is the guard (construction assertion) 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > fixture has minimum 50 cases 3ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > fixture schema version is 1.0 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > checksum-all-zeros 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > checksum-all-A 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > checksum-all-z 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > checksum-web-body 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > checksum-fr-body 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > checksum-fw-body 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > checksum-mixed 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > checksum-single-change 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > assemble-web 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > assemble-fr 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > assemble-fw 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > assemble-zeros 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > assemble-z 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > assemble-fail-fwd 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > parse-web 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > parse-fr 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > parse-fw 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > parse-zeros 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > parse-z 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > parse-fail-fwd 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > round-trip-00 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > round-trip-01 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > round-trip-02 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > round-trip-03 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > round-trip-04 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > round-trip-05 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > round-trip-06 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > round-trip-07 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-pass-00 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-pass-01 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-pass-02 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-pass-03 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-pass-04 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-pass-05 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-pass-06 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-pass-07 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-short 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-long 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-empty 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-plus 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-equals 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-space 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-chk-first 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-chk-last 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-chk-mid 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > validate-fail-body-tampered 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > mutate-invariant-00 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > mutate-invariant-01 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > mutate-invariant-02 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > mutate-invariant-03 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > mutate-invariant-04 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > mutate-invariant-05 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > mutate-invariant-06 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > crossover-invariant-00 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > crossover-invariant-01 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > crossover-invariant-02 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > crossover-invariant-03 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > crossover-invariant-04 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > crossover-invariant-05 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > crossover-invariant-06 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-decode-slot0-idx0 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-decode-slot1-idx0 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-decode-slot2-idx0 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-decode-slot3-idx30 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-decode-slot3-idx0 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-decode-slot1-idx5 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-decode-slot2-idx15 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-encode-0 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-encode-3843 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-encode-62 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-encode-61 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-encode-1 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-encode-1922 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-encode-3842 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x0-r1-5 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x3843-r1-5 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x0-r0-1 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x3843-r0-1 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x1921-r0-1 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x1922-r0-1 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x0-r1-3 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x3843-r1-3 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x1922-r1-3 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x1000-r1-100 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x3000-r1-100 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > xcode-to-param-x3843-r1-100 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v1-r1-5 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v5-r1-5 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v3-r1-5 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v0-r0-1 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v1-r0-1 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v1-r1-3 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v2-r1-3 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v3-r1-3 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v1-r1-10 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v10-r1-10 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v5-r1-10 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v1-r1-100 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v50-r1-100 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > param-to-xcode-roundtrip-v100-r1-100 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-invalid-length-255 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-invalid-length-257 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-invalid-length-0 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-invalid-char-exclamation 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-invalid-char-at 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-invalid-char-space 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-confusable-0-to-O 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-confusable-1-to-l 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-bad-checksum-last-char 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-bad-checksum-first-char 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-all-minimum 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > adversarial-all-maximum 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-00 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-01 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-02 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-03 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-04 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-05 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-06 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-07 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-08 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-09 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-10 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-11 1ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-12 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-13 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-14 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-15 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-16 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-17 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-18 0ms
+ ✓ test/genome/ts-fixture-runner.test.ts > genome spec compliance — cross-language fixture > seeded-random-19 0ms
+ ✓ test/git-hooks-pre-commit.test.ts > git-hooks/pre-commit (integration) > does not treat staged filenames as git-add flags (e.g. --all) 46ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > returns well-formed Base62 / id segments unchanged 3ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects a POSIX relative-traversal sequence 2ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects any forward-slash path separator 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects backslash separators (Windows-style) 0ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects the platform path separator explicitly 0ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects a bare ".." and any "." (dot is not in the allowlist) 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects NUL bytes (poison-null-byte vector) 0ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects empty string and over-long input 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects whitespace, control chars, and shell/glob metacharacters 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects non-ASCII / unicode lookalikes 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > uses the provided label in the error message 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > sanitizeFilenameSegment > rejects non-string input defensively 0ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeMartianReport > writes a well-formed reportCode to the correct dated file with correct content 4ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeMartianReport > THROWS on a traversal reportCode and writes NO file anywhere 2ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeMartianReport > THROWS on a reportCode containing a path separator 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeMartianReport > THROWS on an absolute-path reportCode (no write outside home) 0ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeMartianReport > THROWS on an empty reportCode 0ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeMartianReport > W1: writer ts wins over caller-supplied data.ts 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeMartianReport > W2: writer reportCode wins over caller-supplied data.reportCode 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeAdvisory > writes a well-formed taskId to advisory_<taskId>.json with correct content 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeAdvisory > THROWS on a traversal taskId and writes NO file 0ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeAdvisory > THROWS when the taskId tries to break out of the advisory_ prefix 0ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeAdvisory > W3+W4: writer taskId and ts win over caller-supplied data.taskId and data.ts 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeFailforward > writes failforward_<ts>.json inside the dated dir (no traversal surface) 1ms
+ ✓ test/telemetry/telemetry-writer.test.ts > TelemetryWriter.writeFailforward > W5: writer ts wins over caller-supplied data.ts in writeFailforward 1ms
+[audit-log] WARNING: failed to write entry: Error: EEXIST: file already exists, mkdir '/tmp/audit-test-krZGOM/audit'
+ ✓ test/api/audit-log.test.ts > AuditLog — construction > no-args: record is a no-op — no file written, no throw 5ms
+ ✓ test/api/audit-log.test.ts > AuditLog — construction > with dataRoot: record creates audit/submissions-<YYYY-MM-DD>.jsonl 2ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — happy path > writes exactly 1 JSONL line per call 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — happy path > 3 records append to same file — no overwrite 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — happy path > clientIp defaults to "unknown" when omitted 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — content shape > genome_sha256 equals sha256(genome) and raw genome is never logged 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — content shape > rejection_code is null when rejectionCode is omitted 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — content shape > JSON keys are sorted alphabetically 2ms
+ ✓ test/api/audit-log.test.ts > AuditLog — daily rollover > different UTC dates produce different files, each containing exactly 1 line 4ms
+ ✓ test/api/audit-log.test.ts > AuditLog — failure path > write failure logs [audit-log] WARNING to stderr and does not throw 6ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — non-finite fitness flagging (PKT-609) > fitness: NaN (rejected) -> on-disk fitness:null + fitness_was_nonfinite:true 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — non-finite fitness flagging (PKT-609) > fitness: +Infinity (rejected) -> on-disk fitness:null + fitness_was_nonfinite:true 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — non-finite fitness flagging (PKT-609) > fitness: -Infinity (rejected) -> on-disk fitness:null + fitness_was_nonfinite:true 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — non-finite fitness flagging (PKT-609) > fitness: NaN (accepted path) -> on-disk fitness:null + fitness_was_nonfinite:true (the worst case) 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — non-finite fitness flagging (PKT-609) > fitness: 0.5 (finite, accepted) -> on-disk fitness:0.5 + fitness_was_nonfinite:false (regression) 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — non-finite fitness flagging (PKT-609) > fitness: 0 (finite, rejected) -> on-disk fitness:0 + fitness_was_nonfinite:false (regression) 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — non-finite fitness flagging (PKT-609) > fitness: 1.0 (boundary, accepted) -> on-disk fitness:1 + fitness_was_nonfinite:false (regression) 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — non-finite fitness flagging (PKT-609) > fitness: -0 (finite, accepted) -> on-disk fitness:0 + fitness_was_nonfinite:false (regression — JSON.stringify quirk) 1ms
+ ✓ test/api/audit-log.test.ts > AuditLog.record — non-finite fitness flagging (PKT-609) > mixed batch (finite + non-finite + boundary) -> each line independently preserves the flag 2ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > returns a 256-char string on valid input 4ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > throws on genome whose length !== 256 1ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > returns the same input when all brains are null (no mutation) 1ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > returns the same input when slot brains have empty parameterSchema 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > rate=0 → no mutation regardless of brain 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > slot 0 (IDENTITY) is never mutated even with brain+rate=1.0 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > slot 3 (CHECKSUM) body is never mutated even with brain+rate=1.0 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > deterministic: same (genome, brain, rand) → same output across N runs 4ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > result is always a valid Base62 256-char genome (validateGenome passes) 1ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > rate=1 + brain with 1 xcode → mutation runs without throwing and stays valid 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > direction=lower: xcode 0 of slot 1 decreases more often than increases (statistical, N=200) 8ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > direction=higher: xcode 0 of slot 1 increases more often than decreases (statistical) 8ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > output body (chars 0..191) is 192 chars of Base62 only 1ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > PER_XCODE_MUTATION_RATE = 2/256 (matches Python source) 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > output checksum (chars 192..255) is consistent — validateGenome passes 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > xcodeIndex=31 on slot 2 (out of [0,30] range) is skipped — no crash, genome stays 256 chars 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > xcodeIndex=31 on slot 1 (cross-slot write into slot 2 territory) is skipped — genome stays valid 1ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > rangeMin === rangeMax: every step clamps back to currParam — genome stays unchanged 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > slotBrains shorter than slot indices — short-array guard skips out-of-range slots 0ms
+ ✓ test/registry/genome-operators.test.ts > mutateDirected — runtime invariants (TS) > non-Base62 chars in genome body — ?? 0 fallback maps invalid char to index 0 without throwing 0ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — construction > constructs with no args; check is a no-op (no dataRoot, no persist) 5ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — construction > constructs with custom limit and window 3ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter.check — happy path > first check returns [true, 0] 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter.check — happy path > remaining decrements per call 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter.check — happy path > different install_ids have independent buckets 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter.check — over-limit > returns [false, retryAfter] after limit reached 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter.check — over-limit > remaining returns 0 when at limit 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — persistence (fire-and-forget) > persists a JSON file under dataRoot/rate_limit/<2chars>/<id>.json after first check 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — persistence (fire-and-forget) > rehydrates timestamps from disk on second constructor instance 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — persistence (fire-and-forget) > corrupt JSON file fails closed (treated as limit-reached per PKT-496 directive) 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — persistence (fire-and-forget) > missing file is treated as empty cache 0ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — sliding window (fake timers) > drops timestamps older than windowSeconds 4ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — sliding window (fake timers) > retryAfter equals ceil(oldest + window - now) + 1 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — corrupt JSON file at load (catch-arm fail-closed per PKT-496 directive) > syntax-error JSON → remaining()=0 and check()=[false, retryAfter>0] (fail-closed) 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — corrupt JSON file at load (catch-arm fail-closed per PKT-496 directive) > truncated JSON (unterminated string) → remaining()=0 (fail-closed) 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — corrupt JSON file at load (catch-arm fail-closed per PKT-496 directive) > EACCES (read permission denied) → remaining()=0 (fail-closed) 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — corrupted timestamps (fail-closed per option a, PKT-496) > case 1: all-corrupt strings → remaining()=0 and check()=[false, retryAfter>0] 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — corrupted timestamps (fail-closed per option a, PKT-496) > case 2: all-null entries → remaining()=0 and check()=[false, retryAfter>0] 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — corrupted timestamps (fail-closed per option a, PKT-496) > case 3: mixed valid+corrupt [validISO, null, validISO] → remaining()=0 (option a) 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — corrupted timestamps (fail-closed per option a, PKT-496) > case 4: missing window_timestamps key → treated as empty cache (remaining()=limit) 1ms
+ ✓ test/api/rate-limit.test.ts > RateLimiter — corrupted timestamps (fail-closed per option a, PKT-496) > case 5 (regression): valid ISO file with limit-1 entries → remaining()=1 and check()=[true,0] 1ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > returns {count:0, mean_fitness:0} when online_fitness.jsonl does not exist 18ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > returns correct aggregate for the requested martian_type, ignoring other types 3ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > returns {count:0, mean_fitness:0} when no entries match the requested type 2ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > skips malformed lines and aggregates only valid entries (R-003) 2ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > filters out string fitness value (R-005) 2ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > filters out null fitness value (R-006) 2ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > filters bad entries and aggregates only valid finite entries (R-007) 2ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > filters out entry with missing fitness field (R-008) 2ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > filters out finite negative fitness value (R-009) 2ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > filters out finite fitness value greater than 1 (R-010) 2ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > counts only valid [0,1] entries from mixed valid/out-of-range/non-finite input (R-011) 2ms
+ ✓ test/telemetry/online-fitness-reader.test.ts > aggregateOnlineFitness > preserves boundary values 0.0 and 1.0 (R-012) 2ms
+ ✓ test/api/handlers.test.ts > handleSubmitGenome (api/handlers/genomes.ts:8) > returns 201 on valid submission with new top 4ms
+ ✓ test/api/handlers.test.ts > handleSubmitGenome (api/handlers/genomes.ts:8) > returns 200 on duplicate within 24h window (idempotent path) 1ms
+ ✓ test/api/handlers.test.ts > handleSubmitGenome (api/handlers/genomes.ts:8) > throws validation error on INVALID_GENOME_LENGTH (no DB calls) 3ms
+ ✓ test/api/handlers.test.ts > handleSubmitGenome (api/handlers/genomes.ts:8) > throws validation error on UNKNOWN_MARTIAN_TYPE 1ms
+ ✓ test/api/handlers.test.ts > handleSubmitGenome (api/handlers/genomes.ts:8) > returns is_new_top=false when isNewTop says no 1ms
+ ✓ test/api/handlers.test.ts > handleTopGenomes (api/handlers/genomes.ts:78) > returns 200 with empty list when store has no entries 1ms
+ ✓ test/api/handlers.test.ts > handleTopGenomes (api/handlers/genomes.ts:78) > clamps n to [1, 100] (passes 1000 → max 100 to store) 0ms
+ ✓ test/api/handlers.test.ts > handleTopGenomes (api/handlers/genomes.ts:78) > clamps n=0 to 1 0ms
+ ✓ test/api/handlers.test.ts > handleTopGenomes (api/handlers/genomes.ts:78) > throws UNKNOWN_MARTIAN_TYPE when type not in registered set 0ms
+ ✓ test/api/handlers.test.ts > handleTopGenomes (api/handlers/genomes.ts:78) > maps run_metadata.generation (number) to entry.generation 2ms
+ ✓ test/api/handlers.test.ts > handleTopGenomes (api/handlers/genomes.ts:78) > leaves entry.generation undefined when run_metadata.generation is not a number 0ms
+ ✓ test/api/handlers.test.ts > handleInstall (api/handlers/install.ts:6) > returns 201 + "registered" on new install 1ms
+ ✓ test/api/handlers.test.ts > handleInstall (api/handlers/install.ts:6) > returns 200 + "known" on existing install 0ms
+ ✓ test/api/handlers.test.ts > handleInstall (api/handlers/install.ts:6) > throws on INVALID_API_KEY_FORMAT 1ms
+ ✓ test/api/handlers.test.ts > handleInstall (api/handlers/install.ts:6) > throws on INVALID_MACHINE_HASH 0ms
+ ✓ test/api/handlers.test.ts > handleHealth (api/handlers/health.ts:6) > returns 200 with version and uptimeSec; db=fail when no pool given 1ms
+ ✓ test/api/handlers.test.ts > handleStats (api/handlers/stats.ts:4) > returns 200 with raw stats fields 0ms
+ ✓ test/api/handlers.test.ts > handleMartianTypes (api/handlers/martian-types.ts:4) > returns 200 with one entry per registered type, sorted alphabetically 1ms
+ ✓ test/api/handlers.test.ts > handleMartianTypes (api/handlers/martian-types.ts:4) > returns total=0 and empty list when registeredTypes is empty 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > RED→GREEN: negative TTL (-1) is rejected; falls back to default (cache stays usable) 4ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > RED→GREEN: huge TTL (MAX_SAFE_INTEGER ms ≈ 285 millennia) is rejected; falls back to default 1ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > RED→GREEN: TTL just above MAX is rejected (defends the upper bound explicitly) 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > RED→GREEN: exponent notation "1e9" is rejected as invalid; falls back to default 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > RED→GREEN: "1e5" (small exponent, also out-of-range) is rejected 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > CONTROL: valid in-range TTL (30000) is honored as-is 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > CONTROL: missing env var uses documented default 10000ms 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > CONTROL: TTL at MAX_BOARD_CACHE_TTL_MS (300_000) is honored as-is 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > CONTROL: TTL at 1ms (minimum) is honored; entry expires after a small sleep 10ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > RED→GREEN: "0" (parseInt would falsy-fallback to 10000) — new guard also defaults 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > RED→GREEN: NaN-producing inputs ("abc", "Infinity", "") all fall back to default 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > CONTROL: env is restored after each test (no PKT-089-style leak) 0ms
+ ✓ test/api/ts-cache-ttl-env-coercion.test.ts > cache.ts: ALIENCLAW_BOARD_CACHE_TTL_MS env coercion (PKT-1118, re-author of REJECTED 091) > MAX_BOARD_CACHE_TTL_MS is exported and equals 5 minutes (5 * 60_000) 0ms
+ ✓ test/api/ts-ipratelimiter-lru-eviction.test.ts > IpRateLimiter — eviction is LRU (re-author of REJECTED PKT-090, slot 1111) > LRU-1: below cap, hammering an existing IP promotes it to MRU (last in iteration order) 6ms
+ ✓ test/api/ts-ipratelimiter-lru-eviction.test.ts > IpRateLimiter — eviction is LRU (re-author of REJECTED PKT-090, slot 1111) > LRU-2: at cap, evicting an inactive IP leaves a hammered IP intact (accept path) 5ms
+ ✓ test/api/ts-ipratelimiter-lru-eviction.test.ts > IpRateLimiter — eviction is LRU (re-author of REJECTED PKT-090, slot 1111) > LRU-3 (DENY PATH, was Option A miss): at cap, an IP exhausting its budget survives eviction 7ms
+ ✓ test/api/ts-ipratelimiter-lru-eviction.test.ts > IpRateLimiter — eviction is LRU (re-author of REJECTED PKT-090, slot 1111) > LRU-4 (regression): fresh small workload still allows every read (no false denies) 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Feature flag — REFLECTIVE_EVOLUTION > defaults to 'off' when env not set 3ms
+ ✓ test/evolution/reflective/engine.test.ts > Feature flag — REFLECTIVE_EVOLUTION > returns 'shadow' when env=shadow 0ms
+ ✓ test/evolution/reflective/engine.test.ts > Feature flag — REFLECTIVE_EVOLUTION > returns 'on' when env=on 0ms
+ ✓ test/evolution/reflective/engine.test.ts > Feature flag — REFLECTIVE_EVOLUTION > falls back to 'off' for unrecognized values 0ms
+ ✓ test/evolution/reflective/engine.test.ts > Feature flag — REFLECTIVE_EVOLUTION > isReflectiveActive returns false when off 0ms
+ ✓ test/evolution/reflective/engine.test.ts > Feature flag — REFLECTIVE_EVOLUTION > isReflectiveActive returns true when shadow 0ms
+ ✓ test/evolution/reflective/engine.test.ts > Feature flag — REFLECTIVE_EVOLUTION > isReflectiveActive returns true when on 0ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine loop — metric budget and persistence > never exceeds maxMetricCalls budget 5ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine loop — metric budget and persistence > seeds every candidate into the store 2ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine loop — metric budget and persistence > lineage is recorded for every seed genome 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine loop — metric budget and persistence > frontier snapshots are created 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine loop — metric budget and persistence > replay from store reconstructs frontier 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Anti-Goodhart fixtures > validateOnHeldOut demotes overfit finalists 2ms
+ ✓ test/evolution/reflective/engine.test.ts > Anti-Goodhart fixtures > child cannot be accepted by scoring on easier minibatch 0ms
+ ✓ test/evolution/reflective/engine.test.ts > partitionTrainVal > holds out the correct fraction 0ms
+ ✓ test/evolution/reflective/engine.test.ts > partitionTrainVal > no overlap between train and val 0ms
+ ✓ test/evolution/reflective/engine.test.ts > partitionTrainVal > clamps valCount to 1 when round(n * valFraction) < 1 0ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-271 > PKT-271-A: accepts an improved child into the frontier 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-271 > PKT-271-B: triggers merge when two non-dominated seeds are on the frontier 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-271 > PKT-271-C: validate gate rejects child before metric call and records INVALID lesson 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-271 > PKT-271-D: parse_failure diagnosis suppresses mutation and records no mutate lineage 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-335 > PKT-335-A: validate gate on merged candidate — rejection records merge lineage without metric call 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-335 > PKT-335-B: validate gate on merged candidate — ok=true proceeds to evaluation 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-341 > PKT-341: validate gate passes child — proceeds to lineage and metric call 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-353 > PKT-353: merge lineage recorded even when budget exhausted before merge-eval 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-294 > PKT-294-E: seed loop stops early when budget is exhausted mid-seeds 1ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-294 > PKT-294-F: main loop exits immediately with no seed candidates (empty archive) 0ms
+ ✓ test/evolution/reflective/engine.test.ts > Engine cold paths — PKT-294 > PKT-294-G: merge-failure catch fires when proposer.merge throws for unknown genome 1ms
+ ✓ test/api/small-handlers.test.ts > apiError > returns structured error with default empty details 3ms
+ ✓ test/api/small-handlers.test.ts > apiError > passes explicit details through unchanged 0ms
+ ✓ test/api/small-handlers.test.ts > handleHealth > returns [200, {version:semver, uptimeSec:>=0, db:fail}] when no pool given 1ms
+ ✓ test/api/small-handlers.test.ts > handleStats > passes all store.get() fields through to the response tuple 1ms
+ ✓ test/api/small-handlers.test.ts > handleMartianTypes > sorts martian_types alphabetically by name 1ms
+ ✓ test/api/small-handlers.test.ts > handleMartianTypes > returns total:0 and empty martian_types for an empty set 0ms
+ ✓ test/api/small-handlers.test.ts > handleMartianTypes > returns default zero values for a type with no submissions 1ms
+ ✓ test/api/small-handlers.test.ts > handleMartianTypes > includes online_fitness:null when OnlineFitnessLog has no entries for the type (R-004) 0ms
+ ✓ test/api/small-handlers.test.ts > handleMartianTypes > online_fitness and current_top_fitness are structurally distinct fields (R-005) 1ms
+ ✓ test/api/small-handlers.test.ts > handleInstall > returns [201, registered] for a new installation 1ms
+ ✓ test/api/small-handlers.test.ts > handleInstall > returns [200, known] for an already-registered installation 0ms
+ ✓ test/api/small-handlers.test.ts > handleInstall > throws when the request fails validation (short api_key) 2ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns defaultValue for undefined 3ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns defaultValue for empty string 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns defaultValue for non-numeric "abc" 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns defaultValue for negative integer -5 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns defaultValue for zero "0" 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns defaultValue for 12.7 (not integer) 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns defaultValue for Infinity above max 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns defaultValue for unsafe integer 9007199254740992 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns defaultValue for above-maxValue 1001 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > honours sci-notation "1e2" → 100 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > rejects sci-notation "1e9" → 1000000000 (above max → default) 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > _resolveRateLimitInt > returns the parsed int for valid in-range "60" 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter env path > uses default readLimit=120 when env unset 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter env path > uses default submitLimit=10 when env unset 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter env path > reads a valid "60" from ALIENCLAW_RATE_READ_PER_MIN 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter env path > falls back to default for env "-5" (deny-all bug, PKT-089) 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter env path > falls back to default for env "-1" (deny-all bug, submit) 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter env path > falls back to default for env "1e9" (parseInt-collapse-to-1 bug) 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter env path > falls back to default for env "abc" 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter env path > falls back to default for env above MAX_IP_READ_PER_MIN 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter env path > honours env "1e2" → 100 (operator intent preserved, NOT silently tightened) 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter opts path > opts {readPerMin: 50} overrides env 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter opts path > opts {readPerMin: -5} falls back to default (PKT-089 blocker #2) 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter opts path > opts {submitPerHour: -1} falls back to default 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter opts path > opts {readPerMin: 2000} (above max) falls back to default 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter behavioural regression (Retry-After) > checkRead returns finite retryAfter (not Infinity) even under deny-all env 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter behavioural regression (Retry-After) > checkSubmit returns finite retryAfter under deny-all env 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > IpRateLimiter server reset path > re-instantiation picks up a corrected env without process carryover 0ms
+ ✓ test/api/ts-ipratelimiter-envvar-coercion.test.ts > env-leak guard > afterEach deleted the env so the NEXT test sees undefined 0ms
+ ✓ test/api/validation.test.ts > validateSubmission > accepts a fully-valid SubmissionRequest 3ms
+ ✓ test/api/validation.test.ts > validateSubmission > rejects when genome length is not 256 chars (returns INVALID_GENOME_LENGTH) 0ms
+ ✓ test/api/validation.test.ts > validateSubmission > rejects when genome contains non-Base62 characters (returns INVALID_GENOME_ALPHABET) 0ms
+ ✓ test/api/validation.test.ts > validateSubmission > rejects when fitness is out of [0,1] or non-numeric (returns INVALID_FITNESS_RANGE) 1ms
+ ✓ test/api/validation.test.ts > validateSubmission > rejects when martian_type is not registered (returns UNKNOWN_MARTIAN_TYPE) 1ms
+ ✓ test/api/validation.test.ts > validateSubmission > rejects when leaderboard_name is missing (returns MISSING_LEADERBOARD_NAME) 0ms
+ ✓ test/api/validation.test.ts > validateSubmission > rejects when leaderboard_name does not match ^[A-Z]{8}$ (returns INVALID_LEADERBOARD_NAME) 1ms
+ ✓ test/api/validation.test.ts > validateSubmission > rejects when run_metadata serialized > 4096 bytes (returns METADATA_TOO_LARGE) 0ms
+ ✓ test/api/validation.test.ts > validateSubmission — run_metadata byte-vs-char limit (PKT-503) > rejects a 1024-emoji payload (2059 chars but 4107 bytes UTF-8) 0ms
+ ✓ test/api/validation.test.ts > validateSubmission — run_metadata byte-vs-char limit (PKT-503) > rejects a nested 2040-emoji payload (4094 chars but 8174 bytes UTF-8) 0ms
+ ✓ test/api/validation.test.ts > validateSubmission — run_metadata byte-vs-char limit (PKT-503) > accepts a 100-emoji payload (211 chars and 411 bytes UTF-8, under both limits) 0ms
+ ✓ test/api/validation.test.ts > validateSubmission — run_metadata byte-vs-char limit (PKT-503) > regression: accepts a 4080-ASCII-char payload (4091 chars and 4091 bytes UTF-8) 0ms
+ ✓ test/api/validation.test.ts > validateInstallRequest > accepts a fully-valid InstallRequest 0ms
+ ✓ test/api/validation.test.ts > validateInstallRequest > rejects when api_key is not 43 Base62 chars (returns INVALID_API_KEY_FORMAT) 0ms
+ ✓ test/api/validation.test.ts > validateInstallRequest > rejects when machine_hash is not 64 lowercase hex chars (returns INVALID_MACHINE_HASH) 0ms
+ ✓ test/api/validation.test.ts > validateInstallRequest > rejects null api_key with INVALID_API_KEY_FORMAT and received_type null (PKT-472) 0ms
+ ✓ test/api/validation.test.ts > validateInstallRequest > rejects undefined api_key with INVALID_API_KEY_FORMAT and received_type undefined (PKT-472) 0ms
+ ✓ test/api/validation.test.ts > validateInstallRequest > rejects null machine_hash with INVALID_MACHINE_HASH and received_type null (PKT-472) 0ms
+ ✓ test/api/validation.test.ts > validateInstallRequest > rejects numeric api_key (42) with INVALID_API_KEY_FORMAT and received_type number (PKT-472) 0ms
+ ✓ test/api/validation.test.ts > isValidApiKeyFormat > accepts 43 Base62 chars (all digits) 0ms
+ ✓ test/api/validation.test.ts > isValidApiKeyFormat > accepts 43 Base62 chars (mixed digits + letters) 0ms
+ ✓ test/api/validation.test.ts > isValidApiKeyFormat > rejects when length is not 43 0ms
+ ✓ test/api/validation.test.ts > isValidApiKeyFormat > rejects when chars are not Base62 0ms
+ ✓ test/api/validation.test.ts > isValidMachineHash > accepts 64 lowercase hex chars 0ms
+ ✓ test/api/validation.test.ts > isValidMachineHash > rejects when length is not 64 0ms
+ ✓ test/api/validation.test.ts > isValidMachineHash > rejects when chars are not lowercase hex (uppercase A-F invalid) 0ms
+ ✓ test/api/validation.test.ts > isValidMachineHash > rejects when chars are not hex at all 0ms
+[migrate] Applied 900_blk.sql
+[migrate] Applied 901_line.sql
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-1: repo ships the migration files under test 4ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-2 001_leaderboard.sql: every produced statement starts with a valid SQL keyword 2ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-2 002_reflective_evolution.sql: every produced statement starts with a valid SQL keyword 0ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-2 003_graph_evolution.sql: every produced statement starts with a valid SQL keyword 0ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-2 004_verified_fitness.sql: every produced statement starts with a valid SQL keyword 0ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-2 005_identities.sql: every produced statement starts with a valid SQL keyword 0ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-3: a `;` inside a -- line comment does not create a statement boundary 1ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-4: a `;` inside a /* block */ comment does not create a statement boundary 1ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-5: real statements are still split on their own semicolons 1ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-6: 003 + 004 are the files the defect actually affected 1ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-7: runMigrations emits a CLEAN statement for a block-commented migration 2ms
+ ✓ test/api/ts-migrate-splitstatements.test.ts > PKT-1441 migrate.ts splitStatements — comment-aware splitting > R-1441-8: runMigrations emits a CLEAN statement for a line-commented migration 1ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group A: parseInt substring-truncation (the bypass) > PORT=1234garbage → 8080 (rejected) 3ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group A: parseInt substring-truncation (the bypass) > PORT=1e9 → 8080 (rejected) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group A: parseInt substring-truncation (the bypass) > PORT=1.5 → 8080 (rejected) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group B: garbage / non-numeric fall back > PORT=abc → 8080 (rejected) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group B: garbage / non-numeric fall back > PORT=NaN → 8080 (rejected) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group B: garbage / non-numeric fall back > PORT=Infinity → 8080 (rejected) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group B: garbage / non-numeric fall back > PORT=eight → 8080 (rejected) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group B: garbage / non-numeric fall back > PORT=not-a-port → 8080 (rejected) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group B: garbage / non-numeric fall back > PORT=8080xyz → 8080 (rejected) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group C: empty / unset fall back > unset PORT and unset ALIENCLAW_API_PORT → 8080 (default) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group C: empty / unset fall back > empty PORT and unset ALIENCLAW_API_PORT → 8080 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group C: empty / unset fall back > whitespace-only PORT → 8080 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group C: empty / unset fall back > unset PORT but ALIENCLAW_API_PORT="" → 8080 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group D: out-of-range values fall back > PORT=0 → 8080 (port 0 means "ephemeral" — Node silently substitutes, defeating operator intent) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group D: out-of-range values fall back > PORT=-1 → 8080 (negative ports are invalid) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group D: out-of-range values fall back > PORT=65536 → 8080 (above MAX_API_PORT=65535) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group D: out-of-range values fall back > PORT=99999 → 8080 (clearly invalid) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group E: well-formed values preserved > PORT=8080 → 8080 (preserved) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group E: well-formed values preserved > PORT=80 → 80 (preserved) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group E: well-formed values preserved > PORT=3000 → 3000 (preserved) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group E: well-formed values preserved > PORT=65535 → 65535 (preserved) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group E: well-formed values preserved > PORT unset, ALIENCLAW_API_PORT=3000 → 3000 (preserved) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group E: well-formed values preserved > PORT takes precedence over ALIENCLAW_API_PORT 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group E: well-formed values preserved > PORT=invalid falls back to ALIENCLAW_API_PORT 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group F: constants > DEFAULT_API_PORT === 8080 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group F: constants > MAX_API_PORT === 65535 (TCP/IP port range upper bound) 0ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group G: main.ts wiring regression guard > src/alienclaw/api/main.ts contains no parseInt(process.env call 2ms
+ ✓ test/api/_verify_1276.test.ts > PKT-1276 — API_PORT / PORT env-var coercion bypass (Class 1 hardening) > Group G: main.ts wiring regression guard > src/alienclaw/api/main.ts imports resolveApiPortFromEnv from ./port.js 1ms
+ ✓ test/api/ts-health-build-info.test.ts > readBuildInfo > parses a valid build-info.json fixture 4ms
+ ✓ test/api/ts-health-build-info.test.ts > readBuildInfo > returns {} when the file does not exist 2ms
+ ✓ test/api/ts-health-build-info.test.ts > readBuildInfo > returns {} when the file contains invalid JSON 1ms
+ ✓ test/api/ts-health-build-info.test.ts > readBuildInfo > returns partial fields when only sha is present 1ms
+ ✓ test/api/ts-health-build-info.test.ts > readBuildInfo > health fallback: sha defaults to "unknown" when build-info missing 0ms
+ ✓ test/api/ts-health-build-info.test.ts > readVersion > reads version from a fixture package.json 1ms
+ ✓ test/api/ts-health-build-info.test.ts > readVersion > returns "unknown" when the file does not exist 0ms
+ ✓ test/api/ts-health-build-info.test.ts > readVersion > returns "unknown" when package.json has no version field 1ms
+ ✓ test/api/ts-health-build-info.test.ts > readVersion > returns "unknown" when the file is malformed JSON 1ms
+ ✓ test/api/ts-health-build-info.test.ts > readVersion > the real repo package.json version matches the expected pattern 1ms
+stderr | test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > best_of_n: falls back to first when no oracle
+[operators] best_of_n without oracle — returning first result
+
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > ensemble: majority correct wins 3ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > ensemble: majority incorrect wins 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > ensemble: accumulates cost across k results 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > best_of_n: uses oracle to pick best 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > best_of_n: falls back to first when no oracle 2ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > applyOperator none: returns first result 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > applyOperator ensemble: delegates to ensembleOp 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > operators never reference governance nodes 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > applyOperator best_of_n: dispatches to bestOfNOp with oracle 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > applyOperator review_revise: returns last result synchronously 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > reviewReviseOp: stops when critique says no issues 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > reviewReviseOp: stops when critique returns empty string 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > reviewReviseOp: runs all rounds when critique always has notes 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > applyOperator: throws when results is empty 1ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > ensembleOp: throws when top slice is empty (k=0) 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > bestOfNOp: throws when top slice is empty (n=0) 0ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > ensembleOp: ?? fallback fires when all results are incorrect 1ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > logOnce dedupe (operators.ts internal helper) > bestOfNOp without oracle warns exactly once across N invocations (regression) 4ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > logOnce dedupe (operators.ts internal helper) > bestOfNOp with oracle does not warn (oracle present → no fallback message) 1ms
+ ✓ test/evolution/graph/operators.test.ts > operators — graph-safe within-subagent > logOnce dedupe (operators.ts internal helper) > applyOperator best_of_n without oracle also dedupes via bestOfNOp 1ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group A: parseInt substring-truncation (the bypass) > ALIENCLAW_XFF_HOPS=2.5 → 1 (rejected) 3ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group A: parseInt substring-truncation (the bypass) > ALIENCLAW_XFF_HOPS=8abc → 1 (rejected) 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group A: parseInt substring-truncation (the bypass) > ALIENCLAW_XFF_HOPS=100abc → 1 (rejected) 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group A: parseInt substring-truncation (the bypass) > ALIENCLAW_XFF_HOPS=1e2 → 1 (rejected) 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group B: garbage / non-numeric fall back > ALIENCLAW_XFF_HOPS=NaN → 1 (rejected) 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group B: garbage / non-numeric fall back > ALIENCLAW_XFF_HOPS=Infinity → 1 (rejected) 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group B: garbage / non-numeric fall back > ALIENCLAW_XFF_HOPS=eight → 1 (rejected) 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group C: empty / unset fall back > unset env → 1 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group C: empty / unset fall back > empty string → 1 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group C: empty / unset fall back > whitespace-only → 1 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group D: well-formed values preserved > ALIENCLAW_XFF_HOPS=1 → 1 (preserved) 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group D: well-formed values preserved > ALIENCLAW_XFF_HOPS=3 → 3 (preserved) 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group E: range overflow falls back > 100 (above max 32) → 1 (clamped, not unbounded) 0ms
+ ✓ test/api/_verify_1275.test.ts > PKT-1275 — XFF_HOPS env-var coercion bypass (Class 1 hardening) > Group E: range overflow falls back > 32 (boundary) → 32 (still allowed) 0ms
+ ✓ test/api/_verify_1117.test.ts > PKT-1117 validateSubmission run_metadata non-object defense > accepts run_metadata: undefined (validator must not crash; mirrors parseRunMetadata) 4ms
+ ✓ test/api/_verify_1117.test.ts > PKT-1117 validateSubmission run_metadata non-object defense > accepts run_metadata: null (validator must not crash; mirrors parseRunMetadata) 1ms
+ ✓ test/api/_verify_1117.test.ts > PKT-1117 validateSubmission run_metadata non-object defense > accepts run_metadata: {} (empty object is the canonical neutral) 1ms
+ ✓ test/api/_verify_1117.test.ts > PKT-1117 validateSubmission run_metadata non-object defense > accepts run_metadata: { run_id: "abc" } (object baseline still works) 1ms
+ ✓ test/api/_verify_1117.test.ts > PKT-1117 validateSubmission run_metadata non-object defense > rejects run_metadata: "string" with INVALID_RUN_METADATA + received_type=string 1ms
+ ✓ test/api/_verify_1117.test.ts > PKT-1117 validateSubmission run_metadata non-object defense > rejects run_metadata: 42 (number) with INVALID_RUN_METADATA + received_type=number 1ms
+ ✓ test/api/_verify_1117.test.ts > PKT-1117 validateSubmission run_metadata non-object defense > rejects run_metadata: true (boolean) with INVALID_RUN_METADATA + received_type=boolean 0ms
+ ✓ test/api/_verify_1117.test.ts > PKT-1117 validateSubmission run_metadata non-object defense > rejects run_metadata: [1,2,3] (array) with INVALID_RUN_METADATA + received_type=object 1ms
+ ✓ test/api/_verify_1117.test.ts > PKT-1117 validateSubmission run_metadata non-object defense > rejects run_metadata: { blob: "x".repeat(5000) } (>4096 bytes → METADATA_TOO_LARGE still fires) 1ms
+ ✓ test/api/validation-checksum.test.ts > validateSubmission — genome checksum (forgery gap closed) > SHIP-GATE: 256-char Base62 genome with corrupted checksum → valid:false, INVALID_GENOME_CHECKSUM 7ms
+ ✓ test/api/validation-checksum.test.ts > validateSubmission — genome checksum (forgery gap closed) > SHIP-GATE: a genome assembled via assembleGenome() passes validation 1ms
+ ✓ test/api/validation-checksum.test.ts > validateSubmission — genome checksum (forgery gap closed) > rejects the exact corrupted-checksum genome from the API contract fixtures (genome-010) 1ms
+ ✓ test/api/validation-checksum.test.ts > validateSubmission — genome checksum (forgery gap closed) > accepts the valid-checksum sibling genome from the fixtures (genome-009 body, ends ...aqxs) 1ms
+ ✓ test/api/validation-checksum.test.ts > validateSubmission — genome checksum (forgery gap closed) > a hand-crafted forged genome (all-Z body + zero-padded fake checksum) is rejected 1ms
+ ✓ test/api/validation-checksum.test.ts > validateSubmission — genome checksum (forgery gap closed) > checksum check runs before martian-type: forged genome + unknown type → INVALID_GENOME_CHECKSUM 1ms
+ ✓ test/api/validation-checksum.test.ts > validateSubmission — genome checksum (forgery gap closed) > length error still takes precedence over checksum (short genome) 0ms
+ ✓ test/api/validation-checksum.test.ts > validateSubmission — genome checksum (forgery gap closed) > alphabet error still takes precedence over checksum (non-Base62 char) 1ms
+ ✓ test/api/validation-checksum.test.ts > validateSubmission — genome checksum (forgery gap closed) > a fully valid assembled genome still passes downstream checks (fitness/name) 1ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar > returns 0 for empty traces 3ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar > returns correctness for 1 tool call (no excess) 1ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar > parity test: matches Python fitness formula exactly 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar > parity test: no excess for 0 tool calls (≡ slot_count=1) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > normalizeObjectives > returns empty for empty input 2ms
+ ✓ test/evolution/reflective/objectives.test.ts > normalizeObjectives > maps all objectives to [0, 1] range 2ms
+ ✓ test/evolution/reflective/objectives.test.ts > normalizeObjectives > constant population gets neutral 0.5 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > sampleMinibatch > returns n items without replacement 1ms
+ ✓ test/evolution/reflective/objectives.test.ts > sampleMinibatch > clamps to set size when n > set.length 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > improvedOnMinibatch > returns true if child Pareto-dominates parent 1ms
+ ✓ test/evolution/reflective/objectives.test.ts > improvedOnMinibatch > returns true if child improves correctness without regressing others 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > improvedOnMinibatch > returns false if child is strictly worse 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > improvedOnMinibatch > anti-Goodhart: child on easier batch must still improve aggregate 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > weightedPick > always picks from the list 3ms
+ ✓ test/evolution/reflective/objectives.test.ts > weightedPick > always picks the only item when weights are positive 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > weightedPick > throws when items is empty (post-fix expectation, gated on PART B) 2ms
+ ✓ test/evolution/reflective/objectives.test.ts > weightedPick > throws when all weights are zero (post-fix expectation, gated on PART B) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > weightedPick > throws when any weight is negative (post-fix expectation, gated on PART B) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > weightedPick > rng=1.0 still terminates (last-item fallback works) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > meanObjective > returns the zero objective vector for empty input 1ms
+ ✓ test/evolution/reflective/objectives.test.ts > chooseComponentToRevise > returns first key for a single-component genome 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > chooseComponentToRevise > returns first key for a multi-component genome (Packet-07+ fallback) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector > falls back to correctness when confidence is undefined (logprob-unaware evaluator) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar — slot_count plumbing > slot_count=4, 4 tool calls: no excess → returns correctness 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar — slot_count plumbing > slot_count=4, 6 tool calls: 2 excess → correctness × 1/(1+0.2) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar — slot_count plumbing > cost.slotCount omitted: falls back to slot_count=1 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — slot_count plumbing > rawObjectiveVector: slot_count=4, 4 tool calls → efficiency 1.0 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — slot_count plumbing > rawObjectiveVector: cost.slotCount omitted → slot_count=1 fallback 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar — non-finite correctness (PKT-680) > NaN correctness → 0.0, never NaN 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar — non-finite correctness (PKT-680) > +Infinity correctness → 0.0 (failing-score contract, not 1.0 inflation) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar — non-finite correctness (PKT-680) > -Infinity correctness → 0.0 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > computeLegacyScalar — non-finite correctness (PKT-680) > NaN correctness mixed with valid trace → aggregate is finite 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite correctness (PKT-680) > NaN correctness → correctness field is finite 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite correctness (PKT-680) > +Infinity correctness → correctness field 0.0 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite correctness (PKT-680) > -Infinity correctness → correctness field 0.0 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite cost fields (PKT-981) > NaN dollars → costInvRaw is finite (NaN guarded out) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite cost fields (PKT-981) > +Infinity dollars → costInvRaw is finite 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite cost fields (PKT-981) > -Infinity dollars → costInvRaw is finite 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite cost fields (PKT-981) > NaN wallMs → latencyInvRaw is finite (NaN guarded out) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite cost fields (PKT-981) > +Infinity wallMs → latencyInvRaw is finite 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite cost fields (PKT-981) > -Infinity wallMs → latencyInvRaw is finite 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite cost fields (PKT-981) > finite dollars=0.001 → costInvRaw ≈ 1/0.001 (no regression on benign inputs) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > rawObjectiveVector — non-finite cost fields (PKT-981) > finite wallMs=200 → latencyInvRaw ≈ 1/201 (no regression on benign inputs) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > dominates — non-finite propagation (PKT-981) > child NaN costInv + better correctness → FALSE (no info gained on NaN key) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > dominates — non-finite propagation (PKT-981) > child NaN latencyInv + better correctness → FALSE 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > dominates — non-finite propagation (PKT-981) > child NaN on BOTH costInv + latencyInv + better correctness → FALSE 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > dominates — non-finite propagation (PKT-981) > child +Inf costInv + better correctness → FALSE (PKT-981 conservative: any non-finite key refuses dominance) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > dominates — non-finite propagation (PKT-981) > child -Inf costInv + better correctness → FALSE (-Inf coerce-to-worst) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > dominates — non-finite propagation (PKT-981) > all-NaN vectors → FALSE (no strict ordering possible) 0ms
+ ✓ test/evolution/reflective/objectives.test.ts > dominates — non-finite propagation (PKT-981) > finite dominance still works after NaN guard (regression check) 0ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-001: reordered top-level keys still match 4ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-002: reordered nested keys still match 0ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-003: reordered keys inside an array element still match 0ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-004: an explicit undefined value does not match a missing key 0ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-005: genuinely different values still do not match 0ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-006: array element order is significant 0ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-007: a circular final output does not throw 1ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-008: a BigInt final output does not throw 0ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-009: undefined expected matches an undefined final output 0ms
+ ✓ test/evolution/reflective/correctness-exact-oracle-key-order.test.ts > resolveCorrectness — exact oracle structural equality > A-010: undefined expected does not match a null final output 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — constructor > uses model and temperature defaults when not supplied (b[0], b[1] default-arg) 3ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — constructor > resolves prompt from given promptDir when file exists (b[2] left arm) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — constructor > falls back to inline skeleton when promptDir has no prompt file (b[2] right arm / catch) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — reflect(): success paths > returns parsed result when first attempt succeeds (b[3] false, b[4] break, b[5] false) 2ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — reflect(): success paths > retries with suffix on second attempt and succeeds (b[3] true, b[4] loop continues) 3ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — reflect(): success paths > returns parse_failure no-op when both attempts fail (b[5] taken) 1ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — editable key fallbacks > uses editable value in parse_failure fallback when key present (b[6] left arm) 1ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — editable key fallbacks > falls back to '' in parse_failure when editable key absent (b[6] right arm, b[7] right arm) 1ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — editable key fallbacks > uses editable value in buildPrompt currentValue when key present (b[7] left arm) 1ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — buildPrompt: ancestorLessons > formats numbered list when ancestorLessons non-empty (b[8] left arm) 1ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — buildPrompt: ancestorLessons > uses '(none yet)' placeholder when ancestorLessons empty (b[8] right arm) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — getConstraints via buildPrompt > includes tool_slots constraint text for 'tool_slots' component (b[12] taken) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — getConstraints via buildPrompt > uses '(none specified)' for non-tool_slots component (b[12] not-taken) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > returns parse_failure when response contains no JSON object (b[9] taken) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > returns parse_failure when JSON has wrong types — diagnosis not string (b[11][0] short-circuit) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > returns parse_failure when JSON has wrong types — proposedValue not string (b[11][1] short-circuit) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > handles malformed JSON (JSON.parse throws) gracefully (catch in tryParseReflectionJson) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > tryParseReflectionJson: JSON.parse throws when match found but content is not valid JSON (L161 catch arm) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > PKT-474: parses correctly when leading prose contains a brace block (greedy-regex trap) 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > PKT-474 REGRESSION GUARD: parses object whose lesson string contains a literal '}' 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > PKT-474 REGRESSION GUARD: parses object with a nested object value 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > PKT-474: skips a malformed prose brace block and parses the next valid one 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > OpusReflector — tryParseReflectionJson corner cases > PKT-474: handles escaped quote inside string value, then '}' inside same string 0ms
+ ✓ test/evolution/reflective/reflector.test.ts > MockReflector — default response path > falls back to '' for proposedValue when component absent from editable (bid=15 arm=1) 1ms
+ ✓ test/evolution/graph/coevolution.test.ts > Alternating-phase co-evolution — e2e (mocked) > completes N rounds with mock adapters 15ms
+ ✓ test/evolution/graph/coevolution.test.ts > Alternating-phase co-evolution — e2e (mocked) > validate hook: invalid candidates consume zero metric-calls 2ms
+ ✓ test/evolution/graph/coevolution.test.ts > Alternating-phase co-evolution — e2e (mocked) > runs without log callback (default no-op fallback) 2ms
+ ✓ test/evolution/graph/coevolution.test.ts > Alternating-phase co-evolution — e2e (mocked) > rounds=0: returns immediately with zero run counts and no log calls 2ms
+ ✓ test/evolution/graph/coevolution.test.ts > Alternating-phase co-evolution — e2e (mocked) > log callback receives phase-announcement strings in round order 1ms
+ ✓ test/evolution/graph/coevolution.test.ts > Alternating-phase co-evolution — e2e (mocked) > asymmetric validate: subagentValidate set, topologyValidate omitted 1ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > valid JSON subagents: subagentCount=3, correctness uses that count 4ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > malformed JSON subagents → catch fires, subagentCount=0, correctnessScore=0 1ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > missing subagents field → defaults to [], subagentCount=0, correctness=0 0ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > perInstance map has all task ids 1ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > missing partition field → nullish fallback → partitionLen=0, correctness=0 0ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > PKT-556: subagents='null' → no crash, subagentCount=0, correctnessScore=0 0ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > PKT-556: subagents='3' (JSON number) → subagentCount=0, score is finite 0ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > PKT-556: subagents='{}' (JSON object) → subagentCount=0, score is finite 0ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > PKT-556: subagents='"abc"' (JSON string) → subagentCount=0, not 3 0ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > non-string editable.partition (number) → correctness.score === 0 (NaN guarded) 0ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > non-string editable.partition (object) → correctness.score === 0 (NaN guarded) 0ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.evaluate > non-string editable.partition (number) → batch.scores.legacyScalar is finite (not NaN) 0ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.makeReflectiveDataset > empty toolCalls → input defaults to {} 1ms
+ ✓ test/evolution/graph/topology-adapter.test.ts > TopologyAdapter.makeReflectiveDataset > components list drives dataset keys 0ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > assembleCampaignGraph: includes creator->subagent and subagent->boss edges 4ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > assembleCampaignGraph: never contains boss->martian edge 1ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > isValidPartition: valid partition accepted 0ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > isValidPartition: empty partition rejected 0ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > isValidPartition: empty scope rejected 0ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > isValidPartition: duplicate subagent rejected 0ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > structureCost: sums dollars and wallMs across traces 1ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > makeSubagentGenomeId: deterministic for same editable 1ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > resolveToStructures: returns topology + matching subagents from registry 1ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > resolveToStructures: throws when subagent id is not in registry 2ms
+ ✓ test/evolution/graph/assembly.test.ts > assembly helpers > makeTopologyGenomeId: deterministic for same editable 0ms
+ ✓ test/evolution/reflective/engine-cold-log-coverage.test.ts > PKT-911: engine.ts cold-path log line coverage > L135: re.proposer.invalid_genome fires when applyMutation throws 8ms
+ ✓ test/evolution/reflective/engine-cold-log-coverage.test.ts > PKT-911: engine.ts cold-path log line coverage > L190: re.merge.failed fires when proposer.merge throws 3ms
+ ✓ test/evolution/reflective/engine-cold-log-coverage.test.ts > PKT-911: engine.ts cold-path log line coverage > L126: re.reflect.parse_failure fires when reflector returns parse_failure 1ms
+ ✓ test/evolution/reflective/engine-cold-log-coverage.test.ts > PKT-911: engine.ts cold-path log line coverage > L122-124: YELLOW log fires when parse_failure rate > reflectParseFailureYellow 1ms
+ ✓ test/evolution/reflective/engine-cold-log-coverage.test.ts > PKT-911: engine.ts cold-path log line coverage > L121 negative arm: YELLOW does NOT fire when failRate <= threshold (strict >) 1ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > exact: returns 1.0 for matching output 4ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > exact: returns 0.0 for non-matching output 1ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > schema: returns 1.0 for valid object 1ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > schema: returns 0.0 for invalid output 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > predicate: passes when registered fn returns true 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > predicate: BEATS llm_judge — deterministic oracle wins 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > predicate: falls back to tool_success when ref not registered 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > tool_success: 1.0 when all tool calls ok 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > tool_success: partial score for partial success 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > llm_judge: uses existing trace correctness (no re-judgment) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > no oracle: returns the trace's existing correctness verdict 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > confidence penalty: coin-flip-correct answer penalized 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > resolveCorrectness — oracle priority chain > confidence neutral when no logprob: confidence = score 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > checkLlmJudgeFraction — YELLOW threshold > fires YELLOW when fraction exceeds threshold 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > checkLlmJudgeFraction — YELLOW threshold > does not fire YELLOW when fraction is below threshold 1ms
+ ✓ test/evolution/reflective/correctness.test.ts > checkLlmJudgeFraction — YELLOW threshold > returns 0 immediately for empty verdicts array (no log call) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > null schema: always valid (returns 1.0) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > primitive schema (non-object): always valid (returns 1.0) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:array — returns 0.0 for non-array value 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:string — returns 0.0 for non-string value 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:number — returns 0.0 for non-number value 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > required key absent in correctly-typed object — returns 0.0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > required is truthy but non-array — skips required block, valid (returns 1.0) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > required is valid array but value is null — returns 0.0 (L124 null guard) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:object — rejects null finalOutput (typeof null === 'object' footgun) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:object — rejects array finalOutput (arrays are not JSON-Schema objects) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:object — accepts plain object (positive case) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:boolean — value null → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:boolean — value 42 → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:boolean — value "hi" → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:boolean — value [1,2] → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:boolean — value {"a":1} → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:boolean — value true → score 1 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:boolean — value false → score 1 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:integer — value 42 → score 1 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:integer — value 0 → score 1 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:integer — value 3.14 → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:integer — value "42" → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:integer — value true → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:integer — value null → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:integer — value [1] → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:integer — value {"a":1} → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:null — value null → score 1 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:null — value 42 → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:null — value "hi" → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:null — value true → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:null — value [1] → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:null — value {"a":1} → score 0 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:number — rejects NaN (NaN is typeof 'number' but not a valid JSON number) 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > type:number — rejects Infinity 0ms
+ ✓ test/evolution/reflective/correctness.test.ts > schema oracle — validateSchema edge cases > unknown type string — permissive (no opinion, returns 1.0) 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > assertValidGenome > passes for a valid 256-char Base62 genome 3ms
+ ✓ test/evolution/reflective/proposer.test.ts > assertValidGenome > throws for wrong raw length 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > assertValidGenome > throws for invalid Base62 chars 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > assertValidGenome > throws for wrong id (does not match content hash) 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > assertValidGenome > throws for more than 4 tool slots 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > assertValidGenome > throws for unknown tool when knownTools provided 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > assertValidGenome > passes when all tool slots are present in knownTools 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > assertValidGenome > passes for empty toolSlots (valid) 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > MockProposer — mutation validity > applyMutation returns a valid genome 1ms
+ ✓ test/evolution/reflective/proposer.test.ts > MockProposer — mutation validity > merge returns a valid genome from two frontier candidates 1ms
+ ✓ test/evolution/reflective/proposer.test.ts > MockProposer — mutation validity > merge throws when a genome ID is absent from the mock store 1ms
+ ✓ test/evolution/reflective/proposer.test.ts > withRetryAndValidation > returns genome on first successful call 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > withRetryAndValidation > retries on InvalidGenomeError and returns on subsequent success 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > withRetryAndValidation > throws last InvalidGenomeError when max retries exhausted 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > withRetryAndValidation > re-throws non-InvalidGenomeError immediately without retry 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > withRetryAndValidation > throws fallback InvalidGenomeError when loop never runs (maxRetries < 0) 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > contentHash > produces a consistent 64-char hex string 1ms
+ ✓ test/evolution/reflective/proposer.test.ts > contentHash > same input → same hash (deterministic) 0ms
+ ✓ test/evolution/reflective/proposer.test.ts > contentHash > different inputs → different hashes 1ms
+ ✓ test/registry/genome-codec.test.ts > computeChecksum > returns a 64-char Base62 string for a valid 192-char input 4ms
+ ✓ test/registry/genome-codec.test.ts > computeChecksum > is deterministic — same input → same output 0ms
+ ✓ test/registry/genome-codec.test.ts > computeChecksum > differs when any of the 3 sections (chars 0..191) changes 1ms
+ ✓ test/registry/genome-codec.test.ts > computeChecksum > throws when input length !== 192 2ms
+ ✓ test/registry/genome-codec.test.ts > parseGenome > splits a valid 256-char genome into 4 sections of 64 1ms
+ ✓ test/registry/genome-codec.test.ts > parseGenome > is idempotent under round-trip — joining the sections reproduces the input 0ms
+ ✓ test/registry/genome-codec.test.ts > parseGenome > throws when input length !== 256 1ms
+ ✓ test/registry/genome-codec.test.ts > assembleGenome > returns a 256-char string when given 3 valid 64-char Base62 sections 0ms
+ ✓ test/registry/genome-codec.test.ts > assembleGenome > appends a checksum section that matches computeChecksum(body) 0ms
+ ✓ test/registry/genome-codec.test.ts > assembleGenome > throws when a section is not exactly 64 chars 1ms
+ ✓ test/registry/genome-codec.test.ts > assembleGenome > throws when a section contains a non-Base62 character 1ms
+ ✓ test/registry/genome-codec.test.ts > validateGenome > returns { valid: true, errors: [] } for a genome built by assembleGenome 1ms
+ ✓ test/registry/genome-codec.test.ts > validateGenome > rejects genomes whose length is not 256 (with "Length must be" error) 0ms
+ ✓ test/registry/genome-codec.test.ts > validateGenome > rejects genomes containing non-Base62 characters (with "Base62 characters" error) 0ms
+ ✓ test/registry/genome-codec.test.ts > validateGenome > rejects genomes with a corrupted checksum (with "Checksum mismatch" error) 0ms
+ ✓ test/registry/genome-codec.test.ts > validateGenome > returns { valid: false } for a non-string input 1ms
+ ✓ test/api/ts-genomes-handler.test.ts > clampTopN — single source of truth for the top-N clamp > passes in-range integers through unchanged 3ms
+ ✓ test/api/ts-genomes-handler.test.ts > clampTopN — single source of truth for the top-N clamp > clamps values above the cap down to 100 0ms
+ ✓ test/api/ts-genomes-handler.test.ts > clampTopN — single source of truth for the top-N clamp > clamps values below the floor up to 1 0ms
+ ✓ test/api/ts-genomes-handler.test.ts > clampTopN — single source of truth for the top-N clamp > floors non-integer values to an integer within range 0ms
+ ✓ test/api/ts-genomes-handler.test.ts > clampTopN — single source of truth for the top-N clamp > falls back to the default (10) for non-finite input 0ms
+ ✓ test/api/ts-genomes-handler.test.ts > clampTopN — single source of truth for the top-N clamp > always yields an integer in [1, 100] — the exact contract topForType asserts 2ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > subagentGenomeToGenome > preserves id and all editable fields 3ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > subagentGenomeToGenome > raw is 256 A-chars and toolSlots is empty array 1ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > makeSubagentId > is deterministic for the same editable 1ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > makeSubagentId > changes when any field changes 1ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.evaluate > single task: correctness.score = min(1, (roleLen+decompLen)/500) 1ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.evaluate > multi-task: perInstance map has exactly the task ids 0ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.evaluate > seed controls wallMs via 200 + (seed % 800) 0ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.evaluate > legacyScalar is a number in [0,1] 0ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.evaluate > missing role+decomposition → nullish fallback → correctness=0 0ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.evaluate > non-string editable.role (number) → correctness.score === 0 (NaN guarded) 0ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.evaluate > non-string editable.role (boolean) → correctness.score === 0 (NaN guarded) 0ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.evaluate > non-string editable.role (plain object) → correctness.score === 0 (NaN guarded) 0ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.evaluate > non-string editable.role (number) → batch.scores.legacyScalar is finite (not NaN) 0ms
+ ✓ test/evolution/graph/subagent-adapter.test.ts > SubagentAdapter.makeReflectiveDataset > empty toolCalls → input is {} per record; components list drives dataset keys 1ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — Pareto dominance > dominates: irreflexive — a does not dominate itself 4ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — Pareto dominance > dominates: antisymmetric — if a > b then b does not > a 1ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — Pareto dominance > dominates: false when any objective is worse 0ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — Pareto dominance > dominates: requires strict improvement on at least one 0ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — Pareto dominance > frontier: no dominated member is on the frontier 2ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — Pareto dominance > frontier: no non-dominated member is excluded 1ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — Pareto dominance > frontier: empty archive returns empty frontier 1ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — Pareto dominance > sampleForMutation: favors the multi-instance winner 3ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — Pareto dominance > ParetoArchive.dominates: static method delegates correctly 0ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — size / has / snapshot > size() returns candidate count 0ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — size / has / snapshot > has() returns true for added candidates only 0ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive — size / has / snapshot > snapshot() returns all candidates 0ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive.pickDisjointFrontierPair > returns null when fewer than 2 frontier candidates 1ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive.pickDisjointFrontierPair > returns a pair when 2 Pareto-incomparable candidates exist 1ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive.pickDisjointFrontierPair > selects the pair with strictly greater disjoint win-task count 1ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive.pickDisjointFrontierPair > exercises L99 continue when a frontier member has no data for a task 1ms
+ ✓ test/evolution/reflective/archive.test.ts > ParetoArchive.pickDisjointFrontierPair > returns null when only 1 candidate survives to frontier (dominated set) 0ms
+ ✓ test/evolution/reflective/engine-merge-accept.test.ts > PKT-910: merge-accept path inside engine.ts L218-222 > merged genome with higher aggregate than parents is added to archive + snapshot 11ms
+ ✓ test/evolution/reflective/engine-merge-accept.test.ts > PKT-910: merge-accept path inside engine.ts L218-222 > merged genome with LOWER aggregate than parents is NOT added to archive 3ms
+ ✓ test/evolution/reflective/store-mysql-unit.test.ts > MySQLEvolutionStore — unit (mocked pool) > lineageLessons cycle-detection (L174 bid-14 arm-0): halts on cyclic parent chain 6ms
+ ✓ test/evolution/reflective/store-mysql-unit.test.ts > MySQLEvolutionStore — unit (mocked pool) > lineageLessons no-lineage (L182 bid-15 arm-0): returns [] when genome has no edge 1ms
+ ✓ test/evolution/reflective/store-mysql-unit.test.ts > MySQLEvolutionStore — unit (mocked pool) > lineageLessons lesson dedup (L184 bid-16 arm-0): skips repeated lesson across chain 1ms
+ ✓ test/evolution/reflective/store-mysql-unit.test.ts > MySQLEvolutionStore — unit (mocked pool) > getGenome not-found (L137 bid-7 arm-0): throws with genome id in message 3ms
+ ✓ test/evolution/reflective/store-mysql-unit.test.ts > MySQLEvolutionStore — unit (mocked pool) > loadRun empty frontier (L222 bid-19 arm-1): returns best:null 1ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > legal_two_subagent: valid 2-subagent split is accepted 4ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > no_subagents: topology with no subagents is rejected 1ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > over_fanout_subagents: 5 subagents (cap 4) is rejected 1ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > over_fanout_summons: 5 summons in one subagent (cap 4) is rejected 1ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > empty_subagent: subagent with no martians is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > orphan_scope: partition with empty scope for a subagent is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > unknown_subagent_in_topology: topology references subagent not in list 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > illegal_compose: compose value other than concat/merge/adjudicate is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > partition_references_non_topology_subagent: partition assigns subagent not in topology list 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > duplicate_subagent_in_partition: same subagent appears twice in partition 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > illegal_operator: unknown operator kind is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > ensemble_k_zero: ensemble with k=0 is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > best_of_n_n_zero: best_of_n with n=0 is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > review_revise_rounds_zero: review_revise with rounds=0 is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > review_revise_rounds_negative: review_revise with rounds=-5 is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > review_revise_rounds_infinite: review_revise with rounds=Infinity is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > GraphValidator.validateSubagent: class method delegates correctly 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > invalid_martian_ref: subagent with empty genomeId is rejected 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > empty_partition_assignments: isValidPartition rejects empty assignments 0ms
+ ✓ test/evolution/graph/graph-validator.test.ts > GraphValidator — adversarial invariant suite (headline gate) > subagent_fail_in_topology: validateTopology propagates subagent failure 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > smoke: output contains report header 3ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > null held-out correctness renders as N/A 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > getRecommendation: overfitCount > 0 → WAIT 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > getRecommendation: delta > 0.05 → Flip to ON 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > getRecommendation: 0 < delta ≤ 0.05 → Continue shadowing 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > getRecommendation: delta ≤ 0 → Do not enable 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > sparklineAscii: empty frontier → "no data" 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > sparklineAscii: non-empty frontier generates sparkline characters 1ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > sparklineAscii: uniform frontier (all same correctness) applies || 1 fallback — no NaN 1ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > evalCountDelta ≤ 0 renders without leading plus sign 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport > costDeltaUsd ≤ 0 renders "lower" in Flip-to-ON recommendation 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-612 sparkline input-safety guards > R-SPARK-601: frontier with one NaN produces non-▁ sparkline for the finite values 1ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-612 sparkline input-safety guards > R-SPARK-602: frontier with +Infinity produces non-▁ sparkline for the finite values 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-612 sparkline input-safety guards > R-SPARK-603: frontier with -Infinity produces non-▁ sparkline for the finite values 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-612 sparkline input-safety guards > R-SPARK-604: frontier with all NaN produces "no finite data" sentinel 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-612 sparkline input-safety guards > R-SPARK-605: frontier with mix of NaN and Infinity produces non-▁ sparkline for the finite values 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-612 sparkline input-safety guards > R-SPARK-606: large frontier (length > width) with NaN slots produces non-▁ sparkline for finite values 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-626 headline-scalar non-finite guards > R-SHADOW-626-1: reflectiveLoopWinnerHeldOut.correctness = NaN renders "N/A" and "Data unavailable" — not "NaN" or "Do not enable" 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-626 headline-scalar non-finite guards > R-SHADOW-626-2: scalarLoopWinnerLegacyScalar = NaN renders numeric fallback (not "NaN") and "Data unavailable" 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-626 headline-scalar non-finite guards > R-SHADOW-626-3: scalarLoopWinnerLegacyScalar = +Infinity renders numeric fallback (not "Infinity") and "Data unavailable" 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-626 headline-scalar non-finite guards > R-SHADOW-626-4: acceptRate = NaN renders "0.0%" (not "NaN%") in accept rate column 0ms
+ ✓ test/evolution/reflective/shadow-report.test.ts > generateShadowReport — PKT-626 headline-scalar non-finite guards > R-SHADOW-626-5: costDeltaUsd = NaN renders "$0.0000" (not "NaN") in cost delta column 0ms
+ ✓ test/evolution/reflective/store-in-memory.test.ts > InMemoryEvolutionStore — cold branch coverage > IME-101: getGenome rejects with 'Genome not found' for unknown id 5ms
+ ✓ test/evolution/reflective/store-in-memory.test.ts > InMemoryEvolutionStore — cold branch coverage > IME-102: lineageLessons returns [] when no lineage edge exists for genome 1ms
+ ✓ test/evolution/reflective/store-in-memory.test.ts > InMemoryEvolutionStore — cold branch coverage > IME-103: lineageLessons skips edge with no lesson (reflection undefined) 0ms
+ ✓ test/evolution/reflective/store-in-memory.test.ts > InMemoryEvolutionStore — cold branch coverage > IME-104: lineageLessons deduplicates repeated lesson across the chain 1ms
+ ✓ test/evolution/reflective/store-in-memory.test.ts > InMemoryEvolutionStore — cold branch coverage > IME-105-cycle-self: lineageLessons terminates on self-cycle (parentId === childId) (PKT-559) 0ms
+ ✓ test/evolution/reflective/store-in-memory.test.ts > InMemoryEvolutionStore — cold branch coverage > IME-106-cycle-two-node: lineageLessons terminates on A→B→A 2-node cycle (PKT-559) 0ms
+ ✓ test/evolution/reflective/store-in-memory.test.ts > InMemoryEvolutionStore — cold branch coverage > IME-105: loadRun returns best:null and empty frontier when no snapshot exists 0ms
+ ✓ test/api/martian-types-online-fitness.test.ts > handleMartianTypes — online_fitness positive-count arm (L21 arm-0) > maps count>0 aggregate to mean_fitness (not null) 3ms
+ ✓ test/evolution/reflective/genome-codec.test.ts > parseReflectiveGenome > returns a Genome with correct id and empty toolSlots for a valid raw 5ms
+ ✓ test/evolution/reflective/genome-codec.test.ts > parseReflectiveGenome > throws InvalidGenomeError for wrong-length input 1ms
+ ✓ test/evolution/reflective/genome-codec.test.ts > parseReflectiveGenome > throws InvalidGenomeError for non-Base62 chars (256 chars but invalid) 0ms
+ ✓ test/evolution/reflective/genome-codec.test.ts > parseReflectiveGenome > round-trips: parseReflectiveGenome then assertValidGenome passes 1ms
+ ✓ test/evolution/graph/feature-flag.test.ts > EVOLVE_TOPOLOGY feature flag > defaults to off when env not set 2ms
+ ✓ test/evolution/graph/feature-flag.test.ts > EVOLVE_TOPOLOGY feature flag > returns shadow when env=shadow 0ms
+ ✓ test/evolution/graph/feature-flag.test.ts > EVOLVE_TOPOLOGY feature flag > returns on when env=on 0ms
+ ✓ test/evolution/graph/feature-flag.test.ts > EVOLVE_TOPOLOGY feature flag > falls back to off for unrecognized values 0ms
+ ✓ test/evolution/graph/feature-flag.test.ts > EVOLVE_TOPOLOGY feature flag > isEvolveTopologyActive returns false when off 0ms
+ ✓ test/evolution/graph/feature-flag.test.ts > EVOLVE_TOPOLOGY feature flag > isEvolveTopologyActive returns true when shadow 0ms
+ ✓ test/evolution/graph/shadow-report.test.ts > generateMockShadowReport() > mode is "mock" 3ms
+ ✓ test/evolution/graph/shadow-report.test.ts > generateMockShadowReport() > returns exactly 2 comparisons 2ms
+ ✓ test/evolution/graph/shadow-report.test.ts > generateMockShadowReport() > generatedAt is an ISO 8601 string 0ms
+ ✓ test/evolution/graph/shadow-report.test.ts > generateMockShadowReport() > correctnessDelta = mean(evolved - static) = 0.02 0ms
+ ✓ test/evolution/graph/shadow-report.test.ts > generateMockShadowReport() > costDelta = mean(evolvedCost - staticCost) = -0.72 0ms
+ ✓ test/evolution/graph/shadow-report.test.ts > generateMockShadowReport() > subagentCountDelta = mean(evolved - static) = 1.0 0ms
+ ✓ test/evolution/graph/shadow-report.test.ts > generateMockShadowReport() > each comparison winner is "static" | "evolved" | "tie" 1ms
+ ✓ test/evolution/reflective/validateschema-required-own-property.test.ts > validateSchema — required must be own property (PKT-1254 File-A) > A-1 rejects {} for required ['toString'] 3ms
+ ✓ test/evolution/reflective/validateschema-required-own-property.test.ts > validateSchema — required must be own property (PKT-1254 File-A) > A-2 rejects {} for type:object + required ['toString'] 0ms
+ ✓ test/evolution/reflective/validateschema-required-own-property.test.ts > validateSchema — required must be own property (PKT-1254 File-A) > A-3 rejects {wrongKey:1} for required ['hasOwnProperty'] 0ms
+ ✓ test/evolution/reflective/validateschema-required-own-property.test.ts > validateSchema — required must be own property (PKT-1254 File-A) > A-4 rejects {wrongKey:1} for required ['constructor'] 0ms
+ ✓ test/evolution/reflective/validateschema-required-own-property.test.ts > validateSchema — required must be own property (PKT-1254 File-A) > A-5 rejects {wrongKey:1} for required ['valueOf'] 0ms
+ ✓ test/evolution/reflective/validateschema-required-own-property.test.ts > validateSchema — required must be own property (PKT-1254 File-A) > A-6 rejects {wrongKey:1} for required ['__proto__'] 0ms
+ ✓ test/evolution/reflective/validateschema-required-own-property.test.ts > validateSchema — required must be own property (PKT-1254 File-A) > A-7 accepts own-property toString 0ms
+ ✓ test/evolution/reflective/validateschema-required-own-property.test.ts > validateSchema — required must be own property (PKT-1254 File-A) > A-8 accepts {} for required [] 0ms
+ ✓ test/meta/collection-scope.test.ts > vitest.config.ts collection scope > exclude list contains MEMORY/** 3ms
+ ✓ test/meta/collection-scope.test.ts > vitest.config.ts collection scope > exclude list contains a glob that matches test/scratch/ 0ms
+ ✓ test/meta/collection-scope.test.ts > vitest.config.ts collection scope > exclude list contains test/_probe/** glob 0ms
+ ✓ test/meta/collection-scope.test.ts > vitest.config.ts collection scope > exclude list contains test/**/_probe*.{ts,mts} glob 0ms
+ ✓ test/meta/collection-scope.test.ts > vitest.config.ts collection scope > exclude list contains test/**/probe*.{ts,mts} glob 0ms
+ ✓ test/meta/collection-scope.test.ts > vitest.config.ts collection scope > .salvaged suffix is not matched by the default vitest include glob 0ms
+ ✓ test/evolution/reflective/feature-flag.test.ts > REFLECTIVE_EVOLUTION feature flag > defaults to off when env not set 2ms
+ ✓ test/evolution/reflective/feature-flag.test.ts > REFLECTIVE_EVOLUTION feature flag > returns shadow when env=shadow 0ms
+ ✓ test/evolution/reflective/feature-flag.test.ts > REFLECTIVE_EVOLUTION feature flag > returns on when env=on 0ms
+ ✓ test/evolution/reflective/feature-flag.test.ts > REFLECTIVE_EVOLUTION feature flag > falls back to off for unrecognized values 0ms
+ ✓ test/evolution/reflective/feature-flag.test.ts > REFLECTIVE_EVOLUTION feature flag > isReflectiveActive returns false when off 0ms
+ ✓ test/evolution/reflective/feature-flag.test.ts > REFLECTIVE_EVOLUTION feature flag > isReflectiveActive returns true when shadow 0ms
+ ↓ test/evolution/reflective/store.test.ts > MySQL storage — re_* tables (Bug #14 compliance) > recordEvaluation: inserts genome + run + tool_call rows
+ ↓ test/evolution/reflective/store.test.ts > MySQL storage — re_* tables (Bug #14 compliance) > recordEvaluation: idempotent on duplicate run_id
+ ↓ test/evolution/reflective/store.test.ts > MySQL storage — re_* tables (Bug #14 compliance) > recordEvaluation: errors persisted to re_error
+ ↓ test/evolution/reflective/store.test.ts > MySQL storage — re_* tables (Bug #14 compliance) > getGenome: retrieves persisted genome
+ ↓ test/evolution/reflective/store.test.ts > MySQL storage — re_* tables (Bug #14 compliance) > recordLineage: persists parent→child edge with lesson
+ ↓ test/evolution/reflective/store.test.ts > MySQL storage — re_* tables (Bug #14 compliance) > lineageLessons: walks chain and returns lessons newest-first
+ ↓ test/evolution/reflective/store.test.ts > MySQL storage — re_* tables (Bug #14 compliance) > snapshotFrontier: persists frontier to re_frontier_snapshot
+ ↓ test/evolution/reflective/store.test.ts > MySQL storage — re_* tables (Bug #14 compliance) > off mode: no writes when REFLECTIVE_EVOLUTION=off
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/telemetry/online-fitness-streaming-cap-probe.test.ts > PKT-1294 unbounded-read cap (online_fitness.jsonl streaming) > R-013 — aggregateOnlineFitness streams (RSS growth ≤ 30 MiB on a 30 MiB fixture)
+AssertionError: expected 68.3203125 to be less than 30
+ ❯ test/telemetry/online-fitness-streaming-cap-probe.test.ts:92:25
+     90|     // Pre-fix: rssDeltaMiB ≈ 115 MiB (entire 30 MiB file materialized…
+     91|     // Post-fix: rssDeltaMiB < 30 MiB (stream + readline buffers only).
+     92|     expect(rssDeltaMiB).toBeLessThan(30);
+       |                         ^
+     93|     // Sanity: the streaming reader still returns the expected aggrega…
+     94|     expect(result.count).toBe(40_000);  // i % 5 → mt1 every 5th entry
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 62 passed | 1 skipped (64)
+      Tests  1 failed | 1194 passed | 40 skipped (1235)
+   Start at  19:09:06
+   Duration  36.08s (transform 1.79s, setup 0ms, import 4.52s, tests 17.62s, environment 12ms)
+
