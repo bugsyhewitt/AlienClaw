@@ -13,4 +13,4 @@ Name                                   Stmts   Miss  Cover   Missing
 src/alienclaw/fitness/conformance.py      90      0   100%
 --------------------------------------------------------------------
 TOTAL                                     90      0   100%
-170 passed in 0.60s
+170 passed in 0.62s

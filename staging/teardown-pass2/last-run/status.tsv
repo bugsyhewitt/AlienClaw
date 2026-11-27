@@ -1,14 +1,14 @@
 ts	Typecheck	0	1s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/01-ts.log
 ts	Cross-language genome spec compliance (TypeScript side)	0	1s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/02-ts.log
-ts	KEEP TypeScript tests with coverage (run: block from ci.yml)	0	2s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/03-ts.log
-ts	API surface tests (DB-less: coverage REPORTED, thresholds NOT enforced)	0	13s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/04-ts.log
-unit	Run tests	1	20s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/05-unit.log
+ts	KEEP TypeScript tests with coverage (run: block from ci.yml)	0	1s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/03-ts.log
+ts	API surface tests (DB-less: coverage REPORTED, thresholds NOT enforced)	0	12s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/04-ts.log
+unit	Run tests	1	18s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/05-unit.log
 py	Validate fixture file	0	0s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/06-py.log
 py	Lint Python files	0	0s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/07-py.log
-py	Test genome module with coverage	0	46s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/08-py.log
+py	Test genome module with coverage	0	37s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/08-py.log
 py	Lint evolution module	0	0s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/09-py.log
-py	Run evolution tests with coverage	0	4s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/10-py.log
+py	Run evolution tests with coverage	0	3s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/10-py.log
 py	Verify no leak directories	0	0s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/11-py.log
-py	Run diagnostics tests with coverage	0	8s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/12-py.log
-py	Web search backend test	0	5s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/13-py.log
+py	Run diagnostics tests with coverage	0	6s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/12-py.log
+py	Web search backend test	0	4s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/13-py.log
 kit	Conformance + fitness tests (not in CI)	0	3s	/home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run/14-kit.log

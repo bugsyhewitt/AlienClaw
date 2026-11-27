@@ -7,7 +7,7 @@ platform linux -- Python 3.14.9, pytest-9.2.0, pluggy-1.7.0 -- /usr/bin/python
 cachedir: .pytest_cache
 hypothesis profile 'default'
 PySide6 6.12.0 -- Qt runtime 6.12.0 -- Qt compiled 6.12.0
-rootdir: /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun2
+rootdir: /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun3
 configfile: pyproject.toml
 plugins: respx-0.23.1, hypothesis-6.155.6, forked-1.7.5, qt-4.5.0, socket-0.8.1, asyncio-1.4.0, pytest_httpserver-1.1.5, logfire-4.37.0, langsmith-0.10.2, timeout-2.4.0, anyio-4.16.0, requests-mock-1.12.1, platformdirs-4.14.3, inline-snapshot-0.36.0, cov-7.1.0
 asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
@@ -33,4 +33,4 @@ test/tools/test_web_search_backend.py::TestMalformedResponse::test_dict_with_nul
 test/tools/test_web_search_backend.py::TestMalformedResponse::test_dict_with_string_results PASSED [ 94%]
 test/tools/test_web_search_backend.py::TestMalformedResponse::test_dict_with_int_results PASSED [100%]
 
-============================== 19 passed in 2.94s ==============================
+============================== 19 passed in 1.91s ==============================

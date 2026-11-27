@@ -3,10 +3,10 @@ The event loop scope for asynchronous fixtures will default to the "fixture" cac
 
   warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
 ........................................................................ [ 23%]
-........................................................................ [ 47%]
-........................................................................ [ 71%]
-........................................................................ [ 95%]
-..............                                                           [100%]
+........................................................................ [ 46%]
+........................................................................ [ 69%]
+........................................................................ [ 93%]
+.....................                                                    [100%]
 =============================== warnings summary ===============================
 test/diagnostics/test_bayesian_optimizer.py::TestBayesianOptimize::test_maximizes_hill_function
 test/diagnostics/test_bayesian_optimizer.py::TestBayesianOptimize::test_evaluation_count
@@ -47,12 +47,12 @@ src/alienclaw/diagnostics/fitness_ceiling.py                 28      0   100%
 src/alienclaw/diagnostics/fitness_formula_candidates.py      65      2    97%   55-56
 src/alienclaw/diagnostics/fixation_theory.py                 55      1    98%   78
 src/alienclaw/diagnostics/genome_information.py              77      1    99%   37
-src/alienclaw/diagnostics/instrumentation.py                 50      2    96%   77-78
+src/alienclaw/diagnostics/instrumentation.py                 50      0   100%
 src/alienclaw/diagnostics/martian_stub_generator.py          28      0   100%
 src/alienclaw/diagnostics/plateau_detector.py                65      0   100%
 src/alienclaw/diagnostics/reporting.py                       68      0   100%
 src/alienclaw/diagnostics/stub_servers.py                    33      0   100%
 ---------------------------------------------------------------------------------------
-TOTAL                                                       677      6    99%
-Required test coverage of 98% reached. Total coverage: 99.11%
-302 passed, 7 warnings in 5.68s
+TOTAL                                                       677      4    99%
+Required test coverage of 98% reached. Total coverage: 99.41%
+309 passed, 7 warnings in 4.11s

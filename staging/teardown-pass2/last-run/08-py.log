@@ -22,4 +22,4 @@ src/alienclaw/genome/validation.py      27      0   100%
 ------------------------------------------------------------------
 TOTAL                                  287      1    99%
 Required test coverage of 98% reached. Total coverage: 99.65%
-340 passed in 42.98s
+340 passed in 34.41s

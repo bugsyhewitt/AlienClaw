@@ -264,7 +264,6 @@ test/comms/user-channel.test.ts
 test/config/alienclaw-config.test.ts
 test/decide_null_check.test.ts
 test/diagnostics/test_composition_decoder_audit.py
-test/diagnostics/test_instrumentation.py
 test/diagnostics/test_martian_sensitivity_audit.py
 test/diagnostics/test_scaling_experiment.py
 test/diagnostics/test_sensitivity_audit.py

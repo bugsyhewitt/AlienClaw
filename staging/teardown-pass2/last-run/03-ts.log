@@ -1,13 +1,13 @@
 npm warn Unknown project config "onlyBuiltDependencies". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
 
- RUN  v4.1.7 /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun2
+ RUN  v4.1.7 /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun3
       Coverage enabled with v8
 
 
  Test Files  12 passed (12)
       Tests  442 passed (442)
-   Start at  19:38:50
-   Duration  1.19s (transform 2.20s, setup 0ms, import 3.21s, tests 1.54s, environment 2ms)
+   Start at  20:31:14
+   Duration  905ms (transform 1.49s, setup 0ms, import 1.84s, tests 1.27s, environment 2ms)
 
  % Coverage report from v8
 -------------------|---------|----------|---------|---------|-------------------

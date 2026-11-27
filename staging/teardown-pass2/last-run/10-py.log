@@ -28,4 +28,4 @@ src/alienclaw/evolution/types.py                                 36      0   100
 -------------------------------------------------------------------------------------------
 TOTAL                                                           517      2    99%
 Required test coverage of 98% reached. Total coverage: 99.61%
-210 passed in 1.60s
+210 passed in 1.33s
