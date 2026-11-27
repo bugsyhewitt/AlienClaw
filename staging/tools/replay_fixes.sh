@@ -8,7 +8,7 @@
 # The Miller-Madow MI commit (ad784b98) and its revert (7353747d) are deliberately left out.
 set -eu
 COMMITS="7fa90aa3 c4527f06 2601a4b8 cfbeb8ac 83136f28 6e671b21 fa2ef841 29a0746d d18c5c5d
-66292280 751f2058 a6165101 8d66853c"
+66292280 751f2058 a6165101 8d66853c 00a982b0"
 for c in $COMMITS; do
   if git diff --quiet "$c^" "$c" -- src test .gitignore; then
     echo "skip    $c (no in-tree change)"
