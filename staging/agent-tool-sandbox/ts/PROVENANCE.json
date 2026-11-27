@@ -42,14 +42,19 @@
     "Localhost names (staged only, 2026-11-26; extraction-plan gate G7): isBlockedHost also returns true for localhost, ip6-localhost and ip6-loopback with trailing dots and for every name under .localhost with or without trailing dots (RFC 6761), so validateUrl refuses them before DNS. In-tree blocks only the three bare tokens. A DECISION divergence, declared in test/parity-in-tree.test.ts (inDeclaredName, plus two end-to-end cases). No shared-corpus verdict changed (its localhost vectors already blocked through loopback DNS answers); test/hardened-fetch.test.ts flips its localhost KNOWN GAP into 'fixed gaps'.",
     "Error messages (staged only, 2026-11-26; pinning review PR-03 and gate G7): validateResolvedAddresses and the canonical-address check no longer name the resolved address ('SSRF rejected: a resolved address is in a blocked range', '... is not a canonical IPv<n> address', 'unknown address family <n> for a resolved address'); the address and family are non-enumerable read-only properties blockedAddress / addressFamily on the same plain Error, typed by the new type-only export AddressRejection (no runtime export added). URLs in messages go through the new internal src/redact-url.ts (userinfo, query and fragment become '<redacted>'): validateUrl's 'Invalid URL: ...', pinnedRequest's credentials and parse TypeErrors (the parse TypeError no longer keeps Node's ERR_INVALID_URL, whose enumerable input is the raw URL, as its cause), and a new TypeError 'Invalid redirect Location: ...' that replaces Node's ERR_INVALID_URL (whose enumerable input/base properties carried both URLs). In-tree names the address and repeats URLs; test/parity-in-tree.test.ts maps in-tree messages to the staged form (inTreeAsStaged) and still compares decision, reason and address. test/timeout-masking.test.ts and test/pinning.test.ts expect the new messages.",
     "TLS (staged only, 2026-11-26; pinning review PR-04): pinnedRequest passes rejectUnauthorized: true on https requests and their agent, so NODE_TLS_REJECT_UNAUTHORIZED=0 no longer disables certificate verification; regression test in test/pinning.test.ts. package.json engines.node is '>=22' (was '>=18'; PR-07 and plan gate G14).",
-    "Tests (staged only, 2026-11-26): new test/prepublication-gates.test.ts covers the localhost names, the error-message rules and the engine range; test/hardened-fetch.test.ts adds a KNOWN GAPS pin for the absent port policy (SR-14)."
+    "Tests (staged only, 2026-11-26): new test/prepublication-gates.test.ts covers the localhost names, the error-message rules and the engine range; test/hardened-fetch.test.ts adds a KNOWN GAPS pin for the absent port policy (SR-14).",
+    "fs-jail.ts: TS port of the Python boundary jail (new, staged only, 2026-11-26); parity via vectors/fs-vectors.json"
   ],
   "new_files": [
+    "src/fs-jail.ts",
     "src/pinned-request.ts",
     "src/redact-url.ts",
-    "test/pinning.test.ts",
     "test/corpus-gaps.test.ts",
-    "test/timeout-masking.test.ts",
-    "test/prepublication-gates.test.ts"
+    "test/fs-jail-races.test.ts",
+    "test/fs-jail.test.ts",
+    "test/pinning.test.ts",
+    "test/prepublication-gates.test.ts",
+    "test/shared-fs-vectors.test.ts",
+    "test/timeout-masking.test.ts"
   ]
 }

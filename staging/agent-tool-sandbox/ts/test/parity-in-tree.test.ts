@@ -280,7 +280,12 @@ describe('parity: export surface', () => {
     const inTreeKeys = Object.keys(inTree).sort();
     expect(stagedKeys.every((k) => inTreeKeys.includes(k))).toBe(true);
     expect(inTreeKeys.filter((k) => !stagedKeys.includes(k))).toEqual(['LEADERBOARD_POLICY', 'leaderboardFetch']);
-    expect(Object.keys(stagedIndex).sort()).toEqual(stagedKeys);
+    // The index also re-exports the fs jail, a staged-only module with no in-tree twin.
+    const fsJailKeys = [
+      'BoundaryError', 'MAX_READ_BYTES_CEILING', 'assertInsideBoundary', 'assertNoSymlink',
+      'readFileJailed', 'writeFileJailed',
+    ];
+    expect(Object.keys(stagedIndex).sort()).toEqual([...stagedKeys, ...fsJailKeys].sort());
   });
 
   it('constants are identical', () => {

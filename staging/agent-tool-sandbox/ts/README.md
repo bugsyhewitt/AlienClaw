@@ -305,6 +305,30 @@ above resolved 17 of them, all by changing a TS verdict from allow to block (Pyt
 Two vectors that both languages allowed now block in both: `meta-azure-wireserver` and `port-zero`. 51 differences
 remain; they are the owner's strictest-wins decision and were left alone.
 
+## Filesystem jail (`fs-jail.ts`)
+
+This is a TS port of the Python `agent_tool_sandbox.boundary`, so file tools get the same guarantees in both
+languages. All functions are async.
+
+- `assertInsideBoundary(pathStr, root, { denyRoots })` returns the resolved path. It resolves against an explicit
+  `root` (nothing comes from the environment) and contains the result with realpath plus the `root + "/"` rule,
+  which catches sibling prefixes such as `root-evil/`. It rejects a final real component that starts with `.`
+  (`.env`, `.env/`, `.env/./`, `a/../.env/`, or a symlink whose target is a dotfile); dot-directories in the
+  middle of a path are allowed, as in Python. It also rejects anything under `denyRoots`.
+- `assertNoSymlink(path, { operation })` walks the unresolved path and rejects a symlink in any component. A
+  component that can't be inspected (for example EACCES) fails closed.
+- `readFileJailed(pathStr, root, { maxBytes, encoding, denyRoots })` checks the path, then opens it with
+  `O_NOFOLLOW`. `maxBytes` is required, up to `MAX_READ_BYTES_CEILING` (256 MiB).
+- `writeFileJailed(pathStr, data, root, { createParents, mode, encoding, denyRoots })` writes atomically (a temp
+  file in the same directory, then rename) and refuses a symlink target.
+- Errors are `BoundaryError` with a stable `code`. Windows throws `UNSUPPORTED_PLATFORM` in v0.1.
+
+Parity with Python is enforced by data: `../vectors/fs-vectors.json` (105 layouts) runs in both
+`test/shared-fs-vectors.test.ts` and `python/tests/test_shared_fs_vectors.py`. They differ on one declared vector:
+both refuse `.env\0` on read, but TS reports the NUL byte where Python reports a dotfile. EACCES is not in the
+corpus, because its outcome depends on the environment. On Python 3.13+, `Path.is_symlink()` swallows EACCES, so
+only the later `open()` fails there; TS fails closed at the check.
+
 ## Testing
 
 The package has no devDependencies of its own. Inside the AlienClaw repo it uses the root `vitest`, `typescript`,
