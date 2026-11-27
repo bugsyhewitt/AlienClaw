@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pho3nix-tuner"
+version = "0.0.0.dev0"
+description = "Offline GA that tunes Pho3nix recon-tool profiles from imported run history"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "See LICENSE in the AlienClaw repository" }
+# The GA engine (staging/ga-engine in the AlienClaw repo). Declared only: it is not
+# published anywhere yet, so for now put its src/ on PYTHONPATH (see README.md).
+dependencies = [
+    "alienclaw-ga",
+]
+
+[project.optional-dependencies]
+# tooltime_bounds.py --tooltime-dir imports PyYAML lazily; nothing else needs it.
+tooltime = ["pyyaml>=6.0"]
+test = [
+    "pytest>=7.4,<10.0",
+    "hypothesis>=6.0,<7.0",
+    "ruff>=0.1,<1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pho3nix_tuner"]
+known-third-party = ["alienclaw_ga"]

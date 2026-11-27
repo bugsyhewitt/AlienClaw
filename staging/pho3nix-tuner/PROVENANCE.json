@@ -1,0 +1,71 @@
+{
+  "package": "pho3nix-tuner",
+  "source_commit": "7fe13ef6ff5daff0482d5db01f4ca21354ec3caf",
+  "files": [
+    {
+      "staged": "staging/pho3nix-tuner/src/pho3nix_tuner/__init__.py",
+      "source": "pho3nix_tuner/__init__.py",
+      "source_blob": "6813804c30d0eba6ddf7b230597c9a5a9875fc1c",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-tuner/src/pho3nix_tuner/fitness_adapter.py",
+      "source": "pho3nix_tuner/fitness_adapter.py",
+      "source_blob": "da10266699f4d3577515e57371722def496ac303",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-tuner/src/pho3nix_tuner/genome_schema.py",
+      "source": "pho3nix_tuner/genome_schema.py",
+      "source_blob": "f494c959c50140e42c0c687e16b5989ae817e6ed",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-tuner/src/pho3nix_tuner/inspect_history.py",
+      "source": "pho3nix_tuner/inspect_history.py",
+      "source_blob": "dec7856ba231ddb9dd6d8acc33f98489dd59b896",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/pho3nix-tuner/src/pho3nix_tuner/results/.gitkeep",
+      "source": "pho3nix_tuner/results/.gitkeep",
+      "source_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/pho3nix-tuner/src/pho3nix_tuner/reward_model.py",
+      "source": "pho3nix_tuner/reward_model.py",
+      "source_blob": "079260894418f3bd4f2f49c89896ac18571b855d",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-tuner/src/pho3nix_tuner/run_ga.py",
+      "source": "pho3nix_tuner/run_ga.py",
+      "source_blob": "dca04714c7486e08084cd254130c7acb7c785d30",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-tuner/src/pho3nix_tuner/tooltime_bounds.py",
+      "source": "pho3nix_tuner/tooltime_bounds.py",
+      "source_blob": "a463d588292afcd4b10270a3083fb3c4373b1c47",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/pho3nix-tuner/README.md",
+      "source": "pho3nix_tuner/README.md",
+      "source_blob": "c5fb56690508247a2e585825488665663e3c6b47",
+      "relation": "adapted"
+    }
+  ],
+  "divergences": [
+    "src/pho3nix_tuner/genome_schema.py: the sys.path insert of <repo>/src (and the now-unused sys/Path imports) is removed; the five alienclaw.genome.* imports become alienclaw_ga.genome.* and lose their E402 noqa. Codec behavior unchanged (tests/test_parity_in_tree.py: decode and encode byte-identical to in-tree).",
+    "src/pho3nix_tuner/fitness_adapter.py: the lazy FitnessReport import inside callback() is rewritten alienclaw.evolution.generation -> alienclaw_ga.evolution.generation. Nothing else changed.",
+    "src/pho3nix_tuner/run_ga.py: the sys.path insert of <repo>/src is removed; the insert of the package's parent (src/) is kept so `python src/pho3nix_tuner/run_ga.py` still resolves pho3nix_tuner. Four top-level imports and the lazy FitnessReport import are rewritten alienclaw.* -> alienclaw_ga.*; ruff re-sorted the import block (alienclaw_ga is a separate third-party group).",
+    "src/pho3nix_tuner/run_ga.py (staged fix): Step 2 loads entries with inspect_history._load_history instead of `raw if isinstance(raw, list) else raw.get('entries', raw.get('runs', []))`. In-tree, a {\"history\": [...]} dump passed the STOP gate (whose loader accepts entries/runs/history) and was then read back as [], so the GA ran on an empty reward model. Bare-list, entries and runs dumps behave as before.",
+    "src/pho3nix_tuner/reward_model.py (staged fix): RewardModel.from_file uses inspect_history._load_history (lazy import) for the same reason; the now-unused `import json` is removed. Asserted as the one declared difference in tests/test_parity_in_tree.py::test_declared_divergence_history_envelope.",
+    "src/pho3nix_tuner/__init__.py: __version__ 0.1.0 -> 0.0.0.dev0 (and the docstring's Version line) to match pyproject.toml.",
+    "README.md: rewritten for the staged package (layout, data gate and why it is closed, how to run with PYTHONPATH, lift requirements, fragilities); the gate conditions and execution-boundary content come from the in-tree README.",
+    "New files with no in-tree source: pyproject.toml, PROVENANCE.json, tests/conftest.py, tests/_synth.py (hand-built synthetic histories in Pho3nix's run-history row shape; no real rig data), tests/test_genome_schema.py, tests/test_bounds_agreement.py, tests/test_inspect_history.py, tests/test_stop_gate.py, tests/test_reward_model.py, tests/test_tiny_ga_run.py, tests/test_parity_in_tree.py, tests/test_no_alienclaw_imports.py. The in-tree package had no tests.",
+    "Not staged: pho3nix_tuner/data/ (gitignored imported rig history; never copied) and pho3nix_tuner/__pycache__/."
+  ]
+}
