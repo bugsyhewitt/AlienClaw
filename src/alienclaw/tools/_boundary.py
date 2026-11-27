@@ -60,13 +60,36 @@ def file_write_root() -> Path:
     return (Path.home() / ".alienclaw" / "workspace" / "output").resolve()
 
 
+def _final_component(path_str: str) -> str:
+    """Last component of path_str that names something ('' and '.' parts skipped).
+
+    os.path.basename() alone is '' for '.env/' and '.' for '.env/./', which let a
+    trailing slash carry a dotfile past the dotfile rule (fixed 2026-11-26).
+    """
+    path_str = os.fspath(path_str)
+    if os.altsep:
+        path_str = path_str.replace(os.altsep, os.sep)
+    parts = [p for p in path_str.split(os.sep) if p not in ("", ".")]
+    return parts[-1] if parts else ""
+
+
+def _dotfile_rejected(path_str: str) -> ValueError:
+    return ValueError(
+        f'Dotfile rejected: "{path_str}" — filenames starting with "." are not allowed'
+    )
+
+
 def assert_inside_boundary(path_str: str, boundary: Path) -> Path:
     """Return resolved path if inside boundary; raise ValueError otherwise.
 
     Hardened (PKT-P1 T8):
     - Uses os.path.realpath() to resolve all symlinks before comparison.
-    - Rejects symlinks on write (callers that enforce write-safety call assert_no_symlink separately).
-    - Rejects dotfiles (filenames starting with '.').
+    - Does not reject symlinks itself: file_write and file_read call assert_no_symlink
+      separately, on the unresolved path, before this check.
+    - Rejects dotfiles: the final component that names something starts with '.',
+      however it is spelled ('.env', '.env/', './.env/.'), or the resolved path's
+      final component does (a symlink whose target is a dotfile). Dot-directories
+      in the middle of a path are not rejected.
     - Rejects paths inside ~/.openclaw/** (OpenClaw agent workspaces).
 
     Mirrors the TS logic: resolve path_str against boundary (so relative paths
@@ -75,12 +98,11 @@ def assert_inside_boundary(path_str: str, boundary: Path) -> Path:
     (e.g. /etc/passwd) and sibling-prefix attacks (workspace-evil/) are both
     caught by the `+ os.sep` check.
     """
-    # Reject dotfiles by filename stem before resolution
+    # Reject dotfiles by final component before resolution. basename() keeps '.',
+    # 'a/.' and 'a/..' rejected; _final_component() closes '.env/', '.env/./', etc.
     filename = os.path.basename(path_str)
-    if filename.startswith("."):
-        raise ValueError(
-            f'Dotfile rejected: "{path_str}" — filenames starting with "." are not allowed'
-        )
+    if filename.startswith(".") or _final_component(path_str).startswith("."):
+        raise _dotfile_rejected(path_str)
 
     # Use os.path.realpath for full symlink resolution
     raw = (boundary / path_str)
@@ -96,6 +118,10 @@ def assert_inside_boundary(path_str: str, boundary: Path) -> Path:
             f'Path traversal rejected: "{path_str}" resolves outside workspace boundary'
         )
 
+    # Same rule after resolution: a symlink (file or directory) whose target is a dotfile
+    if resolved != boundary_real and resolved.name.startswith("."):
+        raise _dotfile_rejected(path_str)
+
     # Reject anything inside ~/.openclaw (OpenClaw agent workspaces — 2026 campaign vector)
     openclaw_real = os.path.realpath(str(_openclaw_home()))
     if resolved_str.startswith(openclaw_real + sep) or resolved_str == openclaw_real:
@@ -106,22 +132,24 @@ def assert_inside_boundary(path_str: str, boundary: Path) -> Path:
     return resolved
 
 
-def assert_no_symlink(resolved_path: Path) -> None:
-    """Raise ValueError if the resolved path is a symlink.
+def assert_no_symlink(resolved_path: Path, *, operation: str = "write") -> None:
+    """Raise ValueError if the path is a symlink.
 
-    Used on write paths to prevent symlink-escape attacks after boundary check.
-    Any component of the path that is a symlink is also checked.
+    Pass the UNRESOLVED path. Used on write paths (file_write) and read paths
+    (file_read, since 2026-11-26) to prevent symlink-escape attacks; ``operation``
+    only names the operation in the error message. Any component of the path that
+    is a symlink is also checked.
     """
     # Check the target itself
     if resolved_path.is_symlink():
         raise ValueError(
-            f'Symlink rejected on write: "{resolved_path}" is a symbolic link'
+            f'Symlink rejected on {operation}: "{resolved_path}" is a symbolic link'
         )
     # Check all ancestors up to the filesystem root
     current = resolved_path.parent
     while current != current.parent:
         if current.is_symlink():
             raise ValueError(
-                f'Symlink in path rejected on write: "{current}" is a symbolic link'
+                f'Symlink in path rejected on {operation}: "{current}" is a symbolic link'
             )
         current = current.parent

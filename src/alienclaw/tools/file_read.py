@@ -1,10 +1,14 @@
 import math
 import os
 from typing import Any
-from .types import RunResult
-from ._boundary import assert_inside_boundary, workspace_root
 
+from ._boundary import assert_inside_boundary, assert_no_symlink, workspace_root
 from .limits import MAX_TOOL_IO_BYTES as _MAX_BYTES
+from .types import RunResult
+
+# O_NOFOLLOW (where the platform has it): a final-component symlink swapped in after
+# the checks below makes the open fail (ELOOP) instead of being followed.
+_OPEN_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -12,7 +16,10 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if not path_str:
         return RunResult(ok=False, error="Missing 'path' field", correctness=0.0)
     try:
-        path = assert_inside_boundary(path_str, workspace_root())
+        read_root = workspace_root()
+        # Symlink guard must inspect the UNRESOLVED path (same order as file_write)
+        assert_no_symlink(read_root / path_str, operation="read")
+        path = assert_inside_boundary(path_str, read_root)
     except ValueError as exc:
         return RunResult(ok=False, error=str(exc), correctness=0.0)
     if not path.exists():
@@ -23,7 +30,10 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if size > _MAX_BYTES:
         return RunResult(ok=False, error=f"File exceeds 10 MiB ({size} bytes)", correctness=0.0)
     try:
-        raw = path.read_text(encoding="utf-8", errors="replace")
+        fd = os.open(path, _OPEN_FLAGS)
+        # Same decoding as Path.read_text(): text mode, universal newlines
+        with open(fd, encoding="utf-8", errors="replace") as fh:
+            raw = fh.read()
     except OSError as exc:
         return RunResult(ok=False, error=f"Read error: {exc}", correctness=0.0)
 
