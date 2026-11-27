@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run every staged package's test suite plus the drift check.
-# Each suite runs through staging/tools/heavy.sh (Alfred's shared lock + RAM floor).
+# Each suite runs through staging/tools/heavy.sh (Alfred's shared lock + RAM floor) and
+# staging/tools/offline.sh (loopback-only network namespace where available).
 # Usage: bash staging/run-all-tests.sh [package-dir ...]   (default: all)
 set -u
 
@@ -8,17 +9,18 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 S="$ROOT/staging"
 BIN="$ROOT/node_modules/.bin"
 HEAVY="$S/tools/heavy.sh"
+OFFLINE="$S/tools/offline.sh"
 
 py() {  # py <pkg-dir> [extra PYTHONPATH dirs under staging/ ...]
   local dir="$1"; shift
   local path="$S/$dir/src"
   for extra in "$@"; do path="$path:$S/$extra"; done
-  (cd "$S/$dir" && bash "$HEAVY" env PYTHONPATH="$path" PYTHONDONTWRITEBYTECODE=1 \
-    python3 -m pytest tests -q -p no:cacheprovider)
+  (cd "$S/$dir" && bash "$HEAVY" bash "$OFFLINE" env PYTHONPATH="$path" \
+    PYTHONDONTWRITEBYTECODE=1 python3 -m pytest tests -q -p no:cacheprovider)
 }
 
 ts() {  # ts <pkg-dir>: typecheck + tests under one lock hold
-  (cd "$ROOT" && bash "$HEAVY" bash -c '"$0/tsc" -p "staging/$1/tsconfig.json" &&
+  (cd "$ROOT" && bash "$HEAVY" bash "$OFFLINE" bash -c '"$0/tsc" -p "staging/$1/tsconfig.json" &&
     "$0/vitest" run "staging/$1"' "$BIN" "$1")
 }
 
