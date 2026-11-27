@@ -378,15 +378,15 @@ def test_clean_urls_are_accepted_in_canonical_form(scheme, host, dot, port, path
 # ── Regression: found by test_clean_urls_are_accepted_in_canonical_form ──────
 # Bug 1 (2026-11-26): the canonical URL was rebuilt with urlparse()/urlunparse(), which split
 # ';params' off the last path segment and then dropped an EMPTY one: 'http://h/a;' came back
-# as 'http://h/a', another resource ('/a;?q' as '/a?q'). The path is now kept whole. An empty
-# '?' or '#' is still dropped: that is the documented canonical form (the reference suite's
-# test_fetch_output_url.py and pho3nix-recon-http pin it).
+# as 'http://h/a', another resource ('/a;?q' as '/a?q'). The path is now kept whole.
+# Bug 2 (2026-11-26 security review, F2): urlsplit()/urlunsplit() also dropped an empty '?'
+# or '#', so '/a?' was requested as '/a'. Everything after the authority is now kept as given.
 
 
 @pytest.mark.parametrize(("rest", "canonical_rest"), [
     ("/a;", "/a;"), ("/;", "/;"), ("/a;?q", "/a;?q"), ("/a;#f", "/a;#f"), ("/x/a;", "/x/a;"),
     ("/a;b;", "/a;b;"), ("/a;b", "/a;b"),
-    ("/a?", "/a"), ("/a#", "/a"), ("/a?#", "/a"), ("?", ""), ("#", ""),  # documented drops
+    ("/a?", "/a?"), ("/a#", "/a#"), ("/a?#", "/a?#"), ("?", "?"), ("#", "#"),  # F2: kept
 ])
 def test_canonical_url_keeps_the_path_whole(rest: str, canonical_rest: str) -> None:
     with mock.patch.object(socket, "getaddrinfo", _HostileResolver()):

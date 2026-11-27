@@ -2,7 +2,7 @@
 
 Ported from the in-tree test_fetch_output_url.py (2026-11-26 review). The guard
 returns a canonical URL (lowercased scheme and host, IDNA host, an empty ``?`` or ``#``
-dropped, ``:080`` -> ``:80``) and the tools fetch it. Callers that match a result to
+kept as given (F2), ``:080`` -> ``:80``) and the tools fetch it. Callers that match a result to
 the URL they passed in need their own string back, so ``url`` is the input, unchanged,
 and ``fetched_url`` carries the URL that was actually requested.
 
@@ -28,8 +28,10 @@ def _public_dns(fake_dns) -> None:
 CASES = [
     ("http://Public.Example/x", "http://public.example/x"),
     ("https://bücher.example/x", "https://xn--bcher-kva.example/x"),
-    ("http://public.example/x?", "http://public.example/x"),
-    ("http://public.example/x#", "http://public.example/x"),
+    # F2 (2026-11-26 security review): an empty '?' or '#' is kept, as given (was dropped)
+    ("http://public.example/x?", "http://public.example/x?"),
+    ("http://public.example/x#", "http://public.example/x#"),
+    ("http://public.example?", "http://public.example?"),
     ("HTTP://Public.Example:080/a?q=1#f", "http://public.example:80/a?q=1#f"),
     ("http://public.example/already/canonical?q=1", "http://public.example/already/canonical?q=1"),
 ]
@@ -45,7 +47,8 @@ def test_url_is_the_input_and_fetched_url_is_what_was_requested(
     assert r.ok is True, r.error
     assert r.output["url"] == given
     assert r.output["fetched_url"] == canonical
-    assert [s.full_url for s in handler.requests] == [canonical]
+    # urllib.request.Request.full_url omits an EMPTY fragment (no fragment is ever sent)
+    assert [s.full_url for s in handler.requests] == [canonical.removesuffix("#")]
 
 
 @TOOLS

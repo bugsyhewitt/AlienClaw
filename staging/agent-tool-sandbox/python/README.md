@@ -71,8 +71,9 @@ works (`detail == "text"`). Before 2026-11-26, `str(exc)` was what `detail` is n
 Returns a **canonical URL** if `raw_url` passes, and raises `SsrfBlockedError` otherwise.
 The canonical URL is rebuilt from the validated parts: lower-case scheme and host, the
 host IDNA-encoded to ASCII, the port only if one was given (normalised, so `:080` becomes
-`:80` and an empty `:` is dropped), no userinfo, and the path, query and fragment as
-parsed, with every non-ASCII character percent-encoded as UTF-8 (an IRI such as
+`:80` and an empty `:` is dropped), no userinfo, and everything after the authority
+exactly as given (an empty `?` or `#` is kept), with every non-ASCII character
+percent-encoded as UTF-8 (an IRI such as
 `http://bücher.example/café` becomes `http://xn--bcher-kva.example/caf%C3%A9`, as WHATWG
 parsers write it; existing `%XX` escapes are left alone). That encoding happens after the
 character rule below and before every other check, so the checks see the canonical form,
@@ -251,6 +252,11 @@ an overridden `connect()` always runs, and anything it no longer matches fails l
 
 Returns the resolved absolute path, or raises `ValueError`. The steps run in this order:
 
+Before any of these, and before any filesystem call, a `path_str` over 4096 UTF-8 bytes
+(`PATH_MAX`) or with more than 256 components is rejected (`Path rejected: ...`), so a
+huge path costs nothing; `assert_no_symlink` applies the same limits (allowing the root's
+own components on top).
+
 1. If the final component of `path_str` that names something starts with `.`, it is
    rejected (`Dotfile rejected`). Empty and `.` components are skipped first, so `.env/`,
    `.env/./` and `./sub/.secret//` are rejected like `.env`; `.`, `a/.` and `a/..` are
@@ -335,8 +341,11 @@ def read_tool(path_str: str) -> str:
         st = os.fstat(fd)                   # judge what was opened, not the path
         if not stat.S_ISREG(st.st_mode) or st.st_size > 1_000_000:
             raise ValueError(f"Not a readable file: {path_str}")
-        with open(fd, encoding="utf-8", closefd=False) as fh:
-            return fh.read()
+        with open(fd, "rb", closefd=False) as fh:
+            data = fh.read(1_000_001)       # bounded: the file may grow after fstat
+        if len(data) > 1_000_000:
+            raise ValueError(f"Not a readable file: {path_str}")
+        return data.decode("utf-8")
     finally:
         os.close(fd)
 

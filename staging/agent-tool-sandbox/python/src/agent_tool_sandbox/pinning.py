@@ -694,6 +694,23 @@ class _HandBackRedirect(urllib.request.HTTPRedirectHandler):
     http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
 
 
+def _join_location(base: str, location: str) -> str:
+    """urljoin(base, location), keeping the Location's empty '?' or '#' on every Python.
+
+    Before 3.14 urljoin() drops an empty query or fragment, and for a bare '?' keeps the
+    base's query instead; RFC 3986 5.2.2 and WHATWG (the TS twin) keep both as given, so
+    '/b?' is '/b?' (2026-11-26 security review, F2: the canonical URL keeps them too).
+    """
+    joined = urljoin(base, location)
+    ref, hash_mark, fragment = location.partition("#")
+    if "?" in ref and not ref.partition("?")[2]:
+        head, joined_hash, joined_fragment = joined.partition("#")
+        joined = f"{head.partition('?')[0]}?{joined_hash}{joined_fragment}"
+    if hash_mark and not fragment and "#" not in joined:
+        joined += "#"
+    return joined
+
+
 def _location_text(location: str) -> str:
     """A Location header as the text its sender meant: its bytes read as UTF-8.
 
@@ -781,7 +798,7 @@ def pinned_urlopen(
                     f"more than {max_hops} redirects"
                 ) from None
             hops += 1
-            next_url = urljoin(target.canonical_url, _location_text(redirect.location))
+            next_url = _join_location(target.canonical_url, _location_text(redirect.location))
             try:
                 next_scheme = urlsplit(next_url).scheme.lower()
             except ValueError:

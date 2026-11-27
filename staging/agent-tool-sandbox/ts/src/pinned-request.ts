@@ -136,6 +136,20 @@ function requestHeaders(url: URL, isHttps: boolean): http.OutgoingHttpHeaders {
   };
 }
 
+/**
+ * The request-target for `parsed`: the pathname plus the query exactly as given.
+ * `URL.search` is '' for an EMPTY query, so `${pathname}${search}` (what fetch() sends:
+ * undici's pathname + search) requested '/a?' as '/a', another request-target for a
+ * server that routes or signs on '?' (2026-11-26 security review, F2; the Python twin
+ * keeps it too). Credentials are refused before this, so the first '?' of the href
+ * (fragment cut off) starts the query.
+ */
+function requestTarget(parsed: URL): string {
+  const beforeHash = parsed.href.split('#', 1)[0] ?? '';
+  const q = beforeHash.indexOf('?');
+  return q >= 0 ? `${parsed.pathname}${beforeHash.slice(q)}` : parsed.pathname;
+}
+
 /** One GET to `url` whose socket can reach only `init.addresses`. Never follows redirects. */
 export function pinnedRequest(url: string, init: TransportInit): Promise<TransportResponse> {
   return new Promise<TransportResponse>((resolve, reject) => {
@@ -184,7 +198,7 @@ export function pinnedRequest(url: string, init: TransportInit): Promise<Transpo
       method: 'GET',
       host,
       port: parsed.port === '' ? undefined : Number(parsed.port),
-      path: `${parsed.pathname}${parsed.search}`,
+      path: requestTarget(parsed),
       headers: requestHeaders(parsed, isHttps),
       agent,
       lookup: pinnedLookup(host, init.addresses),

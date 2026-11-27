@@ -77,7 +77,7 @@ export type BoundaryErrorCode =
   | 'SYMLINK_IN_PATH'
   /** A component could not be inspected (EACCES, EPERM, EIO, ...): fail closed. */
   | 'UNINSPECTABLE'
-  /** The path contains a NUL byte. */
+  /** The path contains a NUL byte, is over 4096 bytes, or has over 256 components. */
   | 'INVALID_PATH'
   /** readFileJailed / writeFileJailed: the target exists and is not a regular file. */
   | 'NOT_A_FILE'
@@ -213,6 +213,55 @@ function nulRejected(p: string): BoundaryError {
   );
 }
 
+// Paths longer than this (Linux PATH_MAX) or with more components than this are refused
+// before any filesystem call (2026-11-26 security review, F1): the kernel refuses such
+// paths anyway, and the symlink walk and realpathLoose cost grows with the component
+// count, so a few KB of "a/a/a/..." took tens of seconds. Same limits and messages as
+// the Python twin.
+const MAX_PATH_BYTES = 4096;
+const MAX_PATH_COMPONENTS = 256;
+
+/** Number of components that name something ('' and '.' skipped; '..' counts). */
+function componentCount(p: string): number {
+  return p.split('/').filter((s) => s !== '' && s !== '.').length;
+}
+
+/** Components of `root` made absolute and normalised, as Python's os.path.abspath(root). */
+function rootComponentCount(root: string): number {
+  const absolute = root.startsWith('/') ? root : `${process.cwd()}/${root}`;
+  const out: string[] = [];
+  for (const part of absolute.split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') out.pop();
+    else out.push(part);
+  }
+  return out.length;
+}
+
+/**
+ * Throw INVALID_PATH if `p` is over MAX_PATH_BYTES (UTF-8) or has more than
+ * MAX_PATH_COMPONENTS components beyond `baseComponents` (those of the root it is
+ * spelled under). Touches no filesystem; the message does not echo the path.
+ */
+function assertPathBounded(p: string, baseComponents = 0): void {
+  const size = Buffer.byteLength(p, 'utf8');
+  if (size > MAX_PATH_BYTES) {
+    throw new BoundaryError(
+      'INVALID_PATH',
+      `Path rejected: ${size} bytes is longer than the ${MAX_PATH_BYTES}-byte limit`,
+      p,
+    );
+  }
+  const count = componentCount(p) - baseComponents;
+  if (count > MAX_PATH_COMPONENTS) {
+    throw new BoundaryError(
+      'INVALID_PATH',
+      `Path rejected: ${count} components is more than the ${MAX_PATH_COMPONENTS}-component limit`,
+      p,
+    );
+  }
+}
+
 /** `root / pathStr` without normalising `..` (what Python's `Path(root) / path_str` gives). */
 function joinUnresolved(root: string, pathStr: string): string {
   return pathStr.startsWith('/') ? pathStr : `${root}/${pathStr}`;
@@ -325,6 +374,7 @@ export async function assertInsideBoundary(
   requireString(pathStr, 'pathStr');
   requireRoot(root, 'root');
   const denyRoots = denyRootList(opts.denyRoots);
+  assertPathBounded(pathStr);
 
   // Final component as written. pyBasename keeps '.', 'a/.' and 'a/..' rejected;
   // finalComponent closes '.env/', '.env/./' and friends.
@@ -376,10 +426,11 @@ export async function assertNoSymlink(p: string, opts: NoSymlinkOptions = {}): P
   assertSupportedPlatform();
   requireString(p, 'path');
   const operation = opts.operation ?? 'write';
+  if (opts.root !== undefined) requireRoot(opts.root, 'root');
+  assertPathBounded(p, opts.root !== undefined ? rootComponentCount(opts.root) : 0);
   // Fail closed: a NUL byte makes the path uninspectable by lstat.
   if (p.includes('\0')) throw nulRejected(p);
   if (opts.root !== undefined) {
-    requireRoot(opts.root, 'root');
     await assertNoSymlinkBelowRoot(p, opts.root, operation);
     return;
   }
@@ -417,16 +468,26 @@ export async function assertNoSymlink(p: string, opts: NoSymlinkOptions = {}): P
  * directory whose realpath is at or below realpath(root). Never lstat'ed: the
  * prefix (an ancestor of the root, the root's own entry when the root is spelled
  * through a symlink, anything outside it) and '..'.
+ *
+ * The containing directory's real path is carried from step to step (linear, F1):
+ * '..' takes its dirname, as realpathLoose and the kernel do; an in-root entry that
+ * is not a symlink has real path parentReal/part; only an out-of-root step calls
+ * realpathLoose.
  */
 async function assertNoSymlinkBelowRoot(p: string, root: string, operation: string): Promise<void> {
   const absolute = p.startsWith('/') ? p : `${process.cwd()}/${p}`;
   const parts = absolute.split('/').filter((s) => s !== '' && s !== '.');
   const rootReal = await realpathLoose(root);
   let parent = '/';
+  let parentReal = await realpathLoose('/');
   for (let i = 0; i < parts.length; i += 1) {
     const part = parts[i]!;
     const entry = parent === '/' ? `/${part}` : `${parent}/${part}`;
-    if (part !== '..' && atOrBelow(await realpathLoose(parent), rootReal)) {
+    if (part === '..') {
+      parentReal = parentReal.slice(0, parentReal.lastIndexOf('/')) || '/';
+    } else if (!atOrBelow(parentReal, rootReal)) {
+      parentReal = await realpathLoose(entry);
+    } else {
       if (await isSymlink(entry, operation)) {
         if (i === parts.length - 1) {
           throw new BoundaryError(
@@ -441,6 +502,7 @@ async function assertNoSymlinkBelowRoot(p: string, root: string, operation: stri
           entry,
         );
       }
+      parentReal = parentReal === '/' ? `/${part}` : `${parentReal}/${part}`;
     }
     parent = entry;
   }

@@ -671,3 +671,30 @@ describe('pinnedLookup', () => {
     expect(other.err?.message).toContain('"other.example"');
   });
 });
+
+describe("an empty query is requested as given (F2, 2026-11-26 security review)", () => {
+  it("'/a?' is requested as '/a?', '?' alone as '/?', and a redirect to '/b?' as '/b?'", async () => {
+    let port = 0;
+    const { requests } = await httpServer((req, res) => {
+      if (req.url === '/a?') {
+        res.writeHead(302, { location: '/b?' });
+        res.end();
+      } else {
+        res.end('ok');
+      }
+    }).then((s) => { port = s.port; return s; });
+    viaLoopback();
+    const resolve = async (): Promise<ResolvedAddress[]> => [v4(PUBLIC_A)];
+    await expect(hardenedFetch(`http://a.example:${port}/a?`, { ...POLICY, resolve })).resolves.toBe('ok');
+    await expect(hardenedFetch(`http://a.example:${port}?`, { ...POLICY, resolve })).resolves.toBe('ok');
+    await expect(hardenedFetch(`http://a.example:${port}/c?#`, { ...POLICY, resolve })).resolves.toBe('ok');
+    await expect(hardenedFetch(`http://a.example:${port}/d?q=1`, { ...POLICY, resolve })).resolves.toBe('ok');
+    expect(requests.map((r) => r.url)).toEqual(['/a?', '/b?', '/?', '/c?', '/d?q=1']);
+  });
+
+  it("the parsed URL keeps the empty query; only URL.search hides it", () => {
+    const u = new URL('http://a.example/a?#');
+    expect(u.href).toBe('http://a.example/a?#');
+    expect(u.search).toBe('');
+  });
+});

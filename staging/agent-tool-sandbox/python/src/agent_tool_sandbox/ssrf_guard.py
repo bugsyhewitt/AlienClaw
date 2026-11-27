@@ -42,7 +42,7 @@ import re
 import socket
 import urllib.request
 from typing import IO, Final, NamedTuple, NoReturn
-from urllib.parse import quote, urlparse, urlsplit, urlunsplit
+from urllib.parse import quote, urlparse, urlsplit
 
 from . import _blocklist_data as _blocklist
 
@@ -336,17 +336,21 @@ def _assert_connects_to(url: str, host: str, port: int) -> None:
 
 
 def _canonical_url(url: str, ascii_host: str, port: int | None) -> str:
-    """Rebuild the URL from validated parts: no userinfo, IDNA host, the given port.
+    """Rebuild the authority from validated parts: no userinfo, IDNA host, the given port.
 
-    The path is urlsplit()'s: urlparse() splits ';params' off the last segment and
-    urlunparse() then drops an EMPTY one, so '/a;' came back as '/a', another resource
-    (fixed 2026-11-26). An empty '?' query or '#' fragment is still dropped.
+    Everything after the authority is kept exactly as given. Rebuilding it lost
+    markers: urlparse()/urlunparse() dropped an EMPTY ';params' ('/a;' came back as
+    '/a', another resource), and urlsplit()/urlunsplit() an empty '?' or '#' ('/a?'
+    was requested as '/a'; 2026-11-26 security review, F2).
     """
     split = urlsplit(url)
+    prefix = f"{split.scheme}://{split.netloc}"
+    if url[: len(prefix)].lower() != prefix.lower():  # cannot happen after the char checks
+        raise SsrfBlockedError("Refusing malformed URL: authority not where expected")
     netloc = f"[{ascii_host}]" if ":" in ascii_host else ascii_host
     if port is not None:
         netloc = f"{netloc}:{port}"
-    return urlunsplit((split.scheme, netloc, split.path, split.query, split.fragment))
+    return f"{split.scheme}://{netloc}{url[len(prefix):]}"
 
 
 class _ValidatedUrl(NamedTuple):

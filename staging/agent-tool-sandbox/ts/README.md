@@ -134,6 +134,7 @@ the real global `fetch` against the same local server:
 | Idle timers | only the policy deadline | undici's 300 s headers and body timeouts also applied |
 | TLS ALPN | none offered | `http/1.1` offered |
 | Protocol | HTTP/1.1 | HTTP/1.1 (undici's default; `allowH2` is off) |
+| Empty query (`http://h/a?`) | requested as `/a?`, as given (security review F2, 2026-11-26) | requested as `/a` (`pathname + search`, and `URL.search` is `''` for an empty query) |
 
 ## Error messages
 
@@ -339,6 +340,12 @@ languages. All functions are async.
   ancestors with `O_NOFOLLOW` dir fds); this is a known gap, pinned in `test/fs-jail-races.test.ts`.
 - `writeFileJailed(pathStr, data, root, { createParents, mode, encoding, denyRoots })` writes atomically (a temp
   file in the same directory, then rename) and refuses a symlink target.
+- Before any filesystem call, `assertInsideBoundary` and `assertNoSymlink` refuse a path over 4096 UTF-8 bytes
+  or with more than 256 components (`assertNoSymlink` allows the root's own components on top) as
+  `INVALID_PATH`, `Path rejected: ...`, with the Python twin's messages (security review F1, 2026-11-26). The
+  root-bounded walk is linear: it carries the containing directory's real path instead of calling
+  `realpathLoose` per component. `readFileJailed` reads at most `maxBytes + 1` bytes, so a file that grows after
+  the `fstat` is still `TOO_LARGE`.
 - Errors are `BoundaryError` with a stable `code`. Windows throws `UNSUPPORTED_PLATFORM` in v0.1.
 
 Parity with Python is enforced by data: `../vectors/fs-vectors.json` (129 vectors) runs in both
