@@ -103,6 +103,13 @@ including the two `it.skip`-ed governance tests.
 
 ## Dry-run result
 
+**Also verified on top of tonight's fixes** (2026-11-26, 22:14 to 22:16 EST). The same kit, applied to a detached
+worktree of `overnight/2026-11-26` @ `ff2a674f` (all in-tree fix commits included), removed 400 paths and applied
+both patches. The guard passed. Every TS and Python required-job step passed (coverage 99% on
+genome/evolution/diagnostics, KEEP-TS lines 96.24%), as did the kit's conformance check (170 tests, 100%). Unit
+tests: 2595 passed, 1 failed. The failure is R-013, and that test passes under Node 22 (CI's version) on the same
+tree. So landing the in-tree fixes first and the kit second is safe.
+
 **Command:**
 `bash staging/teardown-pass2/dry_run.sh /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun3`
 (suites inside one session `heavy.sh` call). The tree was a fresh detached worktree of
