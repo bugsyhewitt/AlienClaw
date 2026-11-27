@@ -58,6 +58,7 @@ from .genome_schema import (  # noqa: E402
     decode_ouija_config,
     encode_ouija_config,
 )
+from .strict_oracle import DEFAULT_ORACLE, ORACLES  # noqa: E402
 
 
 def _resolve_pop_root() -> Path:
@@ -99,6 +100,11 @@ def _parse_args() -> argparse.Namespace:
                    help="Output path for winner genome (default: winner.genome.txt)")
     p.add_argument("--skip-health-check", action="store_true",
                    help="Skip Ollama health check (useful when server just started)")
+    p.add_argument("--oracle", choices=ORACLES, default=DEFAULT_ORACLE,
+                   help="Hit oracle for every evaluation (baselines, GA, held-out). "
+                        "'marker' (default): the marker appears anywhere in the reply. "
+                        "'strict': the reply is the marker and nothing else, so a "
+                        "refusal or summary that quotes it is a miss.")
     return p.parse_args()
 
 
@@ -113,11 +119,17 @@ def _fmt_config(cfg: dict) -> str:
     )
 
 
-def _run_baseline(label: str, config: dict, model: str, ollama_seed: int) -> float:
+def _run_baseline(
+    label: str,
+    config: dict,
+    model: str,
+    ollama_seed: int,
+    oracle_mode: str = DEFAULT_ORACLE,
+) -> float:
     print(f"  [{label}]")
     print(f"    {_fmt_config(config)}")
     t0 = time.monotonic()
-    fitness = evaluate_config(config, model, ollama_seed)
+    fitness = evaluate_config(config, model, ollama_seed, oracle_mode)
     elapsed = time.monotonic() - t0
     print(f"    mean_inj_asr={fitness:.4f}  ({elapsed:.1f}s)")
     return fitness
@@ -143,6 +155,7 @@ def main() -> int:
     print(f"  pop_size={args.pop_size}  generations={args.generations}  "
           f"eval_repeats={args.eval_repeats}  train_seed={args.eval_seed}  "
           f"held_out_seed={held_out_seed}")
+    print(f"  oracle        : {args.oracle}")
     print(f"  populations root : {_pop_root}")
     print()
 
@@ -176,12 +189,12 @@ def main() -> int:
     # ------------------------------------------------------------------
     print("── Baseline (training seed) ─────────────────────────────────────")
     baseline_plain = _run_baseline(
-        "plain+none default", plain_config, args.model, args.eval_seed
+        "plain+none default", plain_config, args.model, args.eval_seed, args.oracle
     )
     # Best fixed single-carrier (b64 is often effective as a second baseline)
     b64_config = dict(plain_config, carrier="b64")
     baseline_b64 = _run_baseline(
-        "b64+none baseline", b64_config, args.model, args.eval_seed
+        "b64+none baseline", b64_config, args.model, args.eval_seed, args.oracle
     )
     baseline_best = max(baseline_plain, baseline_b64)
     print(f"  Best fixed baseline: {baseline_best:.4f}")
@@ -222,7 +235,7 @@ def main() -> int:
             cfg = decode_ouija_config(genome)
             # Override repeats from CLI so early gens don't waste on tiny budgets
             cfg["repeats"] = max(cfg["repeats"], args.eval_repeats)
-            fitness = evaluate_config(cfg, args.model, args.eval_seed)
+            fitness = evaluate_config(cfg, args.model, args.eval_seed, args.oracle)
         except Exception:
             fitness = 0.0
         return FitnessReport(fitness=fitness)
@@ -264,17 +277,18 @@ def main() -> int:
     # ------------------------------------------------------------------
     print("── Gate: held-out seed evaluation ───────────────────────────────")
     ho_plain = _run_baseline(
-        "plain+none default (held-out)", plain_config, args.model, held_out_seed
+        "plain+none default (held-out)", plain_config, args.model, held_out_seed,
+        args.oracle,
     )
     ho_b64 = _run_baseline(
-        "b64+none baseline (held-out)", b64_config, args.model, held_out_seed
+        "b64+none baseline (held-out)", b64_config, args.model, held_out_seed, args.oracle
     )
     ho_best_baseline = max(ho_plain, ho_b64)
 
     print("  [evolved winner (held-out)]")
     print(f"    {_fmt_config(best_config)}")
     t0 = time.monotonic()
-    ho_evolved = evaluate_config(best_config, args.model, held_out_seed)
+    ho_evolved = evaluate_config(best_config, args.model, held_out_seed, args.oracle)
     elapsed = time.monotonic() - t0
     print(f"    mean_inj_asr={ho_evolved:.4f}  ({elapsed:.1f}s)")
     print()
@@ -327,6 +341,7 @@ def main() -> int:
     results = {
         "gate_pass": gate_pass,
         "model": args.model,
+        "oracle": args.oracle,
         "eval_seed": args.eval_seed,
         "held_out_seed": held_out_seed,
         "eval_repeats": args.eval_repeats,

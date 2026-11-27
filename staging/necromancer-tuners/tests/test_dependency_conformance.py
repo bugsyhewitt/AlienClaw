@@ -123,6 +123,15 @@ def test_oracle_surface():
     ]
 
 
+def test_verdict_surface_used_by_the_strict_oracle():
+    # fitness_adapter._judge builds Verdict(effect, confidence, evidence) positionally
+    # for --oracle strict, and measure() reads .hit.
+    verdict = _top(_tree(OUIJA / "oracle.py"), "Verdict")
+    assert _fields(verdict) == ["effect", "confidence", "evidence"]
+    assert _fields(verdict) == list(tuner_fakes.Verdict.__dataclass_fields__)
+    _method(verdict, "hit")
+
+
 def test_measure_surface():
     fn = _top(_tree(OUIJA / "findings.py"), "measure")
     assert isinstance(fn, ast.AsyncFunctionDef)
