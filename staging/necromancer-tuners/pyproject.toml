@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "necromancer-tuners"
+version = "0.0.0.dev0"
+description = "GA campaign tuners for necromancer's mangle (H.265) and ouija (prompt-injection) fuzzers"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "See LICENSE in the AlienClaw repository" }
+# alienclaw-ga is the staged GA engine (staging/ga-engine). It is declared here
+# but not published or installed anywhere yet.
+#
+# mangle and ouija are deliberately NOT declared. They are necromancer's own
+# projects (projects/mangle, projects/ouija), not PyPI packages, and PyPI names
+# like "mangle" may belong to unrelated projects. Declaring them would invite
+# a dependency-confusion install. Inside the necromancer repo they should be
+# wired as workspace/path dependencies instead (see README.md).
+dependencies = [
+    "alienclaw-ga",
+]
+
+[project.optional-dependencies]
+# ouija's RawLLM target and the Ollama health check use httpx.
+ouija = ["httpx>=0.27"]
+test = [
+    "pytest>=7.4,<10.0",
+    "hypothesis>=6.0,<7.0",
+    "ruff>=0.1,<1.0",
+]
+
+[project.scripts]
+mangle-tuner = "necromancer_tuners.mangle.run_ga:main"
+ouija-tuner = "necromancer_tuners.ouija.run_ga:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N"]

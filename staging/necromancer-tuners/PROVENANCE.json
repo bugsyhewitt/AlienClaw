@@ -1,0 +1,119 @@
+{
+  "package": "necromancer-tuners",
+  "source_commit": "a898a946f5d70dc6e4ae96a0645806caaa7b8492",
+  "files": [
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/mangle/__init__.py",
+      "source": "mangle_tuner/__init__.py",
+      "source_blob": "bac48021240e1aca4e77a5c57e1cfa000c5c67ec",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/mangle/genome_schema.py",
+      "source": "mangle_tuner/genome_schema.py",
+      "source_blob": "2174fefe3815058b2d8f364a300a76f0ca3528c2",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/mangle/fitness_adapter.py",
+      "source": "mangle_tuner/fitness_adapter.py",
+      "source_blob": "11fb116d9cd14e0b99009900977972b0e3239235",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/mangle/run_ga.py",
+      "source": "mangle_tuner/run_ga.py",
+      "source_blob": "158578eef3f434a314c28be42f3cf6a6b7b7e8aa",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/mangle/README.md",
+      "source": "mangle_tuner/README.md",
+      "source_blob": "723ec1c3b938bab90c60c63f5bc071d58518ec0b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/ouija/__init__.py",
+      "source": "ouija_tuner/__init__.py",
+      "source_blob": "df0159a64a81b059dcc3ae3b9482a78767f6d335",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/ouija/genome_schema.py",
+      "source": "ouija_tuner/genome_schema.py",
+      "source_blob": "4cc52ce4524a1348741a9f71d5f2f35b8902c6e6",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/ouija/evolved_mutator.py",
+      "source": "ouija_tuner/evolved_mutator.py",
+      "source_blob": "c875746423260b8beba4d8576098a668c5249592",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/ouija/fitness_adapter.py",
+      "source": "ouija_tuner/fitness_adapter.py",
+      "source_blob": "d11f453533e81dd301286fb2d27d2191cd03c5c7",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/ouija/run_ga.py",
+      "source": "ouija_tuner/run_ga.py",
+      "source_blob": "6f0c04a3e64b77c02218be9c5d6ce5166e55c746",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/necromancer-tuners/src/necromancer_tuners/ouija/README.md",
+      "source": "ouija_tuner/README.md",
+      "source_blob": "cb1f6ff284a683fcd5d0c8c8169614f5e59e2f01",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/necromancer-tuners/tests/fixtures/mangle/winner.genome.txt",
+      "source": "mangle_tuner/results/winner.genome.txt",
+      "source_blob": "ec911d20485186cfd6027def74c13dcb7793417a",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/necromancer-tuners/tests/fixtures/mangle/winner.genome.config.json",
+      "source": "mangle_tuner/results/winner.genome.config.json",
+      "source_blob": "1f1c022a63625f129d411e276dcc41a01ac166e1",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/necromancer-tuners/tests/fixtures/mangle/winner.genome.results.json",
+      "source": "mangle_tuner/results/winner.genome.results.json",
+      "source_blob": "0a5c39f3589d5728c2f3e15c3ebc8343beafb571",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/necromancer-tuners/tests/fixtures/ouija/winner.genome.txt",
+      "source": "ouija_tuner/results/winner.genome.txt",
+      "source_blob": "126dc68edc48bc97ac3cfe62869a96e2b5b26e35",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/necromancer-tuners/tests/fixtures/ouija/winner.genome.config.json",
+      "source": "ouija_tuner/results/winner.genome.config.json",
+      "source_blob": "7108f3e9dc58425f1b97dfc64a381b04e1e63b6d",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/necromancer-tuners/tests/fixtures/ouija/winner.genome.results.json",
+      "source": "ouija_tuner/results/winner.genome.results.json",
+      "source_blob": "790634c352e62efd6f58b315b512902891ad92d0",
+      "relation": "verbatim"
+    }
+  ],
+  "divergences": [
+    "All staged modules: imports of alienclaw.X are rewritten to alienclaw_ga.X (genome.alphabet/checksum/codec/operators, evolution.generation/population/types), and the sys.path insert of <repo>/src (_AC_SRC, plus _TUNER_DIR in mangle/fitness_adapter.py) is removed. The Path.home()/dev/necromancer/projects/{mangle/src,ouija} sys.path inserts are kept unchanged.",
+    "Intra-package imports: absolute mangle_tuner.X / ouija_tuner.X imports become relative (.fitness_adapter, .genome_schema, .evolved_mutator), and ouija/run_ga.py no longer inserts the repo root (_HERE.parent). This fixes an in-tree bug: `python mangle_tuner/run_ga.py`, the command in mangle_tuner/README.md, raises ModuleNotFoundError: mangle_tuner because the repo root is never on sys.path. Staged entry points are `python -m necromancer_tuners.{mangle,ouija}.run_ga` and the mangle-tuner / ouija-tuner console scripts.",
+    "mangle/run_ga.py, ouija/run_ga.py: the ALIENCLAW_POPULATIONS_ROOT default (tempfile.mkdtemp with the *-tuner-pops- prefix) moves from import time into _resolve_pop_root(), which main() calls right after argument parsing. Importing the module or running --help no longer leaves a temp dir behind. The env var, the prefix, and the timing (before Population.create, the point at which storage reads the variable) are unchanged. The unused _pop_root_owned flag is dropped.",
+    "mangle/run_ga.py: adds output_path.parent.mkdir(parents=True, exist_ok=True) before the artifacts are written, which ouija_tuner/run_ga.py already does. In-tree, a missing --output directory raised FileNotFoundError after the whole GA run had finished.",
+    "Lint-only, no behavior change (ruff E,F,W,I,N, line-length 100): long lines are wrapped (the _patch_xcode/clamp lines in both genome_schema encode_* functions, and the --generations argument in mangle/run_ga.py). Import blocks are sorted. Unused imports are removed: ALPHABET in mangle/genome_schema.py; tempfile, time and EvolvedMutator in ouija/fitness_adapter.py; CARRIERS, FRAMINGS and make_fitness_callback in ouija/run_ga.py. f-strings without placeholders become plain strings (F541, in both run_ga.py files).",
+    "Docstrings and comments: usage lines now give the new module paths. mangle/fitness_adapter.py's usage example called a nonexistent evaluate_genome() and now calls evaluate_config() / make_fitness_callback(). mangle/run_ga.py's comment 'must be set BEFORE alienclaw.evolution.storage is imported' is replaced, because storage reads the variable when a population is created. The mangle/__init__.py setup sentence is updated.",
+    "READMEs (src/necromancer_tuners/{mangle,ouija}/README.md): the Setup and Running sections now cover alienclaw_ga and `python -m`. Everything else is verbatim.",
+    "Winner artifacts (tests/fixtures/{mangle,ouija}/) are byte-identical copies of {mangle,ouija}_tuner/results/. The staged encoders reproduce both winner genomes byte for byte from their configs with random.Random(0), as tested.",
+    "New files, with no source: pyproject.toml, README.md, PROVENANCE.json, src/necromancer_tuners/__init__.py, and the test harness and tests: tests/conftest.py, tests/tuner_fakes.py, tests/genome_helpers.py, tests/test_mangle_genome_schema.py, tests/test_mangle_fitness_adapter.py, tests/test_mangle_run_ga.py, tests/test_ouija_genome_schema.py, tests/test_ouija_evolved_mutator.py, tests/test_ouija_fitness_adapter.py, tests/test_ouija_run_ga.py, tests/test_parity_in_tree.py, tests/test_dependency_conformance.py, tests/test_package_hygiene.py."
+  ]
+}
