@@ -92,7 +92,7 @@ Nothing has been released yet. This section describes the code as first imported
 ### Shared corpus
 
 - Added `vectors/ssrf-vectors.json` (296 vectors), `vectors/redirect-vectors.json` (81
-  vectors on loopback listeners) and `vectors/fs-vectors.json` (105 layouts), each with both
+  vectors on loopback listeners) and `vectors/fs-vectors.json` (129 vectors), each with both
   languages' recorded verdicts, asserted by both test suites.
 - The languages differ on 50 SSRF vectors (`vectors/DIFFERENCES.md`), on 11 redirect
   behaviours plus documented API-surface differences (`vectors/REDIRECT-DIFFERENCES.md`),

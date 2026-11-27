@@ -10,10 +10,16 @@ Harness (identical in the TS test; change both together). Each vector gets a fre
 it, and one operation runs:
 
   op "boundary": ``assert_inside_boundary(input, root, deny_roots=...)``.
-  op "read":  ``assert_no_symlink(root / input, operation="read")``, then
-    ``assert_inside_boundary``, then ``os.open(target, O_RDONLY | O_NOFOLLOW)`` and read.
-  op "write": ``assert_no_symlink(root / input)``, then ``assert_inside_boundary``, then
-    ``target.parent.mkdir(parents=True, exist_ok=True)`` and ``write_text``.
+  op "read":  ``assert_no_symlink(root / input, operation="read", root=root)``, then
+    ``assert_inside_boundary``, then ``os.open(target, O_RDONLY | O_NOFOLLOW | O_NONBLOCK)``
+    and read.
+  op "write": ``assert_no_symlink(root / input, root=root)``, then
+    ``assert_inside_boundary``, then ``target.parent.mkdir(parents=True, exist_ok=True)``
+    and ``write_text``.
+
+``root=root`` is what the reference tools pass: only entries inside the root are checked
+for symlinks, so a symlinked prefix (or a root spelled through a symlink) is accepted and
+an outside path gets the generic traversal refusal.
 
 "deny" = ValueError, mapped to a reason code by its message; "allow" = the operation
 completed, reported as the base-relative resolved path. Any other exception fails. After
@@ -54,6 +60,7 @@ _MESSAGE_REASONS = [
     ("Path not inspectable on ", "UNINSPECTABLE"),
 ]
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*[a-z0-9]$")
+_READ_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
 
 
 def _reason(exc: ValueError) -> str:
@@ -131,14 +138,14 @@ def _run(vec: dict[str, Any], base: Path) -> dict[str, str]:
         if op == "boundary":
             target = assert_inside_boundary(path_str, root, deny_roots=deny)
         elif op == "read":
-            assert_no_symlink(root / path_str, operation="read")
+            assert_no_symlink(root / path_str, operation="read", root=root)
             target = assert_inside_boundary(path_str, root, deny_roots=deny)
-            fd = os.open(target, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            fd = os.open(target, _READ_FLAGS)
             with open(fd, "rb") as fh:
                 data = fh.read()
             assert data == target.read_bytes()
         elif op == "write":
-            assert_no_symlink(root / path_str)
+            assert_no_symlink(root / path_str, root=root)
             target = assert_inside_boundary(path_str, root, deny_roots=deny)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(_write_data(vec["id"]), encoding="utf-8")

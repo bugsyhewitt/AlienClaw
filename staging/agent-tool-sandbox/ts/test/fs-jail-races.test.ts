@@ -8,6 +8,7 @@
  * swap race). Fixtures are built with node:fs sync calls, which are not mocked.
  */
 
+import { execFileSync } from 'node:child_process';
 import * as fsSync from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -203,6 +204,74 @@ describe('read: swap race at the final component', () => {
       return fh;
     }) as typeof fsp.open);
     await rejectsWith(readFileJailed('grow.txt', ws, { maxBytes: 10 }), 'TOO_LARGE');
+  });
+});
+
+// ── what was opened is what counts: type and size come from the fd ──────────
+// (the reference file_read: O_NOFOLLOW | O_NONBLOCK, fstat S_ISREG, size from the fd)
+
+/** The next open() first runs `swap` (the attacker wins the race after the checks). */
+function swapBeforeOpen(swap: () => void): void {
+  openMock.mockImplementationOnce((async (p: fsSync.PathLike, flags?: number, mode?: number) => {
+    swap();
+    return actual.open(p, flags, mode);
+  }) as typeof fsp.open);
+}
+
+describe('read: swaps after the checks are judged by fstat on the opened fd', () => {
+  it('a FIFO swapped in does not hang the read (O_NONBLOCK) and is NOT_A_FILE', async (ctx) => {
+    const target = path.join(ws, 'report.txt');
+    fsSync.writeFileSync(target, 'inside');
+    try {
+      execFileSync('mkfifo', [path.join(tmp, 'probe-fifo')]);
+    } catch {
+      ctx.skip('no mkfifo on this host');
+    }
+    swapBeforeOpen(() => {
+      fsSync.unlinkSync(target);
+      execFileSync('mkfifo', [target]); // no writer will ever open it
+    });
+    await rejectsWith(
+      readFileJailed('report.txt', ws, { maxBytes: 1024 }),
+      'NOT_A_FILE',
+      /^Not a regular file on read: "report\.txt"$/,
+    );
+    expect(fsSync.lstatSync(target).isFIFO()).toBe(true);
+  }, 5000);
+
+  it('a directory swapped in is NOT_A_FILE (fstat, not the earlier path checks)', async () => {
+    const target = path.join(ws, 'report.txt');
+    fsSync.writeFileSync(target, 'inside');
+    swapBeforeOpen(() => {
+      fsSync.unlinkSync(target);
+      fsSync.mkdirSync(target);
+    });
+    await rejectsWith(readFileJailed('report.txt', ws, { maxBytes: 1024 }), 'NOT_A_FILE');
+  });
+
+  it('a larger file swapped in is TOO_LARGE: the size comes from the fd', async () => {
+    const target = path.join(ws, 'report.txt');
+    fsSync.writeFileSync(target, 'small');
+    fsSync.writeFileSync(path.join(ws, 'big.bin'), 'x'.repeat(4096));
+    swapBeforeOpen(() => fsSync.renameSync(path.join(ws, 'big.bin'), target));
+    await rejectsWith(readFileJailed('report.txt', ws, { maxBytes: 100 }), 'TOO_LARGE');
+  });
+
+  it('known gap (no openat in Node): an in-root ancestor swapped for a symlink is followed', async () => {
+    // The reference Python file_read walks ancestors with O_NOFOLLOW dir fds (openat);
+    // node:fs has no dir-fd API, so only the final component is protected. Pinned here so
+    // a future fix (or a Node openat) flips this test deliberately.
+    fsSync.mkdirSync(path.join(ws, 'sub'));
+    fsSync.writeFileSync(path.join(ws, 'sub', 'f.txt'), 'inside');
+    fsSync.mkdirSync(path.join(tmp, 'evil'));
+    fsSync.writeFileSync(path.join(tmp, 'evil', 'f.txt'), 'OUTSIDE SECRET');
+    swapBeforeOpen(() => {
+      fsSync.renameSync(path.join(ws, 'sub'), path.join(ws, 'sub-old'));
+      fsSync.symlinkSync(path.join(tmp, 'evil'), path.join(ws, 'sub'));
+    });
+    expect(await readFileJailed('sub/f.txt', ws, { maxBytes: 1024, encoding: 'utf8' })).toBe(
+      'OUTSIDE SECRET',
+    );
   });
 });
 

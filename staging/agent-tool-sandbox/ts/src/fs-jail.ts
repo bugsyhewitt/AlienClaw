@@ -8,10 +8,11 @@
  *
  * Recommended call order (what readFileJailed and writeFileJailed do):
  *
- *     await assertNoSymlink(`${root}/${pathStr}`, { operation });  // UNRESOLVED path
+ *     await assertNoSymlink(`${root}/${pathStr}`, { operation, root });  // UNRESOLVED path
  *     const target = await assertInsideBoundary(pathStr, root, { denyRoots });
  *
- * then open `target` with O_NOFOLLOW (read) or write a temp file in the same
+ * then open `target` with O_NOFOLLOW | O_NONBLOCK and judge what was opened by
+ * fstat (regular file, size from the fd) (read), or write a temp file in the same
  * directory and rename it over `target` (write).
  *
  * Semantics match the Python package decision for decision (the shared corpus
@@ -28,17 +29,27 @@
  *    path (`.git/config`) are allowed, as in Python.
  *  - `assertNoSymlink` inspects every component of the UNRESOLVED path with
  *    lstat. ENOENT, ENOTDIR, ELOOP and EBADF mean "not a symlink" (CPython 3.12's
- *    `Path.is_symlink()` list); any other error fails closed.
+ *    `Path.is_symlink()` list); any other error fails closed. With `{ root }`
+ *    (what readFileJailed and writeFileJailed pass) it walks top-down and lstats a
+ *    component only if its containing directory resolves at or below
+ *    realpath(root): a symlinked prefix (macOS /tmp -> /private/tmp, a symlinked
+ *    home, a root spelled through a symlink) is accepted, an in-root symlink is
+ *    still refused, and nothing outside the root is lstat'ed, so an out-of-boundary
+ *    path gets only the generic TRAVERSAL refusal (no symlink / uninspectable
+ *    oracle). Only realpathLoose (non-strict, never throws) touches the prefix.
  *
  * Platform: POSIX only (Linux tested). Windows is unsupported in v0.1: every
  * function throws BoundaryError('UNSUPPORTED_PLATFORM') on win32, because the
  * separator, drive-letter and junction rules below are POSIX rules.
  *
- * Not covered (the caller must handle these): a directory swapped for a symlink
- * between the check and the open/rename (O_NOFOLLOW protects only the final
- * component; use openat-style descriptor walking if the agent can race you),
- * hard links to files outside the boundary, and case-insensitive filesystems
- * (deny roots are compared as strings).
+ * Not covered (the caller must handle these): an in-root directory swapped for a
+ * symlink between the check and the open/rename. O_NOFOLLOW protects only the
+ * final component, and node:fs has no openat / dir-fd API, so the Python
+ * reference's walk of ancestor directories with O_NOFOLLOW | O_DIRECTORY dir fds
+ * cannot be mirrored here (pinned as a known gap in test/fs-jail-races.test.ts);
+ * if the agent can race you on directories, do the open in a helper that has
+ * openat. Also not covered: hard links to files outside the boundary, and
+ * case-insensitive filesystems (deny roots are compared as strings).
  */
 
 import {
@@ -100,6 +111,13 @@ export interface BoundaryOptions {
 export interface NoSymlinkOptions {
   /** Only names the operation in the error message. Default "write". */
   operation?: string;
+  /**
+   * The boundary root. When given, only the entries inside it are checked: a
+   * component is lstat'ed only if its containing directory resolves at or below
+   * realpath(root), so a symlinked prefix is accepted and nothing outside the root
+   * is probed. Omitted: the full walk up to "/" (the original behaviour).
+   */
+  root?: string;
 }
 
 export interface ReadJailedOptions extends BoundaryOptions {
@@ -263,6 +281,11 @@ async function realpathLoose(filename: string): Promise<string> {
   return resolved;
 }
 
+/** True if `p` is `rootReal` or lies below it (both already realpath'd). */
+function atOrBelow(p: string, rootReal: string): boolean {
+  return p === rootReal || p.startsWith(`${rootReal.replace(/\/+$/, '')}/`);
+}
+
 /** lstat(p).isSymbolicLink(), failing closed when the component cannot be inspected. */
 async function isSymlink(p: string, operation: string): Promise<boolean> {
   try {
@@ -344,6 +367,10 @@ export async function assertInsideBoundary(
  * inspected (UNINSPECTABLE). Pass the UNRESOLVED path (`root + "/" + pathStr`,
  * not path.join/path.resolve, which drop `..` components before they are
  * checked). Empty and '.' components are ignored; '..' components are kept.
+ *
+ * With `{ root }` (the boundary) only the entries inside it are checked, top-down
+ * (see NoSymlinkOptions.root): a relative `p` is anchored at process.cwd() first,
+ * '..' components are never lstat'ed, and the message names the entry as spelled.
  */
 export async function assertNoSymlink(p: string, opts: NoSymlinkOptions = {}): Promise<void> {
   assertSupportedPlatform();
@@ -351,6 +378,11 @@ export async function assertNoSymlink(p: string, opts: NoSymlinkOptions = {}): P
   const operation = opts.operation ?? 'write';
   // Fail closed: a NUL byte makes the path uninspectable by lstat.
   if (p.includes('\0')) throw nulRejected(p);
+  if (opts.root !== undefined) {
+    requireRoot(opts.root, 'root');
+    await assertNoSymlinkBelowRoot(p, opts.root, operation);
+    return;
+  }
 
   const absolute = p.startsWith('/');
   const parts = p.split('/').filter((s) => s !== '' && s !== '.');
@@ -379,6 +411,41 @@ export async function assertNoSymlink(p: string, opts: NoSymlinkOptions = {}): P
   }
 }
 
+/**
+ * Port of the Python reference's `_entries_at_or_below` walk: each component of the
+ * unresolved absolute path, top-down, is lstat'ed only if it is looked up in a
+ * directory whose realpath is at or below realpath(root). Never lstat'ed: the
+ * prefix (an ancestor of the root, the root's own entry when the root is spelled
+ * through a symlink, anything outside it) and '..'.
+ */
+async function assertNoSymlinkBelowRoot(p: string, root: string, operation: string): Promise<void> {
+  const absolute = p.startsWith('/') ? p : `${process.cwd()}/${p}`;
+  const parts = absolute.split('/').filter((s) => s !== '' && s !== '.');
+  const rootReal = await realpathLoose(root);
+  let parent = '/';
+  for (let i = 0; i < parts.length; i += 1) {
+    const part = parts[i]!;
+    const entry = parent === '/' ? `/${part}` : `${parent}/${part}`;
+    if (part !== '..' && atOrBelow(await realpathLoose(parent), rootReal)) {
+      if (await isSymlink(entry, operation)) {
+        if (i === parts.length - 1) {
+          throw new BoundaryError(
+            'SYMLINK',
+            `Symlink rejected on ${operation}: "${entry}" is a symbolic link`,
+            entry,
+          );
+        }
+        throw new BoundaryError(
+          'SYMLINK_IN_PATH',
+          `Symlink in path rejected on ${operation}: "${entry}" is a symbolic link`,
+          entry,
+        );
+      }
+    }
+    parent = entry;
+  }
+}
+
 /** Both checks, in the reference tools' order: unresolved-path symlink gate, then containment. */
 async function gate(
   pathStr: string,
@@ -388,7 +455,9 @@ async function gate(
 ): Promise<string> {
   requireString(pathStr, 'pathStr');
   requireRoot(root, 'root');
-  await assertNoSymlink(joinUnresolved(root, pathStr), { operation });
+  // Only the entries inside the root: a symlinked prefix is fine, and an outside
+  // path is not probed, so it gets assertInsideBoundary's one generic refusal.
+  await assertNoSymlink(joinUnresolved(root, pathStr), { operation, root });
   return assertInsideBoundary(pathStr, root, opts);
 }
 
@@ -407,12 +476,14 @@ function validMaxBytes(value: unknown): number {
 }
 
 /**
- * Read a regular file inside `root`: assertNoSymlink (operation "read") on the
- * unresolved path, assertInsideBoundary, then open the resolved path with
- * O_RDONLY | O_NOFOLLOW | O_NONBLOCK (a symlink swapped in after the checks is
- * SYMLINK; a FIFO cannot block). A target that is not a regular file is
- * NOT_A_FILE, more than maxBytes is TOO_LARGE. Other I/O errors (ENOENT, EACCES)
- * are thrown unchanged.
+ * Read a regular file inside `root`: assertNoSymlink (operation "read", with
+ * `root`) on the unresolved path, assertInsideBoundary, then open the resolved path
+ * with O_RDONLY | O_NOFOLLOW | O_NONBLOCK (a symlink swapped in after the checks is
+ * SYMLINK; a FIFO swapped in cannot block). Type and size come from fstat on the
+ * opened fd, not from the path: not a regular file is NOT_A_FILE, more than
+ * maxBytes is TOO_LARGE. Other I/O errors (ENOENT, EACCES) are thrown unchanged.
+ * An in-root ancestor directory swapped for a symlink after the checks is
+ * followed (no openat in Node; see the header).
  */
 export async function readFileJailed(
   pathStr: string,
@@ -509,6 +580,8 @@ let tempCounter = 0;
  * a link, so a symlink swapped in at the last moment is replaced, not followed.
  * A target that exists and is not a regular file is NOT_A_FILE. Returns the
  * resolved target path. Missing parents are ENOENT unless `createParents`.
+ * Known limitation (as in the reference file_write): an in-root directory swapped
+ * for a symlink after the checks is still followed by mkdir/open/rename.
  */
 export async function writeFileJailed(
   pathStr: string,

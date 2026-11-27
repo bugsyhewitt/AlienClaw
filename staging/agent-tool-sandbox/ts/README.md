@@ -326,15 +326,22 @@ languages. All functions are async.
   which catches sibling prefixes such as `root-evil/`. It rejects a final real component that starts with `.`
   (`.env`, `.env/`, `.env/./`, `a/../.env/`, or a symlink whose target is a dotfile); dot-directories in the
   middle of a path are allowed, as in Python. It also rejects anything under `denyRoots`.
-- `assertNoSymlink(path, { operation })` walks the unresolved path and rejects a symlink in any component. A
-  component that can't be inspected (for example EACCES) fails closed.
+- `assertNoSymlink(path, { operation, root })` walks the unresolved path and rejects a symlink in any component. A
+  component that can't be inspected (for example EACCES) fails closed. With `root` (what `readFileJailed` and
+  `writeFileJailed` pass), a component is inspected only if the directory it is looked up in resolves at or below
+  `realpath(root)`: a symlinked prefix (macOS `/tmp`, a symlinked home, a root spelled through a symlink) is
+  accepted, a symlink inside the root is still refused, and nothing outside the root is lstat'ed, so an outside
+  path gets only the generic `TRAVERSAL` refusal. Without `root` it walks to `/`, as before.
 - `readFileJailed(pathStr, root, { maxBytes, encoding, denyRoots })` checks the path, then opens it with
-  `O_NOFOLLOW`. `maxBytes` is required, up to `MAX_READ_BYTES_CEILING` (256 MiB).
+  `O_NOFOLLOW | O_NONBLOCK` and judges what was opened by `fstat`: not a regular file is `NOT_A_FILE`, and the size
+  comes from the fd. `maxBytes` is required, up to `MAX_READ_BYTES_CEILING` (256 MiB). Node has no `openat`, so an
+  in-root directory swapped for a symlink after the checks is followed (the Python reference read tool walks
+  ancestors with `O_NOFOLLOW` dir fds); this is a known gap, pinned in `test/fs-jail-races.test.ts`.
 - `writeFileJailed(pathStr, data, root, { createParents, mode, encoding, denyRoots })` writes atomically (a temp
   file in the same directory, then rename) and refuses a symlink target.
 - Errors are `BoundaryError` with a stable `code`. Windows throws `UNSUPPORTED_PLATFORM` in v0.1.
 
-Parity with Python is enforced by data: `../vectors/fs-vectors.json` (105 layouts) runs in both
+Parity with Python is enforced by data: `../vectors/fs-vectors.json` (129 vectors) runs in both
 `test/shared-fs-vectors.test.ts` and `python/tests/test_shared_fs_vectors.py`. They differ on one declared vector:
 both refuse `.env\0` on read, but TS reports the NUL byte where Python reports a dotfile. EACCES is not in the
 corpus, because its outcome depends on the environment. On Python 3.13+, `Path.is_symlink()` swallows EACCES, so

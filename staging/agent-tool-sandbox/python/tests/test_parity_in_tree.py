@@ -558,7 +558,23 @@ def test_assert_no_symlink_parity(tree, which: str) -> None:
         ref = _jail_outcome(ref_boundary.assert_no_symlink, target)
         assert staged == ref, p
         seen.add(staged[1] if staged[0] == "err" else staged[0])
+        # root= (2026-11-26, both sides): only entries inside the boundary are checked
+        staged_root = _jail_outcome(staged_boundary.assert_no_symlink, target, root=boundary)
+        ref_root = _jail_outcome(ref_boundary.assert_no_symlink, target, root=boundary)
+        assert staged_root == ref_root, p
     assert {"ok", "symlink", "symlink-ancestor"} <= seen or which == "home", seen
+
+
+def test_assert_no_symlink_root_parity_through_symlinked_prefix(tree) -> None:
+    """root= with the boundary (and the path) spelled through a symlinked ancestor."""
+    alias = tree["tmp"] / "home_alias"
+    alias.symlink_to(tree["home"])
+    for root in (alias / "ws", tree["ws"]):
+        for p in PATH_CORPUS:
+            for target in (root / _expand(p, tree), alias / "ws" / _expand(p, tree)):
+                staged = _jail_outcome(staged_boundary.assert_no_symlink, target, root=root)
+                ref = _jail_outcome(ref_boundary.assert_no_symlink, target, root=root)
+                assert staged == ref, (root, target)
 
 
 def test_boundary_parity_with_symlinked_boundary(tree) -> None:
@@ -599,3 +615,7 @@ if given is not None:
         assert _jail_outcome(staged_boundary.assert_no_symlink, target) == _jail_outcome(
             ref_boundary.assert_no_symlink, target
         )
+        root = tree[which]
+        assert _jail_outcome(
+            staged_boundary.assert_no_symlink, target, root=root
+        ) == _jail_outcome(ref_boundary.assert_no_symlink, target, root=root)

@@ -10,6 +10,12 @@ component is now ValueError("Path not inspectable on <operation>: ...").
 Python 3.13+ returns False instead of raising, so the 3.12 behavior is simulated
 by patching ``Path.is_symlink``. Adapted from the reference suite's
 test/tools/test_boundary_uninspectable_path.py (guard level only).
+
+With ``root=<boundary>`` (what the reference tools pass since 2026-11-26) nothing outside
+the boundary is inspected, so an unsearchable path outside it is not "not inspectable":
+it reaches ``assert_inside_boundary`` and gets the one generic traversal refusal (the
+reference tool-level tests were changed the same way). Inside the boundary an
+uninspectable component still fails closed.
 """
 from __future__ import annotations
 
@@ -18,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_tool_sandbox import assert_no_symlink
+from agent_tool_sandbox import assert_inside_boundary, assert_no_symlink
 
 _REAL_IS_SYMLINK = Path.is_symlink
 
@@ -83,3 +89,30 @@ def test_symlink_ancestor_still_reported_as_symlink(tmp_path: Path) -> None:
     (tmp_path / "alias").symlink_to(tmp_path / "real")
     with pytest.raises(ValueError, match=r"^Symlink in path rejected on read: "):
         assert_no_symlink(tmp_path / "alias" / "f.txt", operation="read")
+
+
+# ── root=<boundary>: outside is not probed, inside still fails closed ─────────
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+def test_unsearchable_path_outside_root_gets_the_generic_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    root = tmp_path / "ws"
+    root.mkdir()
+    _unsearchable(monkeypatch, Path("/root"))
+    assert_no_symlink(root / "/root/.ssh/id_rsa", operation=operation, root=root)
+    with pytest.raises(ValueError) as info:
+        assert_inside_boundary("/root/.ssh/id_rsa", root)
+    assert str(info.value) == (
+        'Path traversal rejected: "/root/.ssh/id_rsa" resolves outside workspace boundary'
+    )
+
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+def test_unsearchable_dir_inside_root_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    (tmp_path / "locked").mkdir()
+    _unsearchable(monkeypatch, tmp_path / "locked")
+    with pytest.raises(ValueError, match=f'^Path not inspectable on {operation}: ".*f\\.txt"'):
+        assert_no_symlink(tmp_path / "locked" / "f.txt", operation=operation, root=tmp_path)

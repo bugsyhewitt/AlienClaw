@@ -11,7 +11,7 @@
     {
       "staged": "staging/agent-tool-sandbox/python/src/agent_tool_sandbox/boundary.py",
       "source": "src/alienclaw/tools/_boundary.py",
-      "source_blob": "012204e39fa210e57e89f1255111fde351ef95a1",
+      "source_blob": "d75a04e4c4ecf95cbabe30f3fb1b186d3b2e3d50",
       "relation": "adapted"
     },
     {
@@ -23,7 +23,7 @@
     {
       "staged": "staging/agent-tool-sandbox/python/tests/test_uninspectable_path.py",
       "source": "test/tools/test_boundary_uninspectable_path.py",
-      "source_blob": "de82ff242a5a93a227b91c606cbfdfc6e504f04e",
+      "source_blob": "1c54033edc2bae8287e56d405aef54a7dd7a6868",
       "relation": "adapted"
     },
     {
@@ -75,6 +75,18 @@
       "relation": "adapted",
       "source_ref": "PR #630 head (unmerged)",
       "source_commit": "ff070bd5e9dadeaa5da32ccffd868b15eb642aa9"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_symlinked_prefix.py",
+      "source": "test/tools/test_boundary_symlinked_prefix.py",
+      "source_blob": "568c6a0d9d82f01837fccd5ccb8a8ec3cfc5c6a4",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_outside_generic_refusal.py",
+      "source": "test/tools/test_boundary_outside_generic_refusal.py",
+      "source_blob": "3281e546cd689ef58a276a7d1161996b762739ab",
+      "relation": "adapted"
     }
   ],
   "divergences": [
@@ -101,7 +113,8 @@
     "Caller IRIs (staged only, 2026-11-26): _validate_fetch_url (so assert_safe_fetch_url, resolve_and_validate and pinned_urlopen) applies the character rule to the URL as given, then percent-encodes as UTF-8 every non-ASCII character after the authority (path, query, fragment; existing %XX and ASCII untouched) BEFORE every other check, so the checks and the returned canonical URL see the ASCII form: 'http://b\u00fccher.example/caf\u00e9' -> 'http://xn--bcher-kva.example/caf%C3%A9', as WHATWG new URL() writes it (before: the guard returned the raw path and pinned_urlopen let http.client's UnicodeEncodeError escape). _percent_encode_non_ascii moved from pinning.py into ssrf_guard.py and no longer round-trips through urlsplit/urlunsplit (which dropped an empty '?' or '#'); the redirect path now relies on the guard for the encoding and still applies the character rule itself first. The reference returns non-ASCII unchanged: same decision, different URL, declared in tests/test_parity_in_tree.py (IRI_DIVERGENT_URLS). All shared SSRF and redirect corpus verdicts unchanged. Tests: tests/test_caller_iri.py.",
     "Packaging (staged only, 2026-11-26; plan gate G14, dry runs only): pyproject.toml requires-python '>=3.11' (was '>=3.10'; 3.10 reached end of life in October 2026, PEP 619; the code still runs on 3.10), build requirement setuptools>=77 with the PEP 639 SPDX expression license = 'MIT' (was the deprecated license table plus the License classifier, which setuptools>=77 refuses together with an expression), 3.11-3.14 and '3 :: Only' classifiers, ruff target-version py311. New MANIFEST.in prunes tests/ and excludes PROVENANCE.json from the sdist (setuptools adds tests/test*.py by default). Offline pip wheel / python -m build --sdist: the wheel holds the five package modules plus dist-info only.",
     "2026-11-26: the empty-';' canonical-URL fix is now in-tree too (test/tools/test_ssrf_guard_canonical_params.py); no divergence",
-    "Typing (staged only, 2026-11-26; plan gate G9): the package passes mypy --strict on 3.11-3.15 with no behavior change. ssrf_guard._NoRedirect.http_error_302 and pinning._HandBackRedirect.http_error_302 are annotated with typeshed's signature; pinning names the private socket._GLOBAL_DEFAULT_TIMEOUT through _is_default_timeout (getattr on each call, as before), types _Budget/_dial/_DeadlineReader with socket.socket, float | None and tuple[str, int] | None, declares source_address and response_class on _PinnedConnectionMixin (annotations only), casts the deadline socket view to socket.socket for HTTPResponse, and keeps one type: ignore[assignment] where a factory replaces response_class. boundary.assert_inside_boundary's deny_roots annotation now admits the single path it already accepted (str | os.PathLike[str] | Iterable[...]). New py.typed (PEP 561), listed in [tool.setuptools.package-data]; [tool.mypy] strict, python_version 3.11, files src. The wheel holds the five modules plus py.typed."
+    "Typing (staged only, 2026-11-26; plan gate G9): the package passes mypy --strict on 3.11-3.15 with no behavior change. ssrf_guard._NoRedirect.http_error_302 and pinning._HandBackRedirect.http_error_302 are annotated with typeshed's signature; pinning names the private socket._GLOBAL_DEFAULT_TIMEOUT through _is_default_timeout (getattr on each call, as before), types _Budget/_dial/_DeadlineReader with socket.socket, float | None and tuple[str, int] | None, declares source_address and response_class on _PinnedConnectionMixin (annotations only), casts the deadline socket view to socket.socket for HTTPResponse, and keeps one type: ignore[assignment] where a factory replaces response_class. boundary.assert_inside_boundary's deny_roots annotation now admits the single path it already accepted (str | os.PathLike[str] | Iterable[...]). New py.typed (PEP 561), listed in [tool.setuptools.package-data]; [tool.mypy] strict, python_version 3.11, files src. The wheel holds the five modules plus py.typed.",
+    "2026-11-26 (in-tree commit 8d66853c, second review pass): assert_no_symlink gained keyword-only root=None. With root set it walks the components of the UNRESOLVED path top-down, skips '..', and lstats a component only if realpath(its directory) is at or below realpath(root) (new helpers _at_or_below and _entries_at_or_below): a symlinked prefix (macOS /tmp -> /private/tmp, a symlinked home, a root spelled through a symlink) is accepted, an in-root symlink is still refused ('Symlink rejected' for the final component, 'Symlink in path rejected' otherwise, 'Path not inspectable' on an lstat error), and nothing outside the root is lstat'ed, so an out-of-boundary path gets only assert_inside_boundary's generic 'Path traversal rejected'. root=None keeps the full walk. Same code and messages on both sides, so not a divergence; the staged copy only adds the return annotation Iterator[Path] on _entries_at_or_below (mypy --strict) and genericised docstrings. boundary.py's and tests/test_uninspectable_path.py's source_blob were refreshed to the 8d66853c blobs. Not ported (no staged file tools): file_read's O_NOFOLLOW|O_NONBLOCK open, fstat S_ISREG, size from the fd and O_NOFOLLOW dir-fd ancestor walk, file_write's root= call, and test/tools/test_file_read_open_races.py; the README read example now shows the open-side hardening. Tests: tests/test_symlinked_prefix.py and tests/test_outside_generic_refusal.py are guard-level adaptations of the new in-tree tests (the documented call order stands in for file_read/file_write; the ALIENCLAW_HOME case is environment wiring and is not ported; each adds root=None back-compat pins); tests/test_uninspectable_path.py keeps its root=None cases and adds root= cases (outside: generic refusal, inside: fails closed), mirroring the two in-tree assertions that now expect the generic error; tests/test_shared_fs_vectors.py's harness passes root= (and O_NONBLOCK on the read open); tests/test_parity_in_tree.py also compares root= outcomes against the reference, including through a symlinked prefix."
   ],
   "new_files": [
     "src/agent_tool_sandbox/__init__.py",

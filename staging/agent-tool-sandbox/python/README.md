@@ -38,7 +38,7 @@ from agent_tool_sandbox import (
     pinned_urlopen,            # (url, data=None, *, timeout=30.0, headers=None, method=None,
                                #  context=None, follow_redirects=0) -> http.client.HTTPResponse
     assert_inside_boundary,    # (path_str, boundary: Path, *, deny_roots=()) -> Path
-    assert_no_symlink,         # (path: Path, *, operation="write") -> None
+    assert_no_symlink,         # (path: Path, *, operation="write", root=None) -> None
 )
 from agent_tool_sandbox.pinning import PinnedHTTPConnection, PinnedHTTPSConnection
 ```
@@ -266,12 +266,29 @@ Returns the resolved absolute path, or raises `ValueError`. The steps run in thi
 4. If the result is inside any of `deny_roots`, it is rejected (`Denied root`). Each deny
    root is resolved with `realpath`, so this works for roots inside the boundary too.
 
-### `assert_no_symlink(path, *, operation="write") -> None`
+### `assert_no_symlink(path, *, operation="write", root=None) -> None`
 
 Raises `ValueError` if `path` itself, or any of its ancestors up to `/`, is a symlink. Use
 it on write **and read** paths and pass it the **unresolved** path. `operation` only
 changes the message (`Symlink rejected on read: ...`); the default keeps the original
-`... on write: ...` wording.
+`... on write: ...` wording. A component that cannot be inspected (an `lstat` error such
+as `EACCES`) fails closed with `Path not inspectable on <operation>: ...`.
+
+Pass `root=<boundary>` (recommended; the examples below do). The components of the
+unresolved path are then walked top-down, `..` is skipped, and a component is inspected
+only if the directory it is looked up in resolves at or below `realpath(root)`:
+
+- a symlinked **prefix** is accepted: an ancestor of the root (macOS `/tmp` ->
+  `/private/tmp`, a symlinked home directory) or the root's own entry when the root is
+  spelled through a symlink;
+- a symlink **inside** the root is still rejected (`Symlink rejected` for the final
+  component, `Symlink in path rejected` for a directory);
+- nothing **outside** the root is inspected, so an out-of-boundary path never gets a
+  symlink or "not inspectable" answer: its only refusal is `assert_inside_boundary`'s
+  generic `Path traversal rejected: "<path>" resolves outside workspace boundary`. The
+  only filesystem calls outside the root are those of the non-strict `os.path.realpath`.
+
+`root=None` keeps the original walk up to `/`.
 
 ## Examples
 
@@ -301,21 +318,30 @@ with build_no_redirect_opener().open(url, timeout=10) as resp:
 
 ```python
 import os
+import stat
 from pathlib import Path
 from agent_tool_sandbox import assert_inside_boundary, assert_no_symlink
 
 ROOT = Path(os.path.realpath("/srv/agent/workspace"))   # pass a realpath'd root (see below)
 DENY = [ROOT / "governance"]                             # e.g. files the agent must not touch
 
+READ_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+
 def read_tool(path_str: str) -> str:
-    assert_no_symlink(ROOT / path_str, operation="read")  # unresolved path, first
+    assert_no_symlink(ROOT / path_str, operation="read", root=ROOT)  # unresolved, first
     target = assert_inside_boundary(path_str, ROOT, deny_roots=DENY)
-    fd = os.open(target, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))  # no swapped-in link
-    with open(fd, encoding="utf-8") as fh:
-        return fh.read()
+    fd = os.open(target, READ_FLAGS)        # no swapped-in final link; a FIFO cannot block
+    try:
+        st = os.fstat(fd)                   # judge what was opened, not the path
+        if not stat.S_ISREG(st.st_mode) or st.st_size > 1_000_000:
+            raise ValueError(f"Not a readable file: {path_str}")
+        with open(fd, encoding="utf-8", closefd=False) as fh:
+            return fh.read()
+    finally:
+        os.close(fd)
 
 def write_tool(path_str: str, text: str) -> None:
-    assert_no_symlink(ROOT / path_str)                   # unresolved path, first
+    assert_no_symlink(ROOT / path_str, root=ROOT)        # unresolved path, first
     target = assert_inside_boundary(path_str, ROOT, deny_roots=DENY)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text)
@@ -437,14 +463,19 @@ def write_tool(path_str: str, text: str) -> None:
   is still rejected when *no* entry parses.
 - **Filesystem time of check to time of use.** Both jail functions check paths. They do
   not open files. A symlink swapped in after the check is followed unless you open with
-  `O_NOFOLLOW` (as in the read example), and that protects only the final component. If
-  the agent can race your file operations on directories, use `openat`-style descriptor
-  walking.
+  `O_NOFOLLOW` (as in the read example), and that protects only the final component; add
+  `O_NONBLOCK` and `fstat` the descriptor so a FIFO or directory swapped in is refused
+  instead of blocking or being read. If the agent can race your file operations on
+  directories, use `openat`-style descriptor walking (`os.open(name, O_NOFOLLOW |
+  O_DIRECTORY, dir_fd=...)` for each directory below the root), as the reference read
+  tool does.
 - **Dot-directories are allowed.** The dotfile rule covers only the final component, so
   `.git/config`, `.git/hooks/pre-commit` and `.vscode/tasks.json` are accepted. On a write
   path that can mean code execution on the host. If that matters, use `deny_roots`.
-- **`assert_no_symlink` walks to `/`.** If the root sits under a symlinked directory
-  (macOS `/tmp` and `/var`, for example), every write is rejected. Pass a root that has
+- **`assert_no_symlink` without `root=` walks to `/`.** Then, if the root sits under a
+  symlinked directory (macOS `/tmp` and `/var`, for example), every path is rejected, and
+  an out-of-boundary path is answered with facts about the filesystem outside the root
+  (a symlink, or "not inspectable"). Pass `root=`; without it, pass a root that has
   already been through `realpath`.
 - **Case-insensitive filesystems.** `deny_roots` matching is a string-prefix comparison
   after `realpath`, and `realpath` does not canonicalise case. On a case-insensitive

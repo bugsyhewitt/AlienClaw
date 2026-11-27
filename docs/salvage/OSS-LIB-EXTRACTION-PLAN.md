@@ -343,7 +343,7 @@ vectors/v1/
 | G9–G11, G13 | **Not started** | Repo-level work for after Bugsy picks the home, names and license. |
 | G12 | **Tooling ready** | `tools/wall_check.py` reports 17 AlienClaw-specific lines in 4 publishable files (37 in 11 with tests). They are cleared in the import commit. |
 | G14 | **Dry runs pass** | TS: `tsconfig.build.json` → `dist/` (ESM + `.d.ts`); `npm pack --dry-run` lists only README, package.json and dist; the tarball smoke-imports on Node 22/24. Python: an offline setuptools wheel (5 modules + metadata) installs with `--no-index` and imports on 3.11/3.14. Open: LICENSE file (G11), TestPyPI dry run. |
-| G15 | **Met (staged)** | The TS `fs-jail.ts` port (`d772a7fa`) runs the shared 105-vector filesystem corpus; one difference (the `.env\0` reason) is declared. POSIX only. |
+| G15 | **Met (staged)** | The TS `fs-jail.ts` port (`d772a7fa`) runs the shared filesystem corpus (129 vectors after the symlinked-prefix fix); one difference (the `.env\0` reason) is declared. POSIX only. |
 
 ---
 

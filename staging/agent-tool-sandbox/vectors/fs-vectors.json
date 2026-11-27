@@ -9,8 +9,9 @@
   "description": "Shared filesystem-jail vectors for the Python (agent_tool_sandbox.boundary) and TS (src/fs-jail.ts) packages. Each vector builds a layout in a fresh temp directory ({base}), runs one operation and records each language's observed verdict. Harnesses: python/tests/test_shared_fs_vectors.py and ts/test/shared-fs-vectors.test.ts.",
   "notes": [
     "op 'boundary': assert_inside_boundary(input, root, deny_roots) / assertInsideBoundary(input, root, {denyRoots}). allow = the resolved path (base-relative).",
-    "op 'read': Python assert_no_symlink(root / input, operation='read'), assert_inside_boundary, os.open(O_RDONLY | O_NOFOLLOW) and read; TS readFileJailed. allow = the bytes of the resolved file were returned.",
-    "op 'write': Python assert_no_symlink(root / input), assert_inside_boundary, mkdir(parents=True) and write_text; TS writeFileJailed(..., {createParents: true}). allow = the data landed at the resolved path. For every write vector nothing outside the root may change; for a deny nothing at all may change.",
+    "op 'read': Python assert_no_symlink(root / input, operation='read', root=root), assert_inside_boundary, os.open(O_RDONLY | O_NOFOLLOW | O_NONBLOCK) and read; TS readFileJailed. allow = the bytes of the resolved file were returned.",
+    "op 'write': Python assert_no_symlink(root / input, root=root), assert_inside_boundary, mkdir(parents=True) and write_text; TS writeFileJailed(..., {createParents: true}). allow = the data landed at the resolved path. For every write vector nothing outside the root may change; for a deny nothing at all may change.",
+    "Since 2026-11-26 the symlink gate takes the root (Python root=, TS {root}; readFileJailed/writeFileJailed pass it): only entries looked up in a directory that resolves at or below realpath(root) are lstat'ed. A symlinked prefix (an ancestor of the root, or the root's own entry) is accepted, a symlink inside the root is still refused, and an outside path is not probed, so its only refusal is TRAVERSAL (categories 'prefix' and 'outside', layout 'prefix').",
     "Python reasons are mapped from the ValueError message: 'Dotfile rejected' DOTFILE, 'Path traversal rejected' TRAVERSAL, 'Denied root' DENIED_ROOT, 'Symlink rejected on' SYMLINK, 'Symlink in path rejected on' SYMLINK_IN_PATH, 'Path not inspectable on' UNINSPECTABLE, 'embedded null' (os.lstat's NUL ValueError, worded per version) INVALID_PATH. Any other exception fails the test.",
     "Placeholders: {base} is the temp directory (realpath'd), {root} is {base}/<root>. Layout paths, root and deny_roots are base-relative.",
     "expected.python and expected.ts are observed behaviour. They must be equal unless the vector has a 'divergence' string, and must differ if it has one.",
@@ -165,6 +166,58 @@
         "path": "home/statelink",
         "type": "symlink",
         "target": "state"
+      }
+    ],
+    "prefix": [
+      {
+        "path": "real/ws/notes.txt",
+        "type": "file",
+        "content": "inside the workspace\n"
+      },
+      {
+        "path": "real/ws/sub/f.txt",
+        "type": "file",
+        "content": "inside the workspace\n"
+      },
+      {
+        "path": "real/ws/alias.txt",
+        "type": "symlink",
+        "target": "notes.txt"
+      },
+      {
+        "path": "real/ws/sub_alias",
+        "type": "symlink",
+        "target": "sub"
+      },
+      {
+        "path": "real/ws/self",
+        "type": "symlink",
+        "target": "{base}/real/ws"
+      },
+      {
+        "path": "real/ws/up",
+        "type": "symlink",
+        "target": ".."
+      },
+      {
+        "path": "real/outside/secret.txt",
+        "type": "file",
+        "content": "outside secret\n"
+      },
+      {
+        "path": "link",
+        "type": "symlink",
+        "target": "{base}/real"
+      },
+      {
+        "path": "wslink",
+        "type": "symlink",
+        "target": "real/ws"
+      },
+      {
+        "path": "olink",
+        "type": "symlink",
+        "target": "real/outside"
       }
     ]
   },
@@ -1792,15 +1845,15 @@
       "input": "plain.txt",
       "expected": {
         "python": {
-          "verdict": "deny",
-          "reason": "SYMLINK_IN_PATH"
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
         },
         "ts": {
-          "verdict": "deny",
-          "reason": "SYMLINK_IN_PATH"
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
         }
       },
-      "rationale": "Documented: the gate walks to '/', so a root under a symlink refuses everything; pass a realpath'd root."
+      "rationale": "The root itself is a symlink: its own entry is looked up outside the root, so the gate accepts it and containment compares against realpath(root) (before 2026-11-26 the gate walked to '/' and refused everything: SYMLINK_IN_PATH)."
     },
     {
       "id": "read-nul",
@@ -2204,6 +2257,462 @@
         }
       },
       "rationale": "NUL byte (see read-nul)."
+    },
+    {
+      "id": "prefix-read-abs-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/link/ws/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        }
+      },
+      "rationale": "Absolute path through a symlinked ancestor of the root (macOS /tmp -> /private/tmp): the prefix is not checked, the resolved path is inside."
+    },
+    {
+      "id": "prefix-read-abs-wslink",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/wslink/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        }
+      },
+      "rationale": "Absolute path through a symlink to the root itself: the root's own entry is looked up outside the root, so it is prefix."
+    },
+    {
+      "id": "prefix-read-rel-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "../../link/ws/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        }
+      },
+      "rationale": "Relative path that leaves the root and re-enters through the prefix link: '..' is never checked, the outside entries are not probed."
+    },
+    {
+      "id": "prefix-read-unresolved-root",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "link/ws",
+      "input": "notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        }
+      },
+      "rationale": "The root itself is spelled through a symlinked ancestor (an unresolved deploy path); the gate compares against realpath(root)."
+    },
+    {
+      "id": "prefix-read-unresolved-root-abs",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "link/ws",
+      "input": "{root}/sub/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/sub/f.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/sub/f.txt"
+        }
+      },
+      "rationale": "Unresolved root, absolute input spelled the same way."
+    },
+    {
+      "id": "prefix-write-abs-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/link/ws/out.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/out.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/out.txt"
+        }
+      },
+      "rationale": "Write through a symlinked ancestor of the root lands inside the root; the prefix link is untouched."
+    },
+    {
+      "id": "prefix-write-abs-wslink",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/wslink/new/out.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/new/out.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/new/out.txt"
+        }
+      },
+      "rationale": "Write through a symlink to the root, creating a parent."
+    },
+    {
+      "id": "prefix-write-rel-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "../../link/ws/out.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/out.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/out.txt"
+        }
+      },
+      "rationale": "Relative write that re-enters the root through the prefix link."
+    },
+    {
+      "id": "prefix-read-in-root-file-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/link/ws/alias.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Policy kept: a symlink inside the root is refused even when the path is spelled through a symlinked prefix."
+    },
+    {
+      "id": "prefix-read-in-root-dir-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/link/ws/sub_alias/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "Directory symlink inside the root, reached through the prefix link."
+    },
+    {
+      "id": "prefix-read-in-root-self-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "self/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "An in-root symlink that resolves to the root itself is still an in-root symlink."
+    },
+    {
+      "id": "prefix-read-in-root-up-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/wslink/up/ws/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "An in-root symlink to an ancestor of the root ('..'), behind a symlink to the root: refused at 'up'."
+    },
+    {
+      "id": "prefix-read-unresolved-root-file-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "wslink",
+      "input": "alias.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Root spelled as a symlink to it: the in-root file symlink is refused."
+    },
+    {
+      "id": "prefix-write-in-root-file-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/link/ws/alias.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Write to an in-root symlink through the prefix link is refused; nothing changes."
+    },
+    {
+      "id": "prefix-write-unresolved-root-dir-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "link/ws",
+      "input": "sub_alias/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "Unresolved root, in-root directory symlink: refused."
+    },
+    {
+      "id": "outside-read-existing",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/real/outside/secret.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "An existing file outside the root: the one generic refusal."
+    },
+    {
+      "id": "outside-read-nonexistent",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/nope/missing.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "A missing path outside the root: same refusal as an existing one."
+    },
+    {
+      "id": "outside-read-symlinked-dir",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/olink/secret.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "A symlink outside the root is not probed, so the refusal does not say it is a symlink (before 2026-11-26: SYMLINK_IN_PATH)."
+    },
+    {
+      "id": "outside-read-symlink-itself",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/olink",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "The outside symlink itself: generic refusal (before: SYMLINK)."
+    },
+    {
+      "id": "outside-read-rel-via-outside-link",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "../../olink/secret.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Relative path to an outside symlink."
+    },
+    {
+      "id": "outside-read-via-prefix-link",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/link/outside/secret.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Through the prefix link to a sibling of the root: not probed, generic refusal (before: SYMLINK_IN_PATH)."
+    },
+    {
+      "id": "outside-write-symlinked-dir",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/olink/x.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Write below an outside symlink: generic refusal, nothing created."
+    },
+    {
+      "id": "outside-write-symlink-itself",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/olink",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Write to an outside symlink: generic refusal, link untouched."
+    },
+    {
+      "id": "outside-write-dotdot-from-prefix",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/link/ws/../outside/x.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Enters the root through the prefix link and leaves it with '..': generic refusal, nothing created."
     }
   ]
 }
