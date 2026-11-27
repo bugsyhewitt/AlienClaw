@@ -20,8 +20,10 @@ NOT in scope:
   - Host allowlist.
   - HTTPS pin.
   - Port restriction.
-  - Pinning the connection to the vetted IP: the guard resolves the name once,
-    and urllib resolves it again at connect time (see README, "Threat model").
+  - Pinning the connection to the vetted IP: this guard resolves the name once,
+    and urllib resolves it again at connect time. ``agent_tool_sandbox.pinning``
+    reuses this module's single resolution and dials only the vetted addresses
+    (see README, "Threat model").
 """
 from __future__ import annotations
 
@@ -30,7 +32,7 @@ import ipaddress
 import re
 import socket
 import urllib.request
-from typing import Final
+from typing import Final, NamedTuple
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 _ALLOWED_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
@@ -193,6 +195,16 @@ def _canonical_url(parsed: ParseResult, ascii_host: str, port: int | None) -> st
     )
 
 
+class _ValidatedUrl(NamedTuple):
+    """Everything the guard established about one URL, from ONE resolution."""
+
+    scheme: str
+    host: str  # ASCII host as http.client sees it: IDNA name, or IPv6 literal unbracketed
+    port: int  # effective port (scheme default filled in)
+    canonical_url: str
+    ips: list[ipaddress.IPv4Address | ipaddress.IPv6Address]  # every one passed the check
+
+
 def assert_safe_fetch_url(raw_url: str) -> str:
     """Validate URL against the SSRF core guard.
 
@@ -201,6 +213,11 @@ def assert_safe_fetch_url(raw_url: str) -> str:
     no userinfo. Fetch the RETURNED URL, never ``raw_url``.
     Raises SsrfBlockedError on rejection.
     """
+    return _validate_fetch_url(raw_url).canonical_url
+
+
+def _validate_fetch_url(raw_url: str) -> _ValidatedUrl:
+    """The guard proper. Same checks, order and messages as ``assert_safe_fetch_url``."""
     if not isinstance(raw_url, str) or not raw_url:
         raise SsrfBlockedError("Missing or non-string URL")
     _assert_unambiguous_chars(raw_url)
@@ -238,7 +255,7 @@ def assert_safe_fetch_url(raw_url: str) -> str:
 
     canonical = _canonical_url(parsed, ascii_host, port)
     _assert_connects_to(canonical, ascii_host, effective_port)
-    return canonical
+    return _ValidatedUrl(parsed.scheme, ascii_host, effective_port, canonical, ips)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):

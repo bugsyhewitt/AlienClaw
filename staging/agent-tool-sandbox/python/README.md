@@ -4,6 +4,9 @@ Two small, stdlib-only guards for tools that an LLM agent can call:
 
 - **SSRF guard** (`ssrf_guard`): decides whether a URL may be fetched, and builds a
   `urllib` opener that refuses redirects.
+- **Connection pinning** (`pinning`): resolves the host once, through the same guard, and
+  fetches over a connection that dials only the addresses that passed. This is the
+  DNS-rebinding fix; use it whenever the agent can choose the hostname.
 - **Filesystem jail** (`boundary`): decides whether a path the agent supplied stays inside
   a directory you choose, and refuses symlinks on write paths.
 
@@ -23,9 +26,15 @@ from agent_tool_sandbox import (
     SsrfBlockedError,          # subclass of ValueError
     assert_safe_fetch_url,     # (raw_url: str) -> str
     build_no_redirect_opener,  # () -> urllib.request.OpenerDirector
+    resolve_and_validate,      # (url: str) -> PinnedTarget
+    PinnedTarget,              # frozen dataclass: scheme, host, port, canonical_url, addresses
+    build_pinned_opener,       # (target, *, context=None) -> urllib.request.OpenerDirector
+    pinned_urlopen,            # (url, data=None, *, timeout=30.0, headers=None, method=None,
+                               #  context=None) -> http.client.HTTPResponse
     assert_inside_boundary,    # (path_str, boundary: Path, *, deny_roots=()) -> Path
     assert_no_symlink,         # (path: Path, *, operation="write") -> None
 )
+from agent_tool_sandbox.pinning import PinnedHTTPConnection, PinnedHTTPSConnection
 ```
 
 ### `assert_safe_fetch_url(raw_url) -> str`
@@ -64,7 +73,75 @@ the address it really denotes.
 
 This is a `urllib` opener in which 301, 302, 303, 307 and 308 raise `SsrfBlockedError`
 instead of being followed. Other 3xx codes surface as `urllib.error.HTTPError`, because
-urllib never follows them.
+urllib never follows them. It is **not pinned**: it resolves the name again when it
+connects. Prefer `pinned_urlopen`.
+
+### Connection pinning
+
+`assert_safe_fetch_url` resolves the host, checks the addresses and returns a string.
+Whatever fetches that string resolves the name **again** when it connects, so a DNS server
+that answers with a public address for the check and an internal one for the connect gets
+through. The pinning API removes the second resolution.
+
+**`resolve_and_validate(url) -> PinnedTarget`** runs exactly the checks of
+`assert_safe_fetch_url`, in the same order and with the same error messages, and calls
+`getaddrinfo` **once**. The policy is unchanged: the URL is refused if **any** address in
+the answer is blocked. The result is a frozen dataclass:
+
+| Field | Meaning |
+|---|---|
+| `scheme` | `"http"` or `"https"` |
+| `host` | ASCII host as http.client sees it: the IDNA-encoded name, or an IPv6 literal without brackets |
+| `port` | effective port (80/443 filled in) |
+| `canonical_url` | the same string `assert_safe_fetch_url` returns |
+| `addresses` | the validated `IPv4Address`/`IPv6Address` objects, in resolver order, deduplicated, with IPv4-mapped IPv6 unwrapped to IPv4 |
+
+**`build_pinned_opener(target, *, context=None)`** returns a `urllib` opener that:
+
+- connects only to `target.addresses`, trying them in order and moving to the next one on
+  a connect error. No resolver is called at connect time: the socket is created for the
+  address family of the IP and connected to `(ip, port)` directly, not through
+  `socket.create_connection`, which would call `getaddrinfo` again;
+- sends `Host:` as the URL's authority (`host[:port]`, IPv6 in brackets) and refuses a
+  caller-set `Host` header that names anything else (that would steer a shared front end at
+  the pinned IP to another virtual host);
+- for HTTPS, runs TLS over the pinned socket with `server_hostname=target.host`, so SNI
+  carries the original name and the certificate is verified against that name. The default
+  context is `ssl.create_default_context()` (CERT_REQUIRED, `check_hostname=True`) with ALPN
+  `http/1.1`, built directly, so a process-wide
+  `ssl._create_default_https_context = ssl._create_unverified_context` does not switch
+  verification off. `context=` replaces it;
+- raises `SsrfBlockedError` on 301/302/303/307/308, like `build_no_redirect_opener`;
+- uses **no proxy**. `build_opener()` installs a `ProxyHandler` that reads `http_proxy`,
+  `https_proxy` and `all_proxy` (upper or lower case), and a proxy resolves the name
+  itself, past every IP check. This opener is assembled by hand without one. If you add a
+  `ProxyHandler` to it yourself, requests are refused, not proxied;
+- serves only the target's scheme, host and port. Any other http(s) URL raises
+  `SsrfBlockedError`; file, ftp and data URLs raise `URLError` (no handler is installed).
+
+The target is re-checked when the opener is built (addresses against the IP block, and
+`canonical_url` against `host`/`port`), so a hand-built `PinnedTarget`, for example one
+filled from your own resolver, gets the same policy. A target can be reused for several
+requests and never resolves again.
+
+**`pinned_urlopen(url, data=None, *, timeout=30.0, headers=None, method=None, context=None)`**
+is `resolve_and_validate` plus `build_pinned_opener` plus one request for
+`target.canonical_url`. `timeout` is passed to every socket operation (each connect
+attempt, each read); it is not a deadline for the whole request. It raises
+`SsrfBlockedError` (guard refusal, redirect, foreign `Host`), `urllib.error.HTTPError`
+(other 3xx, 4xx and 5xx), or `urllib.error.URLError` (no pinned address accepted the
+connection, TLS failure).
+
+**`PinnedHTTPConnection` / `PinnedHTTPSConnection`** (in `agent_tool_sandbox.pinning`) are
+the `http.client` classes underneath, for callers that use http.client directly:
+`PinnedHTTPSConnection(target.host, target.port, addresses=target.addresses, timeout=10)`.
+They re-check `addresses` (IP objects or strings) on construction and refuse `set_tunnel`.
+
+Why this design: the classes override `connect()` itself rather than the private
+`HTTPConnection._create_connection` hook. If a future CPython renamed that hook, an override
+of it would silently stop being called and connections would go back to resolving the name;
+an overridden `connect()` always runs, and anything it no longer matches fails loudly.
+`connect()` keeps the stdlib's `http.client.connect` audit event and `TCP_NODELAY`.
 
 ### `assert_inside_boundary(path_str, boundary, *, deny_roots=()) -> Path`
 
@@ -95,17 +172,23 @@ changes the message (`Symlink rejected on read: ...`); the default keeps the ori
 ## Examples
 
 ```python
-import urllib.request
-from agent_tool_sandbox import SsrfBlockedError, assert_safe_fetch_url, build_no_redirect_opener
+from agent_tool_sandbox import SsrfBlockedError, pinned_urlopen
 
 def fetch(url: str) -> bytes:
     try:
-        url = assert_safe_fetch_url(url)
-    except SsrfBlockedError as exc:
+        with pinned_urlopen(url, timeout=10) as resp:   # guard + one resolution + pinned dial
+            return resp.read(1_000_000)
+    except SsrfBlockedError as exc:                     # refused URL, redirect, foreign Host
         return f"refused: {exc}".encode()
-    opener = build_no_redirect_opener()
-    with opener.open(urllib.request.Request(url), timeout=10) as resp:
-        return resp.read(1_000_000)
+```
+
+The older, unpinned composition still works and is unchanged. It is exposed to DNS
+rebinding (see the threat model):
+
+```python
+url = assert_safe_fetch_url(url)
+with build_no_redirect_opener().open(url, timeout=10) as resp:
+    body = resp.read(1_000_000)
 ```
 
 ```python
@@ -145,6 +228,12 @@ def write_tool(path_str: str, text: str) -> None:
   (`http://169.254.169.254\@example.com/` reaches metadata through requests), and
   whitespace or control characters. `tests/test_connect_host.py` checks the returned URL
   against urllib, urllib3, httpx and yarl (each skipped if not installed).
+- **DNS rebinding (time of check to time of use), with the pinning API only**
+  (`pinned_urlopen`, `build_pinned_opener`, `PinnedHTTP(S)Connection`). The name is
+  resolved once, every answer is checked, and the socket is connected to a checked address
+  without a second lookup. A resolver that answers public-then-private cannot move the
+  connection. `Host` and TLS SNI/verification still use the name. Environment proxies are
+  not used.
 - **Filesystem:** `..` traversal, absolute paths outside the boundary, sibling-prefix
   confusion, symlinks that escape (followed by `realpath` before the comparison), denied
   sub-trees, dotfiles as the final component however spelled (`.env/`, `.env/./`), a
@@ -153,22 +242,42 @@ def write_tool(path_str: str, text: str) -> None:
 
 ### Not covered: the caller must handle these
 
-- **DNS rebinding (time of check to time of use).** The guard resolves the name, checks
-  the addresses, and then returns the *URL string*. urllib resolves the name **again**
-  when it connects. Anyone who controls DNS for the host can answer with a public address
-  for the check and an internal one for the connect. Nothing pins the connection to the
-  vetted IP. If the attacker can choose the hostname, the fix is to connect to the checked
-  IP yourself (and send the original `Host` / SNI), or to fetch through an egress proxy
-  that enforces the policy.
+- **DNS rebinding outside the pinning API.** `assert_safe_fetch_url` returns a *URL
+  string*, and every client that fetches a string resolves the name **again** when it
+  connects: `build_no_redirect_opener()`, plain `urllib`/`http.client`, and `requests`,
+  httpx or aiohttp used directly with the canonical URL. Anyone who controls DNS for the
+  host can answer with a public address for the check and an internal one for the connect.
+  If the attacker can choose the hostname, use `pinned_urlopen` / `build_pinned_opener`, or
+  pass `target.addresses` to your client's own pinning hook (no adapter for requests or
+  httpx ships here), or fetch through an egress proxy that enforces the policy.
 - **Fetching `raw_url` instead of the returned URL.** The parse-differential refusals
   protect callers that fetch either string, but only the returned canonical URL is
-  checked against the clients' parsers. Fetch the return value.
-- **Clients that follow redirects.** Redirects are covered only by
-  `build_no_redirect_opener()`. `requests` and aiohttp follow redirects by default
-  without re-validating, so a 302 to an internal address gets through.
-- **Proxies.** When the opener is built, `build_opener` installs a `ProxyHandler` if
-  `http_proxy` or `https_proxy` is set. The guard checks the target, and the proxy then
-  resolves the name itself.
+  checked against the clients' parsers. Fetch the return value. (`pinned_urlopen` always
+  does.)
+- **Clients that follow redirects.** Redirects are refused only by
+  `build_no_redirect_opener()` and the pinning API. `requests` and aiohttp follow redirects
+  by default without re-validating, so a 302 to an internal address gets through. To follow
+  a redirect deliberately, call `pinned_urlopen` again on the `Location` URL, which checks
+  and pins it afresh; nothing here does that for you.
+- **Proxies.** `build_no_redirect_opener()` uses `build_opener`, which installs a
+  `ProxyHandler` if `http_proxy`, `https_proxy` or `all_proxy` is set. The guard checks the
+  target, and the proxy then resolves the name itself. The pinning API uses no proxy, so a
+  deployment that *must* egress through a proxy cannot use it as is.
+- **Limits of pinning.** It pins the TCP destination, nothing more:
+  - The one resolution is a plain `getaddrinfo` call with no timeout of its own (the
+    system resolver's settings apply), and `timeout=` applies per socket operation and per
+    connect attempt, so a dual-stack host whose first address hangs costs one `timeout`
+    per address. There is no Happy Eyeballs.
+  - A pinned address is trusted for as long as you keep the `PinnedTarget`; DNS TTLs are
+    ignored. That is safe, but a long-lived target can go stale.
+  - A public address that forwards traffic (an open proxy, a cloud load balancer that
+    routes on `Host` or SNI) still reaches whatever it forwards to. The `Host` override refusal closes only the caller-set-header case.
+  - `context=` is trusted as given: a context with `check_hostname=False` or `CERT_NONE`
+    keeps the pin (the SSRF protection does not depend on TLS) but loses certificate
+    verification. For an IP-literal HTTPS URL no SNI is sent, and the certificate must
+    carry that IP.
+  - The pinned opener answers one request per connection (`Connection: close`, as urllib
+    always does) and cannot be pointed at a second host; build one per target.
 - **No port policy, no host allowlist, no HTTPS requirement.** `http://public-host:25/`
   passes. Response size, timeouts and content type are also the caller's job.
 - **The address tables belong to the interpreter.** The classification comes from
@@ -214,6 +323,12 @@ These are also recorded in `PROVENANCE.json` and asserted in `tests/test_parity_
    `Denied root: ...` instead of `OpenClaw workspace denied: ...`.
 3. Docstrings and comments are generic. They drop product names and ticket numbers. The
    other error messages are byte-identical.
+4. **Connection pinning exists only here** (added 2026-11-26). `pinning.py` and
+   `tests/test_pinning.py` have no in-tree counterpart. In `ssrf_guard.py` the body of
+   `assert_safe_fetch_url` moved into a private `_validate_fetch_url`, which also returns
+   the scheme, host, port and the addresses of its one resolution;
+   `assert_safe_fetch_url` returns that helper's canonical URL. Decisions and messages are
+   unchanged, which the parity corpus and `test_refusal_messages_are_identical` assert.
 
 The 2026-11-26 fixes (the dotfile rule, the read-path symlink gate, and the checked-host
 vs connected-host refusals with the canonical return value) were applied to both sides
@@ -230,6 +345,17 @@ resolver: IP literals still go through the real libc parser, called with `AI_NUM
 which never performs a lookup, and names are answered from an in-memory table. It also
 makes every socket `connect` raise. `hypothesis` is optional; without it the property tests
 are left out.
+
+`tests/test_pinning.py` swaps `socket.socket` for a fake that records the address each
+socket connects to and every byte sent, then answers with a canned HTTP response. The real
+urllib and http.client code therefore runs end to end, including request serialisation,
+response parsing and the redirect and error handlers. For HTTPS it also swaps
+`ssl.SSLContext.wrap_socket` to capture the context and `server_hostname`. The rebinding
+tests install a resolver that answers `93.184.216.34` on the first call and `127.0.0.1` on
+every later call. The pinned fetch must connect to `93.184.216.34` with exactly one
+resolver call. A control test runs the unpinned `build_no_redirect_opener` composition
+under the same resolver and shows that it lands on `127.0.0.1`, which proves the harness
+would catch a client that resolves again.
 
 `tests/test_parity_in_tree.py` adds the reference repository's `src/` to the path,
 four directory levels up or at `$AGENT_TOOL_SANDBOX_REFERENCE_SRC`. It then checks that
