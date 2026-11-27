@@ -41,3 +41,26 @@ def public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
 )
 def test_canonical_url_keeps_semicolon_params(url: str, expected: str) -> None:
     assert assert_safe_fetch_url(url) == expected
+
+
+# F2 (2026-11-26 security review): urlsplit()/urlunsplit() also dropped an EMPTY '?' query
+# (and '#'), so '/a?' was requested as '/a' (pre-signed URLs, servers that route on '?').
+# Only the authority is rebuilt now; everything after it is kept exactly as given.
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("http://example.com/a?", "http://example.com/a?"),
+        ("http://example.com/?", "http://example.com/?"),
+        ("http://example.com?", "http://example.com?"),
+        ("http://example.com/a#", "http://example.com/a#"),
+        ("http://example.com/a?#", "http://example.com/a?#"),
+        ("http://example.com#", "http://example.com#"),
+        ("HTTP://Example.COM:080/A;?#", "http://example.com:80/A;?#"),
+        ("http://example.com:/a?", "http://example.com/a?"),
+        ("http://[2606:2800:220:1::1]:8080?", "http://[2606:2800:220:1::1]:8080?"),
+        ("https://bücher.example/a?", "https://xn--bcher-kva.example/a?"),
+        ("http://example.com/a//b?x=%2F#f", "http://example.com/a//b?x=%2F#f"),
+    ],
+)
+def test_canonical_url_keeps_empty_query_and_fragment(url: str, expected: str) -> None:
+    assert assert_safe_fetch_url(url) == expected

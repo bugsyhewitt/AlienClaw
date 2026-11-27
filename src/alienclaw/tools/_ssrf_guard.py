@@ -28,7 +28,7 @@ import re
 import socket
 import urllib.request
 from typing import Final
-from urllib.parse import urlparse, urlsplit, urlunsplit
+from urllib.parse import urlparse, urlsplit
 
 _ALLOWED_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
 _DEFAULT_PORTS: Final[dict[str, int]] = {"http": 80, "https": 443}
@@ -174,16 +174,21 @@ def _assert_connects_to(url: str, host: str, port: int) -> None:
 
 
 def _canonical_url(url: str, ascii_host: str, port: int | None) -> str:
-    """Rebuild the URL from validated parts: no userinfo, IDNA host, the given port.
+    """Rebuild the authority from validated parts: no userinfo, IDNA host, the given port.
 
-    Uses urlsplit(): urlparse() splits ';params' off the last segment and urlunparse()
-    drops an EMPTY one, so '/a;' came back as '/a', another resource.
+    Everything after the authority is kept exactly as given. Rebuilding it lost
+    markers: urlparse()/urlunparse() dropped an EMPTY ';params' ('/a;' came back as
+    '/a', another resource), and urlsplit()/urlunsplit() an empty '?' or '#' ('/a?'
+    was requested as '/a'; 2026-11-26 security review, F2).
     """
     split = urlsplit(url)
+    prefix = f"{split.scheme}://{split.netloc}"
+    if url[: len(prefix)].lower() != prefix.lower():  # cannot happen after the char checks
+        raise SsrfBlockedError("Refusing malformed URL: authority not where expected")
     netloc = f"[{ascii_host}]" if ":" in ascii_host else ascii_host
     if port is not None:
         netloc = f"{netloc}:{port}"
-    return urlunsplit((split.scheme, netloc, split.path, split.query, split.fragment))
+    return f"{split.scheme}://{netloc}{url[len(prefix):]}"
 
 
 def assert_safe_fetch_url(raw_url: str) -> str:

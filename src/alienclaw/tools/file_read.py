@@ -1,3 +1,4 @@
+import io
 import math
 import os
 import stat
@@ -66,6 +67,7 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     error = None
     try:
         # What was opened is what counts: type and size come from the fd, not the path
+        # (the size from fstat() is a fast first refusal; the bounded read below decides)
         st = os.fstat(fd)
         size = st.st_size
         if not stat.S_ISREG(st.st_mode):
@@ -73,9 +75,17 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         elif size > _MAX_BYTES:
             error = f"File exceeds 10 MiB ({size} bytes)"
         else:
-            # Same decoding as Path.read_text(): text mode, universal newlines
-            with open(fd, encoding="utf-8", errors="replace", closefd=False) as fh:
-                raw = fh.read()
+            # Read at most cap + 1 bytes: a file that grew after the fstat() (an outside
+            # appender) is refused, not read in full (2026-11-26 security review, F3).
+            with open(fd, "rb", closefd=False) as fh:
+                data = fh.read(_MAX_BYTES + 1)
+            size = len(data)
+            if size > _MAX_BYTES:
+                error = f"File exceeds 10 MiB (grew past {_MAX_BYTES} bytes while being read)"
+            else:
+                # Same decoding as Path.read_text(): UTF-8, universal newlines
+                with io.TextIOWrapper(io.BytesIO(data), encoding="utf-8", errors="replace") as tf:
+                    raw = tf.read()
     except OSError as exc:
         error = f"Read error: {exc}"
     finally:
