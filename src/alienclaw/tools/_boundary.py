@@ -84,8 +84,11 @@ def assert_inside_boundary(path_str: str, boundary: Path) -> Path:
 
     Hardened (PKT-P1 T8):
     - Uses os.path.realpath() to resolve all symlinks before comparison.
-    - Does not reject symlinks itself: file_write and file_read call assert_no_symlink
-      separately, on the unresolved path, before this check.
+    - Does not reject symlinks itself: file_write and file_read call
+      assert_no_symlink(..., root=boundary) separately, on the unresolved path, before
+      this check; with root= it probes nothing outside the boundary, so the
+      "Path traversal rejected" refusal below is the only answer an out-of-boundary
+      path gets.
     - Rejects dotfiles: the final component that names something starts with '.',
       however it is spelled ('.env', '.env/', './.env/.'), or the resolved path's
       final component does (a symlink whose target is a dotfile). Dot-directories
@@ -148,7 +151,33 @@ def _is_symlink(path: Path, operation: str) -> bool:
         raise ValueError(f'Path not inspectable on {operation}: "{path}" ({reason})') from exc
 
 
-def assert_no_symlink(resolved_path: Path, *, operation: str = "write") -> None:
+def _at_or_below(path_str: str, root_str: str) -> bool:
+    """True if path_str is root_str or lies below it (both already realpath'd)."""
+    return path_str == root_str or path_str.startswith(root_str.rstrip(os.sep) + os.sep)
+
+
+def _entries_at_or_below(path: Path, root_real: str):
+    """Yield, top-down, each component of the unresolved absolute ``path`` that names an
+    entry inside the root: one looked up in a directory that resolves at or below
+    ``root_real``.
+
+    Never yielded: the prefix (components looked up in an ancestor of the root, or
+    anywhere else outside it, e.g. macOS /tmp -> /private/tmp, or the root's own
+    entry when the root is itself a symlink), and '..' (resolved by the kernel, never
+    a symlink). Only realpath() runs on the containing directories; it is non-strict,
+    so nothing here raises for a component outside the root.
+    """
+    parent = Path(path.anchor)
+    for part in path.parts[1:]:
+        entry = parent / part
+        if part != os.pardir and _at_or_below(os.path.realpath(parent), root_real):
+            yield entry
+        parent = entry
+
+
+def assert_no_symlink(
+    resolved_path: Path, *, operation: str = "write", root: Path | None = None
+) -> None:
     """Raise ValueError if the path is a symlink or cannot be inspected.
 
     Pass the UNRESOLVED path. Used on write paths (file_write) and read paths
@@ -156,7 +185,27 @@ def assert_no_symlink(resolved_path: Path, *, operation: str = "write") -> None:
     only names the operation in the error message. Any component of the path that
     is a symlink is also checked, and an OSError while inspecting a component
     (target or ancestor) is a ValueError too.
+
+    ``root`` (the workspace boundary) limits the check to the entries inside it
+    (see _entries_at_or_below): a symlinked prefix above the root is accepted, an
+    in-root symlink is still rejected, and nothing outside the root is lstat()ed, so
+    an out-of-boundary path passes through to assert_inside_boundary's one generic
+    refusal. ``root=None`` keeps the full walk up to the filesystem root.
     """
+    if root is not None:
+        path = Path(resolved_path)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        for entry in _entries_at_or_below(path, os.path.realpath(root)):
+            if _is_symlink(entry, operation):
+                if entry == path:
+                    raise ValueError(
+                        f'Symlink rejected on {operation}: "{entry}" is a symbolic link'
+                    )
+                raise ValueError(
+                    f'Symlink in path rejected on {operation}: "{entry}" is a symbolic link'
+                )
+        return
     # Check the target itself
     if _is_symlink(resolved_path, operation):
         raise ValueError(

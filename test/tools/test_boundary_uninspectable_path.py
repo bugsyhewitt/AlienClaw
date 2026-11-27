@@ -48,7 +48,10 @@ def test_file_read_of_unsearchable_absolute_path_returns_error(
     r = file_read_run({"path": "/root/.ssh/id_rsa"})
     assert r.ok is False
     assert r.correctness == 0.0
-    assert r.error == 'Path not inspectable on read: "/root/.ssh/id_rsa" (Permission denied)'
+    # Review finding 2: outside the root nothing is probed; one generic refusal for all
+    assert r.error == (
+        'Path traversal rejected: "/root/.ssh/id_rsa" resolves outside workspace boundary'
+    )
 
 
 def test_file_write_of_unsearchable_absolute_path_returns_error(
@@ -58,8 +61,9 @@ def test_file_write_of_unsearchable_absolute_path_returns_error(
     r = file_write_run({"path": "/root/.ssh/authorized_keys", "content": "x"})
     assert r.ok is False
     assert r.correctness == 0.0
+    # Review finding 2: outside the root nothing is probed; one generic refusal for all
     assert r.error == (
-        'Path not inspectable on write: "/root/.ssh/authorized_keys" (Permission denied)'
+        'Path traversal rejected: "/root/.ssh/authorized_keys" resolves outside workspace boundary'
     )
 
 
