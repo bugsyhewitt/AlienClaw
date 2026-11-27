@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pho3nix-recon-http"
+version = "0.0.0.dev0"
+description = "SSRF-guarded recon request tools (http_get, url_fetch, web_search, search_text)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "See LICENSE in the AlienClaw repository" }
+# The SSRF guard (staging/agent-tool-sandbox/python in the AlienClaw repo). Declared
+# only: it is not published anywhere yet, so for now put its src/ on PYTHONPATH
+# (see README.md).
+dependencies = [
+    "agent-tool-sandbox",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4,<10.0",
+    "ruff>=0.1,<1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pho3nix_recon_http"]
+known-third-party = ["agent_tool_sandbox"]

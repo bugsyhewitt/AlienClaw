@@ -1,0 +1,126 @@
+{
+  "package": "pho3nix-recon-http",
+  "source_commit": "1ca065f0b243ddd909497cab33fbcf142eddf5df",
+  "files": [
+    {
+      "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/__init__.py",
+      "source": "src/alienclaw/tools/__init__.py",
+      "source_blob": "0c7108d9600c8c10cbe3cf82441b60567fee36f3",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/__init__.py",
+      "source": "src/alienclaw/tools/registry.py",
+      "source_blob": "9d94226f77cc7faa1a9787997c9cbcc9ea0638a9",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/http_get.py",
+      "source": "src/alienclaw/tools/http_get.py",
+      "source_blob": "3edfaffba73259d20b28c1fd5dc498b12b0b2925",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/url_fetch.py",
+      "source": "src/alienclaw/tools/url_fetch.py",
+      "source_blob": "ec7b297d246a3a2814638b450240e55349670181",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/web_search.py",
+      "source": "src/alienclaw/tools/web_search.py",
+      "source_blob": "43a6530da8718846b06429b5e034bb1b07bfac22",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/search_text.py",
+      "source": "src/alienclaw/tools/search_text.py",
+      "source_blob": "30b9863acc4301124e26df5b3e828d7a1c1d2e25",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/limits.py",
+      "source": "src/alienclaw/tools/limits.py",
+      "source_blob": "9cf0ec4cc625eb103a562177e3dcf19bbb6576ee",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/src/pho3nix_recon_http/types.py",
+      "source": "src/alienclaw/tools/types.py",
+      "source_blob": "802529c950bf98b4cd7ca1cc07c05bf1492da082",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_http_get.py",
+      "source": "test/tools/test_http_get.py",
+      "source_blob": "44e5352acd8ca555563521238e3c32c9a937dc08",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_http_get_ssrf.py",
+      "source": "test/tools/test_http_get_ssrf.py",
+      "source_blob": "2c5884307879a2c77366843b64fef2fc2191dc8b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_url_fetch.py",
+      "source": "test/tools/test_url_fetch.py",
+      "source_blob": "9262c03104a1ec7d9e0b8c3f1af1ab27c9381369",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_url_fetch_ssrf.py",
+      "source": "test/tools/test_url_fetch_ssrf.py",
+      "source_blob": "b779c6a4cf12cc2ce6110ba2a785e96d48d5da9b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_web_search_backend.py",
+      "source": "test/tools/test_web_search_backend.py",
+      "source_blob": "5e127cd38fee3ae850d7cd4dc626da2c1904304f",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_search_text.py",
+      "source": "test/tools/test_search_text.py",
+      "source_blob": "92cf52c3a5ea84e28040855d346529677b9966af",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_max_attempts.py",
+      "source": "test/tools/test_max_attempts.py",
+      "source_blob": "a2214c6ffe56ee77b445ddd1bd946de86a864eb4",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_connect_host_tools.py",
+      "source": "test/tools/test_ssrf_guard_connect_host.py",
+      "source_blob": "36c8ede1111765a6df130fe484666fae3caf76c9",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/pho3nix-recon-http/tests/test_signal_handler_save_restore.py",
+      "source": "test/tools/test_signal_handler_save_restore.py",
+      "source_blob": "78cc6e88d4af8c6c7b01a00a47bc7a97f89ec410",
+      "relation": "adapted"
+    }
+  ],
+  "divergences": [
+    "Guard import: http_get.py and url_fetch.py import SsrfBlockedError, assert_safe_fetch_url and build_no_redirect_opener from agent_tool_sandbox.ssrf_guard (staging/agent-tool-sandbox/python) instead of the in-tree ._ssrf_guard. The names stay module globals, so tests patch them the same way. Both tools keep fetching the canonical URL the guard returns. Inherited consequence, the ONLY behavior difference: agent_tool_sandbox blocks RFC 6598 CGNAT 100.64.0.0/10 and the in-tree guard does not (see the sandbox's PROVENANCE.json), so a URL that resolves into CGNAT is refused by the staged tools and fetched by the in-tree ones. tests/test_parity_in_tree.py asserts this explicitly and fails if the in-tree guard starts blocking CGNAT.",
+    "Formatting only (ruff E/F/W/I/N, 100 columns) in http_get.py, url_fetch.py, web_search.py and search_text.py: import blocks sorted, one-line 'if ...: ...' statements split, long lines wrapped, trailing newline added. Logic, messages and constants are unchanged; test_parity_in_tree.py compares module constants, signatures and full RunResult fields.",
+    "Comments: references to repo files removed (seed/msb/*.msb paths, src/alienclaw/constants.ts and the diagnostics stub server); the PKT-577 guard comment in http_get/url_fetch now says the guard returns a canonical URL that must be fetched. limits.py: docstring generalised, value unchanged.",
+    "web_search.py: the environment variable name is a module constant SEARCH_URL_ENV = 'ALIENCLAW_SEARCH_URL', used both for the lookup and in the 'backend not configured' message (same text as in-tree). The name was kept for parity; renaming it for Pho3nix is a one-line change.",
+    "__init__.py folds in registry.py: TOOL_REGISTRY holds only the 4 recon tools (http_get, search_text, url_fetch, web_search); compute, extract_json, file_read and file_write are not staged. __init__ also exports RunResult, RunnerFn and __version__.",
+    "Tests are network-free. In-tree tests that ran http.server on 127.0.0.1 with the SSRF guard mocked out (test_http_get.py, test_http_get_ssrf.py, test_url_fetch.py, test_url_fetch_ssrf.py), or used the diagnostics StubServer (test_web_search_backend.py, test_max_attempts.py web_search part), now use the in-process urllib handler from tests/conftest.py with the REAL guard and a fake resolver (public.example resolves to 93.184.216.34), or a fake urllib.request.urlopen for web_search. The backend variable is set to a dummy URL with monkeypatch. The 'connection refused on 127.0.0.1:1' case becomes a URLError(ConnectionRefusedError) raised by the transport.",
+    "Test renames and reshapes: camelCase test names became snake_case for ruff N802 (for example test_field_count_3_returns_statusCode_content became test_field_count_3_returns_status_code_content). The 9 TestMalformedResponse cases are one parametrized test with the same 9 bodies. The SIG_DFL and SIG_IGN restore cases are one parametrized test. test_max_attempts.py's two class-level bypass fixtures share one helper.",
+    "Test additions with no in-tree counterpart: redirect matrix (301/302/303/307/308, for url_fetch across GET/POST/PUT, for http_get with an internal Location); names that resolve to internal addresses (localhost, metadata.google.internal, mixed.example, mapped-metadata.example, cgnat.example) added to BLOCKED_URLS; url_fetch method/body pass-through; web_search request-URL format, cross-page dedup and whitespace-only backend; search_text SIGALRM timeout-path restore.",
+    "Not ported: the compute half of test_signal_handler_save_restore.py (compute is not staged) and the guard-level half of test_ssrf_guard_connect_host.py (it lives in staging/agent-tool-sandbox/python/tests/test_connect_host.py). tests/test_connect_host_tools.py keeps the tool-level half and adds three vectors (%31%36%39 metadata, %23, tab) plus two canonical-URL cases.",
+    "tests/conftest.py follows the FakeResolver and in-process handler pattern of staging/agent-tool-sandbox/python/tests/conftest.py, and adds a wildcard resolver switch, a connect stub that records addresses, proxy and backend env clearing, and request recording (URL, host, method, headers, body)."
+  ],
+  "new_files": [
+    "staging/pho3nix-recon-http/tests/conftest.py",
+    "staging/pho3nix-recon-http/tests/test_parity_in_tree.py",
+    "staging/pho3nix-recon-http/tests/test_no_alienclaw_imports.py",
+    "staging/pho3nix-recon-http/tests/test_known_gaps.py"
+  ]
+}
