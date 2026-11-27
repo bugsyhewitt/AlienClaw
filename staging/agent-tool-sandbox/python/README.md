@@ -24,16 +24,32 @@ from agent_tool_sandbox import (
     assert_safe_fetch_url,     # (raw_url: str) -> str
     build_no_redirect_opener,  # () -> urllib.request.OpenerDirector
     assert_inside_boundary,    # (path_str, boundary: Path, *, deny_roots=()) -> Path
-    assert_no_symlink,         # (path: Path) -> None
+    assert_no_symlink,         # (path: Path, *, operation="write") -> None
 )
 ```
 
 ### `assert_safe_fetch_url(raw_url) -> str`
 
-Returns `raw_url` unchanged if it passes, and raises `SsrfBlockedError` otherwise. It
-rejects a URL when:
+Returns a **canonical URL** if `raw_url` passes, and raises `SsrfBlockedError` otherwise.
+The canonical URL is rebuilt from the validated parts: lower-case scheme and host, the
+host IDNA-encoded to ASCII, the port only if one was given (normalised, so `:080` becomes
+`:80` and an empty `:` is dropped), no userinfo, and the path, query and fragment as
+parsed. **Fetch the returned URL, not `raw_url`:** it is the only string whose host has
+been checked against what urllib, urllib3, httpx and yarl will connect to. It rejects a
+URL when:
 
+- it contains a backslash, whitespace or a non-printable character anywhere (urlsplit
+  silently drops tab/CR/LF that urllib keeps, and WHATWG parsers such as urllib3, and
+  therefore requests, end the authority at `\`);
 - the scheme is not `http` or `https`, or the URL has no hostname, or `urlparse` fails;
+- the authority has userinfo (any `@`), a `%`, brackets anywhere but around an IPv6
+  literal, or more than one `:` outside brackets (urlparse splits the port at the first
+  `:`, http.client at the last);
+- the port is not a number in 0-65535;
+- the host urllib would connect to (`Request(url).host` as split by http.client, compared
+  as a `(host, port)` pair) differs from the checked one, for `raw_url` and again for the
+  canonical URL;
+- after IDNA the host name uses a character outside `[a-z0-9._-]`;
 - the hostname cannot be resolved (including IDNA encoding errors);
 - **any** address the hostname resolves to is loopback, private (RFC 1918, ULA and the
   rest of the stdlib's private list), link-local (which covers `169.254.169.254`
@@ -54,19 +70,27 @@ urllib never follows them.
 
 Returns the resolved absolute path, or raises `ValueError`. The steps run in this order:
 
-1. If the final component of `path_str` starts with `.`, it is rejected (`Dotfile rejected`).
+1. If the final component of `path_str` that names something starts with `.`, it is
+   rejected (`Dotfile rejected`). Empty and `.` components are skipped first, so `.env/`,
+   `.env/./` and `./sub/.secret//` are rejected like `.env`; `.`, `a/.` and `a/..` are
+   rejected too.
 2. `boundary / path_str` is resolved with `os.path.realpath`, so relative paths are anchored
    to the boundary rather than the CWD, and symlinks are followed. The result must be the
    boundary itself or lie under `realpath(boundary) + os.sep`; otherwise
    `Path traversal rejected`. This catches `../`, absolute paths, symlinks that escape,
    and sibling prefixes such as `ws-evil/`.
-3. If the result is inside any of `deny_roots`, it is rejected (`Denied root`). Each deny
+3. If the resolved path (other than the boundary itself) has a final component that starts
+   with `.`, it is rejected (`Dotfile rejected`). This catches a symlink whose target is a
+   dotfile or a dot-directory.
+4. If the result is inside any of `deny_roots`, it is rejected (`Denied root`). Each deny
    root is resolved with `realpath`, so this works for roots inside the boundary too.
 
-### `assert_no_symlink(path) -> None`
+### `assert_no_symlink(path, *, operation="write") -> None`
 
 Raises `ValueError` if `path` itself, or any of its ancestors up to `/`, is a symlink. Use
-it on write paths and pass it the **unresolved** path.
+it on write **and read** paths and pass it the **unresolved** path. `operation` only
+changes the message (`Symlink rejected on read: ...`); the default keeps the original
+`... on write: ...` wording.
 
 ## Examples
 
@@ -93,7 +117,11 @@ ROOT = Path(os.path.realpath("/srv/agent/workspace"))   # pass a realpath'd root
 DENY = [ROOT / "governance"]                             # e.g. files the agent must not touch
 
 def read_tool(path_str: str) -> str:
-    return assert_inside_boundary(path_str, ROOT, deny_roots=DENY).read_text()
+    assert_no_symlink(ROOT / path_str, operation="read")  # unresolved path, first
+    target = assert_inside_boundary(path_str, ROOT, deny_roots=DENY)
+    fd = os.open(target, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))  # no swapped-in link
+    with open(fd, encoding="utf-8") as fh:
+        return fh.read()
 
 def write_tool(path_str: str, text: str) -> None:
     assert_no_symlink(ROOT / path_str)                   # unresolved path, first
@@ -110,11 +138,18 @@ def write_tool(path_str: str, text: str) -> None:
   resolver accepts, names that resolve to internal addresses (if any A or AAAA record is
   internal, the URL is rejected), IPv4-mapped IPv6, IDNA tricks that normalise to
   internal names (fullwidth or circled `localhost`, `127。0。0。1`), names that fail to
-  resolve or are IDNA-illegal (both rejected), and redirects.
+  resolve or are IDNA-illegal (both rejected), redirects (with `build_no_redirect_opener`
+  only), and URL spellings that HTTP clients split differently from `urlparse`: userinfo,
+  percent-escapes in the host (`http://%31%32%37.0.0.1/` was once vetted as a name and
+  connected to `127.0.0.1`), a second `:` (`http://a.x.tld:b.x.tld:80/`), a backslash
+  (`http://169.254.169.254\@example.com/` reaches metadata through requests), and
+  whitespace or control characters. `tests/test_connect_host.py` checks the returned URL
+  against urllib, urllib3, httpx and yarl (each skipped if not installed).
 - **Filesystem:** `..` traversal, absolute paths outside the boundary, sibling-prefix
   confusion, symlinks that escape (followed by `realpath` before the comparison), denied
-  sub-trees, dotfiles as the final component, and, on write paths, a symlink as the target
-  or as any ancestor.
+  sub-trees, dotfiles as the final component however spelled (`.env/`, `.env/./`), a
+  symlink whose target is a dotfile, and, on read and write paths that call
+  `assert_no_symlink`, a symlink as the target or as any ancestor.
 
 ### Not covered: the caller must handle these
 
@@ -125,19 +160,12 @@ def write_tool(path_str: str, text: str) -> None:
   vetted IP. If the attacker can choose the hostname, the fix is to connect to the checked
   IP yourself (and send the original `Host` / SNI), or to fetch through an egress proxy
   that enforces the policy.
-- **The checked host differs from the connected host.** The guard checks
-  `urlparse(url).hostname`. urllib connects to `Request(url).host`, which keeps the
-  userinfo and percent-decodes it. For example:
-  - `http://a%2ex.attacker.tld/` is checked as `a%2ex.attacker.tld` but connected as
-    `a.x.attacker.tld`;
-  - `http://evil@x.attacker.tld/` is checked as `x.attacker.tld` but connected as
-    `evil@x.attacker.tld`.
-
-  An attacker who controls a DNS zone gets the same result as rebinding, but without a
-  race and without fighting DNS caches. When no DNS is under attacker control these
-  inputs fail closed, either as an unresolvable name or as an `InvalidURL` from
-  `http.client`. `tests/test_http_get_ssrf.py::test_connect_host_matches_checked_host`
-  records this as a strict xfail.
+- **Fetching `raw_url` instead of the returned URL.** The parse-differential refusals
+  protect callers that fetch either string, but only the returned canonical URL is
+  checked against the clients' parsers. Fetch the return value.
+- **Clients that follow redirects.** Redirects are covered only by
+  `build_no_redirect_opener()`. `requests` and aiohttp follow redirects by default
+  without re-validating, so a 302 to an internal address gets through.
 - **Proxies.** When the opener is built, `build_opener` installs a `ProxyHandler` if
   `http_proxy` or `https_proxy` is set. The guard checks the target, and the proxy then
   resolves the name itself.
@@ -153,17 +181,13 @@ def write_tool(path_str: str, text: str) -> None:
   entry that `ipaddress` cannot parse, the guard ignores it rather than failing. The URL
   is still rejected when *no* entry parses.
 - **Filesystem time of check to time of use.** Both jail functions check paths. They do
-  not open files. A symlink swapped in after the check is followed. The read path does not
-  call `assert_no_symlink` at all. If the agent can race your file operations, use
-  `O_NOFOLLOW` or `openat`-style descriptor walking.
-- **Gaps in the dotfile rule.** The rule looks only at `os.path.basename(path_str)`, before
-  resolution. As a result:
-  - `.env/` (the basename is empty) resolves to `<root>/.env` and is **accepted**, for
-    reads and for writes. A strict xfail test records this.
-  - Dot-directories are allowed: `.git/config` is accepted.
-  - A symlink that points at a dotfile inside the boundary is accepted.
-
-  If dotfiles matter to you, use `deny_roots`, or check the resolved path yourself.
+  not open files. A symlink swapped in after the check is followed unless you open with
+  `O_NOFOLLOW` (as in the read example), and that protects only the final component. If
+  the agent can race your file operations on directories, use `openat`-style descriptor
+  walking.
+- **Dot-directories are allowed.** The dotfile rule covers only the final component, so
+  `.git/config`, `.git/hooks/pre-commit` and `.vscode/tasks.json` are accepted. On a write
+  path that can mean code execution on the host. If that matters, use `deny_roots`.
 - **`assert_no_symlink` walks to `/`.** If the root sits under a symlinked directory
   (macOS `/tmp` and `/var`, for example), every write is rejected. Pass a root that has
   already been through `realpath`.
@@ -188,9 +212,12 @@ These are also recorded in `PROVENANCE.json` and asserted in `tests/test_parity_
    `deny_roots=[Path.home() / ".openclaw"]` every decision matches the reference; with
    the default, nothing is denied beyond the boundary. The deny message is now
    `Denied root: ...` instead of `OpenClaw workspace denied: ...`.
-3. Docstrings and comments are generic. They drop product names and ticket numbers, and
-   one inaccurate "returns the canonical URL" became "returns the URL unchanged". The
+3. Docstrings and comments are generic. They drop product names and ticket numbers. The
    other error messages are byte-identical.
+
+The 2026-11-26 fixes (the dotfile rule, the read-path symlink gate, and the checked-host
+vs connected-host refusals with the canonical return value) were applied to both sides
+identically, so they are not divergences; the parity corpus covers them.
 
 ## Tests
 

@@ -5,13 +5,31 @@
     {
       "staged": "staging/agent-tool-sandbox/python/src/agent_tool_sandbox/ssrf_guard.py",
       "source": "src/alienclaw/tools/_ssrf_guard.py",
-      "source_blob": "a67f6c7d12620ef61ead4a2a1e94e8d7e1945887",
+      "source_blob": "f6b993cf05e503bec78bb447f8f747d4c0c670b9",
       "relation": "adapted"
     },
     {
       "staged": "staging/agent-tool-sandbox/python/src/agent_tool_sandbox/boundary.py",
       "source": "src/alienclaw/tools/_boundary.py",
-      "source_blob": "ae3dc52a52cc8cff01fb1d2e9626520ed90ff2ad",
+      "source_blob": "329f4b1171e6917f764009f029e7c80c4b4f62ed",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_connect_host.py",
+      "source": "test/tools/test_ssrf_guard_connect_host.py",
+      "source_blob": "36c8ede1111765a6df130fe484666fae3caf76c9",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_dotfile_and_read_gate.py",
+      "source": "test/tools/test_boundary_dotfile_trailing_slash.py",
+      "source_blob": "5f55074f7b5285dd505ec29f93b40508129ef404",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_dotfile_and_read_gate.py",
+      "source": "test/tools/test_file_read_symlink_guard.py",
+      "source_blob": "37f15b476cc57a2822b5f98146def8365cafc242",
       "relation": "adapted"
     },
     {
@@ -57,7 +75,9 @@
     "boundary: removed the OpenClaw/env helpers workspace_root(), file_write_root(), _openclaw_home() and the _OPENCLAW_SUBPATH constant; callers always pass the boundary root explicitly.",
     "boundary: the hardcoded ~/.openclaw denial inside assert_inside_boundary became a keyword-only parameter deny_roots=() (iterable of str/PathLike; a single str/PathLike is accepted). Default denies nothing beyond the boundary. With deny_roots=[Path.home() / '.openclaw'] every decision is identical to in-tree (asserted by tests/test_parity_in_tree.py).",
     "boundary: deny-root rejection message changed from 'OpenClaw workspace denied: \"<path>\" targets an OpenClaw agent directory' to 'Denied root: \"<path>\" targets a denied directory'. All other error messages in both modules are byte-identical to in-tree.",
-    "Docstrings/comments genericised (product names, ticket numbers and caller file references removed); assert_safe_fetch_url docstring corrected from 'Returns the canonical URL' to 'Returns the URL unchanged' (behaviour unchanged).",
+    "Docstrings/comments genericised (product names, ticket numbers and caller file references removed).",
+    "2026-11-26: three security fixes were applied to BOTH sides (in-tree src/alienclaw/tools and this package) with identical code, so they are not divergences: (1) dotfile rule: the final component that names something is checked ('.env/', '.env/./' were accepted because basename() was ''), and so is the resolved path's final component (symlink to a dotfile); dot-directories stay allowed; (2) checked host vs connected host: the guard refuses backslash/whitespace/control characters, userinfo, '%' in the host, a second ':' outside brackets, host characters outside [a-z0-9._-] after IDNA, and any URL whose urllib/http.client (host, port) differs from the checked one, and it now RETURNS A CANONICAL URL (lower-case scheme/host, IDNA host, port only if given, no userinfo) instead of the input; covers security-review SR-01 (backslash with requests) and SR-03 (multi-colon port split, %2f/%23); (3) assert_no_symlink gained keyword-only operation='write' (message wording only) so read paths can use it; in-tree file_read now calls it on the unresolved path and opens with O_NOFOLLOW (file_read has no staged counterpart). The ssrf_guard/boundary source_blob values above are the FIXED in-tree blobs (uncommitted when written, so absent at source_commit); the CGNAT divergence is unchanged.",
+    "2026-11-26: tests/test_file_boundary.py and tests/test_http_get_ssrf.py had their strict xfails (trailing-slash dotfile; connect host) converted into passing regression tests; the in-tree tests they were adapted from are unchanged. tests/test_connect_host.py additionally checks the returned URL against urllib3, httpx and yarl (each skipped if not installed); that part has no in-tree counterpart. tests/test_parity_in_tree.py's corpus gained the new URL and path vectors.",
     "Ported tests are guard-level only: tool-level assertions (RunResult ok/correctness, atomic write, output contract, compute/extract_json/search_text guards in test_file_boundary.py) were not ported. The real-socket HTTPServer redirect tests were replaced with an in-process urllib handler, and DNS is a fake resolver (real libc parser via AI_NUMERICHOST for literals), so the suite is network-free."
   ]
 }

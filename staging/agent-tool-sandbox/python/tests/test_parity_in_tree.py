@@ -76,6 +76,16 @@ URL_CORPUS = [
     # ── percent-encoding
     "http://%31%32%37.0.0.1/", "http://public%2eexample/", "http://127.0.0.1%3a/",
     "http://a%2ex.public.example/",
+    # ── checked host vs connected host (fixed on both sides 2026-11-26)
+    "http://%31%36%39.254.169.254/", "http://%5b::1%5d/", "http://127.0.0.1\\@x.public.example/",
+    "http://x.public.example\t.y/", "http://x.public.example\n.y/", "http://Public.Example/",
+    "http://public.example:080/", "http://public.example:/", "http://public.example/a\tb",
+    "https://xn--bcher-kva.example:443/", "http://[2606:4700:4700::1111]:8443/",
+    "http://x.public.example:y.public.example:80/", "http://public.example:80:80/",
+    "http://169.254.169.254\\@public.example/../latest/meta-data/",
+    "http://169.254.169.254\\.public.example/", "http://127.0.0.1%2f.public.example/",
+    "http://127.0.0.1%23.public.example/", "http://a!b.public.example/",
+    "http://my_host.public.example/", "http://public.example/a b", "http://[::1]:80:80/",
     # ── IDNA / unicode
     "http://bücher.example/", "http://xn--bcher-kva.example/",
     "http://ｌｏｃａｌｈｏｓｔ/",  # fullwidth localhost
@@ -134,8 +144,15 @@ NON_STRING_INPUTS = [None, b"http://public.example/", 123, ["http://public.examp
 
 @pytest.fixture(autouse=True)
 def _corpus_dns(fake_dns):
-    fake_dns.records["a%2ex.public.example"] = ["93.184.216.34"]
-    fake_dns.records["x.public.example"] = ["93.184.216.34"]
+    # Checked names that a wildcard / search-domain / attacker zone would answer publicly,
+    # so only the checked-vs-connected-host rule can stop the vectors that use them.
+    for name in (
+        "a%2ex.public.example", "x.public.example", "x.public.example.y", "%31%32%37.0.0.1",
+        "%31%36%39.254.169.254", "%5b", "169.254.169.254\\.public.example",
+        "127.0.0.1%2f.public.example", "127.0.0.1%23.public.example", "a!b.public.example",
+        "my_host.public.example",
+    ):
+        fake_dns.records[name] = ["93.184.216.34"]
     return fake_dns
 
 
@@ -334,6 +351,9 @@ PATH_CORPUS = [
     "unicode-ä/ß.txt", "a\x00b", "x" * 300, "x" * 5000,
     ".openclaw/agents/a/SOUL.md", ".openclaw/", ".openclaw", "{home}/.openclaw",
     "{home}/.openclaw/agents", "ws/link_oc/agents/a/SOUL.md", "ws/../.openclaw/x",
+    # dotfile spellings with trailing slashes / '.' components (fixed on both sides 2026-11-26)
+    ".env/./", "./.env/", "a/../.env/", "real_dir/../.env//", "{ws}/.env/", "dotlink/",
+    "sub/.secret/./", ".openclaw/agents/a/SOUL.md/", "link_oc/",
 ]
 
 

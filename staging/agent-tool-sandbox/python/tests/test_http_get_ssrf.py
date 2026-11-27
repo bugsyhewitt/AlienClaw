@@ -88,25 +88,21 @@ def test_other_3xx_are_errors_not_follows(code: int, fake_transport) -> None:
     assert excinfo.value.transport.requests == ["http://public.example/"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="KNOWN GAP (identical to in-tree): the guard checks urlparse().hostname, but "
-    "urllib connects to Request().host, which keeps userinfo and percent-decodes. With an "
-    "attacker-controlled DNS zone this is a race-free variant of DNS rebinding.",
-)
 @pytest.mark.parametrize("url", [
     "http://evil@x.public.example/",   # urllib host: 'evil@x.public.example'
     "http://a%2ex.public.example/",    # urllib host: 'a.x.public.example'
 ])
-def test_connect_host_matches_checked_host(url: str, fake_dns) -> None:
-    import urllib.request
-    from urllib.parse import urlparse
-
+def test_connect_host_matches_checked_host(url: str, fake_dns, fake_transport) -> None:
+    # Regression (fixed 2026-11-26, in-tree and staged): the guard checked
+    # urlparse().hostname while urllib connects to Request().host (userinfo kept,
+    # percent-escapes decoded). Both names resolve publicly here, so only the
+    # parse disagreement can stop them, and it must, before any request is sent.
     fake_dns.records["x.public.example"] = ["93.184.216.34"]
     fake_dns.records["a%2ex.public.example"] = ["93.184.216.34"]
-    assert assert_safe_fetch_url(url) == url  # the guard accepts it
-    assert urllib.request.Request(url).host == urlparse(url).hostname
+    with pytest.raises(SsrfBlockedError) as excinfo:
+        _guarded_get(url, fake_transport, lambda req: (200, {}))
+    assert str(excinfo.value).startswith("Refusing")
+    assert excinfo.value.transport.requests == []
 
 
 def test_opener_has_only_the_blocking_redirect_handler() -> None:

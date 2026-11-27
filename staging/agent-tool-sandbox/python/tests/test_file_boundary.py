@@ -89,13 +89,9 @@ class TestDotfileDenial:
         result = assert_inside_boundary("output.txt", workspace)
         assert "output.txt" in str(result)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="KNOWN GAP (kept identical to in-tree): the dotfile check looks at "
-        "os.path.basename(), which is '' for a trailing slash, so '.env/' resolves "
-        "to <boundary>/.env and is accepted.",
-    )
     def test_rejects_dotfile_with_trailing_slash(self, workspace: Path) -> None:
+        # Regression (fixed 2026-11-26, in-tree and staged): os.path.basename('.env/')
+        # is '', so '.env/' used to resolve to <boundary>/.env and be accepted.
         (workspace / ".env").write_text("SECRET=1")
         with pytest.raises(ValueError, match="Dotfile rejected"):
             assert_inside_boundary(".env/", workspace)
