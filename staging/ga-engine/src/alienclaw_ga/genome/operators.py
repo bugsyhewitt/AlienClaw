@@ -31,6 +31,7 @@ from __future__ import annotations
 import random
 
 from .alphabet import (
+    ALPHABET_SET,
     GENOME_LENGTH,
     ID_TAG_END,
     MUTABLE_LENGTH,
@@ -46,6 +47,33 @@ from .codec import _XCODE_INDEX, XCODE_MAX, assemble, encode_xcode
 
 MUTATION_RATE: float = 1.0 / 256.0
 """Per-character mutation probability per generation. GENOME_SPEC.md §7."""
+
+
+# ---------------------------------------------------------------------------
+# Alphabet precondition
+# ---------------------------------------------------------------------------
+
+def _assert_base62_genome(genome: str) -> None:
+    """Raise ValueError if `genome` contains non-Base62 characters.
+
+    `mutate()` and `mutate_directed()` index `_XCODE_INDEX[...]` on characters
+    pulled straight off the genome string. Length is validated at both call
+    sites, but the Base62 alphabet is not — so a corrupt entry (e.g. a
+    hand-edited or externally-truncated entries/*.json file, which the
+    storage loader accepts on length alone) reaches those lookups and raises
+    a bare `KeyError('<char>')` several frames away from the actual cause.
+
+    Both operators document `Raises: ValueError: if genome is not a valid
+    256-char Base62 string` (see mutate()'s docstring), and sibling
+    `crossover()`/`assemble()` already honour that contract via
+    `alphabet._check_section`. This helper makes the two operators match.
+    """
+    bad = [c for c in genome if c not in ALPHABET_SET]
+    if bad:
+        raise ValueError(
+            f"Genome contains non-Base62 characters: "
+            f"{bad[:5]!r}{'...' if len(bad) > 5 else ''}"
+        )
 
 # Mutable range within the genome body: chars 8..191 (excluding ID tag 0..7)
 _MUTABLE_START: int = ID_TAG_END     # 8  (first mutable position after ID tag)
@@ -103,6 +131,7 @@ def mutate(
         raise ValueError(
             f"genome must be exactly {GENOME_LENGTH} chars; got {len(genome)}"
         )
+    _assert_base62_genome(genome)
 
     chars = list(genome[:MUTABLE_LENGTH])
     for slot_idx in (1, 2):  # EXECUTION and BEHAVIOR sections
@@ -277,6 +306,7 @@ def mutate_directed(
     """
     if len(genome) != GENOME_LENGTH:
         raise ValueError(f"genome must be 256 chars, got {len(genome)}")
+    _assert_base62_genome(genome)
 
     chars = list(genome[:MUTABLE_LENGTH])
 

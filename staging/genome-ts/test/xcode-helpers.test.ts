@@ -122,6 +122,24 @@ describe('encodeXcode', () => {
     expect(() => encodeXcode(XCODE_MAX + 1)).toThrow(/out of range/);
     expect(() => encodeXcode(3844)).toThrow(/out of range/);
   });
+
+  // Non-integers get the same documented error as out-of-range values
+  // (GENOME_SPEC.md error taxonomy), matching Python encode_xcode. Before the
+  // fix encodeXcode(1.5) returned "0undefined" and encodeXcode(NaN) returned NaN.
+  const NON_INTEGERS: ReadonlyArray<unknown> = [
+    1.5, 0.5, 3842.5, Number.EPSILON, NaN, Infinity, -Infinity,
+    true, '5', null, undefined, 5n,
+  ];
+  for (const value of NON_INTEGERS) {
+    it(`throws the out-of-range error for non-integer ${String(value)}`, () => {
+      expect(() => encodeXcode(value as number)).toThrow(/^xcode value out of range \[0,3843\]/);
+    });
+  }
+
+  it('still encodes integral numbers written as floats (2.0 === 2 in JS)', () => {
+    expect(encodeXcode(2.0)).toBe('02');
+    expect(encodeXcode(-0)).toBe('00');
+  });
 });
 
 // ---------------------------------------------------------------------------

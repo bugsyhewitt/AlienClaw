@@ -5,7 +5,7 @@
     {
       "staged": "staging/genome-ts/src/codec.ts",
       "source": "src/alienclaw/registry/genome-codec.ts",
-      "source_blob": "531c9a467e727204219b38091a3b60c80f0f23ae",
+      "source_blob": "08faac785ac4e4d363cde437e0abef7dc90a6d55",
       "relation": "verbatim"
     },
     {
@@ -35,7 +35,7 @@
     {
       "staged": "staging/genome-ts/test/xcode-helpers.test.ts",
       "source": "test/genome/xcode-helpers.test.ts",
-      "source_blob": "e0baae2a1aadab848db18ce054ec29ea7648efde",
+      "source_blob": "4c2e8e8c71d0387c29791b81c4802f706f4d5c9c",
       "relation": "adapted"
     },
     {

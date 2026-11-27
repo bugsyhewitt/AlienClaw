@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import random
 import statistics
+import unicodedata
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -32,9 +33,37 @@ from .types import EvolutionConfig, PopulationEntry
 
 
 def _id_tag_for(martian_type: str) -> str:
-    """Stable 8-char Base62 ID tag derived from martian_type name."""
-    clean = "".join(c.upper() for c in martian_type if c.isalnum())[:6].ljust(6, "0")
-    return clean + "01"
+    """Stable 8-char Base62 ID tag derived from martian_type name.
+
+    The ID tag is pinned into the IDENTITY section of every genome this
+    population seeds (see ``random_genome``), so it MUST satisfy the
+    Base62 contract of that section — otherwise the genome assembler
+    raises and the population can never be created at all.
+
+    ``str.isalnum()`` is Unicode-aware: it accepts any Unicode letter or
+    digit (``'ñ'``, ``'名'``, ``'١'``). Letting those through produces an
+    id_tag containing non-Base62 characters, which the assembler rejects
+    with a message that points at the genome rather than at this
+    derivation. Non-ASCII characters are therefore transliterated to
+    their ASCII base characters when NFKD decomposition provides one
+    (``'ñ'`` -> ``'N'``, ``'É'`` -> ``'E'``), and dropped when it does
+    not (``'名'`` has no ASCII base).
+
+    The result is always exactly 8 Base62 characters, and the ASCII
+    behaviour is unchanged: every ASCII-only martian_type maps to the
+    same id_tag it always has.
+    """
+    out: list[str] = []
+    for ch in martian_type.upper():
+        if ch.isascii() and ch.isalnum():
+            out.append(ch)
+            continue
+        # Transliterate via NFKD decomposition (e.g. 'É' -> 'E' + accent,
+        # where the accent mark is then dropped as non-alphanumeric).
+        for decomposed in unicodedata.normalize("NFKD", ch):
+            if decomposed.isascii() and decomposed.isalnum():
+                out.append(decomposed)
+    return "".join(out)[:6].ljust(6, "0") + "01"
 
 
 def _make_entry(
