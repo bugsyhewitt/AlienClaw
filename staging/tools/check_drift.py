@@ -53,6 +53,7 @@ RELATIONS = ("verbatim", "adapted")
 TOP_KEYS = ("package", "source_commit", "files", "divergences")
 OPTIONAL_TOP_KEYS = ("new_files",)
 ENTRY_KEYS = ("staged", "source", "source_blob", "relation")
+OPTIONAL_ENTRY_KEYS = ("source_ref",)
 CODE_SUFFIXES = frozenset({".py", ".ts", ".mts", ".cts", ".tsx", ".js", ".mjs", ".cjs", ".jsx"})
 FIXTURE_SUFFIXES = frozenset({".json"})
 FIXTURE_DIRS = frozenset({"fixtures"})
@@ -99,6 +100,7 @@ class Entry:
     source: str   # normalised repo-relative posix path
     blob: str
     relation: str
+    source_ref: str | None = None  # e.g. "PR #630 @ ff070bd5": source not on this branch yet
 
 
 @dataclass
@@ -313,8 +315,12 @@ def _parse_entry(index: int, raw: object, report: PackageReport) -> Entry | None
         return None
     staged_raw = raw.get("staged") if isinstance(raw.get("staged"), str) else None
     subject = {"staged": staged_raw} if staged_raw else {}
-    for key in sorted(set(raw) - set(ENTRY_KEYS)):
+    for key in sorted(set(raw) - set(ENTRY_KEYS) - set(OPTIONAL_ENTRY_KEYS)):
         report.add("INFO", "unknown_key", f"{where} has unknown key {key!r}", **subject)
+    source_ref = raw.get("source_ref")
+    if source_ref is not None and not (isinstance(source_ref, str) and source_ref.strip()):
+        report.add("ERROR", "schema", f"{where}.source_ref must be a non-empty string", **subject)
+        return None
     problems: list[str] = []
     missing = [k for k in ENTRY_KEYS if k not in raw]
     if missing:
@@ -340,7 +346,7 @@ def _parse_entry(index: int, raw: object, report: PackageReport) -> Entry | None
         report.add("ERROR", "schema", f"{where}: " + "; ".join(problems), **subject)
     if problems or len(paths) != 2:
         return None
-    return Entry(paths["staged"], paths["source"], blob, relation)
+    return Entry(paths["staged"], paths["source"], blob, relation, source_ref)
 
 
 def plan_package(repo: Path, prov: Path) -> _Plan:
@@ -377,7 +383,8 @@ def plan_package(repo: Path, prov: Path) -> _Plan:
         return plan
     report.entries = len(files)
     plan.scan_untracked = True
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
+    relations_by_staged: dict[str, set[str]] = {}
     for index, raw in enumerate(files):
         entry = _parse_entry(index, raw, report)
         if entry is None:
@@ -387,11 +394,15 @@ def plan_package(repo: Path, prov: Path) -> _Plan:
                 if norm is not None:
                     _claim(plan, repo, norm)
             continue
-        if entry.staged in seen:
+        # One staged file may merge several sources, but only as an adapted copy.
+        key = (entry.staged, entry.source)
+        earlier = relations_by_staged.get(entry.staged, set())
+        if key in seen or (earlier and "verbatim" in earlier | {entry.relation}):
             report.add("ERROR", "duplicate_entry",
                        f"files[{index}] repeats a staged path listed earlier", staged=entry.staged)
             continue
-        seen.add(entry.staged)
+        seen.add(key)
+        relations_by_staged.setdefault(entry.staged, set()).add(entry.relation)
         plan.entries.append(entry)
         _claim(plan, repo, entry.staged)
     return plan
@@ -429,7 +440,12 @@ def _check_entry(plan: _Plan, repo: Path, entry: Entry, hashes: dict[str, str | 
 
     source_abs = repo / entry.source
     source_hash = hashes.get(entry.source) if source_abs.is_file() else None
-    if not source_abs.is_file():
+    if not source_abs.exists() and entry.source_ref and entry.blob in present:
+        report.add("INFO", "source_external",
+                   f"source {entry.source} is not on this branch; pinned to {entry.source_ref} "
+                   f"(blob {_short(entry.blob)} is in the object store)", expected=entry.blob,
+                   **ids)
+    elif not source_abs.is_file():
         what = "is not a regular file" if source_abs.exists() else "is missing from the work tree"
         known = "is" if entry.blob in present else "is not"
         report.add("ERROR", "source_missing",
