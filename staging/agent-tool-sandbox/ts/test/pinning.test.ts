@@ -494,7 +494,9 @@ describe('transport parity with fetch(): headers, decoding, errors', () => {
       viaLoopback();
       const ours = await hardenedFetch(`http://enc.example:${port}/`, { ...POLICY, resolve });
       const theirs = await (await fetch(`http://127.0.0.1:${port}/`)).text();
-      expect(ours).toBe(theirs);
+      // Node 22's fetch() leaves zstd undecoded even where its zlib can decode it; the
+      // transport decodes whenever zlib can, so parity with fetch() holds only if fetch decodes.
+      if (encoding !== 'zstd' || theirs === TEXT) expect(ours).toBe(theirs);
       if (!label.includes('passed through')) expect(ours).toBe(TEXT);
     });
   }
