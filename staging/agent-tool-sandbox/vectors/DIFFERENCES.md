@@ -25,7 +25,7 @@ Later on 2026-11-26 the clear-cut gaps were closed in both staged packages and t
 | [g14](#g14) | Raw-URL spellings Python refuses and WHATWG normalises | 15 | block | allow | reject (Python's rule); TS adds a raw-string pre-check before `new URL()` |
 | [g15](#g15) | URL spellings WHATWG refuses and Python accepts | 3 | allow | block | reject |
 
-Groups g6 (6to4), g7 (Teredo) and g11 (site-local) are resolved; their ids are not reused. Python is the stricter side on 40 vectors, and TS on 11. The CGNAT difference mentioned in earlier notes is not present: the staged Python blocks `100.64.0.0/10` in every spelling in the corpus (IPv4, mapped, NAT64, 6to4 and DNS answer), so only the in-tree AlienClaw copy still differs there.
+Groups g6 (6to4), g7 (Teredo) and g11 (site-local) are resolved; their ids are not reused. Python is the stricter side on 40 vectors, and TS on 10 (the g13 localhost vector moved to "both block"). The CGNAT difference mentioned in earlier notes is not present: the staged Python blocks `100.64.0.0/10` in every spelling in the corpus (IPv4, mapped, NAT64, 6to4 and DNS answer), so only the in-tree AlienClaw copy still differs there.
 
 ## Every differing vector
 
