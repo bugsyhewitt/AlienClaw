@@ -28,6 +28,14 @@ test = ["pytest>=7", "hypothesis>=6"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+agent_tool_sandbox = ["py.typed"]  # PEP 561: the package ships its own inline types
+
+[tool.mypy]
+strict = true
+python_version = "3.11"  # the oldest supported Python
+files = ["src"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

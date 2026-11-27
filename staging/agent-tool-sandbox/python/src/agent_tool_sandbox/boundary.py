@@ -43,7 +43,7 @@ def assert_inside_boundary(
     path_str: str,
     boundary: Path,
     *,
-    deny_roots: Iterable[str | os.PathLike[str]] = (),
+    deny_roots: str | os.PathLike[str] | Iterable[str | os.PathLike[str]] = (),
 ) -> Path:
     """Return resolved path if inside boundary; raise ValueError otherwise.
 

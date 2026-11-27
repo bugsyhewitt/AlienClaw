@@ -36,7 +36,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import IO, Any, Union, cast
 from urllib.parse import urljoin, urlsplit
 
 from .ssrf_guard import (
@@ -80,12 +80,22 @@ class DeadlineExceededError(urllib.error.URLError, TimeoutError):
         return str(self.reason)
 
 
+def _is_default_timeout(timeout: object) -> bool:
+    """True for ``socket._GLOBAL_DEFAULT_TIMEOUT``, http.client's "no timeout given" value.
+
+    The sentinel is private, so typeshed does not declare it; it is looked up on each call.
+    """
+    return timeout is getattr(socket, "_GLOBAL_DEFAULT_TIMEOUT")
+
+
 class _Budget:
     """Per-operation socket timeouts that never outlast one ``time.monotonic()`` deadline."""
 
-    def __init__(self, deadline: float, per_operation: Any) -> None:
+    def __init__(self, deadline: float, per_operation: float | None) -> None:
         self.deadline = deadline
-        self.per_operation = per_operation  # the connection's own timeout, kept as a cap
+        # The connection's own timeout, kept as a cap. Typed as http.client types it; at
+        # runtime it can also be the socket._GLOBAL_DEFAULT_TIMEOUT sentinel.
+        self.per_operation = per_operation
 
     def check(self, phase: str) -> float:
         """Seconds left; raises ``DeadlineExceededError`` when there are none."""
@@ -94,11 +104,11 @@ class _Budget:
             raise DeadlineExceededError(phase)
         return left
 
-    def arm(self, sock: Any, phase: str) -> bool:
+    def arm(self, sock: socket.socket, phase: str) -> bool:
         """Set ``sock``'s timeout for its next operation; True if the deadline bounds it."""
         left = self.check(phase)
         cap = self.per_operation
-        if cap is socket._GLOBAL_DEFAULT_TIMEOUT:
+        if _is_default_timeout(cap):
             cap = socket.getdefaulttimeout()
         if cap is None or cap >= left:
             sock.settimeout(left)
@@ -186,8 +196,8 @@ def _checked_addresses(addresses: Iterable[IPAddress | str]) -> tuple[IPAddress,
 
 
 def _dial(
-    addresses: tuple[IPAddress, ...], port: int, timeout: Any, source_address: Any,
-    budget: _Budget | None = None,
+    addresses: tuple[IPAddress, ...], port: int, timeout: float | None,
+    source_address: tuple[str, int] | None, budget: _Budget | None = None,
 ) -> socket.socket:
     """TCP-connect to the first pinned address that accepts. Never calls a resolver.
 
@@ -197,6 +207,7 @@ def _dial(
     number of addresses (which the name's DNS chooses) cannot stretch the call (PR-02).
     """
     last_error: OSError | None = None
+    sockaddr: tuple[str, int] | tuple[str, int, int, int]
     for ip in addresses:
         if ip.version == 4:
             family, sockaddr = socket.AF_INET, (str(ip), port)
@@ -209,7 +220,7 @@ def _dial(
         try:
             if budget is not None:
                 bounded = budget.arm(sock, "connecting")
-            elif timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+            elif not _is_default_timeout(timeout):
                 sock.settimeout(timeout)
             if source_address:
                 sock.bind(source_address)
@@ -267,7 +278,7 @@ class _DeadlineReader(io.RawIOBase):
     alive after urllib closes the connection's socket, as the stock response does.
     """
 
-    def __init__(self, sock: Any, budget: _Budget) -> None:
+    def __init__(self, sock: socket.socket, budget: _Budget) -> None:
         super().__init__()
         self._sock = sock
         self._raw = sock.makefile("rb", buffering=0)
@@ -338,7 +349,7 @@ class _DeadlineBufferedReader(io.BufferedReader):
 class _DeadlineSocketView:
     """What ``HTTPResponse`` is given as its socket: it only ever calls ``makefile``."""
 
-    def __init__(self, sock: Any, budget: _Budget) -> None:
+    def __init__(self, sock: socket.socket, budget: _Budget) -> None:
         self._sock = sock
         self._budget = budget
 
@@ -352,18 +363,25 @@ class _PinnedConnectionMixin:
     pinned_addresses: tuple[IPAddress, ...]
     sock: Any
     auto_open: int
-    timeout: Any
+    timeout: float | None
+    source_address: tuple[str, int] | None  # set by HTTPConnection.__init__; not in typeshed
+    response_class: type[http.client.HTTPResponse]
     _budget: _Budget | None
 
     def _init_deadline(self, deadline: float | None) -> None:
         _check_deadline_type(deadline)
         self._budget = None if deadline is None else _Budget(deadline, self.timeout)
         if self._budget is not None:
-            self.response_class = self._deadline_response
+            # http.client only calls response_class(sock, method=...): a factory will do.
+            self.response_class = self._deadline_response  # type: ignore[assignment]
 
-    def _deadline_response(self, sock: Any, *args: Any, **kwargs: Any) -> Any:
+    def _deadline_response(
+        self, sock: socket.socket, *args: Any, **kwargs: Any
+    ) -> http.client.HTTPResponse:
         assert self._budget is not None
-        return http.client.HTTPResponse(_DeadlineSocketView(sock, self._budget), *args, **kwargs)
+        # HTTPResponse only calls sock.makefile(), which the view provides.
+        view = cast(socket.socket, _DeadlineSocketView(sock, self._budget))
+        return http.client.HTTPResponse(view, *args, **kwargs)
 
     def send(self, data: Any) -> None:
         budget = self._budget
@@ -606,7 +624,7 @@ def _resolve_within(url: str, deadline: float | None) -> PinnedTarget:
     left = deadline - time.monotonic()
     if left <= 0 or not slots.acquire(timeout=left):
         raise DeadlineExceededError("waiting for a resolver thread")
-    outcome: list[Any] = []
+    outcome: list[PinnedTarget | BaseException] = []
     done = threading.Event()
 
     def work() -> None:
@@ -653,7 +671,10 @@ class _HandBackRedirect(urllib.request.HTTPRedirectHandler):
     or not, is left to ``HTTPDefaultErrorHandler`` and raises ``HTTPError``.
     """
 
-    def http_error_302(self, req, fp, code, msg, headers):  # noqa: N802
+    def http_error_302(  # noqa: N802
+        self, req: urllib.request.Request, fp: IO[bytes], code: int, msg: str,
+        headers: http.client.HTTPMessage,
+    ) -> None:
         locations = headers.get_all("Location") or []
         if len(locations) > 1:
             # urllib took the first one, the TS twin's header join made one URL of them
@@ -744,7 +765,9 @@ def pinned_urlopen(
             target.canonical_url, data=data, headers=hop_headers, method=method
         )
         try:
-            return opener.open(request, timeout=timeout)
+            # typeshed types OpenerDirector.open as Any; _PinnedHandler returns HTTPResponse.
+            response: http.client.HTTPResponse = opener.open(request, timeout=timeout)
+            return response
         except urllib.error.URLError as exc:
             reason = getattr(exc, "reason", None)
             wrapped = not isinstance(exc, DeadlineExceededError)

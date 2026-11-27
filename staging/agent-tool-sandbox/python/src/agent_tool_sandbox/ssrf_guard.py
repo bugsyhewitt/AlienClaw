@@ -41,7 +41,7 @@ import ipaddress
 import re
 import socket
 import urllib.request
-from typing import Final, NamedTuple
+from typing import IO, Final, NamedTuple, NoReturn
 from urllib.parse import quote, urlparse, urlsplit, urlunsplit
 
 from . import _blocklist_data as _blocklist
@@ -435,7 +435,10 @@ def _validate_fetch_url(raw_url: str) -> _ValidatedUrl:
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     """Block all 3xx redirects — equiv of fetch redirect:'error'."""
 
-    def http_error_302(self, req, fp, code, msg, headers):  # noqa: N802
+    def http_error_302(  # noqa: N802
+        self, req: urllib.request.Request, fp: IO[bytes], code: int, msg: str,
+        headers: http.client.HTTPMessage,
+    ) -> NoReturn:
         raise SsrfBlockedError(f"Redirect to {_redact_url(headers.get('Location'))!r} blocked")
 
     http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
