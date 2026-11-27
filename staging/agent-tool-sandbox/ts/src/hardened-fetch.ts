@@ -7,13 +7,16 @@
  * threat model. The address classifiers (isBlockedHost,
  * validateResolvedAddresses and their helpers) are verbatim except for the
  * staged-only 2026-11-26 additions (6to4, Teredo, fec0::/10, Azure
- * WireServer); the AlienClaw-specific LEADERBOARD_POLICY / leaderboardFetch
+ * WireServer) and the move of their ranges into data (below); the AlienClaw-specific LEADERBOARD_POLICY / leaderboardFetch
  * wrapper was removed, and connection pinning (staged only, 2026-11-26)
  * replaced the fetch() call with the node:http / node:https transport in
  * pinned-request.ts. validateUrl also refuses port 0, isBlockedHost also
  * blocks the RFC 6761 localhost names, a resolved-address refusal no longer
  * names the address, and URLs in error messages are redacted (all staged
- * only, 2026-11-26).
+ * only, 2026-11-26). The block list itself is data (staged only, 2026-11-26):
+ * every range and name comes from the generated ./blocklist-data.ts, whose
+ * source policy/blocklist.v1.json is shared with the Python package; the
+ * address parsers and the fail-closed rules stay here.
  *
  * What the code does:
  *   - Parses the URL with WHATWG `new URL()` (which canonicalises decimal,
@@ -59,6 +62,10 @@
 
 import * as dns  from 'node:dns/promises';
 import { isIP } from 'node:net';
+import {
+  IPV4_BLOCK, IPV4_EXEMPT, IPV6_BLOCK, IPV6_EMBEDDED, IPV6_EXEMPT, LOOPBACK_NAMES, LOOPBACK_SUFFIXES,
+  type Ipv4Rule, type Ipv6Rule,
+} from './blocklist-data.js';
 import { transport, type PinnedAddress } from './pinned-request.js';
 import { redactUrl } from './redact-url.js';
 
@@ -127,23 +134,32 @@ function parseIpv4Octets(s: string): [number, number, number, number] | undefine
   return [octets[0]!, octets[1]!, octets[2]!, octets[3]!];
 }
 
-function isBlockedIpv4(octets: [number, number, number, number]): boolean {
-  const [a, b] = octets;
-  if (a === 0)   return true;  // 0.0.0.0/8 "this" network
-  if (a === 10)  return true;  // 10.0.0.0/8 RFC1918
-  if (a === 127) return true;  // 127.0.0.0/8 loopback
-  if (a === 169 && b === 254) return true;  // 169.254.0.0/16 link-local + cloud metadata
-  if (a === 172 && b >= 16 && b <= 31) return true;  // 172.16.0.0/12 RFC1918
-  if (a === 192 && b === 0 && octets[2] === 0) return true;  // 192.0.0.0/24 IETF
-  if (a === 192 && b === 168) return true;  // 192.168.0.0/16 RFC1918
-  if (a === 100 && b >= 64 && b <= 127) return true;  // 100.64.0.0/10 CGNAT
-  if (a === 198 && (b === 18 || b === 19)) return true;  // 198.18.0.0/15 benchmarking
-  if (a >= 224 && a <= 239) return true;  // 224.0.0.0/4 multicast
-  if (a >= 240) return true;  // 240.0.0.0/4 reserved
-  // Azure WireServer: a PUBLIC address the host fabric answers inside every VM
-  // (goal state, extension configuration), so no range rule catches it.
-  if (a === 168 && b === 63 && octets[2] === 129 && octets[3] === 16) return true;
+// The rules (ranges, exemptions, embedded-IPv4 matchers, names) are in
+// ./blocklist-data.ts, generated from policy/blocklist.v1.json; see
+// policy/README.md for how they combine. Python reads the same table.
+
+function inIpv4Rules(value: number, rules: readonly Ipv4Rule[]): boolean {
+  for (const [network, netmask] of rules) {
+    if (((value & netmask) >>> 0) === network) return true;
+  }
   return false;
+}
+
+function inIpv6Rules(value: bigint, rules: readonly Ipv6Rule[]): boolean {
+  for (const [network, netmask] of rules) {
+    if ((value & netmask) === network) return true;
+  }
+  return false;
+}
+
+/** An IPv4 address (unsigned 32-bit) is blocked when in a block rule and in no exempt rule. */
+function isBlockedIpv4Value(value: number, block: readonly Ipv4Rule[]): boolean {
+  return inIpv4Rules(value, block) && !inIpv4Rules(value, IPV4_EXEMPT);
+}
+
+function isBlockedIpv4(octets: [number, number, number, number]): boolean {
+  const value = ((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]) >>> 0;
+  return isBlockedIpv4Value(value, IPV4_BLOCK);
 }
 
 function hextet(s: string): number | undefined {
@@ -193,71 +209,33 @@ function expandIpv6(addr: string): number[] | undefined {
 function isBlockedIpv6(hostNoBrackets: string): boolean {
   const lower = hostNoBrackets.toLowerCase();
   const addr = lower.split('%')[0]!;
-  if (addr === '::' || addr === '::1') return true;
   const groups = expandIpv6(addr);
   if (!groups) return true;  // unparseable → fail closed
-  const g0 = groups[0]!;
-  // IPv4-mapped / IPv4-translated (::ffff:a.b.c.d / ::ffff:0:a.b.c.d).
-  // The mapping marker `::ffff:` sits at one of two positions:
-  //   • legacy 3-group-suffix form (::ffff:a.b.c.d → groups[0..4]=0,
-  //     groups[5]=0xffff, groups[6..7]=a,b)
-  //   • RFC 6145 / RFC 6052 4-group-suffix translated form
-  //     (::ffff:0:a.b.c.d → groups[0..3]=0, groups[4]=0xffff,
-  //     groups[5]=0, groups[6..7]=a,b)
-  // The previous check required groups[0..4] === 0 and accepted only the
-  // 3-group suffix; the 4-group form slipped through to fetch() and reached
-  // loopback / RFC1918 / cloud-metadata (PKT-1079 / PKT-1236 defect 1).
-  //
-  // Both clauses require groups[0..3] === 0 so we never over-block legitimate
-  // global-unicast addresses like `::1:ffff:0:0` that happen to contain
-  // `ffff` at group position 5 (out of the mapped space).
-  const isV4Mapped =
-    groups[0] === 0 && groups[1] === 0 && groups[2] === 0 && groups[3] === 0 &&
-    ((groups[4] === 0 && groups[5] === 0xffff) ||
-     (groups[4] === 0xffff && groups[5] === 0));
-  if (isV4Mapped) return true;
-  // All-zero prefix (unspecified/loopback-adjacent/IPv4-compatible)
-  if (groups[0] === 0 && groups[1] === 0 && groups[2] === 0 && groups[3] === 0 &&
-      groups[4] === 0 && groups[5] === 0) return true;
-  // NAT64. A translator turns these into IPv4 connections, so on a host with
-  // NAT64 (for example an IPv6-only cloud subnet with DNS64) they reach the
-  // embedded IPv4 address.
-  //   • 64:ff9b::/96, the RFC 6052 well-known prefix: the IPv4 is the last
-  //     32 bits. Blocked exactly when that IPv4 is blocked, so the DNS64
-  //     answers for public IPv4-only hosts stay reachable on IPv6-only networks.
-  //   • 64:ff9b:1::/48, the RFC 8215 local-use prefix: blocked whole. IANA
-  //     lists it as not globally reachable, and the operator chooses the
-  //     embedding length inside it, so the IPv4 cannot be located reliably.
-  if (g0 === 0x64 && groups[1] === 0xff9b) {
-    if (groups[2] === 0x0001) return true;
-    if (groups[2] === 0 && groups[3] === 0 && groups[4] === 0 && groups[5] === 0) {
-      const hi = groups[6]!;
-      const lo = groups[7]!;
-      if (isBlockedIpv4([hi >> 8, hi & 0xff, lo >> 8, lo & 0xff])) return true;
+  let value = 0n;
+  for (const g of groups) value = (value << 16n) | BigInt(g);
+  // Embedded-IPv4 matchers first: IPv4-mapped ::ffff:0:0/96 and the NAT64
+  // well-known prefix 64:ff9b::/96. Each one blocks its whole prefix, judges
+  // the embedded IPv4 (the last 32 bits) alone, or defers to the IPv6 rules.
+  // A NAT64 translator turns 64:ff9b::/96 into IPv4 connections, so on a host
+  // with NAT64 (an IPv6-only subnet with DNS64) it reaches the embedded IPv4;
+  // the decode keeps DNS64 answers for public IPv4-only hosts reachable.
+  for (const rule of IPV6_EMBEDDED) {
+    if ((value & rule.netmask) === rule.network) {
+      if (rule.mode === 'block') return true;
+      if (rule.mode === 'decode') return isBlockedIpv4Value(Number(value & 0xffffffffn), rule.ipv4Block);
+      break;  // 'ranges': the matcher prefixes do not overlap
     }
   }
-  // The other IPv4-embedding transition prefixes, blocked whole (staged only,
-  // 2026-11-26; the Python twin blocks them whole too). Since the pinned
-  // transport strips IPv6-literal brackets, these literals really dial.
-  //   • 2002::/16 6to4 (RFC 3056, deprecated by RFC 7526): a host or relay with
-  //     6to4 tunnels to the IPv4 in bits 16-47. Whole /16, public embeds too:
-  //     no agent tool needs 6to4, and decoding would inherit the IPv4 table.
-  //   • 2001:0::/32 Teredo (RFC 4380): the client IPv4 is obfuscated and the
-  //     server IPv4 is whatever the attacker picks, so no embedded check holds.
-  if (g0 === 0x2002) return true;
-  if (g0 === 0x2001 && groups[1] === 0) return true;
-  if (g0 >= 0xfec0 && g0 <= 0xfeff) return true;  // fec0::/10 site-local (deprecated, RFC 3879)
-  if (g0 >= 0xfe80 && g0 <= 0xfebf) return true;  // fe80::/10 link-local
-  if (g0 >= 0xfc00 && g0 <= 0xfdff) return true;  // fc00::/7 ULA
-  if ((g0 & 0xff00) === 0xff00) return true;        // ff00::/8 multicast
-  return false;
+  // Then the IPv6 ranges: ::/96 (unspecified, loopback, IPv4-compatible),
+  // IPv4-translated, local-use NAT64 64:ff9b:1::/48, Teredo, 6to4, ULA,
+  // link-local, site-local, multicast; see the generated table.
+  return inIpv6Rules(value, IPV6_BLOCK) && !inIpv6Rules(value, IPV6_EXEMPT);
 }
 
-const BLOCKED_HOSTNAMES = new Set(['localhost', 'ip6-localhost', 'ip6-loopback']);
-
 /**
- * True for a name of the local host: a BLOCKED_HOSTNAMES token, or `localhost`
- * and every name under `.localhost` (RFC 6761 §6.3), with any trailing dots
+ * True for a name of the local host: a LOOPBACK_NAMES token (`localhost`,
+ * `ip6-localhost`, `ip6-loopback`), or a name ending in a LOOPBACK_SUFFIXES
+ * entry (every name under `.localhost`, RFC 6761 §6.3), with any trailing dots
  * ignored (`localhost.`, `foo.localhost.`). Staged only, 2026-11-26 (gate G7):
  * before, only the bare tokens were caught and the rest relied on DNS
  * answering loopback. `lower` must already be lower case. The trailing dots are
@@ -267,7 +245,7 @@ function isLocalhostName(lower: string): boolean {
   let end = lower.length;
   while (end > 0 && lower.charCodeAt(end - 1) === 0x2e) end--;
   const name = end === lower.length ? lower : lower.slice(0, end);
-  return BLOCKED_HOSTNAMES.has(name) || name.endsWith('.localhost');
+  return LOOPBACK_NAMES.has(name) || LOOPBACK_SUFFIXES.some((suffix) => name.endsWith(suffix));
 }
 
 /**

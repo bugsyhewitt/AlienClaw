@@ -156,6 +156,11 @@ In an agent tool the error text usually goes back to the model, so a prompt-inje
 
 ### Block list
 
+The ranges and names below are data: `src/blocklist-data.ts` is generated from
+`../policy/blocklist.v1.json`, the table the Python package reads too (see
+`../policy/README.md`, which also says how gate G3 is decided by editing it). The tables here
+describe the `ts` column today.
+
 IPv4 (from the literal and from DNS answers):
 
 | Range | Why |
@@ -261,6 +266,7 @@ for connection pinning.
 |---|---|
 | Exports | `LEADERBOARD_POLICY` and `leaderboardFetch` (AlienClaw-specific) are removed. Every other export is identical. |
 | Block list (staged only, 2026-11-26) | 6to4 `2002::/16`, Teredo `2001:0::/32` and site-local `fec0::/10` are blocked whole, and the Azure WireServer address `168.63.129.16` is in the IPv4 table (so its NAT64 embedding `64:ff9b::a83f:8110` is blocked too). In-tree allows all of them. `test/parity-in-tree.test.ts` declares exactly these ranges and asserts that each one still differs (staged blocks, in-tree allows) and that nothing else does. CGNAT `100.64.0.0/10` was already blocked in-tree. |
+| Block list as data (staged only, 2026-11-26; no decision change) | `isBlockedIpv4`, `isBlockedIpv6` and `isLocalhostName` read the generated `src/blocklist-data.ts` (from `../policy/blocklist.v1.json`) instead of hard-coded ranges and names; parsing and the fail-closed rules are unchanged. Every shared-corpus verdict and message is unchanged. `test/blocklist-data.test.ts` fails when the generated file and the JSON disagree. |
 | Port 0 (staged only, 2026-11-26) | `validateUrl` refuses an explicit port outside 1-65535 (`Port rejected: ...`), before DNS. In-tree hands `:0` to `fetch()`. Declared end-to-end in `test/parity-in-tree.test.ts`. |
 | Localhost names (staged only, 2026-11-26) | `isBlockedHost` also blocks `localhost.`, `*.localhost` and `*.localhost.` (and the other two tokens with trailing dots). In-tree leaves them to DNS. Declared in `test/parity-in-tree.test.ts` (`inDeclaredName`). No shared-corpus verdict changed: the corpus's localhost vectors already blocked through their loopback DNS answers. |
 | Error messages (staged only, 2026-11-26) | A resolved-address refusal does not name the address (`AddressRejection.blockedAddress` carries it); `Invalid URL`, the new `Invalid redirect Location` and the transport's URL errors are redacted. In-tree names the address and repeats the URL. `test/parity-in-tree.test.ts` maps in-tree messages to the staged form (`inTreeAsStaged`) and still compares decision, reason and address. |
@@ -272,8 +278,10 @@ for connection pinning.
 
 ## Differences from the Python twin (`src/alienclaw/tools/_ssrf_guard.py`)
 
-These were found by running both block predicates over a shared address corpus on Python 3.14. Python's `ipaddress`
-`is_private` / `is_reserved` tables change between Python versions, so the Python column is version-dependent.
+These were found by running both block predicates over a shared address corpus on Python 3.14. The in-tree Python
+column comes from `ipaddress` `is_private` / `is_reserved`, whose tables change between Python versions. The staged
+Python package reads the same `../policy/blocklist.v1.json` as this package (its `python` column), so the staged column
+no longer depends on the interpreter.
 
 | Address / range | TS | Python (main) | Note |
 |---|---|---|---|

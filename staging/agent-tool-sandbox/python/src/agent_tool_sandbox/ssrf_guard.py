@@ -6,7 +6,9 @@ Scope:
   - IP block (loopback, RFC1918, link-local, metadata, multicast, reserved,
     RFC 6598 CGNAT, IPv6 ULA / site-local, IPv4-mapped IPv6, and every
     obfuscated / short-form IPv4 literal the platform resolver accepts),
-    applied to EVERY address the hostname resolves to.
+    applied to EVERY address the hostname resolves to. The ranges are data: they come
+    from the generated ``_blocklist_data`` (source: policy/blocklist.v1.json, shared with
+    the TypeScript package), and no ``ipaddress.is_*`` property is consulted.
   - ``localhost``, ``*.localhost`` (trailing dots included) and the ip6-localhost /
     ip6-loopback aliases refused by name, before DNS (RFC 6761 §6.3).
   - Refusal messages that do not disclose what a name resolved to (the detail is on
@@ -39,6 +41,8 @@ import urllib.request
 from typing import Final, NamedTuple
 from urllib.parse import ParseResult, urlparse, urlunparse
 
+from . import _blocklist_data as _blocklist
+
 _ALLOWED_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
 _DEFAULT_PORTS: Final[dict[str, int]] = {"http": 80, "https": 443}
 # After IDNA a host name may only use these (underscore kept: DNS serves such names).
@@ -67,46 +71,48 @@ def _resolve_host_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6A
                 out.append(ipaddress.IPv4Address(sockaddr[0]))
             elif fam == socket.AF_INET6:
                 addr6 = ipaddress.IPv6Address(sockaddr[0])
-                # IPv4-mapped IPv6 (::ffff:a.b.c.d) — unwrap to v4 for the block check
-                mapped = addr6.ipv4_mapped
+                # IPv4-mapped IPv6 (::ffff:a.b.c.d) — unwrap to v4 for the block check, while
+                # the policy judges mapped addresses by their IPv4 (its ipv4-mapped decode)
+                mapped = addr6.ipv4_mapped if _blocklist.UNWRAP_IPV4_MAPPED else None
                 out.append(mapped if mapped is not None else addr6)
         except (ValueError, IndexError):
             continue
     return out
 
 
-_CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")  # RFC 6598 carrier-grade NAT
-# Single PUBLIC addresses that a cloud host fabric answers inside the VM, so no range rule
-# catches them. Azure WireServer 168.63.129.16: DNS, health probes, and the VM agent's goal
-# state and extension configuration (/machine?comp=goalstate).
-_METADATA_IPS: Final[frozenset[ipaddress.IPv4Address]] = frozenset({
-    ipaddress.IPv4Address("168.63.129.16"),
-})
+_Rules = tuple[tuple[int, int], ...]  # (network, netmask) integer pairs
+
+
+def _matches(value: int, rules: _Rules) -> bool:
+    return any(value & netmask == network for network, netmask in rules)
+
+
+def _ipv4_is_blocked(value: int, block: _Rules) -> bool:
+    return _matches(value, block) and not _matches(value, _blocklist.IPV4_EXEMPT)
 
 
 def _ip_is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """True if ip is loopback / private / link-local / metadata / reserved / CGNAT / multicast."""
-    if (
-        ip.is_loopback
-        or ip.is_private
-        or ip.is_link_local
-        or ip.is_multicast
-        or ip.is_reserved
-        or ip.is_unspecified
-    ):
-        return True
-    # CGNAT 100.64.0.0/10 (RFC 6598) — not in is_private on any supported Python.
-    # An explicit check is the only correct cross-version contract.
-    if isinstance(ip, ipaddress.IPv4Address) and ip in _CGNAT_NETWORK:
-        return True
-    # Named metadata addresses (IPv4Address only, like CGNAT: every caller unwraps
-    # IPv4-mapped answers first, and the other IPv6 embeddings are blocked as ranges).
-    if isinstance(ip, ipaddress.IPv4Address) and ip in _METADATA_IPS:
-        return True
-    # IPv6 deprecated site-local (fec0::/10) — not covered by is_private in all Python versions
-    if isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local:
-        return True
-    return False
+    """True if ip is in the block list (loopback, private, link-local, metadata, reserved,
+    CGNAT, multicast, documentation, transition prefixes; see policy/blocklist.v1.json).
+
+    Every rule comes from ``_blocklist_data``. IPv4: in a block rule and in no exempt rule.
+    IPv6: the embedded-IPv4 matchers first (IPv4-mapped, NAT64), each of which blocks its
+    whole prefix, judges the embedded IPv4 alone, or defers to the IPv6 rules; then the IPv6
+    block and exempt rules. A zone ID (``fe80::1%eth0``) is ignored for the match.
+    """
+    value = int(ip)
+    if isinstance(ip, ipaddress.IPv4Address):
+        return _ipv4_is_blocked(value, _blocklist.IPV4_BLOCK)
+    for _matcher, network, netmask, mode, ipv4_block in _blocklist.IPV6_EMBEDDED:
+        if value & netmask == network:
+            if mode == "block":
+                return True
+            if mode == "decode":
+                return _ipv4_is_blocked(value & 0xFFFFFFFF, ipv4_block)
+            break  # "ranges": the matcher prefixes do not overlap
+    return _matches(value, _blocklist.IPV6_BLOCK) and not _matches(
+        value, _blocklist.IPV6_EXEMPT
+    )
 
 
 class SsrfBlockedError(ValueError):
@@ -208,13 +214,13 @@ def _refused(host: str) -> str:
 
 # RFC 6761 §6.3: "localhost" and every name under ".localhost" are loopback, and stub
 # resolvers (systemd-resolved, browsers) answer them without asking DNS. The two Debian
-# /etc/hosts aliases are refused too, as the TypeScript twin does.
-_LOOPBACK_NAMES: Final[frozenset[str]] = frozenset({"localhost", "ip6-localhost", "ip6-loopback"})
+# /etc/hosts aliases are refused too, as the TypeScript twin does. The names are the
+# block list's "name" entries (_blocklist_data.LOOPBACK_NAMES / LOOPBACK_SUFFIXES).
 
 
 def _is_loopback_name(ascii_host: str) -> bool:
     name = ascii_host.rstrip(".")
-    return name in _LOOPBACK_NAMES or name.endswith(".localhost")
+    return name in _blocklist.LOOPBACK_NAMES or name.endswith(_blocklist.LOOPBACK_SUFFIXES)
 
 
 def _assert_unambiguous_chars(raw_url: str) -> None:

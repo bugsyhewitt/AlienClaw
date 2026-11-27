@@ -406,12 +406,14 @@ def write_tool(path_str: str, text: str) -> None:
 - **The TypeScript twin decides names its own way.** It refuses `localhost`,
   `ip6-localhost` and `ip6-loopback` by name too; see `../vectors/DIFFERENCES.md` for any
   vector on which the two languages still differ.
-- **The address tables belong to the interpreter.** The classification comes from
-  `ipaddress` (`is_private`, `is_reserved` and so on), and those tables changed in
-  CPython 3.12.4 and 3.13, for example in the `192.0.0.0/24` sub-ranges, `2002::/16`, and
-  how IPv4-mapped IPv6 delegates. Edge ranges can therefore be decided differently on
-  different patch releases. On 3.14, NAT64 `64:ff9b::/96`, 6to4 `2002::/16` and
-  IPv4-compatible `::a.b.c.d` were observed as blocked.
+- **The address table is data, not the interpreter's.** Every range comes from
+  `_blocklist_data.py`, generated from `../policy/blocklist.v1.json` (the table the TS
+  package reads too; see `../policy/README.md`). No `ipaddress.is_*` property is consulted.
+  The table reproduces the `ipaddress` tables of CPython 3.10.22, 3.11.17, 3.12.13 and
+  3.14.9 (identical, with the 2024 `is_private` fix). On an older unpatched patch release,
+  whose tables differ (for example in the `192.0.0.0/24` sub-ranges, `2002::/16` and how
+  IPv4-mapped IPv6 delegates), the guard now gives the table's verdicts, not the
+  interpreter's.
 - **Resolver entries that cannot be parsed are skipped.** If `getaddrinfo` returns an
   entry that `ipaddress` cannot parse, the guard ignores it rather than failing. The URL
   is still rejected when *no* entry parses.
@@ -487,6 +489,14 @@ Regression tests: `tests/test_wireserver_port_zero.py`.
    `tests/test_localhost_and_redaction.py`.
 10. **Opt-in redirects** (staged only, 2026-11-26, G5). `pinned_urlopen(follow_redirects=N)`;
     the default 0 is unchanged. Tests: `tests/test_redirects.py`.
+11. **Data-driven block list** (staged only, 2026-11-26, G3 preparation; no decision
+    change). `_ip_is_blocked` and `_is_loopback_name` read the generated
+    `_blocklist_data.py` instead of `ipaddress.is_*`, the CGNAT network, `_METADATA_IPS`
+    and `_LOOPBACK_NAMES` (those three constants are gone). `_resolve_host_ips` unwraps
+    IPv4-mapped answers while the table says so (`UNWRAP_IPV4_MAPPED`, true today). Every
+    shared-corpus verdict and message is unchanged, and so is every parity-corpus
+    decision. Tests: `tests/test_blocklist_data.py` (drift: the generated module must
+    equal a fresh render of the JSON).
 
 The 2026-11-26 fixes (the dotfile rule, the read-path symlink gate, and the checked-host
 vs connected-host refusals with the canonical return value) were applied to both sides
