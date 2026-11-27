@@ -426,6 +426,8 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
 
       // 4. Handle redirects (3xx)
       if (response.status >= 300 && response.status < 400) {
+        // The hop's body is never read; release its connection now, not at the end.
+        await response.body?.cancel().catch(() => {});
         const location = response.headers.get('location');
         if (!location) {
           throw new Error(`Redirect with no Location header (status ${response.status})`);
@@ -440,6 +442,7 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
       }
 
       if (!response.ok) {
+        await response.body?.cancel().catch(() => {});
         throw new Error(`HTTP ${response.status} from ${parsed.hostname}`);
       }
 
