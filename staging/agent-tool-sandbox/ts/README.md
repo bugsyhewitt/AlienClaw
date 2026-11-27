@@ -61,8 +61,10 @@ until the time budget ran out.
 The policy is checked once (`Invalid FetchPolicy`, a `TypeError`), and the deadline starts. Then these steps run for
 each hop, in this order, all under that one deadline (`Fetch timeout: exceeded <timeoutMs>ms budget`):
 
-1. `new URL(url)`. A parse failure gives `Invalid URL`.
-2. Protocol allowlist (`Protocol rejected`).
+1. `new URL(url)`. A parse failure gives `Invalid URL` (this includes a port above 65535).
+2. Protocol allowlist (`Protocol rejected`), then the port: an explicit port must be 1 to 65535
+   (`Port rejected: 0 is not a port from 1 to 65535`). WHATWG keeps `:0`, and `node:http` reads port 0 as "use the
+   default", so before 2026-11-26 `http://host:0/` was dialled on port 80.
 3. `isBlockedHost(hostname)` on the literal (`SSRF rejected: hostname ... is blocked`).
    This happens before any DNS lookup.
 4. `allowedHosts`, if set (`Host not in allowlist`).
@@ -135,6 +137,7 @@ IPv4 (from the literal and from DNS answers):
 | `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` | RFC 1918 |
 | `127.0.0.0/8` | loopback |
 | `169.254.0.0/16` | link-local, including the AWS/GCP/Azure metadata address 169.254.169.254 |
+| `168.63.129.16` (one address) | Azure WireServer: a **public** address the Azure host fabric answers inside every VM (DNS, health probes, the VM agent's goal state and extension configuration). Staged only, 2026-11-26. |
 | `100.64.0.0/10` | RFC 6598 CGNAT (includes Alibaba Cloud metadata at 100.100.100.200) |
 | `192.0.0.0/24` | IETF protocol assignments |
 | `198.18.0.0/15` | benchmarking |
@@ -148,6 +151,9 @@ IPv6:
 | `::`, `::1`, and anything whose first 96 bits are zero | unspecified, loopback, IPv4-compatible (`::a.b.c.d`) |
 | `::ffff:0:0/96` and `::ffff:0:0:0/96` | **all** IPv4-mapped and IPv4-translated (RFC 6145/6052) addresses, whatever IPv4 they embed |
 | `fe80::/10` | link-local |
+| `fec0::/10`, all of it | deprecated site-local (RFC 3879); some enterprise networks still route it. Staged only, 2026-11-26. |
+| `2002::/16`, all of it | 6to4 (RFC 3056, deprecated by RFC 7526): a host or relay with 6to4 tunnels to the IPv4 in bits 16-47. Blocked whole, public embeds included, as the Python twin does; no agent tool needs 6to4. Staged only, 2026-11-26. |
+| `2001:0::/32`, all of it | Teredo (RFC 4380): the client IPv4 is obfuscated and the server IPv4 is attacker-chosen, so no embedded-address check holds. Staged only, 2026-11-26. |
 | `fc00::/7` | ULA, including the AWS IMDS IPv6 address `fd00:ec2::254` |
 | `64:ff9b::/96` when the embedded IPv4 (the last 32 bits) is in the IPv4 table | RFC 6052 NAT64 well-known prefix. On a NAT64 host `64:ff9b::a00:1` reaches `10.0.0.1` and `64:ff9b::a9fe:a9fe` reaches the metadata address. A public embedded IPv4 (`64:ff9b::808:808`) stays allowed, so DNS64 answers for IPv4-only sites keep working on IPv6-only networks. |
 | `64:ff9b:1::/48`, all of it | RFC 8215 local-use NAT64 prefix. IANA lists it as not globally reachable, and the operator chooses the embedding length inside it, so the embedded IPv4 cannot be located reliably. |
@@ -172,7 +178,12 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
   the full body read, so a server that drips the body slowly is cut off at `timeoutMs`.
 - Malformed policies (`NaN`, `undefined`, strings, out-of-range values): they throw before any I/O instead of
   removing a limit.
-- NAT64 addresses (`64:ff9b::/96` with a blocked embedded IPv4, and all of `64:ff9b:1::/48`).
+- NAT64 addresses (`64:ff9b::/96` with a blocked embedded IPv4, and all of `64:ff9b:1::/48`), and the other
+  IPv4-embedding transition prefixes, 6to4 `2002::/16` and Teredo `2001:0::/32`, blocked whole.
+- The Azure WireServer address `168.63.129.16`, in every spelling and embedding (mapped, NAT64, 6to4).
+- Port 0, which `node:http` would otherwise dial as the default port.
+- Errors that settle just as the deadline fires are reported as themselves (an SSRF rejection stays an SSRF
+  rejection); only the deadline's own abort is reported as `Fetch timeout`.
 - **DNS rebinding (TOCTOU)**, in this staged copy only: the host is resolved once per hop and the socket is pinned to
   that validated answer (see "Connection pinning"). The in-tree module is still exposed.
 - Proxies cannot carry the request around the check: proxy configuration is ignored.
@@ -190,10 +201,10 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
   TLS options (the default CA store is used), no HTTP/2, GET only.
 - **`getaddrinfo` cannot be cancelled.** The lookup is raced against the deadline, so the call still fails at
   `timeoutMs`, but a lookup that is still running is abandoned and finishes in the background (on libuv's threadpool).
-- **The other IPv6 transition prefixes that embed IPv4 are not blocked:** 6to4 `2002::/16` and Teredo `2001::/32`.
-  (NAT64 is blocked; see the block list.)
-- **Other IPv6 ranges that are not blocked:** deprecated site-local `fec0::/10`, the documentation prefix `2001:db8::/32`,
-  discard `100::/64`, and the rest of the IETF-reserved space outside `2000::/3`.
+- **Other IPv6 ranges that are not blocked:** the documentation prefix `2001:db8::/32`, the rest of `2001::/23`
+  outside Teredo, discard `100::/64`, and the rest of the IETF-reserved space outside `2000::/3`. (6to4, Teredo,
+  NAT64 and `fec0::/10` are blocked; see the block list.)
+- **No port policy beyond port 0 and the Fetch bad-port list.** `http://public-host:6379/` is fetched.
 - **IPv4 documentation ranges** (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`) and other special-purpose ranges such as
   `192.88.99.0/24` are not blocked.
 - **`localhost.` and `*.localhost`** are not caught by the literal check. They are blocked only if DNS resolves them to
@@ -202,8 +213,9 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
 - **Credential leakage in errors.** `Invalid URL: <url>` repeats the input, userinfo included.
 
 `test/hardened-fetch.test.ts` pins the testable gaps above under "KNOWN GAPS (pinned)". Fixing one should flip its test on purpose.
-The NAT64, body-read and DNS-rebinding gaps were fixed on 2026-11-26: their pinned tests were flipped into "fixed gaps
-(formerly pinned)". `test/hardening.test.ts` holds the full regression set for the first two and for policy
+The NAT64, body-read, DNS-rebinding, 6to4 and site-local gaps were fixed on 2026-11-26: their pinned tests were flipped
+into "fixed gaps (formerly pinned)", and `test/corpus-gaps.test.ts` holds the full set for 6to4, Teredo, `fec0::/10`,
+WireServer and port 0. `test/hardening.test.ts` holds the full regression set for the first two and for policy
 validation (including the real transport against a 127.0.0.1 slow-drip listener), and `test/pinning.test.ts` the one
 for connection pinning.
 
@@ -212,7 +224,9 @@ for connection pinning.
 | Area | Difference |
 |---|---|
 | Exports | `LEADERBOARD_POLICY` and `leaderboardFetch` (AlienClaw-specific) are removed. Every other export is identical. |
-| Block list | **None.** CGNAT `100.64.0.0/10` was already blocked in-tree, so nothing was added. `test/parity-in-tree.test.ts` asserts that the decision divergence set is empty. |
+| Block list (staged only, 2026-11-26) | 6to4 `2002::/16`, Teredo `2001:0::/32` and site-local `fec0::/10` are blocked whole, and the Azure WireServer address `168.63.129.16` is in the IPv4 table (so its NAT64 embedding `64:ff9b::a83f:8110` is blocked too). In-tree allows all of them. `test/parity-in-tree.test.ts` declares exactly these ranges and asserts that each one still differs (staged blocks, in-tree allows) and that nothing else does. CGNAT `100.64.0.0/10` was already blocked in-tree. |
+| Port 0 (staged only, 2026-11-26) | `validateUrl` refuses an explicit port outside 1-65535 (`Port rejected: ...`), before DNS. In-tree hands `:0` to `fetch()`. Declared end-to-end in `test/parity-in-tree.test.ts`. |
+| Timeout reporting | In-tree commit d18c5c5d (only the deadline's own abort is reported as a timeout) is ported. In-tree checks the error and its `cause`; the staged copy walks the `cause` chain (up to 4 levels), because the pinned transport reports a body broken by the abort as `TypeError('terminated', { cause: <AbortError> })`. Regression test: `test/timeout-masking.test.ts`, adapted from in-tree `test/net/hardened-fetch-timeout-masking.test.ts` to stub the transport. |
 | Transport (staged only, 2026-11-26) | `fetch()` is replaced by the pinned `node:http` / `node:https` transport in `src/pinned-request.ts`, and `FetchPolicy` gains `resolve`. The classifiers (`isBlockedHost`, `validateResolvedAddresses`) are unchanged, so the decision parity below still holds; `test/parity-in-tree.test.ts` stubs the transport for the staged module and `fetch` for the in-tree one with the same responses. See "Differences from `fetch()`" for every observable change. |
 | Non-behavioural | The header comment is rewritten (consumer list dropped, rebinding claim corrected). |
 | Tests | The ported vectors fix the in-tree `'[::])'` typo and replace four vacuous "obfuscated IPv4" assertions with real `new URL()` canonicalisation. The two `expect(true)` jail notes are not ported. `test/hardening.test.ts` is the in-tree `test/net/hardened-fetch-hardening.test.ts` without its `leaderboardFetch` block. |
@@ -230,11 +244,27 @@ These were found by running both block predicates over a shared address corpus o
 | `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24` | allow | block | TEST-NETs |
 | `64:ff9b::/96` NAT64 with a **public** embedded IPv4 | allow | block | TS blocks the /96 only when the embedded IPv4 is blocked, so DNS64 keeps working; Python blocks all of `::/8` through `is_reserved`, which includes the whole NAT64 /96. |
 | `64:ff9b::/96` NAT64 with a blocked embedded IPv4, `64:ff9b:1::/48` | block | block | |
-| `2002::/16` 6to4, `2001::/23`, `2001:db8::/32` | allow | block | |
-| `fec0::/10`, `feff::/16` and other non-`2000::/3` space (`100::/64`, `3fff::/20`, `4000::/3`, ...) | allow | block | Python `is_site_local` / `is_reserved` |
+| `2002::/16` 6to4, `2001:0::/32` Teredo, `fec0::/10` site-local | block (staged) | block | Staged TS blocks all three whole since 2026-11-26; the in-tree TS still allows them. |
+| rest of `2001::/23`, `2001:db8::/32` | allow | block | |
+| `fe00::/9` and other non-`2000::/3` space (`100::/64`, `3fff::/20`, `4000::/3`, ...) | allow | block | Python `is_reserved` |
+| `168.63.129.16` Azure WireServer, port 0 | block (staged) | allow (in-tree); block (staged Python) | Staged only, 2026-11-26. |
 | `::1:ffff:0:0` | allow | block | Python `is_reserved` (`::/8`) |
 | Redirects | followed, each hop re-validated | every 3xx refused | behavioural |
 | Literal pre-check | yes, before DNS | no, DNS (`getaddrinfo`) only | behavioural |
+
+## Shared vector corpus: resolved differences
+
+`../vectors/DIFFERENCES.md` listed 68 vectors on which this package and the Python twin disagreed. The 2026-11-26 fixes
+above resolved 17 of them, all by changing a TS verdict from allow to block (Python already blocked them):
+
+- g6, 6to4 (8): `emb-6to4-loopback`, `emb-6to4-metadata`, `emb-6to4-rfc1918`, `emb-6to4-public`,
+  `meta-imds-6to4-literal`, `meta-imds-dns-6to4`, `v6url-6to4-private`, `dns-6to4-loopback`.
+- g7, Teredo (6): `emb-teredo-prefix`, `emb-teredo-doc-client`, `emb-teredo-loopback-client`,
+  `meta-imds-dns-teredo`, `v6url-teredo-loopback`, `dns-teredo-loopback`.
+- g11, site-local (3): `v6-site-local`, `v6url-site-local`, `dns-site-local`.
+
+Two vectors that both languages allowed now block in both: `meta-azure-wireserver` and `port-zero`. 51 differences
+remain; they are the owner's strictest-wins decision and were left alone.
 
 ## Testing
 

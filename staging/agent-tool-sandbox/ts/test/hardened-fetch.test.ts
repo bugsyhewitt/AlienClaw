@@ -256,6 +256,15 @@ describe('fixed gaps (formerly pinned)', () => {
     await expect(hardenedFetch('https://[2001:4860:4860::8888]/', POLICY)).resolves.toBe('v6');
     expect(lookup).toHaveBeenCalledWith('2001:4860:4860::8888', { all: true });
   });
+
+  // Pinned as NOT blocked until 2026-11-26; test/corpus-gaps.test.ts has the full set.
+  it('6to4 2002::/16 with an embedded private IPv4 is blocked (the whole /16 is)', () => {
+    expect(isBlockedHost('[2002:a9fe:a9fe::1]')).toBe(true);
+  });
+
+  it('deprecated site-local fec0::/10 is blocked', () => {
+    expect(isBlockedHost('[fec0::1]')).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -263,14 +272,6 @@ describe('fixed gaps (formerly pinned)', () => {
 // ---------------------------------------------------------------------------
 
 describe('KNOWN GAPS (pinned)', () => {
-  it('6to4 2002::/16 with an embedded private IPv4 is NOT blocked', () => {
-    expect(isBlockedHost('[2002:a9fe:a9fe::1]')).toBe(false);
-  });
-
-  it('deprecated site-local fec0::/10 is NOT blocked', () => {
-    expect(isBlockedHost('[fec0::1]')).toBe(false);
-  });
-
   it('localhost. (trailing dot) and *.localhost pass the literal check and rely on DNS', () => {
     expect(isBlockedHost('localhost.')).toBe(false);
     expect(isBlockedHost('foo.localhost')).toBe(false);

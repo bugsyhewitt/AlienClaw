@@ -5,11 +5,12 @@
  * Staged copy of AlienClaw's src/alienclaw/net/hardened-fetch.ts. See
  * PROVENANCE.json for the source commit and blob, and README.md for the
  * threat model. The address classifiers (isBlockedHost,
- * validateResolvedAddresses and their helpers) are verbatim; the
- * AlienClaw-specific LEADERBOARD_POLICY / leaderboardFetch wrapper was
- * removed, and connection pinning (staged only, 2026-11-26) replaced the
- * fetch() call with the node:http / node:https transport in
- * pinned-request.ts.
+ * validateResolvedAddresses and their helpers) are verbatim except for the
+ * staged-only 2026-11-26 additions (6to4, Teredo, fec0::/10, Azure
+ * WireServer); the AlienClaw-specific LEADERBOARD_POLICY / leaderboardFetch
+ * wrapper was removed, and connection pinning (staged only, 2026-11-26)
+ * replaced the fetch() call with the node:http / node:https transport in
+ * pinned-request.ts. validateUrl also refuses port 0 (staged only).
  *
  * What the code does:
  *   - Parses the URL with WHATWG `new URL()` (which canonicalises decimal,
@@ -23,11 +24,15 @@
  *     returns only those addresses, so a DNS-rebinding second answer is never
  *     asked for. Host header, TLS SNI and the certificate check keep the name.
  *   - Blocks loopback, RFC1918, link-local (169.254.x.x incl. cloud metadata),
+ *     the Azure WireServer address 168.63.129.16,
  *     CGNAT 100.64.0.0/10, benchmarking, IETF 192.0.0.0/24, multicast,
- *     reserved, IPv6 ULA / link-local / multicast / unspecified, the whole
+ *     reserved, IPv6 ULA / link-local / site-local fec0::/10 / multicast /
+ *     unspecified, the whole
  *     IPv4-mapped and IPv4-translated IPv6 space (::ffff:a.b.c.d, ::ffff:0:a.b.c.d),
- *     NAT64 64:ff9b::/96 when the embedded IPv4 is blocked, and the whole
- *     local-use NAT64 prefix 64:ff9b:1::/48.
+ *     NAT64 64:ff9b::/96 when the embedded IPv4 is blocked, the whole
+ *     local-use NAT64 prefix 64:ff9b:1::/48, and the whole 6to4 2002::/16 and
+ *     Teredo 2001:0::/32 prefixes.
+ *   - Refuses port 0 (node:http would read it as the default port).
  *   - Follows redirects manually, re-running every check on each hop; caps
  *     hops at maxRedirects (default MAX_REDIRECTS).
  *   - Validates the policy before any I/O: limits must be bounded integers,
@@ -127,6 +132,9 @@ function isBlockedIpv4(octets: [number, number, number, number]): boolean {
   if (a === 198 && (b === 18 || b === 19)) return true;  // 198.18.0.0/15 benchmarking
   if (a >= 224 && a <= 239) return true;  // 224.0.0.0/4 multicast
   if (a >= 240) return true;  // 240.0.0.0/4 reserved
+  // Azure WireServer: a PUBLIC address the host fabric answers inside every VM
+  // (goal state, extension configuration), so no range rule catches it.
+  if (a === 168 && b === 63 && octets[2] === 129 && octets[3] === 16) return true;
   return false;
 }
 
@@ -220,6 +228,17 @@ function isBlockedIpv6(hostNoBrackets: string): boolean {
       if (isBlockedIpv4([hi >> 8, hi & 0xff, lo >> 8, lo & 0xff])) return true;
     }
   }
+  // The other IPv4-embedding transition prefixes, blocked whole (staged only,
+  // 2026-11-26; the Python twin blocks them whole too). Since the pinned
+  // transport strips IPv6-literal brackets, these literals really dial.
+  //   • 2002::/16 6to4 (RFC 3056, deprecated by RFC 7526): a host or relay with
+  //     6to4 tunnels to the IPv4 in bits 16-47. Whole /16, public embeds too:
+  //     no agent tool needs 6to4, and decoding would inherit the IPv4 table.
+  //   • 2001:0::/32 Teredo (RFC 4380): the client IPv4 is obfuscated and the
+  //     server IPv4 is whatever the attacker picks, so no embedded check holds.
+  if (g0 === 0x2002) return true;
+  if (g0 === 0x2001 && groups[1] === 0) return true;
+  if (g0 >= 0xfec0 && g0 <= 0xfeff) return true;  // fec0::/10 site-local (deprecated, RFC 3879)
   if (g0 >= 0xfe80 && g0 <= 0xfebf) return true;  // fe80::/10 link-local
   if (g0 >= 0xfc00 && g0 <= 0xfdff) return true;  // fc00::/7 ULA
   if ((g0 & 0xff00) === 0xff00) return true;        // ff00::/8 multicast
@@ -369,6 +388,16 @@ function validateUrl(urlStr: string, policy: CheckedPolicy): URL {
     throw new Error(`Protocol rejected: ${parsed.protocol} — only ${allowedProtocols.join(', ')} allowed`);
   }
 
+  // WHATWG keeps port 0 ('http://h:0/' and ':00' alike), and node:http reads 0
+  // as "use the default", so the transport would dial 80 or 443. Nothing listens
+  // on 0. (A port above 65535 already fails new URL().) Staged only, 2026-11-26.
+  if (parsed.port !== '') {
+    const port = Number(parsed.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error(`Port rejected: ${parsed.port} is not a port from 1 to 65535`);
+    }
+  }
+
   // Reject if hostname is a known-blocked literal (IP literal or localhost token)
   if (isBlockedHost(parsed.hostname)) {
     throw new Error(`SSRF rejected: hostname "${parsed.hostname}" is blocked`);
@@ -434,6 +463,24 @@ async function resolveAndValidate(hostname: string, resolve: Resolver | undefine
 // ---------------------------------------------------------------------------
 
 /**
+ * True if `err` is the deadline abort: the deadline's own reason, or an error
+ * whose cause chain reaches that reason or an AbortError (DOMException or Error
+ * named so). The chain matters for the pinned transport: a body broken by the
+ * abort surfaces as TypeError('terminated', { cause: <Node AbortError> }).
+ * Ported from in-tree d18c5c5d, which checks only `err` and `err.cause`.
+ */
+function isDeadlineError(err: unknown, deadline: Error): boolean {
+  let e: unknown = err;
+  for (let depth = 0; depth < 4 && typeof e === 'object' && e !== null; depth++) {
+    if (e === deadline) return true;
+    const { name, cause } = e as { name?: unknown; cause?: unknown };
+    if (name === 'AbortError' || cause === deadline) return true;
+    e = cause;
+  }
+  return e === deadline;
+}
+
+/**
  * Perform a URL fetch with full SSRF protection and resource limits.
  *
  * @param url     The URL to fetch (string or URL object).
@@ -453,10 +500,14 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
   // outlive the budget.
   const controller = new AbortController();
   const { signal } = controller;
-  const timeoutError = (): Error => new Error(`Fetch timeout: exceeded ${p.timeoutMs}ms budget`);
-  const timer = setTimeout(() => controller.abort(), p.timeoutMs);
+  // The deadline aborts with its own reason, so the errors the deadline causes
+  // can be told apart from errors that merely settle after it: `expired` and
+  // signal.throwIfAborted() reject with it, and so does the pinned transport
+  // for an aborted request (it rejects with signal.reason).
+  const deadline = new Error(`Fetch timeout: exceeded ${p.timeoutMs}ms budget`);
+  const timer = setTimeout(() => controller.abort(deadline), p.timeoutMs);
   const expired = new Promise<never>((_resolve, reject) => {
-    signal.addEventListener('abort', () => reject(timeoutError()), { once: true });
+    signal.addEventListener('abort', () => reject(deadline), { once: true });
   });
   expired.catch(() => { /* observed through the races below */ });
   const beforeDeadline = <T>(work: Promise<T>): Promise<T> => Promise.race([work, expired]);
@@ -523,9 +574,12 @@ export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<s
       return new TextDecoder().decode(Buffer.concat(chunks));
     }
   } catch (err) {
-    // Once the timer has fired, report a timeout whatever surfaced first
-    // (our deadline, the transport's AbortError, or a stream error from the abort).
-    if (signal.aborted) throw timeoutError();
+    // Report a timeout only for an error that IS the deadline firing: its own
+    // reason, or an error whose cause chain reaches it or an AbortError raised
+    // by the abort. Anything else (an SSRF rejection, an HTTP status, the size
+    // cap) that settled as the deadline fired is reported as itself
+    // (2026-11-26 review: `if (signal.aborted)` alone turned those into timeouts).
+    if (signal.aborted && isDeadlineError(err, deadline)) throw deadline;
     throw err;
   } finally {
     clearTimeout(timer);

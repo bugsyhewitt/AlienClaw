@@ -54,7 +54,9 @@ URL when:
 - the authority has userinfo (any `@`), a `%`, brackets anywhere but around an IPv6
   literal, or more than one `:` outside brackets (urlparse splits the port at the first
   `:`, http.client at the last);
-- the port is not a number in 0-65535;
+- the port is not a number in 1-65535 (port 0 is refused with `Refusing URL with port 0: ...`:
+  urlparse accepts it, and a client that reads 0 as "use the default", as Node's http module
+  does, would dial port 80);
 - the host urllib would connect to (`Request(url).host` as split by http.client, compared
   as a `(host, port)` pair) differs from the checked one, for `raw_url` and again for the
   canonical URL;
@@ -62,8 +64,10 @@ URL when:
 - the hostname cannot be resolved (including IDNA encoding errors);
 - **any** address the hostname resolves to is loopback, private (RFC 1918, ULA and the
   rest of the stdlib's private list), link-local (which covers `169.254.169.254`
-  metadata), multicast, reserved, unspecified, CGNAT `100.64.0.0/10`, or IPv6 site-local
-  `fec0::/10`. IPv4-mapped IPv6 answers (`::ffff:a.b.c.d`) are unwrapped before the check.
+  metadata), multicast, reserved, unspecified, CGNAT `100.64.0.0/10`, the Azure WireServer
+  address `168.63.129.16` (a public address the Azure host fabric answers inside every VM,
+  so no range rule catches it), or IPv6 site-local `fec0::/10`. IPv4-mapped IPv6 answers
+  (`::ffff:a.b.c.d`) are unwrapped before the check.
 
 Resolution goes through `socket.getaddrinfo`, so every IPv4 spelling that the platform
 resolver accepts (`127.1`, `0x7f.0.0.1`, `0177.0.0.1`, `2130706433`, `0`) is checked as
@@ -278,8 +282,8 @@ def write_tool(path_str: str, text: str) -> None:
     carry that IP.
   - The pinned opener answers one request per connection (`Connection: close`, as urllib
     always does) and cannot be pointed at a second host; build one per target.
-- **No port policy, no host allowlist, no HTTPS requirement.** `http://public-host:25/`
-  passes. Response size, timeouts and content type are also the caller's job.
+- **No port policy beyond refusing port 0, no host allowlist, no HTTPS requirement.**
+  `http://public-host:25/` passes. Response size, timeouts and content type are also the caller's job.
 - **The address tables belong to the interpreter.** The classification comes from
   `ipaddress` (`is_private`, `is_reserved` and so on), and those tables changed in
   CPython 3.12.4 and 3.13, for example in the `192.0.0.0/24` sub-ranges, `2002::/16`, and
@@ -312,8 +316,8 @@ def write_tool(path_str: str, text: str) -> None:
 These are also recorded in `PROVENANCE.json` and asserted in `tests/test_parity_in_tree.py`:
 
 1. **CGNAT is blocked.** `_ip_is_blocked` blocks `100.64.0.0/10` (RFC 6598). This is the
-   reference repo's open, unmerged PR #630 applied verbatim. It is the only difference in
-   *decisions* at equivalent configuration.
+   reference repo's open, unmerged PR #630 applied verbatim. It is one of three differences
+   in *decisions* at equivalent configuration (items 5 and 6 are the others).
 2. **Deny roots come from the caller.** The reference jail reads OpenClaw environment
    variables (`workspace_root()`, `file_write_root()`) and hardcodes `~/.openclaw` as a
    denied root (`_openclaw_home()`). All three are removed. The boundary is always passed
@@ -329,6 +333,19 @@ These are also recorded in `PROVENANCE.json` and asserted in `tests/test_parity_
    the scheme, host, port and the addresses of its one resolution;
    `assert_safe_fetch_url` returns that helper's canonical URL. Decisions and messages are
    unchanged, which the parity corpus and `test_refusal_messages_are_identical` assert.
+5. **The Azure WireServer address is blocked** (staged only, 2026-11-26). `_ip_is_blocked`
+   blocks `168.63.129.16` by name (`_METADATA_IPS`, IPv4 only like CGNAT; callers unwrap
+   IPv4-mapped answers first). The reference guard allows it.
+6. **Port 0 is refused** (staged only, 2026-11-26), with `Refusing URL with port 0: ports
+   must be 1-65535`, before any resolution. The reference guard returns the URL.
+
+Items 5 and 6 came from the shared vector corpus (`../vectors/DIFFERENCES.md`). Of the 68
+python/TS differences listed there, 17 are resolved (groups g6 6to4, g7 Teredo and g11
+site-local), all by the TS package now blocking what this package already blocked, so no
+Python verdict changed for them. The two vectors both languages used to allow,
+`meta-azure-wireserver` and `port-zero`, now block in both: those are the only Python
+verdicts that changed. 51 differences remain, for the owner's strictest-wins decision.
+Regression tests: `tests/test_wireserver_port_zero.py`.
 
 The 2026-11-26 fixes (the dotfile rule, the read-path symlink gate, and the checked-host
 vs connected-host refusals with the canonical return value) were applied to both sides

@@ -72,6 +72,12 @@ def _resolve_host_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6A
 
 
 _CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")  # RFC 6598 carrier-grade NAT
+# Single PUBLIC addresses that a cloud host fabric answers inside the VM, so no range rule
+# catches them. Azure WireServer 168.63.129.16: DNS, health probes, and the VM agent's goal
+# state and extension configuration (/machine?comp=goalstate).
+_METADATA_IPS: Final[frozenset[ipaddress.IPv4Address]] = frozenset({
+    ipaddress.IPv4Address("168.63.129.16"),
+})
 
 
 def _ip_is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
@@ -88,6 +94,10 @@ def _ip_is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     # CGNAT 100.64.0.0/10 (RFC 6598) — not in is_private on any supported Python.
     # An explicit check is the only correct cross-version contract.
     if isinstance(ip, ipaddress.IPv4Address) and ip in _CGNAT_NETWORK:
+        return True
+    # Named metadata addresses (IPv4Address only, like CGNAT: every caller unwraps
+    # IPv4-mapped answers first, and the other IPv6 embeddings are blocked as ranges).
+    if isinstance(ip, ipaddress.IPv4Address) and ip in _METADATA_IPS:
         return True
     # IPv6 deprecated site-local (fec0::/10) — not covered by is_private in all Python versions
     if isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local:
@@ -241,6 +251,10 @@ def _validate_fetch_url(raw_url: str) -> _ValidatedUrl:
         port = parsed.port
     except ValueError as exc:
         raise SsrfBlockedError(f"Refusing malformed URL: {exc}")
+    # urlparse accepts port 0, and a client that reads 0 as "use the default" (Node's
+    # http module does) dials 80. Nothing listens on 0, so refuse it.
+    if port is not None and not 1 <= port <= 65535:
+        raise SsrfBlockedError(f"Refusing URL with port {port}: ports must be 1-65535")
     effective_port = port if port is not None else _DEFAULT_PORTS[parsed.scheme]
     _assert_connects_to(raw_url, host, effective_port)
     ascii_host = _ascii_host(host)

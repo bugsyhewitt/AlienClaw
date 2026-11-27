@@ -1,10 +1,12 @@
 # Python vs TS SSRF verdicts: differences
 
-> **This is input to the owner's decision, not a decision.** The corpus RECORDS current behaviour, and neither implementation was changed. Plan `docs/salvage/OSS-LIB-EXTRACTION-PLAN.md` §3.4 (gate G3) proposes a strictest-wins default. The *Strictest wins* column below is what that rule produces for each vector, nothing more.
+> **This is input to the owner's decision, not a decision.** The corpus RECORDS current behaviour. Apart from the clear-cut gaps closed on 2026-11-26 (see [Resolved](#resolved)), neither implementation was changed for this list. Plan `docs/salvage/OSS-LIB-EXTRACTION-PLAN.md` §3.4 (gate G3) proposes a strictest-wins default. The *Strictest wins* column below is what that rule produces for each vector, nothing more.
 
-Generated from `ssrf-vectors.json` (generated_at 2026-11-26, CPython 3.14.9, Node 24.18.0). Of 296 vectors, **68 differ**. Inputs are shown JSON-escaped, and `→` shows the mocked DNS answer of a `url` vector. Level `ip` is the post-DNS address classifier, and level `url` is the full guard. See README.md for the harness.
+Generated from `ssrf-vectors.json` (generated_at 2026-11-26, CPython 3.14.9, Node 24.18.0). Of 296 vectors, **51 differ**. The corpus was first frozen with 68; the 17 that the 2026-11-26 gap fixes resolved are listed under [Resolved](#resolved), with the two both-allow vectors those fixes also closed. Inputs are shown JSON-escaped, and `→` shows the mocked DNS answer of a `url` vector. Level `ip` is the post-DNS address classifier, and level `url` is the full guard. See README.md for the harness.
 
 State of the code when the verdicts were frozen: the TS package already had its connection-pinning transport (`ts/src/pinned-request.ts`, which also fixed SR-09 by stripping IPv6-literal brackets). The Python package had `pinning.py`, which runs the same checks as `assert_safe_fetch_url`. Both packages were still being edited by other agents. Run `python3 generate.py` (check mode) once those edits land to see any verdict that has moved.
+
+Later on 2026-11-26 the clear-cut gaps were closed in both staged packages and the verdicts regenerated: TS now blocks 6to4 `2002::/16`, Teredo `2001:0::/32` and site-local `fec0::/10` whole (as Python does), both languages block the Azure WireServer address `168.63.129.16`, and both refuse port 0. Exactly 19 vectors changed (21 verdicts), all listed under [Resolved](#resolved); no other verdict moved.
 
 ## Summary by range
 
@@ -15,18 +17,15 @@ State of the code when the verdicts were frozen: the TS package already had its 
 | [g3](#g3) | IPv4-mapped `::ffff:0:0/96` with a PUBLIC embedded IPv4 | 3 | allow | block | block all mapped (as TS does) |
 | [g4](#g4) | NAT64 well-known prefix `64:ff9b::/96`, embedded IPv4 that TS's table allows | 4 | block | allow | block by default; `nat64: 'decode'` opt-in (plan §3.4) |
 | [g5](#g5) | `64:ff9b::/32` outside the `/96` well-known and `/48` local-use prefixes | 2 | block | allow | block |
-| [g6](#g6) | 6to4 `2002::/16` | 8 | block | allow | block the whole /16 |
-| [g7](#g7) | Teredo `2001::/32` | 6 | block | allow | block the whole /32 |
 | [g8](#g8) | Rest of `2001::/23` (IETF protocol assignments) | 4 | block | allow | block, except the IANA globally-reachable exceptions |
 | [g9](#g9) | IPv6 documentation `2001:db8::/32`, `3fff::/20` | 3 | block | allow | block |
 | [g10](#g10) | Discard-only `100::/64` and the rest of `100::/8` | 2 | block | allow | block |
-| [g11](#g11) | Deprecated site-local `fec0::/10` | 3 | block | allow | block |
 | [g12](#g12) | Other IPv6 space outside `2000::/3` | 6 | block | allow | block (rule: allow only inside 2000::/3, minus the rows above) |
 | [g13](#g13) | Pre-DNS hostname rule (`localhost`) | 1 | allow | block | block pre-DNS |
 | [g14](#g14) | Raw-URL spellings Python refuses and WHATWG normalises | 15 | block | allow | reject (Python's rule); TS adds a raw-string pre-check before `new URL()` |
 | [g15](#g15) | URL spellings WHATWG refuses and Python accepts | 3 | allow | block | reject |
 
-Python is the stricter side on 57 vectors, and TS on 11. The CGNAT difference mentioned in earlier notes is not present: the staged Python blocks `100.64.0.0/10` in every spelling in the corpus (IPv4, mapped, NAT64, 6to4 and DNS answer), so only the in-tree AlienClaw copy still differs there.
+Groups g6 (6to4), g7 (Teredo) and g11 (site-local) are resolved; their ids are not reused. Python is the stricter side on 40 vectors, and TS on 11. The CGNAT difference mentioned in earlier notes is not present: the staged Python blocks `100.64.0.0/10` in every spelling in the corpus (IPv4, mapped, NAT64, 6to4 and DNS answer), so only the in-tree AlienClaw copy still differs there.
 
 ## Every differing vector
 
@@ -97,46 +96,12 @@ These addresses are unassigned space inside reserved `::/8`. TS checks only the 
 | `emb-nat64-32-outside-96` | ip | `64:ff9b:0:0:1::7f00:1` | block | allow | block |
 | `emb-nat64-32-outside-48` | ip | `64:ff9b:2::a9fe:a9fe` | block | allow | block |
 
-<a id="g6"></a>
-### g6: 6to4 `2002::/16`
-
-Refs: RFC 3056, RFC 7526.
-
-The prefix embeds an IPv4 in bits 16-47. A host or relay with 6to4 configured tunnels the packet to that IPv4. TS has no 6to4 rule (SR-12). Since the connection-pinning change stripped IPv6-literal brackets (the SR-09 fix), TS now really dials these literals: `meta-imds-6to4-literal` and `v6url-6to4-private` reach the connect step. Before the change they failed DNS by accident.
-
-| Vector | Level | Input | Python | TS | Strictest wins |
-|---|---|---|---|---|---|
-| `emb-6to4-loopback` | ip | `2002:7f00:1::1` | block | allow | block the whole /16 |
-| `emb-6to4-metadata` | ip | `2002:a9fe:a9fe::1` | block | allow | block the whole /16 |
-| `emb-6to4-rfc1918` | ip | `2002:a00:1::1` | block | allow | block the whole /16 |
-| `emb-6to4-public` | ip | `2002:808:808::1` | block | allow | block the whole /16 |
-| `meta-imds-6to4-literal` | url | `http://[2002:a9fe:a9fe::]/latest/meta-data/` | block | allow | block the whole /16 |
-| `meta-imds-dns-6to4` | url | `http://imds-6to4.example/latest/meta-data/` → 2002:a9fe:a9fe::1 | block | allow | block the whole /16 |
-| `v6url-6to4-private` | url | `http://[2002:7f00:1::1]/` | block | allow | block the whole /16 |
-| `dns-6to4-loopback` | url | `http://sixtofour.example/` → 2002:7f00:1::1 | block | allow | block the whole /16 |
-
-<a id="g7"></a>
-### g7: Teredo `2001::/32`
-
-Refs: RFC 4380.
-
-The prefix embeds the server IPv4 and an obfuscated client IPv4 (XOR 0xffffffff). Teredo is deprecated, and no agent tool needs it. TS has no rule here (SR-12).
-
-| Vector | Level | Input | Python | TS | Strictest wins |
-|---|---|---|---|---|---|
-| `emb-teredo-prefix` | ip | `2001::1` | block | allow | block the whole /32 |
-| `emb-teredo-doc-client` | ip | `2001:0:4136:e378:8000:63bf:3fff:fdd2` | block | allow | block the whole /32 |
-| `emb-teredo-loopback-client` | ip | `2001:0:4136:e378:8000:63bf:80ff:fffe` | block | allow | block the whole /32 |
-| `meta-imds-dns-teredo` | url | `http://imds-teredo.example/latest/meta-data/` → 2001:0:4136:e378:8000:63bf:5601:5601 | block | allow | block the whole /32 |
-| `v6url-teredo-loopback` | url | `http://[2001:0:4136:e378:8000:63bf:80ff:fffe]/` | block | allow | block the whole /32 |
-| `dns-teredo-loopback` | url | `http://teredo.example/` → 2001:0:4136:e378:8000:63bf:80ff:fffe | block | allow | block the whole /32 |
-
 <a id="g8"></a>
 ### g8: Rest of `2001::/23` (IETF protocol assignments)
 
 Refs: RFC 2928, RFC 5180, RFC 4843, RFC 9665.
 
-Python blocks all of 2001::/23 except the entries IANA marks globally reachable. TS has no rule for this range. `2001:1::3` (DNS-SD SRP anycast, RFC 9665) is marked globally reachable by IANA, but Python 3.10-3.14 do not yet exempt it. It routes to the nearest SRP server, typically an on-site Thread border router, so strictest-wins (block) is also the safe reading.
+Python blocks all of 2001::/23 except the entries IANA marks globally reachable. Inside it, TS blocks only Teredo `2001:0::/32` (since 2026-11-26). `2001:1::3` (DNS-SD SRP anycast, RFC 9665) is marked globally reachable by IANA, but Python 3.10-3.14 do not yet exempt it. It routes to the nearest SRP server, typically an on-site Thread border router, so strictest-wins (block) is also the safe reading.
 
 | Vector | Level | Input | Python | TS | Strictest wins |
 |---|---|---|---|---|---|
@@ -169,19 +134,6 @@ Not globally reachable.
 |---|---|---|---|---|---|
 | `v6-discard-host` | ip | `100::1` | block | allow | block |
 | `v6-reserved-100-8` | ip | `100:0:0:1::1` | block | allow | block |
-
-<a id="g11"></a>
-### g11: Deprecated site-local `fec0::/10`
-
-Refs: RFC 3879.
-
-Some enterprise networks still route it internally. TS has no rule here (SR-12), and after the pinning change it dials the literal.
-
-| Vector | Level | Input | Python | TS | Strictest wins |
-|---|---|---|---|---|---|
-| `v6-site-local` | ip | `fec0::1` | block | allow | block |
-| `v6url-site-local` | url | `http://[fec0::1]/` | block | allow | block |
-| `dns-site-local` | url | `http://sitelocal.example/` → fec0::1 | block | allow | block |
 
 <a id="g12"></a>
 ### g12: Other IPv6 space outside `2000::/3`
@@ -248,6 +200,41 @@ WHATWG rejects IPv6 zone IDs, IPvFuture literals and invalid punycode. Python ac
 | `v6url-ipvfuture` | url | `http://[v1.fe80::a+en1]/` → 93.184.216.34 | allow | block | reject |
 | `idna-invalid-punycode` | url | `http://xn--zz.example/` → 93.184.216.34 | allow | block | reject |
 
+<a id="resolved"></a>
+## Resolved 2026-11-26
+
+Closed in both staged packages (`python/src/agent_tool_sandbox/ssrf_guard.py`, `ts/src/hardened-fetch.ts`), with regression tests in `python/tests/test_wireserver_port_zero.py` and `ts/test/corpus-gaps.test.ts`. The in-tree AlienClaw copies are unchanged, so these are declared divergences from them (both `PROVENANCE.json` files and both parity tests).
+
+| Former group | Rule now | Vectors | Was (Python / TS) | Now |
+|---|---|---|---|---|
+| g6 | TS blocks 6to4 `2002::/16` whole, public embeds included (Python's behaviour and the strictest-wins pick) | 8 | block / allow | block / block |
+| g7 | TS blocks Teredo `2001:0::/32` whole: the client IPv4 is obfuscated and the server IPv4 is attacker-chosen | 6 | block / allow | block / block |
+| g11 | TS blocks deprecated site-local `fec0::/10` whole (RFC 3879) | 3 | block / allow | block / block |
+| both-allow | Both block the Azure WireServer address `168.63.129.16` by name, next to the metadata ranges (TS puts it in the IPv4 table, so its NAT64 embedding `64:ff9b::a83f:8110` is caught too; Python already blocked every IPv6 embedding of it) | 1 | allow / allow | block / block |
+| both-allow | Both refuse port 0 (Python: `Refusing URL with port 0: ...`; TS: `Port rejected: 0 ...`, before DNS). The TS pinned transport used to hand 0 to `node:http`, which dials the default port 80. Ports above 65535 were already refused by both parsers | 1 | allow / allow | block / block |
+
+| Vector | Level | Input | Python | TS |
+|---|---|---|---|---|
+| `emb-6to4-loopback` | ip | `2002:7f00:1::1` | block | allow → block |
+| `emb-6to4-metadata` | ip | `2002:a9fe:a9fe::1` | block | allow → block |
+| `emb-6to4-rfc1918` | ip | `2002:a00:1::1` | block | allow → block |
+| `emb-6to4-public` | ip | `2002:808:808::1` | block | allow → block |
+| `meta-imds-6to4-literal` | url | `http://[2002:a9fe:a9fe::]/latest/meta-data/` | block | allow → block |
+| `meta-imds-dns-6to4` | url | `http://imds-6to4.example/latest/meta-data/` → 2002:a9fe:a9fe::1 | block | allow → block |
+| `v6url-6to4-private` | url | `http://[2002:7f00:1::1]/` | block | allow → block |
+| `dns-6to4-loopback` | url | `http://sixtofour.example/` → 2002:7f00:1::1 | block | allow → block |
+| `emb-teredo-prefix` | ip | `2001::1` | block | allow → block |
+| `emb-teredo-doc-client` | ip | `2001:0:4136:e378:8000:63bf:3fff:fdd2` | block | allow → block |
+| `emb-teredo-loopback-client` | ip | `2001:0:4136:e378:8000:63bf:80ff:fffe` | block | allow → block |
+| `meta-imds-dns-teredo` | url | `http://imds-teredo.example/latest/meta-data/` → 2001:0:4136:e378:8000:63bf:5601:5601 | block | allow → block |
+| `v6url-teredo-loopback` | url | `http://[2001:0:4136:e378:8000:63bf:80ff:fffe]/` | block | allow → block |
+| `dns-teredo-loopback` | url | `http://teredo.example/` → 2001:0:4136:e378:8000:63bf:80ff:fffe | block | allow → block |
+| `v6-site-local` | ip | `fec0::1` | block | allow → block |
+| `v6url-site-local` | url | `http://[fec0::1]/` | block | allow → block |
+| `dns-site-local` | url | `http://sitelocal.example/` → fec0::1 | block | allow → block |
+| `meta-azure-wireserver` | url | `http://168.63.129.16/machine?comp=goalstate` | allow → block | allow → block |
+| `port-zero` | url | `http://public.example:0/` → 93.184.216.34 | allow → block | allow → block |
+
 ## DNS64 / NAT64 compatibility trade-offs (group g4)
 
 - **What breaks if the whole `64:ff9b::/96` is blocked (Python today, plan v1 default).** On an IPv6-only host behind DNS64, every IPv4-only public site resolves only to `64:ff9b::<v4>`. Examples are IPv6-only cloud subnets with DNS64 turned on, many mobile networks, and some container platforms. Blocking the /96 makes all of those sites unreachable (`dns-dns64-public`). On dual-stack and IPv4 hosts nothing is lost, because the resolver never returns these addresses there.
@@ -262,12 +249,10 @@ These are not differences. They are the `allow`/`allow` vectors a reviewer may n
 
 | Vector | Input | Why it matters |
 |---|---|---|
-| `meta-azure-wireserver` | `http://168.63.129.16/machine?comp=goalstate` | Azure WireServer `168.63.129.16` is a **public** address that the Azure host fabric answers inside every VM: DNS, health probes, and the VM agent's goal state and extension configuration at `/machine?comp=goalstate`. No range rule can catch it. It needs a named-address rule, or the plan's 'cloud metadata' hostname/address list. |
 | `port-redis-public` | `http://public.example:6379/` | Neither language has a port policy (SR-14). TS refuses only the Fetch bad-port list. |
 | `v6-pcp-anycast` | `2001:1::1` | `2001:1::1` (PCP anycast) is allowed by both, while TS blocks the IPv4 twin `192.0.0.9` (group g1). |
 | `v6-turn-anycast` | `2001:1::2` | `2001:1::2` (TURN anycast): same as above, twin of `192.0.0.10`. |
 | `v4-6to4-relay-anycast` | `192.88.99.1` | `192.88.99.0/24`, the deprecated 6to4 relay anycast prefix (RFC 7526). Plan §3.4 says block. Both languages allow it. |
 | `emb-isatap-loopback` | `2001:4860:4860::5efe:7f00:1` | An ISATAP interface ID (`::5efe:a.b.c.d`, RFC 5214) on a global prefix that embeds 127.0.0.1. It reaches the IPv4 only where the prefix is on-link on an ISATAP interface. Low risk. |
-| `port-zero` | `http://public.example:0/` | `http://public.example:0/`: Python returns the URL with `:0`, while the TS pinned transport dials **port 80**. Node treats port 0 as 'use the default', and `BAD_PORTS` in `pinned-request.ts` does not list `0`. Not an SSRF hole (the host is public), but it is a transport bug. |
 
 Every other `allow`/`allow` vector is a public control: a range edge just outside a block, a public literal or name, an IANA globally-reachable assignment (AS112, AMT, ORCHIDv2, drone DETs), or a harmless URL spelling.

@@ -2,13 +2,19 @@
 
 Puts ``<repo>/src`` on sys.path (or ``$AGENT_TOOL_SANDBOX_REFERENCE_SRC``), imports
 the reference guard and jail, and asserts identical decisions AND identical
-messages on a shared vector corpus. Two differences are declared, and each is
+messages on a shared vector corpus. Four differences are declared, and each is
 asserted explicitly rather than tolerated:
 
-1. CGNAT (the only DECISION difference at equivalent configuration): the
-   staged guard blocks 100.64.0.0/10 (RFC 6598, from the reference repo's
-   unmerged PR #630); the reference guard does not.
-2. Denied roots (API shape, not a decision difference): the reference jail
+1. CGNAT (a DECISION difference): the staged guard blocks 100.64.0.0/10
+   (RFC 6598, from the reference repo's unmerged PR #630); the reference guard
+   does not.
+2. Azure WireServer (a DECISION difference, staged only, 2026-11-26): the
+   staged guard blocks the single public address 168.63.129.16; the reference
+   guard does not.
+3. Port 0 (a DECISION difference, staged only, 2026-11-26): the staged guard
+   refuses a URL whose port is 0 ("Refusing URL with port 0: ..."); the
+   reference guard returns it.
+4. Denied roots (API shape, not a decision difference): the reference jail
    hardcodes ``~/.openclaw`` as a denied root; the staged jail takes
    ``deny_roots`` from the caller. With ``deny_roots=[Path.home() / ".openclaw"]``
    every decision is identical; only the deny message text differs. With the
@@ -52,6 +58,7 @@ except Exception as exc:  # ImportError, or anything the reference package raise
     pytest.skip(f"reference sources not importable ({exc!r})", allow_module_level=True)
 
 CGNAT = ipaddress.ip_network("100.64.0.0/10")
+WIRESERVER = ipaddress.IPv4Address("168.63.129.16")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -130,6 +137,13 @@ URL_CORPUS = [
     "http://100.64.0.1/", "http://100.127.255.255/", "http://100.100.100.200/",
     "http://1681915905/", "http://[::ffff:100.64.0.1]/", "http://cgnat.example/",
     "http://mapped-cgnat.example/", "http://100.63.255.255/", "http://100.128.0.0/",
+    # ── Azure WireServer (declared divergence) and its neighbours (no divergence)
+    "http://168.63.129.16/machine?comp=goalstate", "http://2822734096/",
+    "http://[::ffff:168.63.129.16]/", "http://wireserver.example/",
+    "http://168.63.129.15/", "http://168.63.129.17/",
+    # ── port 0 (declared divergence) and the valid port edges (no divergence)
+    "http://public.example:0/", "https://public.example:00/", "http://[2606:4700:4700::1111]:0/",
+    "http://public.example:1/", "http://public.example:65535/", "http://public.example:65536/",
 ]
 
 # Exactly these vectors may decide differently: the staged guard blocks, the reference allows.
@@ -137,6 +151,15 @@ CGNAT_DIVERGENT_URLS = frozenset({
     "http://100.64.0.1/", "http://100.127.255.255/", "http://100.100.100.200/",
     "http://1681915905/", "http://[::ffff:100.64.0.1]/", "http://cgnat.example/",
     "http://mapped-cgnat.example/",
+})
+# Staged blocks the Azure WireServer address; the reference allows it.
+WIRESERVER_DIVERGENT_URLS = frozenset({
+    "http://168.63.129.16/machine?comp=goalstate", "http://2822734096/",
+    "http://[::ffff:168.63.129.16]/", "http://wireserver.example/",
+})
+# Staged refuses port 0; the reference returns the URL.
+PORT_ZERO_DIVERGENT_URLS = frozenset({
+    "http://public.example:0/", "https://public.example:00/", "http://[2606:4700:4700::1111]:0/",
 })
 
 NON_STRING_INPUTS = [None, b"http://public.example/", 123, ["http://public.example/"]]
@@ -153,6 +176,7 @@ def _corpus_dns(fake_dns):
         "my_host.public.example",
     ):
         fake_dns.records[name] = ["93.184.216.34"]
+    fake_dns.records["wireserver.example"] = [str(WIRESERVER)]
     return fake_dns
 
 
@@ -168,6 +192,8 @@ def _url_outcome(mod, url):
 def test_corpus_has_no_duplicates() -> None:
     assert len(URL_CORPUS) == len(set(URL_CORPUS))
     assert CGNAT_DIVERGENT_URLS <= set(URL_CORPUS)
+    assert WIRESERVER_DIVERGENT_URLS <= set(URL_CORPUS)
+    assert PORT_ZERO_DIVERGENT_URLS <= set(URL_CORPUS)
 
 
 @pytest.mark.parametrize("url", URL_CORPUS)
@@ -179,6 +205,18 @@ def test_url_decision_parity(url: str) -> None:
         assert ref == ("allow", url), (
             f"reference now blocks {url!r} ({ref!r}): PR #630 is probably merged — "
             "drop the CGNAT divergence from PROVENANCE.json and this test"
+        )
+    elif url in WIRESERVER_DIVERGENT_URLS:
+        assert staged[0] == "block" and "Refusing blocked IP 168.63.129.16 " in staged[1], staged
+        assert ref[0] == "allow", (
+            f"reference now blocks {url!r} ({ref!r}): drop the WireServer divergence "
+            "from PROVENANCE.json and this test"
+        )
+    elif url in PORT_ZERO_DIVERGENT_URLS:
+        assert staged[0] == "block" and staged[1].startswith("Refusing URL with port 0: "), staged
+        assert ref[0] == "allow", (
+            f"reference now refuses {url!r} ({ref!r}): drop the port-0 divergence "
+            "from PROVENANCE.json and this test"
         )
     else:
         assert staged == ref
@@ -236,6 +274,7 @@ IP_CORPUS = [
     "192.168.0.1", "198.18.0.1", "198.51.100.1", "203.0.113.1", "224.0.0.1", "239.255.255.250",
     "240.0.0.1", "255.255.255.255", "1.1.1.1", "8.8.8.8", "93.184.216.34",
     "::", "::1", "::ffff:127.0.0.1", "::ffff:100.64.0.1", "::ffff:8.8.8.8", "::127.0.0.1",
+    "168.63.129.15", "168.63.129.16", "168.63.129.17", "::ffff:168.63.129.16",
     "64:ff9b::7f00:1", "64:ff9b:1::1", "100::1", "2001::1", "2001:db8::1", "2001:4860::8888",
     "2002:7f00:1::", "2002:808:808::", "fc00::1", "fd00:ec2::254", "fe80::1", "fe80::1%lo",
     "febf::1", "fec0::1", "feff::1", "ff02::1", "ff0e::1", "2606:4700:4700::1111",
@@ -252,6 +291,9 @@ def _assert_ip_parity(ip) -> None:
     if _cgnat_v4(ip):
         assert staged is True
         assert ref is False, f"reference now blocks CGNAT {ip}: PR #630 is probably merged"
+    elif ip == WIRESERVER:
+        assert staged is True
+        assert ref is False, "reference now blocks 168.63.129.16: drop the WireServer divergence"
     else:
         assert staged == ref, f"decision differs for {ip}: staged={staged} ref={ref}"
 
@@ -267,6 +309,22 @@ def test_cgnat_is_the_whole_declared_divergence_and_it_is_real() -> None:
         assert staged_ssrf._ip_is_blocked(ip) and not ref_ssrf._ip_is_blocked(ip)
     for ip in (CGNAT.network_address - 1, CGNAT.broadcast_address + 1):
         assert staged_ssrf._ip_is_blocked(ip) == ref_ssrf._ip_is_blocked(ip)
+
+
+def test_wireserver_divergence_is_one_address_and_it_is_real() -> None:
+    """The declared WireServer set is exactly 168.63.129.16, and must differ today."""
+    assert staged_ssrf._ip_is_blocked(WIRESERVER) and not ref_ssrf._ip_is_blocked(WIRESERVER)
+    for ip in (WIRESERVER - 1, WIRESERVER + 1):
+        assert staged_ssrf._ip_is_blocked(ip) == ref_ssrf._ip_is_blocked(ip) is False
+
+
+def test_port_zero_divergence_is_port_zero_only() -> None:
+    """Staged refuses port 0 and nothing else that the reference accepts."""
+    for port in (1, 80, 443, 8080, 65535):
+        url = f"http://public.example:{port}/"
+        assert _url_outcome(staged_ssrf, url) == _url_outcome(ref_ssrf, url) == ("allow", url)
+    assert _url_outcome(ref_ssrf, "http://public.example:0/")[0] == "allow"
+    assert _url_outcome(staged_ssrf, "http://public.example:0/")[0] == "block"
 
 
 try:

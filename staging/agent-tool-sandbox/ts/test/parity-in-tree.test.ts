@@ -2,12 +2,16 @@
  * Parity: the staged module must make the same decisions as the in-tree
  * AlienClaw module it was copied from (src/alienclaw/net/hardened-fetch.ts).
  *
- * The only allowed decision differences are DECLARED_DIVERGENCES, asserted
- * explicitly below. Block-list divergences are currently NONE: CGNAT
- * 100.64.0.0/10 was already blocked in-tree, so nothing was added, and the
- * 2026-11-26 fixes (policy validation, whole-call deadline, NAT64) were made
- * in both modules. The corpus below covers the NAT64 prefixes and the
- * end-to-end scenarios cover invalid policies and a never-ending body.
+ * The only allowed decision differences are the DECLARED divergences below,
+ * asserted explicitly (staged blocks, in-tree allows). They are the staged-only
+ * 2026-11-26 corpus-gap fixes (vectors/DIFFERENCES.md): 6to4 2002::/16, Teredo
+ * 2001:0::/32 and site-local fec0::/10 blocked whole, the Azure WireServer
+ * address 168.63.129.16 (and so its NAT64 embedding), and port 0 refused.
+ * CGNAT 100.64.0.0/10 was already blocked in-tree, and the other 2026-11-26
+ * fixes (policy validation, whole-call deadline, NAT64, deadline-only timeout
+ * reporting) were made in both modules. The corpus below covers the NAT64
+ * prefixes and the end-to-end scenarios cover invalid policies and a
+ * never-ending body.
  *
  * The export surface differs by design: the in-tree module also exports the
  * AlienClaw-specific LEADERBOARD_POLICY and leaderboardFetch.
@@ -24,6 +28,7 @@ vi.mock('node:dns/promises', () => ({
 }));
 
 import * as dnsModule from 'node:dns/promises';
+import { isIP } from 'node:net';
 import * as staged from '../src/hardened-fetch.js';
 import * as stagedIndex from '../src/index.js';
 import * as inTree from '../../../../src/alienclaw/net/hardened-fetch.js';
@@ -31,8 +36,56 @@ import { transport } from '../src/pinned-request.js';
 
 type Decision = { input: string; staged: string; inTree: string };
 
-/** Decision differences we accept on purpose. Empty: none today. */
-const DECLARED_DIVERGENCES: readonly Decision[] = [];
+/**
+ * Address decisions we accept on purpose (staged only, 2026-11-26): the staged
+ * classifier blocks these and the in-tree one allows them. Each is asserted
+ * to differ today, so a fix landing in-tree makes this file fail on purpose.
+ */
+const WIRESERVER = '168.63.129.16';
+const DECLARED_RANGES = '6to4 2002::/16, Teredo 2001:0::/32, fec0::/10, 168.63.129.16 (also as 64:ff9b::a83f:8110)';
+
+/** Expand a valid IPv6 string (zone ID and brackets ignored) into 8 groups via WHATWG canonicalisation. */
+function groupsOf(address: string): number[] | undefined {
+  const bare = address.replace(/^\[|\]$/g, '').split('%')[0]!;
+  if (isIP(bare) !== 6) return undefined;
+  const canonical = new URL(`http://[${bare}]/`).hostname.slice(1, -1);
+  const [head, tail] = canonical.includes('::') ? canonical.split('::') : [canonical, undefined];
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  const fill = tail === undefined ? [] : new Array<string>(8 - left.length - right.length).fill('0');
+  return [...left, ...fill, ...right].map((g) => parseInt(g, 16));
+}
+
+/** True if the address (IPv4 or IPv6, bracketed or not) is in a declared divergent range. */
+function inDeclaredRange(address: string): boolean {
+  const bare = address.replace(/^\[|\]$/g, '');
+  if (isIP(bare) === 4) return bare === WIRESERVER;
+  const g = groupsOf(bare);
+  if (!g) return false;
+  return groupsInDeclaredRange(g);
+}
+
+function groupsInDeclaredRange(g: readonly number[]): boolean {
+  if (g[0] === 0x2002) return true;
+  if (g[0] === 0x2001 && g[1] === 0) return true;
+  if (g[0]! >= 0xfec0 && g[0]! <= 0xfeff) return true;
+  return g[0] === 0x64 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0 &&
+    g[6] === 0xa83f && g[7] === 0x8110;
+}
+
+/** The divergence a declared input must show: staged blocks, in-tree allows. */
+function declaredHostDiff(h: string): Decision {
+  return { input: `isBlockedHost(${JSON.stringify(h)})`, staged: 'ok:true', inTree: 'ok:false' };
+}
+function declaredResolvedDiff(set: Addr[]): Decision {
+  const { address, family } = set[0]!;
+  const v = family === 6 ? 'IPv6 address' : 'address';
+  return {
+    input: `validateResolvedAddresses(${JSON.stringify(set)})`,
+    staged: `throw:SSRF rejected: resolved ${v} ${address} is in a blocked range`,
+    inTree: 'ok:undefined',
+  };
+}
 
 const lookup = vi.mocked(dnsModule.lookup);
 
@@ -70,6 +123,8 @@ const IPV4 = [
   '100.128.0.0', '198.17.255.255', '198.18.0.0', '198.19.255.255', '198.20.0.0', '198.51.100.1',
   '203.0.113.1', '223.255.255.255', '224.0.0.0', '239.255.255.255', '240.0.0.0', '255.255.255.255',
   '1.1.1.1', '8.8.8.8', '93.184.216.34',
+  // Azure WireServer (declared divergence) and its neighbours (no divergence)
+  '168.63.129.16', '168.63.129.15', '168.63.129.17',
 ];
 
 const IPV6 = [
@@ -85,6 +140,10 @@ const IPV6 = [
   '64:ff9b:1::', '64:ff9b:1::808:808', '64:ff9b:1:a9fe:a9:fe00::', '64:ff9b:1:ffff:ffff:ffff:ffff:ffff',
   '64:ff9b:2::7f00:1', '64:ff9b:0:0:1::7f00:1', '65:ff9b::7f00:1',
   '2001:db8::1', '2001:4860:4860::8888', '2606:4700:4700::1111', '1:2:3:4:5:6:7:8',
+  // declared divergences (2026-11-26) and their edges
+  '2002::', '2002:808:808::', '2002:7f00:1::1', '2001:0:4136:e378:8000:63bf:80ff:fffe', '2001:1::1',
+  '2001:200::1', '2003::1', 'feff::1', 'fed0::1', 'fe7f::1', '64:ff9b::a83f:8110', '64:ff9b::168.63.129.16',
+  '64:ff9b::a83f:8111', '::ffff:168.63.129.16',
   // malformed: every one of these must fail closed identically
   '1:2:3:4:5:6:7:8:9', '::1:::', ':::', '::g', '1::2::3', '::ffff:1.2.3', '::ffff:256.0.0.1',
   '12345::', '1:2:3:4:5:6:7', '',
@@ -198,18 +257,33 @@ describe('parity: deterministic corpus', () => {
     expect(CANONICAL_HOSTNAMES).toContain('localhost');
   });
 
-  it('isBlockedHost decisions match, except DECLARED_DIVERGENCES', () => {
-    const declared = DECLARED_DIVERGENCES.filter((d) => d.input.startsWith('isBlockedHost('));
+  it(`isBlockedHost decisions match, except the declared ranges (${DECLARED_RANGES})`, () => {
+    const declared = HOSTNAME_CORPUS.filter((h) => inDeclaredRange(h)).map(declaredHostDiff);
+    expect(declared.length).toBeGreaterThanOrEqual(20);
     expect(hostnameDiffs(HOSTNAME_CORPUS)).toEqual(declared);
   });
 
-  it('validateResolvedAddresses outcomes (including error messages) match, except DECLARED_DIVERGENCES', () => {
-    const declared = DECLARED_DIVERGENCES.filter((d) => d.input.startsWith('validateResolvedAddresses('));
+  it('validateResolvedAddresses outcomes (including error messages) match, except the declared ranges', () => {
+    const declared = RESOLVED_CORPUS
+      .filter((set) => set.length === 1 && isIP(set[0]!.address) === set[0]!.family && inDeclaredRange(set[0]!.address))
+      .map(declaredResolvedDiff);
+    expect(declared.length).toBeGreaterThanOrEqual(10);
     expect(resolvedDiffs(RESOLVED_CORPUS)).toEqual(declared);
   });
 
-  it('the declared divergence set is empty (staged and in-tree block the same addresses)', () => {
-    expect(DECLARED_DIVERGENCES).toEqual([]);
+  it('every declared range really diverges today, and its neighbours do not', () => {
+    for (const a of ['2002::', '2002:ffff:ffff:ffff:ffff:ffff:ffff:ffff', '2001::', '2001:0:ffff:ffff:ffff:ffff:ffff:ffff',
+      'fec0::', 'feff:ffff:ffff:ffff:ffff:ffff:ffff:ffff', '64:ff9b::a83f:8110']) {
+      expect(inDeclaredRange(a), a).toBe(true);
+      expect(staged.isBlockedHost(`[${a}]`), a).toBe(true);
+      expect(inTree.isBlockedHost(`[${a}]`), `in-tree now blocks ${a}: drop it from the declared ranges`).toBe(false);
+    }
+    expect(staged.isBlockedHost(WIRESERVER)).toBe(true);
+    expect(inTree.isBlockedHost(WIRESERVER), 'in-tree now blocks 168.63.129.16').toBe(false);
+    for (const a of ['2001:4860:4860::8888', '2001:200::1', '2003::1', '168.63.129.15', '168.63.129.17']) {
+      expect(inDeclaredRange(a), a).toBe(false);
+      expect(staged.isBlockedHost(a.includes(':') ? `[${a}]` : a), a).toBe(false);
+    }
   });
 });
 
@@ -223,6 +297,10 @@ describe('parity: property-based', () => {
     const octet = fc.integer({ min: 0, max: 255 });
     fc.assert(fc.property(fc.tuple(octet, octet, octet, octet), (octets) => {
       const ip = octets.join('.');
+      if (ip === WIRESERVER) {
+        expect(staged.isBlockedHost(ip) && !inTree.isBlockedHost(ip)).toBe(true);
+        return;
+      }
       expect(staged.isBlockedHost(ip)).toBe(inTree.isBlockedHost(ip));
       expect(outcome(() => staged.validateResolvedAddresses([{ address: ip, family: 4 }])))
         .toBe(outcome(() => inTree.validateResolvedAddresses([{ address: ip, family: 4 }])));
@@ -233,10 +311,18 @@ describe('parity: property-based', () => {
     fc.assert(fc.property(fc.array(hextet, { minLength: 8, maxLength: 8 }), (groups) => {
       const full = groups.map((g) => g.toString(16)).join(':');
       const canonical = new URL(`http://[${full}]/`).hostname;
+      const bare = canonical.slice(1, -1);
+      if (groupsInDeclaredRange(groups)) {
+        for (const h of [full, `[${full}]`, canonical]) {
+          expect(staged.isBlockedHost(h) && !inTree.isBlockedHost(h), h).toBe(true);
+        }
+        expect(outcome(() => inTree.validateResolvedAddresses([{ address: bare, family: 6 }]))).toBe('ok:undefined');
+        expect(() => staged.validateResolvedAddresses([{ address: bare, family: 6 }])).toThrow(/blocked range/);
+        return;
+      }
       for (const h of [full, `[${full}]`, canonical]) {
         expect(staged.isBlockedHost(h)).toBe(inTree.isBlockedHost(h));
       }
-      const bare = canonical.slice(1, -1);
       expect(outcome(() => staged.validateResolvedAddresses([{ address: bare, family: 6 }])))
         .toBe(outcome(() => inTree.validateResolvedAddresses([{ address: bare, family: 6 }])));
     }), { numRuns: 3000 });
@@ -248,6 +334,10 @@ describe('parity: property-based', () => {
       const hi = ((v4[0] << 8) | v4[1]).toString(16);
       const lo = ((v4[2] << 8) | v4[3]).toString(16);
       for (const addr of [`${prefix}${hi}:${lo}`, `${prefix}${v4.join('.')}`]) {
+        if (inDeclaredRange(addr)) {
+          expect(staged.isBlockedHost(`[${addr}]`) && !inTree.isBlockedHost(`[${addr}]`)).toBe(true);
+          continue;
+        }
         expect(staged.isBlockedHost(`[${addr}]`)).toBe(inTree.isBlockedHost(`[${addr}]`));
         expect(outcome(() => staged.validateResolvedAddresses([{ address: addr, family: 6 }])))
           .toBe(outcome(() => inTree.validateResolvedAddresses([{ address: addr, family: 6 }])));
@@ -257,7 +347,7 @@ describe('parity: property-based', () => {
 
   it('arbitrary strings get the same isBlockedHost decision', () => {
     fc.assert(fc.property(fc.string({ maxLength: 48 }), (s) => {
-      expect(staged.isBlockedHost(s)).toBe(inTree.isBlockedHost(s));
+      expect(staged.isBlockedHost(s)).toBe(inTree.isBlockedHost(s) || inDeclaredRange(s.split('%')[0]!));
     }), { numRuns: 3000 });
   });
 });
@@ -348,6 +438,33 @@ describe('parity: hardenedFetch end-to-end (stubbed DNS + fetch / transport)', (
       const a = await run(staged.hardenedFetch, 'transport');
       const b = await run(inTree.hardenedFetch, 'fetch');
       expect(a).toEqual(b);
+    });
+  }
+});
+
+// Declared end-to-end divergences (staged only, 2026-11-26): the staged module
+// refuses before DNS and before any request, the in-tree one sends the request.
+describe('parity: declared end-to-end divergences', () => {
+  const PUBLIC: Addr[] = [{ address: '93.184.216.34', family: 4 }];
+  const policy: staged.FetchPolicy = { timeoutMs: 5_000, maxBytes: 64 };
+  const cases = [
+    { name: 'Azure WireServer literal', url: 'http://168.63.129.16/machine?comp=goalstate',
+      stagedError: 'SSRF rejected: hostname "168.63.129.16" is blocked' },
+    { name: '6to4 literal embedding metadata', url: 'http://[2002:a9fe:a9fe::]/latest/meta-data/',
+      stagedError: 'SSRF rejected: hostname "[2002:a9fe:a9fe::]" is blocked' },
+    { name: 'port 0', url: 'http://example.com:0/', stagedError: 'Port rejected: 0 is not a port from 1 to 65535' },
+  ];
+  for (const c of cases) {
+    it(`${c.name}: staged refuses, in-tree fetches`, async () => {
+      lookup.mockResolvedValue(PUBLIC as never);
+      const stagedSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok'));
+      await expect(staged.hardenedFetch(c.url, policy)).rejects.toThrow(c.stagedError);
+      expect(stagedSpy).not.toHaveBeenCalled();
+      expect(lookup).not.toHaveBeenCalled();
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok'));
+      await expect(inTree.hardenedFetch(c.url, policy), `in-tree now refuses ${c.url}: drop this divergence`)
+        .resolves.toBe('ok');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
   }
 });

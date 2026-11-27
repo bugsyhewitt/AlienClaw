@@ -998,7 +998,7 @@
       "level": "ip",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "Deprecated site-local fec0::/10; still routed inside some enterprise networks.",
       "refs": [
@@ -1483,7 +1483,7 @@
       "level": "ip",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "6to4 with embedded 127.0.0.1: a 6to4 relay or host tunnels to the embedded IPv4.",
       "refs": [
@@ -1498,7 +1498,7 @@
       "level": "ip",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "6to4 with embedded cloud metadata.",
       "refs": [
@@ -1513,7 +1513,7 @@
       "level": "ip",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "6to4 with embedded 10.0.0.1.",
       "refs": [
@@ -1528,7 +1528,7 @@
       "level": "ip",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "6to4 with embedded public 8.8.8.8.",
       "refs": [
@@ -1543,7 +1543,7 @@
       "level": "ip",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "Teredo prefix 2001::/32.",
       "refs": [
@@ -1558,7 +1558,7 @@
       "level": "ip",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "Teredo, server 65.54.227.120, obfuscated client 192.0.2.45.",
       "refs": [
@@ -1573,7 +1573,7 @@
       "level": "ip",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "Teredo, obfuscated client 127.0.0.1 (bits XOR 0xffffffff).",
       "refs": [
@@ -1815,8 +1815,8 @@
       "input": "http://168.63.129.16/machine?comp=goalstate",
       "level": "url",
       "expected": {
-        "python": "allow",
-        "ts": "allow"
+        "python": "block",
+        "ts": "block"
       },
       "rationale": "Azure WireServer / host agent: a PUBLIC address that is answered by the Azure host fabric, not the internet.",
       "refs": [
@@ -1984,7 +1984,7 @@
       "level": "url",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "IMDS embedded in a 6to4 literal.",
       "refs": [
@@ -2054,7 +2054,7 @@
       ],
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "AAAA answer in 6to4 embedding IMDS.",
       "refs": [
@@ -2073,7 +2073,7 @@
       ],
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "AAAA answer in Teredo with IMDS as the obfuscated client.",
       "refs": [
@@ -2581,7 +2581,7 @@
       "level": "url",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "Deprecated site-local literal.",
       "refs": [
@@ -2728,7 +2728,7 @@
       "level": "url",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "6to4 embedding loopback.",
       "refs": [
@@ -2745,7 +2745,7 @@
       "level": "url",
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "Teredo with obfuscated client 127.0.0.1.",
       "refs": [
@@ -3614,8 +3614,8 @@
         "93.184.216.34"
       ],
       "expected": {
-        "python": "allow",
-        "ts": "allow"
+        "python": "block",
+        "ts": "block"
       },
       "rationale": "Port 0.",
       "refs": [
@@ -4564,7 +4564,7 @@
       ],
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "6to4 AAAA embedding 127.0.0.1.",
       "refs": [
@@ -4583,7 +4583,7 @@
       ],
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "Teredo AAAA, obfuscated client 127.0.0.1.",
       "refs": [
@@ -4602,7 +4602,7 @@
       ],
       "expected": {
         "python": "block",
-        "ts": "allow"
+        "ts": "block"
       },
       "rationale": "AAAA fec0::1.",
       "refs": [
