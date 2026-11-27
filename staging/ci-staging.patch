@@ -1,0 +1,30 @@
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -272,3 +272,27 @@
+         run: openclaw agents list | grep -E 'bossbot|advisorbot|creatorbot'
+       - name: Uninstall
+         run: bash install.sh --uninstall
++
++  staging:
++    name: Staged packages (non-required)
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v7
++      - uses: pnpm/action-setup@v6
++      - uses: actions/setup-node@v7
++        with:
++          node-version: '22'
++          cache: 'pnpm'
++          cache-dependency-path: 'pnpm-lock.yaml'
++      - uses: actions/setup-python@v7
++        with:
++          python-version: '3.12'
++      - name: Install dependencies
++        run: |
++          pnpm install --frozen-lockfile
++          python -m pip install --upgrade pip
++          pip install -r requirements-dev.txt
++      - name: Run every staged suite + drift check
++        # offline.sh falls back to running with network where unprivileged user
++        # namespaces are restricted (it prints a warning when it does).
++        run: bash staging/run-all-tests.sh

@@ -34,7 +34,9 @@ sources stay where they are until teardown pass 2.
   listeners only. Most packages have a `parity-in-tree` test that compares the copy with the
   in-tree original and skips cleanly once the original is gone.
 - **CI.** Root `npx vitest run` also collects the staged TS tests. The staged Python suites are
-  not in CI.
+  not in CI yet. `staging/ci-staging.patch` adds a non-required "Staged packages" job that runs
+  `run-all-tests.sh`. Apply it with a workflow-scoped token; this session's token can't edit
+  workflows. Use `ci-staging-after-pass2.patch` if `teardown-pass2/ci-pass2.patch` lands first.
 
 ## Running
 
