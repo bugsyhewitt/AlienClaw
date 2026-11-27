@@ -35,17 +35,19 @@ run_suite() {
     pho3nix-recon-http)        py pho3nix-recon-http agent-tool-sandbox/python/src ;;
     tooltime-bounds)           py tooltime-bounds ;;
     tools)                     py tools ;;
+    repo-skeleton)             (cd "$S/agent-tool-sandbox/repo-skeleton" && bash "$HEAVY" bash "$OFFLINE" \
+                                 env PYTHONDONTWRITEBYTECODE=1 python3 -m pytest tools -q -p no:cacheprovider) ;;
     *) echo "unknown package: $1" >&2; return 2 ;;
   esac
 }
 
 ALL="agent-tool-sandbox/python agent-tool-sandbox/ts genome-ts ga-engine necromancer-tuners
-pho3nix-tuner pho3nix-recon-http tooltime-bounds tools"
+pho3nix-tuner pho3nix-recon-http tooltime-bounds tools repo-skeleton"
 [ "$#" -gt 0 ] && ALL="$*"
 
 failed=""
 for pkg in $ALL; do
-  [ -d "$S/$pkg" ] || { echo "skip $pkg (not staged)"; continue; }
+  [ -d "$S/$pkg" ] || [ "$pkg" = repo-skeleton ] || { echo "skip $pkg (not staged)"; continue; }
   echo "=== $pkg"
   if run_suite "$pkg"; then echo "--- $pkg: PASS"; else echo "--- $pkg: FAIL"; failed="$failed $pkg"; fi
 done
