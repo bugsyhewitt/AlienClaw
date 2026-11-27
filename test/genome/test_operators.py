@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import random
+from types import SimpleNamespace
 
 import pytest
 
 from alienclaw.genome.alphabet import GENOME_LENGTH, SECTION_LENGTH
 from alienclaw.genome.codec import assemble, parse
-from alienclaw.genome.operators import crossover, mutate, random_genome
+from alienclaw.genome.operators import crossover, mutate, mutate_directed, random_genome
 from alienclaw.genome.validation import validate
 
 
@@ -191,3 +192,60 @@ class TestRandomGenome:
         g1 = random_genome(random.Random(42), "TEST0001")
         g2 = random_genome(random.Random(42), "TEST0001")
         assert g1 == g2
+
+
+# ---------------------------------------------------------------------------
+# Base62 precondition (stash 58b64f7a): mutate() and mutate_directed() document
+# "Raises: ValueError: if genome is not a valid 256-char Base62 string". A
+# 256-char genome with a non-Base62 character must raise that ValueError, not a
+# bare KeyError from the Xcode lookup, and must never pass through silently with
+# a freshly recomputed checksum (what rate=0.0 / no-brain calls used to do).
+# ---------------------------------------------------------------------------
+
+# One position per section: ID tag, EXECUTION Xcode 0, BEHAVIOR Xcode 0, CHECKSUM.
+_CORRUPT_POSITIONS = (3, 65, 129, 200)
+_CORRUPT_CHARS = ("!", "é", " ")
+
+
+def _corrupt(genome: str, pos: int, ch: str) -> str:
+    out = genome[:pos] + ch + genome[pos + 1:]
+    assert len(out) == GENOME_LENGTH
+    return out
+
+
+def _one_field_brain() -> SimpleNamespace:
+    """Duck-typed brain: mutate_directed reads only .parameter_schema and its fields."""
+    field = SimpleNamespace(xcode_index=0, direction="none", range_min=0, range_max=3843)
+    return SimpleNamespace(parameter_schema=(field,))
+
+
+class TestBase62Precondition:
+    @pytest.mark.parametrize("pos", _CORRUPT_POSITIONS)
+    @pytest.mark.parametrize("ch", _CORRUPT_CHARS)
+    @pytest.mark.parametrize("rate", [0.0, 1.0])
+    def test_mutate_rejects_non_base62(self, pos: int, ch: str, rate: float) -> None:
+        bad = _corrupt(WEB_GENOME, pos, ch)
+        with pytest.raises(ValueError, match="non-Base62"):
+            mutate(bad, random.Random(1), rate=rate)
+
+    @pytest.mark.parametrize("pos", _CORRUPT_POSITIONS)
+    @pytest.mark.parametrize("ch", _CORRUPT_CHARS)
+    @pytest.mark.parametrize("with_brain", [False, True])
+    def test_mutate_directed_rejects_non_base62(
+        self, pos: int, ch: str, with_brain: bool
+    ) -> None:
+        bad = _corrupt(WEB_GENOME, pos, ch)
+        brains = [None, _one_field_brain() if with_brain else None, None, None]
+        with pytest.raises(ValueError, match="non-Base62"):
+            mutate_directed(bad, brains, random.Random(1), rate=1.0)
+
+    def test_error_lists_offending_characters(self) -> None:
+        bad = _corrupt(_corrupt(WEB_GENOME, 65, "!"), 66, "@")
+        with pytest.raises(ValueError, match=r"\['!', '@'\]"):
+            mutate(bad, random.Random(1), rate=1.0)
+
+    def test_valid_genome_still_mutates(self) -> None:
+        """The precondition does not reject a valid genome (both operators)."""
+        assert validate(mutate(WEB_GENOME, random.Random(5), rate=1.0)).valid
+        brains = [None, _one_field_brain(), None, None]
+        assert validate(mutate_directed(WEB_GENOME, brains, random.Random(5), rate=1.0)).valid
