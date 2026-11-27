@@ -2,7 +2,9 @@
  * hardenedFetch behaviour: success path, redirects, policy options, errors,
  * plus pinned KNOWN GAPS (current behaviour that is not a guarantee; see
  * README "Not covered"). A fix for a gap should flip its pinned test on
- * purpose.
+ * purpose. The NAT64 and body-read gaps were fixed on 2026-11-26 and their
+ * pinned tests flipped into "fixed gaps" below; test/hardening.test.ts has
+ * the full regression set for those fixes and for policy validation.
  *
  * Network-free: DNS via vi.mock, fetch via vi.spyOn.
  */
@@ -190,11 +192,40 @@ describe('errors', () => {
     await expect(hardenedFetch('https://example.com/', POLICY)).rejects.toBe(boom);
   });
 
-  it('rejects a zero time budget before doing anything', async () => {
+  it('rejects a zero time budget as an invalid policy before doing anything', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    await expect(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 0 })).rejects.toThrow('Fetch timeout');
+    await expect(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 0 }))
+      .rejects.toThrow(/^Invalid FetchPolicy: timeoutMs must be an integer from 1 to 2147483647 \(got 0\)$/);
     expect(lookup).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixed gaps: these were pinned under KNOWN GAPS until 2026-11-26.
+// ---------------------------------------------------------------------------
+
+describe('fixed gaps (formerly pinned)', () => {
+  it('NAT64 64:ff9b::/96 with an embedded private IPv4 is blocked', () => {
+    // 64:ff9b::a9fe:a9fe embeds 169.254.169.254; 64:ff9b::a00:1 embeds 10.0.0.1.
+    expect(isBlockedHost('[64:ff9b::a9fe:a9fe]')).toBe(true);
+    expect(() => validateResolvedAddresses([{ address: '64:ff9b::a00:1', family: 6 }])).toThrow(/blocked range/);
+  });
+
+  it('the time budget covers the body read', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          setTimeout(() => {
+            controller.enqueue(new TextEncoder().encode('late'));
+            controller.close();
+          }, 80);
+        },
+      }),
+      { status: 200 },
+    ));
+    await expect(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 30 }))
+      .rejects.toThrow('Fetch timeout: exceeded 30ms budget');
   });
 });
 
@@ -203,12 +234,6 @@ describe('errors', () => {
 // ---------------------------------------------------------------------------
 
 describe('KNOWN GAPS (pinned)', () => {
-  it('NAT64 64:ff9b::/96 with an embedded private IPv4 is NOT blocked', () => {
-    // 64:ff9b::a9fe:a9fe embeds 169.254.169.254; 64:ff9b::a00:1 embeds 10.0.0.1.
-    expect(isBlockedHost('[64:ff9b::a9fe:a9fe]')).toBe(false);
-    expect(() => validateResolvedAddresses([{ address: '64:ff9b::a00:1', family: 6 }])).not.toThrow();
-  });
-
   it('6to4 2002::/16 with an embedded private IPv4 is NOT blocked', () => {
     expect(isBlockedHost('[2002:a9fe:a9fe::1]')).toBe(false);
   });
@@ -230,21 +255,6 @@ describe('KNOWN GAPS (pinned)', () => {
     // is never checked.
     expect(lookup).toHaveBeenCalledTimes(1);
     expect(fetchSpy.mock.calls[0]![0]).toBe('https://rebind.example/');
-  });
-
-  it('the time budget does not cover the body read', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(
-      new ReadableStream<Uint8Array>({
-        start(controller) {
-          setTimeout(() => {
-            controller.enqueue(new TextEncoder().encode('late'));
-            controller.close();
-          }, 80);
-        },
-      }),
-      { status: 200 },
-    ));
-    await expect(hardenedFetch('https://example.com/', { ...POLICY, timeoutMs: 30 })).resolves.toBe('late');
   });
 
   it('the default protocol list allows an https-to-http downgrade redirect', async () => {

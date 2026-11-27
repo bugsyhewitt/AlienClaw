@@ -21,7 +21,7 @@ const body: string = await hardenedFetch('https://example.com/data.json', {
 
 | Export | Kind | What it does |
 |---|---|---|
-| `hardenedFetch(url, policy)` | `Promise<string>` | Validates the URL, resolves DNS and rejects if any answer is blocked, fetches with `redirect: 'manual'`, re-validates every redirect hop, caps the size, and decodes the body as UTF-8. Throws `Error` on any rejection. |
+| `hardenedFetch(url, policy)` | `Promise<string>` | Validates the policy, validates the URL, resolves DNS and rejects if any answer is blocked, fetches with `redirect: 'manual'`, re-validates every redirect hop, caps the size, and decodes the body as UTF-8, all under one deadline. Throws `TypeError` for an invalid policy and `Error` on any other rejection. |
 | `isBlockedHost(hostname)` | `boolean` | Classifies a **`new URL(...).hostname`** string: IP literal (bracketed or bare IPv6, dotted-quad IPv4) or the tokens `localhost`, `ip6-localhost`, `ip6-loopback`. Returns `false` for ordinary DNS names, which are left to the post-DNS check. |
 | `validateResolvedAddresses(addrs)` | `void` / throws | Checks a `dns.lookup(host, { all: true })` answer. Throws if any address is blocked, if the family is not 4 or 6, if a family-4 address does not parse, or if the list is empty. |
 | `FetchPolicy`, `ResolvedAddress` | types | See below. |
@@ -36,17 +36,25 @@ literals. `isBlockedHost('0177.0.0.1')` on the raw string returns `false`.
 
 ## Policy (`FetchPolicy`)
 
-| Field | Required | Meaning |
-|---|---|---|
-| `timeoutMs` | yes | A wall-clock budget for the whole call, redirects included. It is checked at the top of every hop. Each `fetch()` gets an abort timer for the time left. See "Not covered" for the body read. |
-| `maxBytes` | yes | The body size cap. The body is streamed, and the read is cancelled as soon as the running total exceeds the cap. |
-| `protocols` | no | The protocols allowed, written without the colon. Default `['https', 'http']`. It is checked on every hop, so `['https']` also stops an https-to-http downgrade redirect. |
-| `allowedHosts` | no | An exact `URL.hostname` allowlist, checked on every hop. The match is exact (`api.example.com.` with a trailing dot does not match `api.example.com`). The block list and the DNS check still run for hosts on the list. |
-| `maxRedirects` | no | The number of hops to follow. Default 5. `0` refuses the first redirect. |
+| Field | Required | Valid values | Meaning |
+|---|---|---|---|
+| `timeoutMs` | yes | integer, 1 to 2,147,483,647 | One wall-clock deadline for the whole call: DNS, connect, headers and the full body read, redirects included. A single `AbortController` is passed to every `fetch()`, and every await (lookup, fetch, each body read) also races the deadline, so a slow-drip body aborts at `timeoutMs`. The ceiling is the largest delay Node's `setTimeout` honours (above it Node fires after 1 ms). |
+| `maxBytes` | yes | integer, 0 to 268,435,456 (256 MiB) | The body size cap. The body is streamed, and the read is cancelled as soon as the running total exceeds the cap. The ceiling exists because the body is buffered and decoded into one string. |
+| `protocols` | no | array of strings | The protocols allowed, written without the colon. Default `['https', 'http']`. It is checked on every hop, so `['https']` also stops an https-to-http downgrade redirect. |
+| `allowedHosts` | no | a `Set` | An exact `URL.hostname` allowlist, checked on every hop. The match is exact (`api.example.com.` with a trailing dot does not match `api.example.com`). The block list and the DNS check still run for hosts on the list. |
+| `maxRedirects` | no | integer, 0 to 20 | The number of hops to follow. Default 5 (`MAX_REDIRECTS`). `0` refuses the first redirect. The ceiling is the WHATWG Fetch standard's own redirect limit. |
+
+**The policy is validated before any DNS or network I/O, and it fails closed.** A value outside the table above
+throws `TypeError: Invalid FetchPolicy: <field> must be ... (got <value>)`. Only `undefined` counts as "omitted" for
+the optional fields; `null`, `NaN`, numeric strings such as `"1024"` and unit strings such as `"1kb"` are errors. Before
+this check, a policy built from JSON, environment variables or untyped JS could silently lose its limits:
+`maxBytes: NaN` (or `undefined`, or `"1kb"`) accepted a 10 MiB body, and `maxRedirects: NaN` followed redirects
+until the time budget ran out.
 
 ## What the code checks
 
-These steps run for each hop, in this order:
+The policy is checked once (`Invalid FetchPolicy`, a `TypeError`), and the deadline starts. Then these steps run for
+each hop, in this order, all under that one deadline (`Fetch timeout: exceeded <timeoutMs>ms budget`):
 
 1. `new URL(url)`. A parse failure gives `Invalid URL`.
 2. Protocol allowlist (`Protocol rejected`).
@@ -58,7 +66,7 @@ These steps run for each hop, in this order:
 6. `fetch(url, { redirect: 'manual', signal })`. A 3xx response needs a `Location` header, which is resolved
    against the current URL; the hop counter goes down and the loop returns to step 1. Any other non-2xx response
    throws `HTTP <status> from <host>`.
-7. Streamed body with the size cap.
+7. Streamed body with the size cap. Each chunk read races the deadline, so the body read is covered too.
 
 ### Block list
 
@@ -84,6 +92,8 @@ IPv6:
 | `::ffff:0:0/96` and `::ffff:0:0:0/96` | **all** IPv4-mapped and IPv4-translated (RFC 6145/6052) addresses, whatever IPv4 they embed |
 | `fe80::/10` | link-local |
 | `fc00::/7` | ULA, including the AWS IMDS IPv6 address `fd00:ec2::254` |
+| `64:ff9b::/96` when the embedded IPv4 (the last 32 bits) is in the IPv4 table | RFC 6052 NAT64 well-known prefix. On a NAT64 host `64:ff9b::a00:1` reaches `10.0.0.1` and `64:ff9b::a9fe:a9fe` reaches the metadata address. A public embedded IPv4 (`64:ff9b::808:808`) stays allowed, so DNS64 answers for IPv4-only sites keep working on IPv6-only networks. |
+| `64:ff9b:1::/48`, all of it | RFC 8215 local-use NAT64 prefix. IANA lists it as not globally reachable, and the operator chooses the embedding length inside it, so the embedded IPv4 cannot be located reliably. |
 | `ff00::/8` | multicast |
 | anything that does not parse as IPv6 | fails closed |
 
@@ -101,7 +111,11 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
 - Public hostnames whose DNS answer includes any blocked address, including a mixed public/private answer.
 - Redirect chains: every hop goes through the protocol, literal, allowlist and DNS checks again, and the number of hops is capped.
 - Non-HTTP schemes (`file:`, `gopher:`, `ftp:`, `data:`, ...).
-- Oversized responses (streamed cap) and slow servers up to the response headers (abort timer).
+- Oversized responses (streamed cap) and slow servers at every stage: one deadline covers DNS, connect, headers and
+  the full body read, so a server that drips the body slowly is cut off at `timeoutMs`.
+- Malformed policies (`NaN`, `undefined`, strings, out-of-range values): they throw before any I/O instead of
+  removing a limit.
+- NAT64 addresses (`64:ff9b::/96` with a blocked embedded IPv4, and all of `64:ff9b:1::/48`).
 
 ### Not covered
 
@@ -111,12 +125,10 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
   address. The in-tree source comment says resolver-inconsistency attacks are "impossible"; that claim is wrong, and the
   staged comment has been corrected. To close the window, connect to the validated IP yourself (for example with an undici
   `Agent` whose `connect.lookup` returns only the addresses you validated, keeping SNI and the Host header set to the name).
-- **The time budget does not cover the body read.** The abort timer is cleared once `fetch()` returns the headers.
-  A server can then send the body slowly (staying under `maxBytes`) for as long as it likes. The DNS lookup is not covered by
-  the abort signal either.
-- **IPv6 transition prefixes that embed IPv4 are not blocked:** NAT64 `64:ff9b::/96` and `64:ff9b:1::/48`,
-  6to4 `2002::/16`, and Teredo `2001::/32`. On a host with NAT64 (for example an IPv6-only cloud subnet), `64:ff9b::a00:1`
-  reaches `10.0.0.1` through the translator.
+- **`getaddrinfo` cannot be cancelled.** The lookup is raced against the deadline, so the call still fails at
+  `timeoutMs`, but a lookup that is still running is abandoned and finishes in the background (on libuv's threadpool).
+- **The other IPv6 transition prefixes that embed IPv4 are not blocked:** 6to4 `2002::/16` and Teredo `2001::/32`.
+  (NAT64 is blocked; see the block list.)
 - **Other IPv6 ranges that are not blocked:** deprecated site-local `fec0::/10`, the documentation prefix `2001:db8::/32`,
   discard `100::/64`, and the rest of the IETF-reserved space outside `2000::/3`.
 - **IPv4 documentation ranges** (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`) and other special-purpose ranges such as
@@ -129,7 +141,10 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
 - **Credential leakage in errors.** `Invalid URL: <url>` repeats the input, userinfo included.
 - **Redirect bodies are not drained or cancelled** before the next hop.
 
-`test/hardened-fetch.test.ts` pins each of these gaps under "KNOWN GAPS (pinned)". Fixing one should flip its test on purpose.
+`test/hardened-fetch.test.ts` pins the testable gaps above under "KNOWN GAPS (pinned)". Fixing one should flip its test on purpose.
+The NAT64 and body-read gaps were fixed on 2026-11-26: their pinned tests were flipped into "fixed gaps (formerly
+pinned)", and `test/hardening.test.ts` holds the full regression set for those two fixes and for policy validation
+(including a real undici fetch against a 127.0.0.1 slow-drip listener).
 
 ## Divergences from the in-tree source
 
@@ -138,7 +153,7 @@ Zone IDs (`%eth0`) are removed before the IPv6 check.
 | Exports | `LEADERBOARD_POLICY` and `leaderboardFetch` (AlienClaw-specific) are removed. Every other export is identical. |
 | Block list | **None.** CGNAT `100.64.0.0/10` was already blocked in-tree, so nothing was added. `test/parity-in-tree.test.ts` asserts that the decision divergence set is empty. |
 | Non-behavioural | The unused `node:http` / `node:https` imports are removed, and the header comment is rewritten (consumer list dropped, rebinding claim corrected). |
-| Tests | The ported vectors fix the in-tree `'[::])'` typo and replace four vacuous "obfuscated IPv4" assertions with real `new URL()` canonicalisation. The two `expect(true)` jail notes are not ported. |
+| Tests | The ported vectors fix the in-tree `'[::])'` typo and replace four vacuous "obfuscated IPv4" assertions with real `new URL()` canonicalisation. The two `expect(true)` jail notes are not ported. `test/hardening.test.ts` is the in-tree `test/net/hardened-fetch-hardening.test.ts` without its `leaderboardFetch` block. |
 
 ## Differences from the Python twin (`src/alienclaw/tools/_ssrf_guard.py`)
 
@@ -151,7 +166,8 @@ These were found by running both block predicates over a shared address corpus o
 | `::ffff:<public IPv4>` | block (all mapped) | allow | Python unwraps the address and checks the embedded IPv4. |
 | `192.0.0.9`, `192.0.0.10` | block (whole /24) | allow | Python treats these as globally reachable. |
 | `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24` | allow | block | TEST-NETs |
-| `64:ff9b::/96`, `64:ff9b:1::/48` NAT64 | allow | block | TS gap (see above) |
+| `64:ff9b::/96` NAT64 with a **public** embedded IPv4 | allow | block | TS blocks the /96 only when the embedded IPv4 is blocked, so DNS64 keeps working; Python blocks all of `::/8` through `is_reserved`, which includes the whole NAT64 /96. |
+| `64:ff9b::/96` NAT64 with a blocked embedded IPv4, `64:ff9b:1::/48` | block | block | |
 | `2002::/16` 6to4, `2001::/23`, `2001:db8::/32` | allow | block | |
 | `fec0::/10`, `feff::/16` and other non-`2000::/3` space (`100::/64`, `3fff::/20`, `4000::/3`, ...) | allow | block | Python `is_site_local` / `is_reserved` |
 | `::1:ffff:0:0` | allow | block | Python `is_reserved` (`::/8`) |
@@ -169,7 +185,9 @@ node_modules/.bin/vitest run staging/agent-tool-sandbox/ts
 node_modules/.bin/tsc -p staging/agent-tool-sandbox/ts/tsconfig.json
 ```
 
-The tests make no network calls: `node:dns/promises` is replaced with `vi.mock` and `globalThis.fetch` is spied on.
+The tests make no external network calls: `node:dns/promises` is replaced with `vi.mock` and `globalThis.fetch` is spied on.
+The one exception is the slow-drip test in `test/hardening.test.ts`, which starts a 127.0.0.1 listener, forwards the
+stubbed `fetch` to it through the real global `fetch`, and closes it afterwards.
 `test/parity-in-tree.test.ts` imports the in-tree module by relative path. Delete it, or point it at a pinned copy,
 when the package leaves the repo.
 

@@ -4,7 +4,10 @@
  *
  * The only allowed decision differences are DECLARED_DIVERGENCES, asserted
  * explicitly below. Block-list divergences are currently NONE: CGNAT
- * 100.64.0.0/10 was already blocked in-tree, so nothing was added.
+ * 100.64.0.0/10 was already blocked in-tree, so nothing was added, and the
+ * 2026-11-26 fixes (policy validation, whole-call deadline, NAT64) were made
+ * in both modules. The corpus below covers the NAT64 prefixes and the
+ * end-to-end scenarios cover invalid policies and a never-ending body.
  *
  * The export surface differs by design: the in-tree module also exports the
  * AlienClaw-specific LEADERBOARD_POLICY and leaderboardFetch.
@@ -74,6 +77,12 @@ const IPV6 = [
   '0:0:0:0:0:ffff:a9fe:a9fe', '::ffff:0:0', '::1:ffff:0:0', '::ffff:1:0', 'fe80::1', 'FE80::1',
   'fe80::1%eth0', 'febf:ffff::1', 'fec0::1', 'fc00::1', 'fd00:ec2::254', 'fdff::1', 'fbff::1',
   'ff00::', 'ff02::1', '64:ff9b::a9fe:a9fe', '64:ff9b::a00:1', '2002:a9fe:a9fe::', '2001::1',
+  // NAT64: 64:ff9b::/96 (blocked iff the embedded IPv4 is) and 64:ff9b:1::/48 (all blocked)
+  '64:ff9b::7f00:1', '64:ff9b::127.0.0.1', '64:ff9b::169.254.169.254', '64:ff9b::ac10:1',
+  '64:ff9b::c0a8:101', '64:ff9b::6464:64c8', '64:ff9b::', '64:ff9b::e000:1', '64:ff9b::ffff:ffff',
+  '64:ff9b::808:808', '64:ff9b::8.8.8.8', '64:ff9b::5db8:d822', '0064:ff9b:0000:0000:0000:0000:0a00:0001',
+  '64:ff9b:1::', '64:ff9b:1::808:808', '64:ff9b:1:a9fe:a9:fe00::', '64:ff9b:1:ffff:ffff:ffff:ffff:ffff',
+  '64:ff9b:2::7f00:1', '64:ff9b:0:0:1::7f00:1', '65:ff9b::7f00:1',
   '2001:db8::1', '2001:4860:4860::8888', '2606:4700:4700::1111', '1:2:3:4:5:6:7:8',
   // malformed: every one of these must fail closed identically
   '1:2:3:4:5:6:7:8:9', '::1:::', ':::', '::g', '1::2::3', '::ffff:1.2.3', '::ffff:256.0.0.1',
@@ -101,7 +110,8 @@ const URLS = [
   'http://user:pass@127.0.0.1/', 'http://evil.com@169.254.169.254/', 'http://169.254.169.254#@evil.com/',
   'http://[::ffff:127.0.0.1]/', 'http://[::ffff:0:127.0.0.1]/', 'http://[::127.0.0.1]/',
   'http://[0:0:0:0:0:ffff:7f00:1]/', 'http://[::ffff:100.64.0.1]/', 'http://[FE80::1]/',
-  'http://[64:ff9b::169.254.169.254]/', 'http://bücher.example/', 'http://xn--bcher-kva.example/',
+  'http://[64:ff9b::169.254.169.254]/', 'http://[64:ff9b::127.0.0.1]/', 'http://[64:ff9b:1::10.0.0.1]/',
+  'http://[64:ff9b::8.8.8.8]/', 'http://bücher.example/', 'http://xn--bcher-kva.example/',
   'https://api.example.com:8443/path?q=1',
 ];
 
@@ -181,6 +191,8 @@ describe('parity: deterministic corpus', () => {
     expect(CANONICAL_HOSTNAMES).toContain('100.64.0.1');
     expect(CANONICAL_HOSTNAMES).toContain('[::ffff:7f00:1]');
     expect(CANONICAL_HOSTNAMES).toContain('[64:ff9b::a9fe:a9fe]');
+    expect(CANONICAL_HOSTNAMES).toContain('[64:ff9b::7f00:1]');
+    expect(CANONICAL_HOSTNAMES).toContain('[64:ff9b:1::a00:1]');
     expect(CANONICAL_HOSTNAMES).toContain('xn--bcher-kva.example');
     expect(CANONICAL_HOSTNAMES).toContain('localhost');
   });
@@ -195,7 +207,7 @@ describe('parity: deterministic corpus', () => {
     expect(resolvedDiffs(RESOLVED_CORPUS)).toEqual(declared);
   });
 
-  it('the declared divergence set is empty (no block-list changes were made)', () => {
+  it('the declared divergence set is empty (staged and in-tree block the same addresses)', () => {
     expect(DECLARED_DIVERGENCES).toEqual([]);
   });
 });
@@ -227,6 +239,19 @@ describe('parity: property-based', () => {
       expect(outcome(() => staged.validateResolvedAddresses([{ address: bare, family: 6 }])))
         .toBe(outcome(() => inTree.validateResolvedAddresses([{ address: bare, family: 6 }])));
     }), { numRuns: 3000 });
+  });
+
+  it('NAT64 addresses with a random embedded IPv4 get the same decision', () => {
+    const octet = fc.integer({ min: 0, max: 255 });
+    fc.assert(fc.property(fc.tuple(octet, octet, octet, octet), fc.constantFrom('64:ff9b::', '64:ff9b:1::'), (v4, prefix) => {
+      const hi = ((v4[0] << 8) | v4[1]).toString(16);
+      const lo = ((v4[2] << 8) | v4[3]).toString(16);
+      for (const addr of [`${prefix}${hi}:${lo}`, `${prefix}${v4.join('.')}`]) {
+        expect(staged.isBlockedHost(`[${addr}]`)).toBe(inTree.isBlockedHost(`[${addr}]`));
+        expect(outcome(() => staged.validateResolvedAddresses([{ address: addr, family: 6 }])))
+          .toBe(outcome(() => inTree.validateResolvedAddresses([{ address: addr, family: 6 }])));
+      }
+    }), { numRuns: 2000 });
   });
 
   it('arbitrary strings get the same isBlockedHost decision', () => {
@@ -268,6 +293,29 @@ describe('parity: hardenedFetch end-to-end (stubbed DNS + fetch)', () => {
     },
     { name: 'size cap', url: 'https://example.com/', policy: base, dns: PUBLIC, responses: () => [new Response('x'.repeat(65))] },
     { name: 'http error', url: 'https://example.com/', policy: base, dns: PUBLIC, responses: () => [new Response('no', { status: 403 })] },
+    { name: 'nat64 literal', url: 'http://[64:ff9b::7f00:1]/', policy: base, dns: PUBLIC, responses: () => [] },
+    { name: 'dns64 metadata', url: 'https://example.com/', policy: base, dns: [{ address: '64:ff9b::a9fe:a9fe', family: 6 }], responses: () => [] },
+    { name: 'dns64 public', url: 'https://example.com/', policy: base, dns: [{ address: '64:ff9b::808:808', family: 6 }], responses: () => [new Response('ok')] },
+    // Invalid policies: both modules must throw the same TypeError before any fetch.
+    { name: 'policy maxBytes NaN', url: 'https://example.com/', policy: { ...base, maxBytes: NaN }, dns: PUBLIC, responses: () => [new Response('x'.repeat(65))] },
+    {
+      name: 'policy maxBytes string', url: 'https://example.com/', policy: { ...base, maxBytes: '1kb' as unknown as number },
+      dns: PUBLIC, responses: () => [new Response('x'.repeat(65))],
+    },
+    {
+      name: 'policy maxRedirects NaN', url: 'https://example.com/', policy: { ...base, maxRedirects: NaN }, dns: PUBLIC,
+      responses: () => [0, 1, 2].map(() => new Response(null, { status: 302, headers: { location: '/x' } })),
+    },
+    { name: 'policy timeoutMs 2^31', url: 'https://example.com/', policy: { ...base, timeoutMs: 2 ** 31 }, dns: PUBLIC, responses: () => [new Response('ok')] },
+    {
+      name: 'policy allowedHosts null', url: 'https://example.com/', policy: { ...base, allowedHosts: null as unknown as Set<string> },
+      dns: PUBLIC, responses: () => [new Response('ok')],
+    },
+    // A body that never ends must hit the same whole-call deadline.
+    {
+      name: 'never-ending body', url: 'https://example.com/', policy: { ...base, timeoutMs: 50 }, dns: PUBLIC,
+      responses: () => [new Response(new ReadableStream<Uint8Array>({ start() { /* never enqueues */ } }))],
+    },
   ];
 
   for (const sc of scenarios) {
