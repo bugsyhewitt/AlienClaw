@@ -1,0 +1,89 @@
+# PROPOSAL EXAMPLE (staged in AlienClaw, not in ToolTime).
+# Base: ~/dev/tooltime agents/agent-17/tools/gobuster/pho3nix_config/tool.yaml (untracked: agents/*/tools/
+# is gitignored), read 2026-11-26, sha256 e0be96fefc429f5a....
+# The real file has NO params block. The params block below is NEW: it declares the three
+# knobs Pho3nix's rebuild_command_with_params already appends for gobuster
+# (threads -> "-t", delay -> "--delay", timeout -> "--timeout"), with bounds from
+# AlienClaw pho3nix_tuner/tooltime_bounds.py (gobuster/threads, delay_ms, timeout_sec).
+# Param names follow Pho3nix's keys (threads/delay/timeout), not the tuner's gene names.
+name: gobuster
+safe_name: gobuster
+registry_name: gobuster
+version: latest
+description: 'gobuster: Web fuzzer for content discovery, parameter brute-forcing,
+  and endpoint enumeration using wordlists.
+
+  '
+pho3nix_category: active
+tier: bug_bounty
+rest_route: /api/tools/gobuster
+blast_radius: active
+scope_aware: true
+read_only: false
+timeout_s: 120
+modality: cli
+hardware_required: none
+privilege: user
+classification: STANDARD_AND_RESEARCH
+classification_source: packet-15-classify
+disabled: false
+saas_shippable: true
+reviewed_by: packet-15-classify
+tags:
+- tag: fuzzing
+  weight: 10
+- tag: content-discovery
+  weight: 9
+- tag: web
+  weight: 7
+cli_binary: gobuster
+cli_template: gobuster -u {url} -w {wordlist}
+params:                                       # NEW (proposal)
+  threads:
+    required: false
+    type: integer
+    default: 10
+    flag: -t
+    minimum: 1
+    description: "Number of concurrent threads (gobuster 3.8.2 default: 10)."
+    bounds:
+      min: 5
+      max: 50
+      step: 1
+      unit: threads
+      direction: increases_aggressiveness
+      evolvable: true
+      rationale: "Pho3nix optimization_profiles: stealth=5, normal=20, aggressive=50."
+      source: "pho3nix server_core/parameter_optimizer.py optimization_profiles.gobuster; gobuster dir --help"
+  delay:
+    required: false
+    type: string
+    default: "0ms"                            # gobuster's own default is spelled "0s"
+    flag: --delay
+    description: "Time each thread waits between requests, a Go duration (e.g. 1500ms)."
+    bounds:
+      min: 0
+      max: 1000
+      step: 1
+      unit: ms
+      value_template: "{value}ms"             # gene 250 -> "250ms"
+      direction: decreases_aggressiveness     # a longer delay sends fewer requests per second
+      evolvable: true
+      rationale: "Pho3nix optimization_profiles: stealth=1s, normal=0s, aggressive=0s; the gene is integer ms."
+      source: "pho3nix server_core/parameter_optimizer.py optimization_profiles.gobuster; gobuster dir --help"
+  timeout:
+    required: false
+    type: string
+    default: "10s"
+    flag: --timeout
+    description: "HTTP timeout, a Go duration (gobuster 3.8.2 default: 10s)."
+    bounds:
+      min: 5
+      max: 30
+      step: 1
+      unit: s
+      value_template: "{value}s"              # gene 10 -> "10s"
+      direction: decreases_aggressiveness     # weak: longer waits lower request throughput
+      evolvable: true
+      rationale: "Pho3nix optimization_profiles: stealth=30s, normal=10s, aggressive=5s (monotone: longer = stealthier)."
+      source: "pho3nix server_core/parameter_optimizer.py optimization_profiles.gobuster; gobuster dir --help"

@@ -1,0 +1,152 @@
+{
+  "package": "agent-tool-sandbox (python)",
+  "source_commit": "b057cf3cf91f3ece8c88ae1e4fb156ef5b3fec2c",
+  "files": [
+    {
+      "staged": "staging/agent-tool-sandbox/python/src/agent_tool_sandbox/ssrf_guard.py",
+      "source": "src/alienclaw/tools/_ssrf_guard.py",
+      "source_blob": "d80b4351721b6c176377c6d7d5f4c507c534f2e4",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/src/agent_tool_sandbox/boundary.py",
+      "source": "src/alienclaw/tools/_boundary.py",
+      "source_blob": "1184aa19f6624eaba25c2a46556f09cae640c20a",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_connect_host.py",
+      "source": "test/tools/test_ssrf_guard_connect_host.py",
+      "source_blob": "add7591d27b92e5d2596358c0c77b6638c640361",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_uninspectable_path.py",
+      "source": "test/tools/test_boundary_uninspectable_path.py",
+      "source_blob": "1c54033edc2bae8287e56d405aef54a7dd7a6868",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_dotfile_and_read_gate.py",
+      "source": "test/tools/test_boundary_dotfile_trailing_slash.py",
+      "source_blob": "5f55074f7b5285dd505ec29f93b40508129ef404",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_dotfile_and_read_gate.py",
+      "source": "test/tools/test_file_read_symlink_guard.py",
+      "source_blob": "37f15b476cc57a2822b5f98146def8365cafc242",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_url_fetch_ssrf.py",
+      "source": "test/tools/test_url_fetch_ssrf.py",
+      "source_blob": "b779c6a4cf12cc2ce6110ba2a785e96d48d5da9b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_http_get_ssrf.py",
+      "source": "test/tools/test_http_get_ssrf.py",
+      "source_blob": "2c5884307879a2c77366843b64fef2fc2191dc8b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_ssrf_guard_uncaught_idna.py",
+      "source": "test/tools/test_ssrf_guard_uncaught_idna.py",
+      "source_blob": "baa426e658fb7c22076aa8ec48e2e4e120493986",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_file_boundary.py",
+      "source": "test/tools/test_file_boundary.py",
+      "source_blob": "1ec79a31fac23c434552391c557a0e3436322f2c",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_file_write_boundary.py",
+      "source": "test/tools/test_file_write.py",
+      "source_blob": "75b2df784d2c1427e5b76afff1b3978af7b22ad7",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_url_fetch_ssrf_cgnat.py",
+      "source": "test/tools/test_url_fetch_ssrf_cgnat.py",
+      "source_blob": "814dbc12c3e6e0cec2373930f3135508e2bd0c48",
+      "relation": "adapted",
+      "source_ref": "PR #630 head (unmerged)",
+      "source_commit": "ff070bd5e9dadeaa5da32ccffd868b15eb642aa9"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_symlinked_prefix.py",
+      "source": "test/tools/test_boundary_symlinked_prefix.py",
+      "source_blob": "568c6a0d9d82f01837fccd5ccb8a8ec3cfc5c6a4",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_outside_generic_refusal.py",
+      "source": "test/tools/test_boundary_outside_generic_refusal.py",
+      "source_blob": "3281e546cd689ef58a276a7d1161996b762739ab",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_path_length_cap.py",
+      "source": "test/tools/test_boundary_path_length_cap.py",
+      "source_blob": "1e2dbb80793a6d3a1006a41dad269bb5e15d2ee7",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/agent-tool-sandbox/python/tests/test_empty_query_fragment.py",
+      "source": "test/tools/test_ssrf_guard_canonical_params.py",
+      "source_blob": "845b0df592a0fa47b30662900d1e821fffe126d5",
+      "relation": "adapted"
+    }
+  ],
+  "divergences": [
+    "CGNAT: ssrf_guard._ip_is_blocked additionally blocks RFC 6598 100.64.0.0/10 (IPv4Address only), applied verbatim from open/unmerged PR #630 (head ff070bd5e9dadeaa5da32ccffd868b15eb642aa9, which changes src/alienclaw/tools/_ssrf_guard.py a67f6c7d -> 328ac5f8). In-tree allows these addresses. It is one of three decision differences at equivalent configuration (the Azure WireServer and port-0 entries below are the others); tests/test_parity_in_tree.py asserts it explicitly and fails if in-tree starts blocking CGNAT.",
+    "test_url_fetch_ssrf_cgnat.py derives from PR #630 head ff070bd5; the file is absent at source_commit, so its source_blob is taken from that PR commit, not from source_commit.",
+    "boundary: removed the OpenClaw/env helpers workspace_root(), file_write_root(), _openclaw_home() and the _OPENCLAW_SUBPATH constant; callers always pass the boundary root explicitly.",
+    "boundary: the hardcoded ~/.openclaw denial inside assert_inside_boundary became a keyword-only parameter deny_roots=() (iterable of str/PathLike; a single str/PathLike is accepted). Default denies nothing beyond the boundary. With deny_roots=[Path.home() / '.openclaw'] every decision is identical to in-tree (asserted by tests/test_parity_in_tree.py).",
+    "boundary: deny-root rejection message changed from 'OpenClaw workspace denied: \"<path>\" targets an OpenClaw agent directory' to 'Denied root: \"<path>\" targets a denied directory'. All other error messages in both modules are byte-identical to in-tree.",
+    "Docstrings/comments genericised (product names, ticket numbers and caller file references removed).",
+    "2026-11-26: three security fixes were applied to BOTH sides (in-tree src/alienclaw/tools and this package) with identical code, so they are not divergences: (1) dotfile rule: the final component that names something is checked ('.env/', '.env/./' were accepted because basename() was ''), and so is the resolved path's final component (symlink to a dotfile); dot-directories stay allowed; (2) checked host vs connected host: the guard refuses backslash/whitespace/control characters, userinfo, '%' in the host, a second ':' outside brackets, host characters outside [a-z0-9._-] after IDNA, and any URL whose urllib/http.client (host, port) differs from the checked one, and it now RETURNS A CANONICAL URL (lower-case scheme/host, IDNA host, port only if given, no userinfo) instead of the input; covers security-review SR-01 (backslash with requests) and SR-03 (multi-colon port split, %2f/%23); (3) assert_no_symlink gained keyword-only operation='write' (message wording only) so read paths can use it; in-tree file_read now calls it on the unresolved path and opens with O_NOFOLLOW (file_read has no staged counterpart). The ssrf_guard/boundary source_blob values above are the FIXED in-tree blobs (uncommitted when written, so absent at source_commit); the CGNAT divergence is unchanged.",
+    "2026-11-26: tests/test_file_boundary.py and tests/test_http_get_ssrf.py had their strict xfails (trailing-slash dotfile; connect host) converted into passing regression tests; the in-tree tests they were adapted from are unchanged. tests/test_connect_host.py additionally checks the returned URL against urllib3, httpx and yarl (each skipped if not installed); that part has no in-tree counterpart. tests/test_parity_in_tree.py's corpus gained the new URL and path vectors.",
+    "Ported tests are guard-level only: tool-level assertions (RunResult ok/correctness, atomic write, output contract, compute/extract_json/search_text guards in test_file_boundary.py) were not ported. The real-socket HTTPServer redirect tests were replaced with an in-process urllib handler, and DNS is a fake resolver (real libc parser via AI_NUMERICHOST for literals), so the suite is network-free.",
+    "connection pinning added (staged only, 2026-11-26): new src/agent_tool_sandbox/pinning.py (resolve_and_validate -> PinnedTarget, build_pinned_opener, pinned_urlopen, PinnedHTTPConnection/PinnedHTTPSConnection: dial only the validated IPs, no second resolution, Host/SNI/cert check on the original host, no redirects, no proxies) and tests/test_pinning.py; __init__.py re-exports the four public names. In ssrf_guard.py the body of assert_safe_fetch_url moved into private _validate_fetch_url, which also returns scheme/host/effective port and the ONE resolution's addresses; assert_safe_fetch_url returns its canonical_url. Decisions and messages are unchanged (parity corpus unchanged and green). In-tree src/alienclaw/tools has no pinning.",
+    "2026-11-26 (review follow-up): assert_no_symlink fails closed when a path component cannot be inspected. Python 3.12's Path.is_symlink() re-raises lstat errors other than ENOENT/ENOTDIR/EBADF/ELOOP (EACCES under an unsearchable directory, e.g. /root/.ssh/id_rsa), so a caller catching only ValueError crashed; any OSError is now ValueError('Path not inspectable on <operation>: \"<path>\" (<reason>)'). Applied to BOTH sides with identical code and message (a new _is_symlink helper), so it is not a divergence. tests/test_uninspectable_path.py is the guard-level part of the in-tree test/tools/test_boundary_uninspectable_path.py. The in-tree test/tools/test_ssrf_guard_connect_host.py changed only in its tool-level test (output url is the caller's input, the new fetched_url is the canonical URL), which is not ported, so tests/test_connect_host.py is unchanged and only its source_blob was refreshed.",
+    "Azure WireServer (staged only, 2026-11-26; shared vector corpus meta-azure-wireserver): ssrf_guard._ip_is_blocked additionally blocks the single public address 168.63.129.16 (new _METADATA_IPS frozenset, IPv4Address only like CGNAT; _resolve_host_ips and pinning._checked_addresses unwrap IPv4-mapped answers first, and 6to4/Teredo/NAT64 embeddings were already blocked as ranges). Refusal message is the existing 'Refusing blocked IP 168.63.129.16 (resolved from ...)'. In-tree allows it. A DECISION divergence, declared in tests/test_parity_in_tree.py (WIRESERVER_DIVERGENT_URLS, the IP corpus and test_wireserver_divergence_is_one_address_and_it_is_real), which fails if in-tree starts blocking it.",
+    "Port 0 (staged only, 2026-11-26; shared vector corpus port-zero): _validate_fetch_url refuses an explicit port outside 1-65535 right after parsing it, with 'Refusing URL with port 0: ports must be 1-65535' (urlparse already raises for ports above 65535, so in practice only 0 is new). In-tree returns the URL unchanged. A DECISION divergence, declared in tests/test_parity_in_tree.py (PORT_ZERO_DIVERGENT_URLS, test_port_zero_divergence_is_port_zero_only). pinning.py is unchanged: resolve_and_validate goes through _validate_fetch_url.",
+    "tests/test_wireserver_port_zero.py is new (no in-tree counterpart): regression tests for the two entries above plus pins for the 6to4, Teredo, fec0::/10 and NAT64-WireServer blocks this package already had and the TS package now matches.",
+    "Total deadline (staged only, 2026-11-26; PINNING-SECURITY-REVIEW PR-02, plan gate G4): pinned_urlopen's timeout is now ONE time.monotonic() budget for the resolution, every connect attempt (each gets what is left), TLS, sending (re-armed per 16 KiB), the response head and every read of the returned response, across redirect hops; it raises the new pinning.DeadlineExceededError (a TimeoutError and a urllib.error.URLError, with .phase). Under a deadline the one resolution runs in a daemon thread (getaddrinfo cannot be interrupted), at most 16 at once, abandoned ones included; past the cap a call fails closed. timeout must be None or a positive finite number (ValueError/TypeError). build_pinned_opener and PinnedHTTP(S)Connection gained keyword deadline=None (unchanged per-operation behaviour without it). No in-tree counterpart. Tests: tests/test_deadline.py; tests/test_pinning.py test_timeout_reaches_the_socket / test_default_timeout_is_bounded now expect the remaining budget (<= timeout) instead of timeout itself.",
+    "Refusal messages (staged only, 2026-11-26; PR-03): a refusal that depends on the DNS answer no longer names the resolved address and reads the same for blocked and unresolvable: \"Refusing hostname '<host>': not an allowed destination\". SsrfBlockedError (still a ValueError) gained keyword-only detail (the reference message, e.g. 'Refusing blocked IP 10.0.0.1 (resolved from ...)'; equal to str(exc) when nothing is withheld), blocked_address and hostname. A MESSAGE divergence, declared in tests/test_parity_in_tree.py (decisions and reference messages compared through exc.detail; test_refusal_message_divergence). Tests: tests/test_refusal_disclosure.py; tests/test_pinning.py and tests/test_wireserver_port_zero.py assert the detail instead of the old text.",
+    "Loopback names and redaction (staged only, 2026-11-26; plan gate G7): _validate_fetch_url refuses localhost, *.localhost (trailing dots too) and ip6-localhost/ip6-loopback after IDNA and before DNS (RFC 6761 \u00a76.3), 'Refusing hostname <host>: reserved loopback name (RFC 6761)'; in-tree refuses them only through a loopback answer. Shared corpus: loc-localhost-lying-resolver python allow -> block (now equal to ts). Every URL that goes into a message (redirect Location, the pinned-to and inconsistent-target messages, malformed-URL text from urllib/http.client) has its userinfo, query and fragment replaced by REDACTED (_redact_url, _scrub). Declared in tests/test_parity_in_tree.py (LOOPBACK_NAME_URLS). Tests: tests/test_localhost_and_redaction.py.",
+    "Opt-in redirects (staged only, 2026-11-26; plan gate G5): pinned_urlopen(follow_redirects=0) keeps refusing every 301/302/303/307/308 with the same message; with N in 1..20 each hop is re-validated and re-pinned (its own resolution), https -> http is refused, Authorization, Cookie, Proxy-Authorization and a caller-set Host are dropped on a cross-origin hop, 307/308 keep method and body, 301/302/303 become a body-less GET (HEAD stays HEAD), the redirect body is never read, and hops share the total deadline. build_pinned_opener is unchanged (still refuses redirects). Tests: tests/test_redirects.py.",
+    "Data-driven block list (staged only, 2026-11-26; prepares plan gate G3, no decision change): _ip_is_blocked and _is_loopback_name read the new GENERATED module src/agent_tool_sandbox/_blocklist_data.py (written by ../policy/gen_python.py from ../policy/blocklist.v1.json, the table the TS package reads too) instead of the ipaddress.is_* properties, _CGNAT_NETWORK, _METADATA_IPS and _LOOPBACK_NAMES (all three constants removed). Every range is enumerated explicitly; IPv4-mapped and NAT64 are named matchers (block whole / decode the low 32 bits / defer). _resolve_host_ips unwraps IPv4-mapped answers only while the table's ipv4-mapped matcher is a decode (UNWRAP_IPV4_MAPPED, true today). Zero behaviour change on CPython 3.10.22/3.11.17/3.12.13/3.14.9: all 296 shared-corpus verdicts and messages identical, the parity corpus unchanged, and an old-vs-new differential over ~600k addresses per interpreter agreed everywhere; a raw IPv4-mapped IPv6Address handed straight to _ip_is_blocked still skips CGNAT and WireServer (decode_excludes), as in-tree does. On older unpatched interpreters the table's verdicts now apply instead of that interpreter's ipaddress tables. Tests: tests/test_blocklist_data.py (byte-for-byte drift check of the generated module, no is_* attribute in ssrf_guard.py, profile semantics, schema refusals).",
+    "Redirect fixes from the shared redirect corpus (staged only, 2026-11-26; plan gate G5): pinned_urlopen reads a non-ASCII Location's bytes as UTF-8 (U+FFFD for invalid sequences) and percent-encodes non-ASCII in the hop's path, query and fragment, after applying the guard's character rule to the decoded URL (before: UnicodeEncodeError escaped, vector relative-non-ascii-path); a redirect with more than one Location header raises SsrfBlockedError 'Refusing redirect (status N): K Location headers' (before: the first was followed); an empty or blank Location is treated as missing, HTTPError at once (before: the same URL was requested again until the hop cap). Tests: tests/test_redirects.py, vectors/redirect-vectors.json.",
+    "Caller IRIs (staged only, 2026-11-26): _validate_fetch_url (so assert_safe_fetch_url, resolve_and_validate and pinned_urlopen) applies the character rule to the URL as given, then percent-encodes as UTF-8 every non-ASCII character after the authority (path, query, fragment; existing %XX and ASCII untouched) BEFORE every other check, so the checks and the returned canonical URL see the ASCII form: 'http://b\u00fccher.example/caf\u00e9' -> 'http://xn--bcher-kva.example/caf%C3%A9', as WHATWG new URL() writes it (before: the guard returned the raw path and pinned_urlopen let http.client's UnicodeEncodeError escape). _percent_encode_non_ascii moved from pinning.py into ssrf_guard.py and no longer round-trips through urlsplit/urlunsplit (which dropped an empty '?' or '#'); the redirect path now relies on the guard for the encoding and still applies the character rule itself first. The reference returns non-ASCII unchanged: same decision, different URL, declared in tests/test_parity_in_tree.py (IRI_DIVERGENT_URLS). All shared SSRF and redirect corpus verdicts unchanged. Tests: tests/test_caller_iri.py.",
+    "Packaging (staged only, 2026-11-26; plan gate G14, dry runs only): pyproject.toml requires-python '>=3.11' (was '>=3.10'; 3.10 reached end of life in October 2026, PEP 619; the code still runs on 3.10), build requirement setuptools>=77 with the PEP 639 SPDX expression license = 'MIT' (was the deprecated license table plus the License classifier, which setuptools>=77 refuses together with an expression), 3.11-3.14 and '3 :: Only' classifiers, ruff target-version py311. New MANIFEST.in prunes tests/ and excludes PROVENANCE.json from the sdist (setuptools adds tests/test*.py by default). Offline pip wheel / python -m build --sdist: the wheel holds the five package modules plus dist-info only.",
+    "2026-11-26: the empty-';' canonical-URL fix is now in-tree too (test/tools/test_ssrf_guard_canonical_params.py); no divergence",
+    "Typing (staged only, 2026-11-26; plan gate G9): the package passes mypy --strict on 3.11-3.15 with no behavior change. ssrf_guard._NoRedirect.http_error_302 and pinning._HandBackRedirect.http_error_302 are annotated with typeshed's signature; pinning names the private socket._GLOBAL_DEFAULT_TIMEOUT through _is_default_timeout (getattr on each call, as before), types _Budget/_dial/_DeadlineReader with socket.socket, float | None and tuple[str, int] | None, declares source_address and response_class on _PinnedConnectionMixin (annotations only), casts the deadline socket view to socket.socket for HTTPResponse, and keeps one type: ignore[assignment] where a factory replaces response_class. boundary.assert_inside_boundary's deny_roots annotation now admits the single path it already accepted (str | os.PathLike[str] | Iterable[...]). New py.typed (PEP 561), listed in [tool.setuptools.package-data]; [tool.mypy] strict, python_version 3.11, files src. The wheel holds the five modules plus py.typed.",
+    "2026-11-26 (in-tree commit 8d66853c, second review pass): assert_no_symlink gained keyword-only root=None. With root set it walks the components of the UNRESOLVED path top-down, skips '..', and lstats a component only if realpath(its directory) is at or below realpath(root) (new helpers _at_or_below and _entries_at_or_below): a symlinked prefix (macOS /tmp -> /private/tmp, a symlinked home, a root spelled through a symlink) is accepted, an in-root symlink is still refused ('Symlink rejected' for the final component, 'Symlink in path rejected' otherwise, 'Path not inspectable' on an lstat error), and nothing outside the root is lstat'ed, so an out-of-boundary path gets only assert_inside_boundary's generic 'Path traversal rejected'. root=None keeps the full walk. Same code and messages on both sides, so not a divergence; the staged copy only adds the return annotation Iterator[Path] on _entries_at_or_below (mypy --strict) and genericised docstrings. boundary.py's and tests/test_uninspectable_path.py's source_blob were refreshed to the 8d66853c blobs. Not ported (no staged file tools): file_read's O_NOFOLLOW|O_NONBLOCK open, fstat S_ISREG, size from the fd and O_NOFOLLOW dir-fd ancestor walk, file_write's root= call, and test/tools/test_file_read_open_races.py; the README read example now shows the open-side hardening. Tests: tests/test_symlinked_prefix.py and tests/test_outside_generic_refusal.py are guard-level adaptations of the new in-tree tests (the documented call order stands in for file_read/file_write; the ALIENCLAW_HOME case is environment wiring and is not ported; each adds root=None back-compat pins); tests/test_uninspectable_path.py keeps its root=None cases and adds root= cases (outside: generic refusal, inside: fails closed), mirroring the two in-tree assertions that now expect the generic error; tests/test_shared_fs_vectors.py's harness passes root= (and O_NONBLOCK on the read open); tests/test_parity_in_tree.py also compares root= outcomes against the reference, including through a symlinked prefix.",
+    "2026-11-26 (third, security review of the in-tree fix set; F1 and F2 applied to BOTH sides with identical code and messages, so not divergences): F1, boundary: a path over 4096 UTF-8 bytes or with more than 256 components ('' and '.' skipped, '..' counted; assert_no_symlink also allows the components of os.path.abspath(root)) is refused before any filesystem call by assert_inside_boundary and assert_no_symlink, 'Path rejected: N bytes is longer than the 4096-byte limit' / 'Path rejected: N components is more than the 256-component limit' (new MAX_PATH_BYTES, MAX_PATH_COMPONENTS, _component_count, _assert_path_bounded); _entries_at_or_below carries the containing directory's real path from step to step (dirname for '..', parent_real/part after an in-root entry passed, realpath() only on an out-of-root step), so the walk is linear; before, realpath() per component made it quadratic (an 8 KB path took ~30 s). F2, ssrf_guard._canonical_url rebuilds only the authority and keeps everything after it exactly as given, so an empty '?' or '#' is no longer dropped. Staged only: pinning._join_location replaces urljoin() for a redirect Location, because urljoin() before Python 3.14 drops an empty '?'/'#' (and for a bare '?' keeps the base query); RFC 3986/WHATWG keep them, as does 3.14. No shared SSRF or redirect corpus vector has an empty '?' or '#', so no verdict or message changed and vectors/generate.py was not re-run. tests/test_property_url_guard.py's 'documented drops' now expect the markers kept. New tests: tests/test_path_length_cap.py (guard-level adaptation of test/tools/test_boundary_path_length_cap.py) and tests/test_empty_query_fragment.py (canonical URL from test/tools/test_ssrf_guard_canonical_params.py, plus _join_location). F3 (file_read bounded read) has no staged counterpart."
+  ],
+  "new_files": [
+    "src/agent_tool_sandbox/__init__.py",
+    "src/agent_tool_sandbox/pinning.py",
+    "tests/conftest.py",
+    "tests/test_pinning.py",
+    "tests/test_wireserver_port_zero.py",
+    "tests/test_deadline.py",
+    "tests/test_localhost_and_redaction.py",
+    "tests/test_redirects.py",
+    "tests/test_refusal_disclosure.py",
+    "src/agent_tool_sandbox/_blocklist_data.py",
+    "tests/test_blocklist_data.py",
+    "tests/test_caller_iri.py",
+    "MANIFEST.in",
+    "tests/test_property_url_guard.py",
+    "tests/test_property_blocklist.py",
+    "tests/test_property_pinning.py",
+    "tests/test_property_boundary.py",
+    "src/agent_tool_sandbox/py.typed"
+  ]
+}

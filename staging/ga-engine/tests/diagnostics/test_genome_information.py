@@ -1,0 +1,200 @@
+"""Tests for genome_information.py — mutual information module."""
+from __future__ import annotations
+
+import random
+
+import pytest
+
+from alienclaw_ga.diagnostics.genome_information import (
+    genome_byte_mutual_information,
+    mutual_information,
+    summarize_genome_fitness_mi,
+)
+
+
+class TestMutualInformation:
+    def test_identical_xy_high_mi(self):
+        """Y=X: MI should be approximately H(X)."""
+        # X has 4 equally likely values: MI should be ~log(4) nats ≈ 1.386
+        x = list(range(4)) * 100  # 400 samples
+        y = [float(v) for v in x]
+        mi = mutual_information(x, y, n_bins_y=4)
+        assert mi > 1.0  # substantial MI
+
+    def test_independent_xy_near_zero_mi(self):
+        """Y independent of X: MI should be ≈ 0."""
+        import random
+        rng = random.Random(42)
+        n = 1000
+        x = [rng.randint(0, 5) for _ in range(n)]
+        y = [rng.uniform(0.0, 1.0) for _ in range(n)]
+        mi = mutual_information(x, y)
+        # With 1000 samples and Miller-Madow correction, should be near 0
+        assert mi < 0.1
+
+    def test_constant_y_zero_mi(self):
+        """Constant Y → zero MI."""
+        x = list(range(50))
+        y = [0.5] * 50
+        mi = mutual_information(x, y)
+        assert mi == 0.0
+
+    def test_length_mismatch_raises(self):
+        with pytest.raises(ValueError):
+            mutual_information([1, 2, 3], [0.5, 0.5])
+
+    def test_returns_non_negative(self):
+        """MI must always be ≥ 0."""
+        import random
+        rng = random.Random(99)
+        x = [rng.randint(0, 10) for _ in range(100)]
+        y = [rng.random() for _ in range(100)]
+        assert mutual_information(x, y) >= 0.0
+
+    def test_noisy_y_intermediate_mi(self):
+        """Y = X + small_noise: MI should be between 0 and H(X)."""
+        import random
+        rng = random.Random(42)
+        n = 500
+        x = [rng.randint(0, 3) for _ in range(n)]
+        y = [xi + rng.gauss(0, 0.1) for xi in x]
+        mi = mutual_information(x, y)
+        assert mi > 0.1  # some signal
+        assert mi < 2.5  # not more than H(X) ≈ log(4)
+
+    def test_n_bins_y_parameter(self):
+        """n_bins_y parameter accepted and produces different results."""
+        x = list(range(4)) * 50
+        y = [float(v) + 0.1 for v in x]
+        mi2 = mutual_information(x, y, n_bins_y=2)
+        mi10 = mutual_information(x, y, n_bins_y=10)
+        assert mi2 >= 0
+        assert mi10 >= 0
+
+    def test_single_sample_returns_zero(self):
+        assert mutual_information([42], [0.5]) == 0.0
+
+    def test_empty_returns_zero(self):
+        assert mutual_information([], []) == 0.0
+
+
+class TestGenomeByteMutualInformation:
+    def _make_synthetic_genomes(self, n: int, seed: int = 42) -> tuple[list[str], list[float]]:
+        """Make synthetic 256-char genomes with fitness = byte[0] / 62."""
+        import random
+        rng = random.Random(seed)
+        from alienclaw_ga.diagnostics.genome_information import BASE62
+        genomes = []
+        fitnesses = []
+        for _ in range(n):
+            g = "".join(rng.choice(BASE62) for _ in range(256))
+            # Fitness driven by byte 0
+            fit = BASE62.index(g[0]) / 62.0
+            genomes.append(g)
+            fitnesses.append(fit)
+        return genomes, fitnesses
+
+    def test_byte0_has_high_mi_when_drives_fitness(self):
+        """When fitness is driven by byte 0, byte 0 should have high MI."""
+        genomes, fitnesses = self._make_synthetic_genomes(200)
+        result = genome_byte_mutual_information(genomes, fitnesses, byte_indices=[0, 1, 2])
+        # byte 0 should have higher MI than byte 1 or 2 (which don't drive fitness)
+        assert result[0] > result[1]
+
+    def test_summary_keys_present(self):
+        genomes, fitnesses = self._make_synthetic_genomes(50)
+        result = genome_byte_mutual_information(genomes, fitnesses, byte_indices=range(10))
+        assert "summary" in result
+        for key in ("max_byte_mi", "mean_byte_mi", "n_significant_bytes", "threshold_nats"):
+            assert key in result["summary"]
+
+    def test_constant_fitness_all_zero_mi(self):
+        """Constant fitness → all byte MIs ≈ 0."""
+        import random
+
+        from alienclaw_ga.diagnostics.genome_information import BASE62
+        rng = random.Random(42)
+        genomes = ["".join(rng.choice(BASE62) for _ in range(256)) for _ in range(50)]
+        fitnesses = [0.5] * 50
+        result = genome_byte_mutual_information(genomes, fitnesses, byte_indices=range(5))
+        assert result["summary"]["max_byte_mi"] == 0.0
+
+    def test_empty_genomes_returns_zero_summary(self):
+        result = genome_byte_mutual_information([], [])
+        assert result == {
+            "summary": {
+                "max_byte_mi": 0.0,
+                "mean_byte_mi": 0.0,
+                "n_significant_bytes": 0,
+                "threshold_nats": 0.01,
+            }
+        }
+
+
+class TestSummarizeGenomeFitnessMi:
+    def test_structure(self):
+        import random
+
+        from alienclaw_ga.diagnostics.genome_information import BASE62
+        rng = random.Random(42)
+        genomes = ["".join(rng.choice(BASE62) for _ in range(256)) for _ in range(30)]
+        fitnesses = [rng.random() for _ in range(30)]
+        result = summarize_genome_fitness_mi(genomes, fitnesses)
+        for key in ("n_samples", "global_max_byte_mi", "section_max_mi"):
+            assert key in result
+        assert result["n_samples"] == 30
+
+
+# ── Dead-code note (updated PKT-616) ──────────────────────────────────────────
+# L29-30 (_freedman_diaconis_nbins `if h <= 0 or span <= 0`) is now genuinely
+# unreachable: the PKT-616 entry-point guard in mutual_information raises before
+# _freedman_diaconis_nbins is ever called with NaN/Inf. The prior claim that
+# "iqr>0 always holds" was FALSE under NaN/Inf inputs — that code path was
+# reachable and crashed with ValueError/OverflowError. The new guard at the
+# mutual_information entry point closes that gap.
+
+
+class TestMutualInformationInputSafety:
+    """PKT-616: y/fitnesses input-safety guards."""
+
+    def test_y_with_nan_raises(self):
+        x = list(range(10))
+        y = [0.1 * i if i != 5 else float("nan") for i in range(10)]
+        with pytest.raises(ValueError, match=r"y\[5\] must be a finite number, got nan"):
+            mutual_information(x, y)
+
+    def test_y_with_pos_inf_raises(self):
+        x = list(range(10))
+        y = [0.1 * i if i != 5 else float("inf") for i in range(10)]
+        with pytest.raises(ValueError, match=r"y\[5\] must be a finite number, got inf"):
+            mutual_information(x, y)
+
+    def test_y_with_neg_inf_raises(self):
+        x = list(range(10))
+        y = [0.1 * i if i != 5 else float("-inf") for i in range(10)]
+        with pytest.raises(ValueError, match=r"y\[5\] must be a finite number, got -inf"):
+            mutual_information(x, y)
+
+    def test_all_nan_y_raises(self):
+        x = list(range(10))
+        y = [float("nan")] * 10
+        with pytest.raises(ValueError, match=r"y\[0\] must be a finite number, got nan"):
+            mutual_information(x, y)
+
+    def test_genome_byte_mutual_information_with_nan_raises(self):
+        from alienclaw_ga.diagnostics.genome_information import BASE62
+        rng = random.Random(42)
+        genomes = ["".join(rng.choice(BASE62) for _ in range(256)) for _ in range(20)]
+        fitnesses = [rng.random() for _ in range(20)]
+        fitnesses[10] = float("nan")
+        with pytest.raises(ValueError, match=r"fitnesses\[10\] must be a finite number, got nan"):
+            genome_byte_mutual_information(genomes, fitnesses, byte_indices=range(5))
+
+    def test_summarize_genome_fitness_mi_with_inf_raises(self):
+        from alienclaw_ga.diagnostics.genome_information import BASE62
+        rng = random.Random(42)
+        genomes = ["".join(rng.choice(BASE62) for _ in range(256)) for _ in range(30)]
+        fitnesses = [rng.random() for _ in range(30)]
+        fitnesses[15] = float("inf")
+        with pytest.raises(ValueError, match=r"fitnesses\[15\] must be a finite number, got inf"):
+            summarize_genome_fitness_mi(genomes, fitnesses)

@@ -1,8 +1,9 @@
 import os
 import uuid
 from typing import Any
-from .types import RunResult
+
 from ._boundary import assert_inside_boundary, assert_no_symlink, file_write_root
+from .types import RunResult
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -14,8 +15,12 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         return RunResult(ok=False, error="Missing 'content' field", correctness=0.0)
     try:
         write_root = file_write_root()
-        # Symlink guard must inspect the UNRESOLVED path
-        assert_no_symlink(write_root / path_str)
+        # Symlink guard inspects the UNRESOLVED path, but only the entries inside the
+        # root: a symlinked prefix above the root is fine, and a path outside the root
+        # is not probed, so it gets the boundary's one generic refusal. Known
+        # limitation: an in-root directory swapped for a symlink after these checks is
+        # still followed by mkdir/write/replace below (no dir-fd walk on this path).
+        assert_no_symlink(write_root / path_str, root=write_root)
         path = assert_inside_boundary(path_str, write_root)
     except ValueError as exc:
         return RunResult(ok=False, error=str(exc), correctness=0.0)
@@ -41,7 +46,11 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
         return RunResult(ok=False, error=f"Write error: {exc}", correctness=0.0)
     return RunResult(
         ok=True,
-        output={"path": str(path), "bytesWritten": len(repeated.encode("utf-8")), "encoding": "utf-8"},
+        output={
+            "path": str(path),
+            "bytesWritten": len(repeated.encode("utf-8")),
+            "encoding": "utf-8",
+        },
         tool_calls=repeat_count,
         correctness=1.0,
     )

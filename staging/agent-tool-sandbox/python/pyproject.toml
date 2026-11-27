@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77"]  # PEP 639 license expression
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-tool-sandbox"
+version = "0.0.0.dev0"
+description = "SSRF guard and filesystem-boundary jail for LLM agent tools (stdlib only)."
+readme = "README.md"
+requires-python = ">=3.11"  # 3.10 reached end of life in October 2026 (PEP 619)
+license = "MIT"  # staged license; the release license is still to be decided
+authors = [{ name = "Bugsy Hewitt" }]
+dependencies = []
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "hypothesis>=6"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+agent_tool_sandbox = ["py.typed"]  # PEP 561: the package ships its own inline types
+
+[tool.mypy]
+strict = true
+python_version = "3.11"  # the oldest supported Python
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N"]

@@ -1,0 +1,554 @@
+/**
+ * Parity: the staged module must make the same decisions as the in-tree
+ * AlienClaw module it was copied from (src/alienclaw/net/hardened-fetch.ts).
+ *
+ * The only allowed decision differences are the DECLARED divergences below,
+ * asserted explicitly (staged blocks, in-tree allows). They are the staged-only
+ * 2026-11-26 corpus-gap fixes (vectors/DIFFERENCES.md): 6to4 2002::/16, Teredo
+ * 2001:0::/32 and site-local fec0::/10 blocked whole, the Azure WireServer
+ * address 168.63.129.16 (and so its NAT64 embedding), and port 0 refused.
+ * Two more are staged-only pre-publication fixes (2026-11-26): the localhost
+ * names `localhost.`, `*.localhost` and `*.localhost.` are blocked by the
+ * literal check (gate G7), and a resolved-address refusal no longer names the
+ * address in its message (pinning review PR-03; the address moved to the
+ * error's non-enumerable blockedAddress property). inTreeAsStaged() maps an
+ * in-tree message to that form, so every comparison still checks the
+ * decision, the reason and the refused address.
+ * CGNAT 100.64.0.0/10 was already blocked in-tree, and the other 2026-11-26
+ * fixes (policy validation, whole-call deadline, NAT64, deadline-only timeout
+ * reporting) were made in both modules. The corpus below covers the NAT64
+ * prefixes and the end-to-end scenarios cover invalid policies and a
+ * never-ending body.
+ *
+ * The export surface differs by design: the in-tree module also exports the
+ * AlienClaw-specific LEADERBOARD_POLICY and leaderboardFetch.
+ *
+ * This file is coupled to the AlienClaw tree by a relative import. Delete it
+ * (or point it at a pinned copy) when the package leaves the repo.
+ */
+
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import * as fc from 'fast-check';
+
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(),
+}));
+
+import * as dnsModule from 'node:dns/promises';
+import { isIP } from 'node:net';
+import * as staged from '../src/hardened-fetch.js';
+import * as stagedIndex from '../src/index.js';
+import * as inTree from '../../../../src/alienclaw/net/hardened-fetch.js';
+import { transport } from '../src/pinned-request.js';
+
+type Decision = { input: string; staged: string; inTree: string };
+
+/**
+ * Address decisions we accept on purpose (staged only, 2026-11-26): the staged
+ * classifier blocks these and the in-tree one allows them. Each is asserted
+ * to differ today, so a fix landing in-tree makes this file fail on purpose.
+ */
+const WIRESERVER = '168.63.129.16';
+const DECLARED_RANGES = '6to4 2002::/16, Teredo 2001:0::/32, fec0::/10, 168.63.129.16 (also as 64:ff9b::a83f:8110)';
+
+/** Expand a valid IPv6 string (zone ID and brackets ignored) into 8 groups via WHATWG canonicalisation. */
+function groupsOf(address: string): number[] | undefined {
+  const bare = address.replace(/^\[|\]$/g, '').split('%')[0]!;
+  if (isIP(bare) !== 6) return undefined;
+  const canonical = new URL(`http://[${bare}]/`).hostname.slice(1, -1);
+  const [head, tail] = canonical.includes('::') ? canonical.split('::') : [canonical, undefined];
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  const fill = tail === undefined ? [] : new Array<string>(8 - left.length - right.length).fill('0');
+  return [...left, ...fill, ...right].map((g) => parseInt(g, 16));
+}
+
+/** True if the address (IPv4 or IPv6, bracketed or not) is in a declared divergent range. */
+function inDeclaredRange(address: string): boolean {
+  const bare = address.replace(/^\[|\]$/g, '');
+  if (isIP(bare) === 4) return bare === WIRESERVER;
+  const g = groupsOf(bare);
+  if (!g) return false;
+  return groupsInDeclaredRange(g);
+}
+
+function groupsInDeclaredRange(g: readonly number[]): boolean {
+  if (g[0] === 0x2002) return true;
+  if (g[0] === 0x2001 && g[1] === 0) return true;
+  if (g[0]! >= 0xfec0 && g[0]! <= 0xfeff) return true;
+  return g[0] === 0x64 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0 &&
+    g[6] === 0xa83f && g[7] === 0x8110;
+}
+
+const LOCALHOST_TOKENS = ['localhost', 'ip6-localhost', 'ip6-loopback'];
+
+/**
+ * Declared name divergence (gate G7, staged only, 2026-11-26): localhost names
+ * that the in-tree literal check leaves to DNS. In-tree blocks only the bare
+ * tokens (any case); staged also blocks them with trailing dots and every name
+ * under .localhost (RFC 6761), with or without trailing dots.
+ */
+function inDeclaredName(h: string): boolean {
+  const lower = h.toLowerCase();
+  if (LOCALHOST_TOKENS.includes(lower)) return false;  // in-tree blocks these too
+  const name = lower.replace(/\.+$/, '');
+  return LOCALHOST_TOKENS.includes(name) || name.endsWith('.localhost');
+}
+
+/** The divergence a declared input must show: staged blocks, in-tree allows. */
+function declaredHostDiff(h: string): Decision {
+  return { input: `isBlockedHost(${JSON.stringify(h)})`, staged: 'ok:true', inTree: 'ok:false' };
+}
+function declaredResolvedDiff(set: Addr[]): Decision {
+  const { address } = set[0]!;
+  return {
+    input: `validateResolvedAddresses(${JSON.stringify(set)})`,
+    staged: `throw:SSRF rejected: a resolved address is in a blocked range [blockedAddress=${address}]`,
+    inTree: 'ok:undefined',
+  };
+}
+
+/**
+ * Declared message divergence (pinning review PR-03, staged only, 2026-11-26).
+ * The in-tree refusal of a resolved address names it in the message; the
+ * staged one does not and carries it as blockedAddress. Both sides are
+ * rendered as "<staged message> [blockedAddress=<address>]".
+ */
+function inTreeAsStaged(message: string): string {
+  let m = /^SSRF rejected: resolved (?:IPv6 )?address (.*) is in a blocked range$/s.exec(message);
+  if (m) return `SSRF rejected: a resolved address is in a blocked range [blockedAddress=${m[1]}]`;
+  m = /^SSRF rejected: unknown address family (.*) for (.*)$/s.exec(message);
+  if (m) return `SSRF rejected: unknown address family ${m[1]} for a resolved address [blockedAddress=${m[2]}]`;
+  return message;
+}
+
+function stagedRendering(err: unknown): string {
+  const { message, blockedAddress } = err as Error & { blockedAddress?: unknown };
+  return blockedAddress === undefined ? message : `${message} [blockedAddress=${String(blockedAddress)}]`;
+}
+
+function inTreeRendering(err: unknown): string {
+  return inTreeAsStaged((err as Error).message);
+}
+
+const lookup = vi.mocked(dnsModule.lookup);
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  lookup.mockReset();
+});
+
+type Render = (err: unknown) => string;
+
+function outcome(fn: () => unknown, render: Render): string {
+  try {
+    return `ok:${JSON.stringify(fn())}`;
+  } catch (err) {
+    return `throw:${render(err)}`;
+  }
+}
+const stagedOutcome = (fn: () => unknown): string => outcome(fn, stagedRendering);
+const inTreeOutcome = (fn: () => unknown): string => outcome(fn, inTreeRendering);
+
+async function asyncOutcome(fn: () => Promise<unknown>, render: Render): Promise<string> {
+  try {
+    return `ok:${JSON.stringify(await fn())}`;
+  } catch (err) {
+    return `throw:${render(err)}`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared corpus
+// ---------------------------------------------------------------------------
+
+const IPV4 = [
+  '0.0.0.0', '0.0.0.1', '0.255.255.255', '1.0.0.0', '10.0.0.1', '10.255.255.255', '11.0.0.0',
+  '127.0.0.1', '127.255.255.255', '128.0.0.0', '169.254.0.0', '169.254.169.254', '169.253.255.255',
+  '169.255.0.0', '172.15.255.255', '172.16.0.0', '172.31.255.255', '172.32.0.0', '192.0.0.0',
+  '192.0.0.9', '192.0.0.170', '192.0.0.255', '192.0.1.0', '192.0.2.1', '192.167.255.255',
+  '192.168.0.1', '192.169.0.0', '100.63.255.255', '100.64.0.0', '100.100.100.200', '100.127.255.255',
+  '100.128.0.0', '198.17.255.255', '198.18.0.0', '198.19.255.255', '198.20.0.0', '198.51.100.1',
+  '203.0.113.1', '223.255.255.255', '224.0.0.0', '239.255.255.255', '240.0.0.0', '255.255.255.255',
+  '1.1.1.1', '8.8.8.8', '93.184.216.34',
+  // Azure WireServer (declared divergence) and its neighbours (no divergence)
+  '168.63.129.16', '168.63.129.15', '168.63.129.17',
+];
+
+const IPV6 = [
+  '::', '::1', '::2', '::ffff:127.0.0.1', '::ffff:7f00:1', '::ffff:0:7f00:1', '::ffff:0:127.0.0.1',
+  '::ffff:8.8.8.8', '::ffff:a9fe:a9fe', '::ffff:6440:1', '::127.0.0.1', '::7f00:1', '::8.8.8.8',
+  '0:0:0:0:0:ffff:a9fe:a9fe', '::ffff:0:0', '::1:ffff:0:0', '::ffff:1:0', 'fe80::1', 'FE80::1',
+  'fe80::1%eth0', 'febf:ffff::1', 'fec0::1', 'fc00::1', 'fd00:ec2::254', 'fdff::1', 'fbff::1',
+  'ff00::', 'ff02::1', '64:ff9b::a9fe:a9fe', '64:ff9b::a00:1', '2002:a9fe:a9fe::', '2001::1',
+  // NAT64: 64:ff9b::/96 (blocked iff the embedded IPv4 is) and 64:ff9b:1::/48 (all blocked)
+  '64:ff9b::7f00:1', '64:ff9b::127.0.0.1', '64:ff9b::169.254.169.254', '64:ff9b::ac10:1',
+  '64:ff9b::c0a8:101', '64:ff9b::6464:64c8', '64:ff9b::', '64:ff9b::e000:1', '64:ff9b::ffff:ffff',
+  '64:ff9b::808:808', '64:ff9b::8.8.8.8', '64:ff9b::5db8:d822', '0064:ff9b:0000:0000:0000:0000:0a00:0001',
+  '64:ff9b:1::', '64:ff9b:1::808:808', '64:ff9b:1:a9fe:a9:fe00::', '64:ff9b:1:ffff:ffff:ffff:ffff:ffff',
+  '64:ff9b:2::7f00:1', '64:ff9b:0:0:1::7f00:1', '65:ff9b::7f00:1',
+  '2001:db8::1', '2001:4860:4860::8888', '2606:4700:4700::1111', '1:2:3:4:5:6:7:8',
+  // declared divergences (2026-11-26) and their edges
+  '2002::', '2002:808:808::', '2002:7f00:1::1', '2001:0:4136:e378:8000:63bf:80ff:fffe', '2001:1::1',
+  '2001:200::1', '2003::1', 'feff::1', 'fed0::1', 'fe7f::1', '64:ff9b::a83f:8110', '64:ff9b::168.63.129.16',
+  '64:ff9b::a83f:8111', '::ffff:168.63.129.16',
+  // malformed: every one of these must fail closed identically
+  '1:2:3:4:5:6:7:8:9', '::1:::', ':::', '::g', '1::2::3', '::ffff:1.2.3', '::ffff:256.0.0.1',
+  '12345::', '1:2:3:4:5:6:7', '',
+];
+
+const RAW_HOSTNAMES = [
+  '', 'localhost', 'LOCALHOST', 'localhost.', 'foo.localhost', 'ip6-localhost', 'ip6-loopback',
+  'IP6-LOOPBACK', 'example.com', 'example.com.', 'xn--nxasmq6b', '169.254.169.254.nip.io',
+  // localhost names (declared divergence, gate G7) and their neighbours (no divergence)
+  'foo.localhost.', 'LOCALHOST..', 'a.b.localhost', 'ip6-localhost.', 'IP6-LOOPBACK.', 'Foo.LocalHost',
+  'localhost.example.com', 'localhost.example.com.', 'notlocalhost', 'foo.localhost.example', 'localhostx',
+  // raw obfuscated IPv4 (NOT canonicalised: both must return the same answer)
+  '0177.0.0.1', '2130706433', '0x7f000001', '127.1', '127.0.0.1.', '0x7f.0.0.1', '256.0.0.1',
+  '1.2.3', '01.02.03.04', '127.000.000.001', '1.2.3.4.5',
+  // bracket oddities
+  '[::1', '::1]', '[::])', '[]', '[[::1]]',
+  ...IPV4,
+  ...IPV6.map((a) => `[${a}]`),
+  ...IPV6,
+];
+
+const URLS = [
+  'http://0177.0.0.1/', 'http://2130706433/', 'http://0x7f000001/', 'http://0x7f.1/', 'http://127.1/',
+  'http://127.0.0.1./', 'http://0/', 'http://017700000001/', 'http://0x7f.0x0.0x0.0x1/',
+  'http://1681915905/', 'http://0144.0100.0.1/', 'http://0x64400001/', 'http://100.64.1/',
+  'http://１２７.０.０.１/', 'http://ⓛocalhost/', 'http://LOCALHOST./',
+  'http://user:pass@127.0.0.1/', 'http://evil.com@169.254.169.254/', 'http://169.254.169.254#@evil.com/',
+  'http://[::ffff:127.0.0.1]/', 'http://[::ffff:0:127.0.0.1]/', 'http://[::127.0.0.1]/',
+  'http://[0:0:0:0:0:ffff:7f00:1]/', 'http://[::ffff:100.64.0.1]/', 'http://[FE80::1]/',
+  'http://[64:ff9b::169.254.169.254]/', 'http://[64:ff9b::127.0.0.1]/', 'http://[64:ff9b:1::10.0.0.1]/',
+  'http://[64:ff9b::8.8.8.8]/', 'http://bücher.example/', 'http://xn--bcher-kva.example/',
+  'https://api.example.com:8443/path?q=1',
+];
+
+const CANONICAL_HOSTNAMES = URLS.map((u) => new URL(u).hostname);
+const HOSTNAME_CORPUS = [...new Set([...RAW_HOSTNAMES, ...CANONICAL_HOSTNAMES])];
+
+type Addr = { address: string; family: number };
+const RESOLVED_CORPUS: Addr[][] = [
+  ...IPV4.map((address) => [{ address, family: 4 }]),
+  ...IPV6.map((address) => [{ address, family: 6 }]),
+  // family/address mismatches and unknown families
+  [{ address: '127.0.0.1', family: 6 }],
+  [{ address: '::1', family: 4 }],
+  [{ address: '1.1.1.1', family: 0 }],
+  [{ address: '1.1.1.1', family: 46 }],
+  [{ address: '', family: 4 }],
+  [{ address: 'not-an-ip', family: 4 }],
+  [{ address: '0177.0.0.1', family: 4 }],
+  // multi-answer sets: one bad address poisons the set
+  [{ address: '93.184.216.34', family: 4 }, { address: '10.0.0.1', family: 4 }],
+  [{ address: '10.0.0.1', family: 4 }, { address: '93.184.216.34', family: 4 }],
+  [{ address: '93.184.216.34', family: 4 }, { address: '2001:4860:4860::8888', family: 6 }],
+  [{ address: '93.184.216.34', family: 4 }, { address: 'fe80::1', family: 6 }],
+  [{ address: '93.184.216.34', family: 4 }, { address: '1.1.1.1', family: 7 }],
+  [],
+];
+
+function hostnameDiffs(inputs: string[]): Decision[] {
+  const diffs: Decision[] = [];
+  for (const h of inputs) {
+    const s = stagedOutcome(() => staged.isBlockedHost(h));
+    const t = inTreeOutcome(() => inTree.isBlockedHost(h));
+    if (s !== t) diffs.push({ input: `isBlockedHost(${JSON.stringify(h)})`, staged: s, inTree: t });
+  }
+  return diffs;
+}
+
+function resolvedDiffs(inputs: Addr[][]): Decision[] {
+  const diffs: Decision[] = [];
+  for (const set of inputs) {
+    const s = stagedOutcome(() => staged.validateResolvedAddresses(set));
+    const t = inTreeOutcome(() => inTree.validateResolvedAddresses(set));
+    if (s !== t) diffs.push({ input: `validateResolvedAddresses(${JSON.stringify(set)})`, staged: s, inTree: t });
+  }
+  return diffs;
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('parity: export surface', () => {
+  it('staged exports are a subset of in-tree exports; only the leaderboard helpers are dropped', () => {
+    const stagedKeys = Object.keys(staged).sort();
+    const inTreeKeys = Object.keys(inTree).sort();
+    expect(stagedKeys.every((k) => inTreeKeys.includes(k))).toBe(true);
+    expect(inTreeKeys.filter((k) => !stagedKeys.includes(k))).toEqual(['LEADERBOARD_POLICY', 'leaderboardFetch']);
+    // The index also re-exports the fs jail, a staged-only module with no in-tree twin.
+    const fsJailKeys = [
+      'BoundaryError', 'MAX_READ_BYTES_CEILING', 'assertInsideBoundary', 'assertNoSymlink',
+      'readFileJailed', 'writeFileJailed',
+    ];
+    expect(Object.keys(stagedIndex).sort()).toEqual([...stagedKeys, ...fsJailKeys].sort());
+  });
+
+  it('constants are identical', () => {
+    expect([...staged.DEFAULT_PROTOCOLS]).toEqual([...inTree.DEFAULT_PROTOCOLS]);
+    expect(staged.MAX_REDIRECTS).toBe(inTree.MAX_REDIRECTS);
+  });
+});
+
+describe('parity: deterministic corpus', () => {
+  it('corpus is non-trivial and exercises both outcomes', () => {
+    expect(HOSTNAME_CORPUS.length).toBeGreaterThan(150);
+    const decisions = HOSTNAME_CORPUS.map((h) => staged.isBlockedHost(h));
+    expect(decisions).toContain(true);
+    expect(decisions).toContain(false);
+  });
+
+  it('URL canonicalisation produced the forms we expect to test', () => {
+    expect(CANONICAL_HOSTNAMES).toContain('127.0.0.1');
+    expect(CANONICAL_HOSTNAMES).toContain('100.64.0.1');
+    expect(CANONICAL_HOSTNAMES).toContain('[::ffff:7f00:1]');
+    expect(CANONICAL_HOSTNAMES).toContain('[64:ff9b::a9fe:a9fe]');
+    expect(CANONICAL_HOSTNAMES).toContain('[64:ff9b::7f00:1]');
+    expect(CANONICAL_HOSTNAMES).toContain('[64:ff9b:1::a00:1]');
+    expect(CANONICAL_HOSTNAMES).toContain('xn--bcher-kva.example');
+    expect(CANONICAL_HOSTNAMES).toContain('localhost');
+  });
+
+  it(`isBlockedHost decisions match, except the declared ranges (${DECLARED_RANGES}) and localhost names`, () => {
+    const declared = HOSTNAME_CORPUS.filter((h) => inDeclaredRange(h) || inDeclaredName(h)).map(declaredHostDiff);
+    expect(declared.length).toBeGreaterThanOrEqual(20);
+    expect(HOSTNAME_CORPUS.filter(inDeclaredName).length).toBeGreaterThanOrEqual(8);
+    expect(hostnameDiffs(HOSTNAME_CORPUS)).toEqual(declared);
+  });
+
+  it('validateResolvedAddresses outcomes (error messages as inTreeAsStaged maps them) match, except the declared ranges', () => {
+    const declared = RESOLVED_CORPUS
+      .filter((set) => set.length === 1 && isIP(set[0]!.address) === set[0]!.family && inDeclaredRange(set[0]!.address))
+      .map(declaredResolvedDiff);
+    expect(declared.length).toBeGreaterThanOrEqual(10);
+    expect(resolvedDiffs(RESOLVED_CORPUS)).toEqual(declared);
+  });
+
+  it('every declared range really diverges today, and its neighbours do not', () => {
+    for (const a of ['2002::', '2002:ffff:ffff:ffff:ffff:ffff:ffff:ffff', '2001::', '2001:0:ffff:ffff:ffff:ffff:ffff:ffff',
+      'fec0::', 'feff:ffff:ffff:ffff:ffff:ffff:ffff:ffff', '64:ff9b::a83f:8110']) {
+      expect(inDeclaredRange(a), a).toBe(true);
+      expect(staged.isBlockedHost(`[${a}]`), a).toBe(true);
+      expect(inTree.isBlockedHost(`[${a}]`), `in-tree now blocks ${a}: drop it from the declared ranges`).toBe(false);
+    }
+    expect(staged.isBlockedHost(WIRESERVER)).toBe(true);
+    expect(inTree.isBlockedHost(WIRESERVER), 'in-tree now blocks 168.63.129.16').toBe(false);
+    for (const a of ['2001:4860:4860::8888', '2001:200::1', '2003::1', '168.63.129.15', '168.63.129.17']) {
+      expect(inDeclaredRange(a), a).toBe(false);
+      expect(staged.isBlockedHost(a.includes(':') ? `[${a}]` : a), a).toBe(false);
+    }
+    for (const h of ['localhost.', 'foo.localhost', 'foo.localhost.', 'ip6-loopback.']) {
+      expect(inDeclaredName(h), h).toBe(true);
+      expect(staged.isBlockedHost(h), h).toBe(true);
+      expect(inTree.isBlockedHost(h), `in-tree now blocks ${h}: drop the localhost-name divergence`).toBe(false);
+    }
+    for (const h of ['localhost.example.com', 'notlocalhost', 'foo.localhost.example']) {
+      expect(inDeclaredName(h), h).toBe(false);
+      expect(staged.isBlockedHost(h), h).toBe(false);
+    }
+  });
+
+  it('the PR-03 message divergence is real today: in-tree names the resolved address, staged does not', () => {
+    const set = [{ address: '10.0.0.1', family: 4 }];
+    const t = (() => { try { inTree.validateResolvedAddresses(set); } catch (e) { return e as Error; } })();
+    const s = (() => { try { staged.validateResolvedAddresses(set); } catch (e) { return e as Error; } })();
+    expect(t?.message, 'in-tree no longer names the address: drop inTreeAsStaged').toContain('10.0.0.1');
+    expect(s?.message).not.toContain('10.0.0.1');
+    expect((s as Error & { blockedAddress?: string }).blockedAddress).toBe('10.0.0.1');
+  });
+});
+
+describe('parity: property-based', () => {
+  const hextet = fc.oneof(
+    fc.constantFrom(0, 1, 0xffff, 0x64, 0xff9b, 0x2002, 0xfe80, 0xfebf, 0xfec0, 0xfc00, 0xfdff, 0xff00),
+    fc.integer({ min: 0, max: 0xffff }),
+  );
+
+  it('every IPv4 address (as dotted quad) gets the same decision', () => {
+    const octet = fc.integer({ min: 0, max: 255 });
+    fc.assert(fc.property(fc.tuple(octet, octet, octet, octet), (octets) => {
+      const ip = octets.join('.');
+      if (ip === WIRESERVER) {
+        expect(staged.isBlockedHost(ip) && !inTree.isBlockedHost(ip)).toBe(true);
+        return;
+      }
+      expect(staged.isBlockedHost(ip)).toBe(inTree.isBlockedHost(ip));
+      expect(stagedOutcome(() => staged.validateResolvedAddresses([{ address: ip, family: 4 }])))
+        .toBe(inTreeOutcome(() => inTree.validateResolvedAddresses([{ address: ip, family: 4 }])));
+    }), { numRuns: 3000 });
+  });
+
+  it('random IPv6 (full and URL-canonical forms) gets the same decision', () => {
+    fc.assert(fc.property(fc.array(hextet, { minLength: 8, maxLength: 8 }), (groups) => {
+      const full = groups.map((g) => g.toString(16)).join(':');
+      const canonical = new URL(`http://[${full}]/`).hostname;
+      const bare = canonical.slice(1, -1);
+      if (groupsInDeclaredRange(groups)) {
+        for (const h of [full, `[${full}]`, canonical]) {
+          expect(staged.isBlockedHost(h) && !inTree.isBlockedHost(h), h).toBe(true);
+        }
+        expect(inTreeOutcome(() => inTree.validateResolvedAddresses([{ address: bare, family: 6 }]))).toBe('ok:undefined');
+        expect(() => staged.validateResolvedAddresses([{ address: bare, family: 6 }])).toThrow(/blocked range/);
+        return;
+      }
+      for (const h of [full, `[${full}]`, canonical]) {
+        expect(staged.isBlockedHost(h)).toBe(inTree.isBlockedHost(h));
+      }
+      expect(stagedOutcome(() => staged.validateResolvedAddresses([{ address: bare, family: 6 }])))
+        .toBe(inTreeOutcome(() => inTree.validateResolvedAddresses([{ address: bare, family: 6 }])));
+    }), { numRuns: 3000 });
+  });
+
+  it('NAT64 addresses with a random embedded IPv4 get the same decision', () => {
+    const octet = fc.integer({ min: 0, max: 255 });
+    fc.assert(fc.property(fc.tuple(octet, octet, octet, octet), fc.constantFrom('64:ff9b::', '64:ff9b:1::'), (v4, prefix) => {
+      const hi = ((v4[0] << 8) | v4[1]).toString(16);
+      const lo = ((v4[2] << 8) | v4[3]).toString(16);
+      for (const addr of [`${prefix}${hi}:${lo}`, `${prefix}${v4.join('.')}`]) {
+        if (inDeclaredRange(addr)) {
+          expect(staged.isBlockedHost(`[${addr}]`) && !inTree.isBlockedHost(`[${addr}]`)).toBe(true);
+          continue;
+        }
+        expect(staged.isBlockedHost(`[${addr}]`)).toBe(inTree.isBlockedHost(`[${addr}]`));
+        expect(stagedOutcome(() => staged.validateResolvedAddresses([{ address: addr, family: 6 }])))
+          .toBe(inTreeOutcome(() => inTree.validateResolvedAddresses([{ address: addr, family: 6 }])));
+      }
+    }), { numRuns: 2000 });
+  });
+
+  it('arbitrary strings get the same isBlockedHost decision', () => {
+    fc.assert(fc.property(fc.string({ maxLength: 48 }), (s) => {
+      expect(staged.isBlockedHost(s)).toBe(inTree.isBlockedHost(s) || inDeclaredRange(s.split('%')[0]!) || inDeclaredName(s));
+    }), { numRuns: 3000 });
+  });
+});
+
+// The staged module sends its requests through the internal pinned
+// `transport` (connection pinning, staged only); the in-tree module still
+// calls the global fetch. Each run stubs its own module's seam with the same
+// response queue, so the comparison covers every decision but the socket.
+describe('parity: hardenedFetch end-to-end (stubbed DNS + fetch / transport)', () => {
+  type Scenario = {
+    name: string;
+    url: string;
+    policy: staged.FetchPolicy;
+    dns: Addr[];
+    responses: () => Response[];
+  };
+  const PUBLIC: Addr[] = [{ address: '93.184.216.34', family: 4 }];
+  const base: staged.FetchPolicy = { timeoutMs: 5_000, maxBytes: 64 };
+  const scenarios: Scenario[] = [
+    { name: 'success', url: 'https://example.com/', policy: base, dns: PUBLIC, responses: () => [new Response('ok')] },
+    { name: 'protocol', url: 'ftp://example.com/', policy: base, dns: PUBLIC, responses: () => [] },
+    { name: 'literal block', url: 'http://0x7f.1/', policy: base, dns: PUBLIC, responses: () => [] },
+    { name: 'cgnat literal', url: 'http://100.100.100.200/', policy: base, dns: PUBLIC, responses: () => [] },
+    { name: 'dns private', url: 'https://example.com/', policy: base, dns: [{ address: '::ffff:0:a00:1', family: 6 }], responses: () => [] },
+    { name: 'dns empty', url: 'https://example.com/', policy: base, dns: [], responses: () => [] },
+    { name: 'allowlist miss', url: 'https://example.com/', policy: { ...base, allowedHosts: new Set(['a.example']) }, dns: PUBLIC, responses: () => [] },
+    {
+      name: 'redirect to metadata', url: 'https://example.com/', policy: base, dns: PUBLIC,
+      responses: () => [new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/' } })],
+    },
+    {
+      name: 'relative redirect then ok', url: 'https://example.com/a', policy: base, dns: PUBLIC,
+      responses: () => [new Response(null, { status: 307, headers: { location: '../b' } }), new Response('b')],
+    },
+    {
+      name: 'redirect cap', url: 'https://example.com/', policy: { ...base, maxRedirects: 1 }, dns: PUBLIC,
+      responses: () => [0, 1, 2].map(() => new Response(null, { status: 302, headers: { location: '/x' } })),
+    },
+    { name: 'size cap', url: 'https://example.com/', policy: base, dns: PUBLIC, responses: () => [new Response('x'.repeat(65))] },
+    { name: 'http error', url: 'https://example.com/', policy: base, dns: PUBLIC, responses: () => [new Response('no', { status: 403 })] },
+    { name: 'nat64 literal', url: 'http://[64:ff9b::7f00:1]/', policy: base, dns: PUBLIC, responses: () => [] },
+    { name: 'dns64 metadata', url: 'https://example.com/', policy: base, dns: [{ address: '64:ff9b::a9fe:a9fe', family: 6 }], responses: () => [] },
+    { name: 'dns64 public', url: 'https://example.com/', policy: base, dns: [{ address: '64:ff9b::808:808', family: 6 }], responses: () => [new Response('ok')] },
+    // Invalid policies: both modules must throw the same TypeError before any fetch.
+    { name: 'policy maxBytes NaN', url: 'https://example.com/', policy: { ...base, maxBytes: NaN }, dns: PUBLIC, responses: () => [new Response('x'.repeat(65))] },
+    {
+      name: 'policy maxBytes string', url: 'https://example.com/', policy: { ...base, maxBytes: '1kb' as unknown as number },
+      dns: PUBLIC, responses: () => [new Response('x'.repeat(65))],
+    },
+    {
+      name: 'policy maxRedirects NaN', url: 'https://example.com/', policy: { ...base, maxRedirects: NaN }, dns: PUBLIC,
+      responses: () => [0, 1, 2].map(() => new Response(null, { status: 302, headers: { location: '/x' } })),
+    },
+    { name: 'policy timeoutMs 2^31', url: 'https://example.com/', policy: { ...base, timeoutMs: 2 ** 31 }, dns: PUBLIC, responses: () => [new Response('ok')] },
+    {
+      name: 'policy allowedHosts null', url: 'https://example.com/', policy: { ...base, allowedHosts: null as unknown as Set<string> },
+      dns: PUBLIC, responses: () => [new Response('ok')],
+    },
+    // A body that never ends must hit the same whole-call deadline.
+    {
+      name: 'never-ending body', url: 'https://example.com/', policy: { ...base, timeoutMs: 50 }, dns: PUBLIC,
+      responses: () => [new Response(new ReadableStream<Uint8Array>({ start() { /* never enqueues */ } }))],
+    },
+  ];
+
+  for (const sc of scenarios) {
+    it(`same outcome: ${sc.name}`, async () => {
+      const run = async (
+        impl: typeof staged.hardenedFetch,
+        seam: 'transport' | 'fetch',
+      ): Promise<{ result: string; fetched: unknown[] }> => {
+        lookup.mockReset();
+        lookup.mockResolvedValue(sc.dns as never);
+        const queue = sc.responses();
+        const next = async (): Promise<Response> => {
+          const response = queue.shift();
+          if (!response) throw new Error('test: unexpected extra fetch');
+          return response;
+        };
+        const spy = seam === 'transport'
+          ? vi.spyOn(transport, 'request').mockImplementation(next)
+          : vi.spyOn(globalThis, 'fetch').mockImplementation(next);
+        const result = await asyncOutcome(() => impl(sc.url, sc.policy), seam === 'transport' ? stagedRendering : inTreeRendering);
+        const fetched = spy.mock.calls.map((c) => c[0]);
+        spy.mockRestore();
+        return { result, fetched };
+      };
+      const a = await run(staged.hardenedFetch, 'transport');
+      const b = await run(inTree.hardenedFetch, 'fetch');
+      expect(a).toEqual(b);
+    });
+  }
+});
+
+// Declared end-to-end divergences (staged only, 2026-11-26): the staged module
+// refuses before DNS and before any request, the in-tree one sends the request.
+describe('parity: declared end-to-end divergences', () => {
+  const PUBLIC: Addr[] = [{ address: '93.184.216.34', family: 4 }];
+  const policy: staged.FetchPolicy = { timeoutMs: 5_000, maxBytes: 64 };
+  const cases = [
+    { name: 'Azure WireServer literal', url: 'http://168.63.129.16/machine?comp=goalstate',
+      stagedError: 'SSRF rejected: hostname "168.63.129.16" is blocked' },
+    { name: '6to4 literal embedding metadata', url: 'http://[2002:a9fe:a9fe::]/latest/meta-data/',
+      stagedError: 'SSRF rejected: hostname "[2002:a9fe:a9fe::]" is blocked' },
+    { name: 'port 0', url: 'http://example.com:0/', stagedError: 'Port rejected: 0 is not a port from 1 to 65535' },
+    // gate G7 (2026-11-26): localhost names are refused by the literal check, before DNS
+    { name: 'localhost. (trailing dot)', url: 'http://localhost./', stagedError: 'SSRF rejected: hostname "localhost." is blocked' },
+    { name: '*.localhost', url: 'http://admin.localhost/', stagedError: 'SSRF rejected: hostname "admin.localhost" is blocked' },
+  ];
+  for (const c of cases) {
+    it(`${c.name}: staged refuses, in-tree fetches`, async () => {
+      lookup.mockResolvedValue(PUBLIC as never);
+      const stagedSpy = vi.spyOn(transport, 'request').mockImplementation(async () => new Response('ok'));
+      await expect(staged.hardenedFetch(c.url, policy)).rejects.toThrow(c.stagedError);
+      expect(stagedSpy).not.toHaveBeenCalled();
+      expect(lookup).not.toHaveBeenCalled();
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('ok'));
+      await expect(inTree.hardenedFetch(c.url, policy), `in-tree now refuses ${c.url}: drop this divergence`)
+        .resolves.toBe('ok');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+  }
+
+  it('an unparseable URL: staged redacts its userinfo and query in the message, in-tree repeats them (gate G7)', async () => {
+    const url = 'http://alice:s3cret@example.com:99999/?token=t0k';
+    await expect(staged.hardenedFetch(url, policy)).rejects.toThrow(/^Invalid URL: http:\/\/<redacted>@example\.com:99999\/\?<redacted>$/);
+    await expect(inTree.hardenedFetch(url, policy), 'in-tree now redacts: drop this divergence').rejects.toThrow(`Invalid URL: ${url}`);
+  });
+});

@@ -1,0 +1,395 @@
+{
+  "package": "alienclaw-ga",
+  "source_commit": "f5d321e391ce52897d777b3b4d887a7ead38a175",
+  "files": [
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/__init__.py",
+      "source": "src/alienclaw/diagnostics/__init__.py",
+      "source_blob": "3ace224eeaaf6d0235301407de945d333ea66dbf",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/bayesian_optimizer.py",
+      "source": "src/alienclaw/diagnostics/bayesian_optimizer.py",
+      "source_blob": "4f3dced978a19d3cd47df1ec18be233ac8a273ea",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/diversity_tracker.py",
+      "source": "src/alienclaw/diagnostics/diversity_tracker.py",
+      "source_blob": "e6014722d7e20e497a56e19b67fa84da52c42954",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/dynamics_summary.py",
+      "source": "src/alienclaw/diagnostics/dynamics_summary.py",
+      "source_blob": "76f98ccd0712b99aa9605a54d7e927ee0cd7e922",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/fixation_theory.py",
+      "source": "src/alienclaw/diagnostics/fixation_theory.py",
+      "source_blob": "f21b7cd9dbde537ffa81af2bdd0fc72772f6dbba",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/genome_information.py",
+      "source": "src/alienclaw/diagnostics/genome_information.py",
+      "source_blob": "8ab9a8471ff98ee366acce1c853c7a953557d976",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/instrumentation.py",
+      "source": "src/alienclaw/diagnostics/instrumentation.py",
+      "source_blob": "b21f2b2faae5504719c746849f0a77ea23109690",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/per_genome_capture.py",
+      "source": "src/alienclaw/diagnostics/per_genome_capture.py",
+      "source_blob": "16681766edb7b34a978943ebb3c4b9915940c0ce",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/diagnostics/plateau_detector.py",
+      "source": "src/alienclaw/diagnostics/plateau_detector.py",
+      "source_blob": "ab7a6c636ef3167d732163ed06ee6b8e075e1f1d",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/__init__.py",
+      "source": "src/alienclaw/evolution/__init__.py",
+      "source_blob": "06417b618baece25d8502c8f816290744a94093d",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/diagnostics/__init__.py",
+      "source": "src/alienclaw/evolution/diagnostics/__init__.py",
+      "source_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/diagnostics/plateau_detector.py",
+      "source": "src/alienclaw/evolution/diagnostics/plateau_detector.py",
+      "source_blob": "aef838f0facef58af0fdd3eaa13565f119300409",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/generation.py",
+      "source": "src/alienclaw/evolution/generation.py",
+      "source_blob": "10df044892829bc0bd5bca99daed8ecbe74af6c5",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/population.py",
+      "source": "src/alienclaw/evolution/population.py",
+      "source_blob": "973b16c08c74e3b0c7ff043c47fb3fabec079056",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/scale_experiment.py",
+      "source": "src/alienclaw/evolution/scale_experiment.py",
+      "source_blob": "0817f1f3bf493749d4a8c1bdcc13c0184643ed61",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/selection.py",
+      "source": "src/alienclaw/evolution/selection.py",
+      "source_blob": "77c993fff66dc09631b6261c1f3e26fe17939468",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/stats.py",
+      "source": "src/alienclaw/evolution/stats.py",
+      "source_blob": "5b062d02d94e812b76e74c20ab001dd95dc3918e",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/storage.py",
+      "source": "src/alienclaw/evolution/storage.py",
+      "source_blob": "0529a58a2b610fa30f735ce5998ed3ab3e96f501",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/evolution/types.py",
+      "source": "src/alienclaw/evolution/types.py",
+      "source_blob": "00d7ad7c94e0b2afad923303cf00307c6ab6ce46",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/genome/__init__.py",
+      "source": "src/alienclaw/genome/__init__.py",
+      "source_blob": "b46794f4b883f9bd8b6f5d1decf0a28cae6c21d5",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/genome/alphabet.py",
+      "source": "src/alienclaw/genome/alphabet.py",
+      "source_blob": "caff22922d829b783c78186b8c48692a7eddeb19",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/genome/checksum.py",
+      "source": "src/alienclaw/genome/checksum.py",
+      "source_blob": "b67676c4f7343c9232dc675c22d611f41e7d2651",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/genome/codec.py",
+      "source": "src/alienclaw/genome/codec.py",
+      "source_blob": "b58adddb8c809c224987760dc6f24c67004433d8",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/genome/operators.py",
+      "source": "src/alienclaw/genome/operators.py",
+      "source_blob": "e4b75dd10d3d46eb0f6ccbb8217b40544b761039",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/genome/schema.py",
+      "source": "src/alienclaw/brains/types.py",
+      "source_blob": "edf743c918140c31edcf785b394ae3b647131c50",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/genome/types.py",
+      "source": "src/alienclaw/genome/types.py",
+      "source_blob": "5c62edfaf6583dadf99eff1d51f15a017f679692",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/genome/validation.py",
+      "source": "src/alienclaw/genome/validation.py",
+      "source_blob": "d8ba29a1f791163bd2757756731f90487b1f3d5d",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/src/alienclaw_ga/numeric.py",
+      "source": "src/alienclaw/fitness/function.py",
+      "source_blob": "5026527d4a848baa874ab51c33a553276716739a",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/__init__.py",
+      "source": "test/diagnostics/__init__.py",
+      "source_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_bayesian_optimizer.py",
+      "source": "test/diagnostics/test_bayesian_optimizer.py",
+      "source_blob": "143683fa868a27af966cafd89e83aefe4ea85484",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_diversity_tracker.py",
+      "source": "test/diagnostics/test_diversity_tracker.py",
+      "source_blob": "5428e10a7d3bb2e352e55455196f86a3508ec2ee",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_dynamics_summary.py",
+      "source": "test/diagnostics/test_dynamics_summary.py",
+      "source_blob": "2842855bb30b6a2606d4952e1bc7074c783949f2",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_fixation_theory.py",
+      "source": "test/diagnostics/test_fixation_theory.py",
+      "source_blob": "2918fc8eaa1f8384206c1a66e0257649785937e3",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_genome_information.py",
+      "source": "test/diagnostics/test_genome_information.py",
+      "source_blob": "ddae69cb073d3b4c7dc05cc31cb9ed16a3e975ab",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_instrumentation.py",
+      "source": "test/diagnostics/test_instrumentation.py",
+      "source_blob": "5297c323be1e18c437b77a7d642b6db70ea58587",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_instrumentation_non_finite.py",
+      "source": "test/diagnostics/test_instrumentation_non_finite.py",
+      "source_blob": "15d6fd32852e18a39a4f16651e36565109da348c",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_mi_bias_correction.py",
+      "source": "test/diagnostics/test_mi_bias_correction.py",
+      "source_blob": "f4c0c84be132090368ae7237fd2e8e9aa0a17a96",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_per_genome_capture.py",
+      "source": "test/diagnostics/test_per_genome_capture.py",
+      "source_blob": "92a73864480d198ae89422ea26e80b53f3b57ed7",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_plateau_detector.py",
+      "source": "test/diagnostics/test_plateau_detector.py",
+      "source_blob": "c2e04ea9a4421a5a25c64df101e87ae99fa9ad21",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/evolution/__init__.py",
+      "source": "test/evolution/__init__.py",
+      "source_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/tests/evolution/test_generation.py",
+      "source": "test/evolution/test_generation.py",
+      "source_blob": "7921fbb4d732f8007989eb328fcda900babe3b78",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/evolution/test_plateau_detector.py",
+      "source": "test/evolution/test_plateau_detector.py",
+      "source_blob": "2cc1cd51fafdf686e23e5650d6c17f6fc9aba5e1",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/evolution/test_population.py",
+      "source": "test/evolution/test_population.py",
+      "source_blob": "b11a9d7a1d24a03822a07eef8e6677878aabd84f",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/evolution/test_scale_experiment.py",
+      "source": "test/evolution/test_scale_experiment.py",
+      "source_blob": "1af031bdcb01a7dd6a3a1eda3ead62120ba0f291",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/evolution/test_selection.py",
+      "source": "test/evolution/test_selection.py",
+      "source_blob": "13955aec00ccd39d0d61a691ec42394dfb4158b4",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/evolution/test_selection_strategy.py",
+      "source": "test/evolution/test_selection_strategy.py",
+      "source_blob": "291563901d8b949e50f3f673397084a52e10494c",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/evolution/test_stats.py",
+      "source": "test/evolution/test_stats.py",
+      "source_blob": "1990104f897531a48046c790de51f36ced2f475b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/evolution/test_storage.py",
+      "source": "test/evolution/test_storage.py",
+      "source_blob": "f68054efa152828a3130147e6feb03e63ae484f6",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/fixtures/genome-spec-fixtures.json",
+      "source": "test/fixtures/genome-spec-fixtures.json",
+      "source_blob": "ac109de347c125a6bdd0bb50bed439bae8f4e3de",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/__init__.py",
+      "source": "test/genome/__init__.py",
+      "source_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "relation": "verbatim"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_alphabet.py",
+      "source": "test/genome/test_alphabet.py",
+      "source_blob": "9c03d394c2599b968b2e76650add4f63df99cd5c",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_checksum.py",
+      "source": "test/genome/test_checksum.py",
+      "source_blob": "2e9fadee9f051c10b1a0ddf1e68204505842124e",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_codec.py",
+      "source": "test/genome/test_codec.py",
+      "source_blob": "b42ae303e114915c5d4c4b3e3e7c2fd0af694fcb",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_fixtures.py",
+      "source": "test/genome/test_fixtures.py",
+      "source_blob": "7abf15d125e5e462f7da8bed39a6e85412fa471e",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_genome_vectors.py",
+      "source": "test/genome/test_genome_vectors.py",
+      "source_blob": "5c006f86bc6a7b6b45392feaf94fea34e261be7b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_operators.py",
+      "source": "test/genome/test_operators.py",
+      "source_blob": "ee17bb1346ca717c6e5b77659abc4a660b052195",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_property_genome.py",
+      "source": "test/genome/test_property_genome.py",
+      "source_blob": "eb2413df433b6c797addd4ad09cba80948ce957b",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_step_mutation.py",
+      "source": "test/genome/test_step_mutation.py",
+      "source_blob": "bb291b27edfa85466fcf7ff770bcf97f9b2ec848",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_types.py",
+      "source": "test/genome/test_types.py",
+      "source_blob": "f94d9a6702cd3a83b94ce0d9793f59cf1f24546f",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_validation.py",
+      "source": "test/genome/test_validation.py",
+      "source_blob": "309f7ca66ba5a9dd8fca34406fe0bdce1cd9bd6d",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/genome/test_xcode_helpers.py",
+      "source": "test/genome/test_xcode_helpers.py",
+      "source_blob": "4c7dbba67fff500d606b97675cedb962e8d26fd5",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/ga-engine/tests/diagnostics/test_mi_noise_regression.py",
+      "source": "test/diagnostics/test_mi_noise_regression.py",
+      "source_blob": "812a2482b31c9a0f378bf13258ea699e27b5893a",
+      "relation": "adapted"
+    }
+  ],
+  "divergences": [
+    "src/alienclaw_ga/evolution/types.py: the TYPE_CHECKING import of alienclaw.brains.types.BrainSpec (DROP) is replaced by alienclaw_ga.genome.schema.DirectedMutationSpec (a Protocol); EvolutionConfig.brain keeps its name, default None and runtime behavior, only its annotation changed.",
+    "src/alienclaw_ga/genome/schema.py (new, extracted): ParameterSchemaField copied field-for-field from alienclaw.brains.types; BrainSpec replaced by the DirectedMutationSpec/ParameterFieldLike Protocols plus a minimal MutationSchema dataclass. mutate_directed only reads .parameter_schema, so in-tree BrainSpec objects still work.",
+    "src/alienclaw_ga/numeric.py (new, extracted): clamp01 copied verbatim from alienclaw.fitness.function; the retired composition scorer evaluate() and alienclaw.fitness.types are not staged. evolution.generation, diagnostics.fixation_theory and diagnostics.per_genome_capture import clamp01 from alienclaw_ga.numeric.",
+    "Every alienclaw.X reference (imports, mock.patch target strings, docstring module names) is rewritten to alienclaw_ga.X; ruff re-sorted the import block of evolution/generation.py where the rewrite changed the isort order.",
+    "Ported diagnostics tests: ruff --fix removed unused imports (math, numpy, os, CaptureTrace, is_enabled) and re-sorted import blocks; one over-long line in test_dynamics_summary.py was wrapped. In-tree test/diagnostics is outside the CI ruff scope, the staged copy is linted.",
+    "tests/genome/test_step_mutation.py and tests/evolution/test_generation.py build MutationSchema instead of BrainSpec/GenomeSectionDocs; the parameter_schema contents are unchanged.",
+    "tests/genome/test_genome_vectors.py resolves the fixture from tests/fixtures/ instead of <repo>/test/fixtures/.",
+    "tests/diagnostics/test_dynamics_summary.py reproduces option_b and option_current locally because diagnostics.fitness_formula_candidates is excluded; finite-input math is identical.",
+    "tests/diagnostics/test_instrumentation.py drives the record_* producers directly instead of through alienclaw.bridge.server.handle; test_production_response_identical_when_off and test_decoded_params_reach_runner (bridge behavior) are dropped and test_capture_deactivated_after_block is added.",
+    "Lint config: diagnostics sources keep their math-style names (N, H_x, X_obs) and the public CaptureHook() name via per-file N802/N803/N806 ignores (plus E501 for genome_information.py), so those copies stay verbatim apart from import rewrites.",
+    "Unchanged on purpose for tuner compatibility: ALIENCLAW_POPULATIONS_ROOT and the ~/.alienclaw/populations default in evolution/storage.py, the ALIENCLAW_DIAGNOSTICS flag, the 'martian_type' naming throughout, and the RunMartianCallback alias.",
+    "Comments and docstrings that point at in-tree files are left as-is, e.g. the src/alienclaw/registry/genome-codec.ts TS mirror in genome/*, bridge/server.py as the instrumentation producer, and '# list[Optional[BrainSpec]]' in operators.mutate_directed.",
+    "New, not derived from a source: src/alienclaw_ga/__init__.py, tests/__init__.py, tests/conftest.py (pins HOME and ALIENCLAW_POPULATIONS_ROOT to tmp_path, disables the Hypothesis example database), tests/test_tuner_contract.py, tests/test_no_drop_imports.py, pyproject.toml, README.md.",
+    "2026-11-26 (review follow-up): mutual_information's bias term is now Miller-Madow, MI_plugin - (m_joint - m_x - m_y + 1) / (2N), floored at 0; the old term (m_x * m_y - m_joint - 1) / (2N) and PKT-1477's min(raw_mi, corrected) clamp are gone, and the local names H_x/H_y/H_joint became h_x/h_y/h_joint (ruff-clean in-tree). Applied to both sides: genome_information.py is still verbatim, tests/diagnostics/test_mi_bias_correction.py still differs only by the import rewrite.",
+    "2026-11-26: Miller-Madow MI change reverted in-tree and here (it inflated noise MI ~5x on sparse tables); the PKT-1477 clamp is the current behaviour"
+  ]
+}

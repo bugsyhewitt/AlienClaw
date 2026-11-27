@@ -8,9 +8,15 @@
  *   - Rejects loopback, RFC1918, link-local (169.254.x.x incl. cloud metadata),
  *     ULA, unspecified, multicast, and reserved ranges — in both IPv4 and IPv6,
  *     including IPv4-mapped IPv6 in hex form (::ffff:a9fe:a9fe).
+ *   - Blocks NAT64 64:ff9b::/96 when the embedded IPv4 is blocked, and the
+ *     whole local-use NAT64 prefix 64:ff9b:1::/48.
  *   - Re-validates every redirect hop; caps redirects at MAX_REDIRECTS.
  *   - Enforces protocol allowlist (https, http only).
- *   - Enforces per-caller response size cap and total time budget.
+ *   - Validates the FetchPolicy up front: every limit must be a bounded
+ *     integer, omitted optional fields get the defaults, and anything else
+ *     throws TypeError instead of silently removing a limit.
+ *   - Enforces per-caller response size cap and ONE time budget that covers
+ *     DNS, connect, headers and the full body read across every hop.
  *   - URL is NOT rewritten to the resolved IP (which would break TLS SNI).
  *     Instead, the same resolver is used for both validation and connection
  *     (Node's built-in DNS stack), making resolver-inconsistency attacks impossible.
@@ -30,9 +36,12 @@ import * as https from 'node:https';
 // ---------------------------------------------------------------------------
 
 export interface FetchPolicy {
-  /** Maximum milliseconds for the entire request including redirects. */
+  /**
+   * Maximum milliseconds for the entire call: DNS, connect, headers and the
+   * full body read, across every redirect hop. Integer, 1 to 2_147_483_647.
+   */
   timeoutMs:    number;
-  /** Maximum bytes in the response body. */
+  /** Maximum bytes in the response body. Integer, 0 to 268_435_456 (256 MiB). */
   maxBytes:     number;
   /**
    * Allowed URL protocols (without colon). Default: ['https', 'http'].
@@ -44,12 +53,20 @@ export interface FetchPolicy {
    * are permitted (post-DNS-validation). If omitted, any non-blocked host is allowed.
    */
   allowedHosts?: Set<string>;
-  /** Maximum number of redirect hops to follow. Default: 5. */
+  /** Maximum number of redirect hops to follow. Integer, 0 to 20. Default: 5. */
   maxRedirects?: number;
 }
 
 export const DEFAULT_PROTOCOLS = ['https', 'http'] as const;
 export const MAX_REDIRECTS      = 5;
+
+// Policy bounds (enforced by checkPolicy).
+/** The largest delay Node's setTimeout honours; above it Node fires after 1 ms. */
+const TIMEOUT_MS_CEILING    = 2_147_483_647;
+/** The body is buffered and decoded into one string (V8 caps strings near 2^29 chars). */
+const MAX_BYTES_CEILING     = 256 * 1024 * 1024;
+/** The WHATWG Fetch standard's own redirect limit. */
+const MAX_REDIRECTS_CEILING = 20;
 
 // ---------------------------------------------------------------------------
 // IP-address blocking (mirrors isBlockedHost from tool-adapters.ts)
@@ -157,6 +174,23 @@ function isBlockedIpv6(hostNoBrackets: string): boolean {
   // All-zero prefix (unspecified/loopback-adjacent/IPv4-compatible)
   if (groups[0] === 0 && groups[1] === 0 && groups[2] === 0 && groups[3] === 0 &&
       groups[4] === 0 && groups[5] === 0) return true;
+  // NAT64. A translator turns these into IPv4 connections, so on a host with
+  // NAT64 (for example an IPv6-only cloud subnet with DNS64) they reach the
+  // embedded IPv4 address.
+  //   • 64:ff9b::/96, the RFC 6052 well-known prefix: the IPv4 is the last
+  //     32 bits. Blocked exactly when that IPv4 is blocked, so the DNS64
+  //     answers for public IPv4-only hosts stay reachable on IPv6-only networks.
+  //   • 64:ff9b:1::/48, the RFC 8215 local-use prefix: blocked whole. IANA
+  //     lists it as not globally reachable, and the operator chooses the
+  //     embedding length inside it, so the IPv4 cannot be located reliably.
+  if (g0 === 0x64 && groups[1] === 0xff9b) {
+    if (groups[2] === 0x0001) return true;
+    if (groups[2] === 0 && groups[3] === 0 && groups[4] === 0 && groups[5] === 0) {
+      const hi = groups[6]!;
+      const lo = groups[7]!;
+      if (isBlockedIpv4([hi >> 8, hi & 0xff, lo >> 8, lo & 0xff])) return true;
+    }
+  }
   if (g0 >= 0xfe80 && g0 <= 0xfebf) return true;  // fe80::/10 link-local
   if (g0 >= 0xfc00 && g0 <= 0xfdff) return true;  // fc00::/7 ULA
   if ((g0 & 0xff00) === 0xff00) return true;        // ff00::/8 multicast
@@ -210,10 +244,80 @@ export function validateResolvedAddresses(addresses: ResolvedAddress[]): void {
 }
 
 // ---------------------------------------------------------------------------
+// Policy validation
+// ---------------------------------------------------------------------------
+
+/** A FetchPolicy after checkPolicy: bounded integer limits, defaults filled in. */
+interface CheckedPolicy {
+  readonly timeoutMs:    number;
+  readonly maxBytes:     number;
+  readonly maxRedirects: number;
+  readonly protocols:    readonly string[];
+  readonly allowedHosts: Set<string> | undefined;
+}
+
+/** A short description of a rejected value for an error message (objects are not echoed). */
+function describeValue(v: unknown): string {
+  if (typeof v === 'string') return JSON.stringify(v.length > 40 ? `${v.slice(0, 40)}...` : v);
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return 'array';
+  if (typeof v === 'object' || typeof v === 'function' || typeof v === 'symbol') return typeof v;
+  return String(v);
+}
+
+function boundedInt(field: string, v: unknown, min: number, max: number): number {
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < min || v > max) {
+    throw new TypeError(
+      `Invalid FetchPolicy: ${field} must be an integer from ${min} to ${max} (got ${describeValue(v)})`,
+    );
+  }
+  return v;
+}
+
+/**
+ * Validate a caller's policy once, at the top of hardenedFetch, and fail
+ * closed. Without this, NaN / undefined / string limits compared false
+ * against every running total, so a policy built from JSON or env vars
+ * silently lost its size cap or its redirect cap. Each field is read once.
+ */
+function checkPolicy(policy: unknown): CheckedPolicy {
+  if (typeof policy !== 'object' || policy === null) {
+    throw new TypeError(`Invalid FetchPolicy: expected an object (got ${describeValue(policy)})`);
+  }
+  const p = policy as { [K in keyof FetchPolicy]?: unknown };
+  const timeoutMs = boundedInt('timeoutMs', p.timeoutMs, 1, TIMEOUT_MS_CEILING);
+  const maxBytes  = boundedInt('maxBytes', p.maxBytes, 0, MAX_BYTES_CEILING);
+  const rawRedirects = p.maxRedirects;
+  const maxRedirects = rawRedirects === undefined
+    ? MAX_REDIRECTS
+    : boundedInt('maxRedirects', rawRedirects, 0, MAX_REDIRECTS_CEILING);
+  const protocols = p.protocols;
+  if (protocols !== undefined &&
+      !(Array.isArray(protocols) && protocols.every((x: unknown) => typeof x === 'string'))) {
+    throw new TypeError(
+      `Invalid FetchPolicy: protocols must be an array of strings (got ${describeValue(protocols)})`,
+    );
+  }
+  const allowedHosts = p.allowedHosts;
+  if (allowedHosts !== undefined && !(allowedHosts instanceof Set)) {
+    throw new TypeError(
+      `Invalid FetchPolicy: allowedHosts must be a Set of hostnames (got ${describeValue(allowedHosts)})`,
+    );
+  }
+  return {
+    timeoutMs,
+    maxBytes,
+    maxRedirects,
+    protocols: (protocols as string[] | undefined) ?? [...DEFAULT_PROTOCOLS],
+    allowedHosts: allowedHosts as Set<string> | undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // URL validation
 // ---------------------------------------------------------------------------
 
-function validateUrl(urlStr: string, policy: FetchPolicy): URL {
+function validateUrl(urlStr: string, policy: CheckedPolicy): URL {
   let parsed: URL;
   try {
     parsed = new URL(urlStr);
@@ -221,7 +325,7 @@ function validateUrl(urlStr: string, policy: FetchPolicy): URL {
     throw new Error(`Invalid URL: ${urlStr}`);
   }
 
-  const allowedProtocols = policy.protocols ?? [...DEFAULT_PROTOCOLS];
+  const allowedProtocols = policy.protocols;
   // URL.protocol includes the colon (e.g. 'https:')
   const proto = parsed.protocol.replace(/:$/, '');
   if (!allowedProtocols.includes(proto)) {
@@ -260,87 +364,124 @@ async function resolveAndValidate(hostname: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
+ * True if `err` is the deadline abort: the deadline's own reason, an error whose
+ * cause is that reason, or an AbortError (DOMException or Error named so).
+ */
+function isDeadlineError(err: unknown, deadline: Error): boolean {
+  if (err === deadline) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { name?: unknown; cause?: unknown };
+  return e.cause === deadline || e.name === 'AbortError';
+}
+
+/**
  * Perform a URL fetch with full SSRF protection and resource limits.
  *
  * @param url     The URL to fetch (string or URL object).
  * @param policy  Per-caller security policy (timeouts, size caps, allowlists).
  * @returns       The response body as a string.
- * @throws        Error on any SSRF violation, timeout, size cap, or HTTP error.
+ * @throws        TypeError ("Invalid FetchPolicy: ...") before any I/O if the
+ *                policy is malformed; Error on any SSRF violation, timeout,
+ *                size cap, or HTTP error.
  */
 export async function hardenedFetch(url: string, policy: FetchPolicy): Promise<string> {
+  const p = checkPolicy(policy);
+
+  // One deadline for the whole call: DNS, connect, headers and the full body
+  // read, across every redirect hop. The signal goes to fetch() (so undici
+  // tears the socket down), and every await below also races `expired`, so a
+  // lookup or a body stream that ignores the signal cannot outlive the budget.
+  const controller = new AbortController();
+  const { signal } = controller;
+  // The deadline aborts with its own reason, so the errors the deadline causes
+  // can be told apart from errors that merely settle after it: `expired` and
+  // signal.throwIfAborted() reject with it, and so does undici for an aborted
+  // fetch or body read (it rejects with signal.reason).
+  const deadline = new Error(`Fetch timeout: exceeded ${p.timeoutMs}ms budget`);
+  const timer = setTimeout(() => controller.abort(deadline), p.timeoutMs);
+  const expired = new Promise<never>((_resolve, reject) => {
+    signal.addEventListener('abort', () => reject(deadline), { once: true });
+  });
+  expired.catch(() => { /* observed through the races below */ });
+  const beforeDeadline = <T>(work: Promise<T>): Promise<T> => Promise.race([work, expired]);
+
   let currentUrl = url;
-  let redirectsLeft = policy.maxRedirects ?? MAX_REDIRECTS;
-  const deadline = Date.now() + policy.timeoutMs;
+  let redirectsLeft = p.maxRedirects;
 
-  for (;;) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) {
-      throw new Error(`Fetch timeout: exceeded ${policy.timeoutMs}ms budget`);
-    }
-
-    // 1. Validate URL (protocol, literal-IP check, host allowlist)
-    const parsed = validateUrl(currentUrl, policy);
-
-    // 2. Resolve DNS and validate every returned address
-    await resolveAndValidate(parsed.hostname);
-
-    // 3. Perform the request — use AbortSignal with remaining time budget
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), remaining);
-
-    let response: Response;
-    try {
-      response = await fetch(currentUrl, {
-        signal: controller.signal,
-        redirect: 'manual',  // handle redirects ourselves for re-validation
-      });
-    } catch (err: unknown) {
-      clearTimeout(timer);
-      if ((err as Error).name === 'AbortError') {
-        throw new Error(`Fetch timeout: exceeded ${policy.timeoutMs}ms budget`);
-      }
-      throw err;
-    } finally {
-      clearTimeout(timer);
-    }
-
-    // 4. Handle redirects (3xx)
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (!location) {
-        throw new Error(`Redirect with no Location header (status ${response.status})`);
-      }
-      if (redirectsLeft <= 0) {
-        throw new Error(`Too many redirects (>${policy.maxRedirects ?? MAX_REDIRECTS})`);
-      }
-      // Resolve relative redirect URLs against current URL
-      currentUrl = new URL(location, currentUrl).toString();
-      redirectsLeft--;
-      continue;  // re-validate the new URL from the top of the loop
-    }
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} from ${parsed.hostname}`);
-    }
-
-    // 5. Stream response body with size cap
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error('No response body');
-
-    const chunks: Uint8Array[] = [];
-    let totalBytes = 0;
+  try {
     for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > policy.maxBytes) {
-        reader.cancel();
-        throw new Error(`Response exceeds ${policy.maxBytes} bytes — rejecting`);
-      }
-      chunks.push(value);
-    }
+      signal.throwIfAborted();
 
-    return new TextDecoder().decode(Buffer.concat(chunks));
+      // 1. Validate URL (protocol, literal-IP check, host allowlist)
+      const parsed = validateUrl(currentUrl, p);
+
+      // 2. Resolve DNS and validate every returned address
+      await beforeDeadline(resolveAndValidate(parsed.hostname));
+
+      // 3. Perform the request under the shared deadline
+      const response = await beforeDeadline(fetch(currentUrl, {
+        signal,
+        redirect: 'manual',  // handle redirects ourselves for re-validation
+      }));
+
+      // 4. Handle redirects (3xx)
+      if (response.status >= 300 && response.status < 400) {
+        // The hop's body is never read; release its connection now, not at the end.
+        await response.body?.cancel().catch(() => {});
+        const location = response.headers.get('location');
+        if (!location) {
+          throw new Error(`Redirect with no Location header (status ${response.status})`);
+        }
+        if (redirectsLeft <= 0) {
+          throw new Error(`Too many redirects (>${p.maxRedirects})`);
+        }
+        // Resolve relative redirect URLs against current URL
+        currentUrl = new URL(location, currentUrl).toString();
+        redirectsLeft--;
+        continue;  // re-validate the new URL from the top of the loop
+      }
+
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => {});
+        throw new Error(`HTTP ${response.status} from ${parsed.hostname}`);
+      }
+
+      // 5. Stream response body with size cap, still under the deadline
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const chunks: Uint8Array[] = [];
+      let totalBytes = 0;
+      try {
+        for (;;) {
+          const { done, value } = await beforeDeadline(reader.read());
+          if (done) break;
+          totalBytes += value.byteLength;
+          if (totalBytes > p.maxBytes) {
+            throw new Error(`Response exceeds ${p.maxBytes} bytes — rejecting`);
+          }
+          chunks.push(value);
+        }
+      } catch (err) {
+        reader.cancel().catch(() => { /* the read already failed */ });
+        throw err;
+      }
+
+      return new TextDecoder().decode(Buffer.concat(chunks));
+    }
+  } catch (err) {
+    // Report a timeout only for an error that IS the deadline firing: its own
+    // reason (or an error caused by it), or an AbortError raised by the abort.
+    // Anything else (an SSRF rejection, an HTTP status, the size cap) that
+    // settled as the deadline fired is reported as itself (2026-11-26 review:
+    // `if (signal.aborted)` alone turned those into timeouts).
+    if (signal.aborted && isDeadlineError(err, deadline)) throw deadline;
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    // Release anything still tied to the signal, such as an unread redirect
+    // body. After a timeout the signal is already aborted and this is a no-op.
+    controller.abort();
   }
 }
 

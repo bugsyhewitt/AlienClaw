@@ -1,0 +1,541 @@
+{
+  "schema_version": 1,
+  "profile": "per-language",
+  "description": "SSRF block list of the agent-tool sandbox, one table for both languages. Each language's guard reads the generated module (python/src/agent_tool_sandbox/_blocklist_data.py, ts/src/blocklist-data.ts). Edit this file, then run policy/gen_python.py and policy/gen-ts.mjs. Semantics: policy/README.md.",
+  "entries": [
+    {
+      "id": "v4-this-network",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "0.0.0.0/8",
+      "rationale": "'This' network. Linux connects 0.0.0.0 to the local host.",
+      "refs": ["RFC 791 §3.2", "RFC 6890 §2.2.2"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-rfc1918-10",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "10.0.0.0/8",
+      "rationale": "Private-use (RFC 1918).",
+      "refs": ["RFC 1918"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-cgnat",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "100.64.0.0/10",
+      "rationale": "Carrier-grade NAT shared address space: internal to the provider's network (Tailscale uses it too). Python's ipaddress.is_private never included it.",
+      "refs": ["RFC 6598"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-loopback",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "127.0.0.0/8",
+      "rationale": "Loopback.",
+      "refs": ["RFC 1122 §3.2.1.3"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-azure-wireserver",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "168.63.129.16/32",
+      "rationale": "Azure WireServer: a PUBLIC address the host fabric answers inside every VM (DNS, health probes, goal state, extension configuration), so no range rule catches it.",
+      "refs": ["Azure: What is IP address 168.63.129.16", "shared corpus meta-azure-wireserver"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-link-local",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "169.254.0.0/16",
+      "rationale": "Link-local, including the cloud metadata services at 169.254.169.254 and 169.254.170.2.",
+      "refs": ["RFC 3927"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-rfc1918-172",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "172.16.0.0/12",
+      "rationale": "Private-use (RFC 1918).",
+      "refs": ["RFC 1918"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-ietf-protocol",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "192.0.0.0/24",
+      "rationale": "IETF protocol assignments, including the NAT64 discovery answers 192.0.0.170/31 (RFC 7050). Python exempts two anycast addresses (next two entries).",
+      "refs": ["RFC 6890 §2.2.2", "RFC 7050"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-ietf-pcp-anycast",
+      "family": "ipv4",
+      "effect": "exempt",
+      "cidr": "192.0.0.9/32",
+      "rationale": "PCP anycast. IANA marks it globally reachable, so Python lets it through; it routes to the nearest PCP server, usually the local gateway. TS blocks it with the rest of the /24. DIFFERENCES.md g1.",
+      "refs": ["RFC 7723", "DIFFERENCES.md g1"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v4-ietf-turn-anycast",
+      "family": "ipv4",
+      "effect": "exempt",
+      "cidr": "192.0.0.10/32",
+      "rationale": "TURN anycast; same reasoning as PCP anycast. DIFFERENCES.md g1.",
+      "refs": ["RFC 8155", "DIFFERENCES.md g1"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v4-test-net-1",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "192.0.2.0/24",
+      "rationale": "Documentation (TEST-NET-1): never routed, so blocking costs nothing. DIFFERENCES.md g2.",
+      "refs": ["RFC 5737", "DIFFERENCES.md g2"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v4-rfc1918-192",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "192.168.0.0/16",
+      "rationale": "Private-use (RFC 1918).",
+      "refs": ["RFC 1918"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-benchmarking",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "198.18.0.0/15",
+      "rationale": "Benchmarking; not globally reachable.",
+      "refs": ["RFC 2544"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-test-net-2",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "198.51.100.0/24",
+      "rationale": "Documentation (TEST-NET-2). DIFFERENCES.md g2.",
+      "refs": ["RFC 5737", "DIFFERENCES.md g2"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v4-test-net-3",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "203.0.113.0/24",
+      "rationale": "Documentation (TEST-NET-3). DIFFERENCES.md g2.",
+      "refs": ["RFC 5737", "DIFFERENCES.md g2"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v4-multicast",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "224.0.0.0/4",
+      "rationale": "Multicast.",
+      "refs": ["RFC 5771"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v4-reserved",
+      "family": "ipv4",
+      "effect": "block",
+      "cidr": "240.0.0.0/4",
+      "rationale": "Reserved for future use, including the limited broadcast 255.255.255.255.",
+      "refs": ["RFC 1112 §4", "RFC 919"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-ipv4-compatible",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "::/96",
+      "rationale": "Unspecified ::, loopback ::1 and the deprecated IPv4-compatible addresses ::a.b.c.d. Python also blocks it through v6-reserved-0000.",
+      "refs": ["RFC 4291 §2.5.2", "RFC 4291 §2.5.3", "RFC 4291 §2.5.5.1"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-ipv4-mapped",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "::ffff:0:0/96",
+      "rationale": "IPv4-mapped, blocked whole: a resolver never needs to answer a mapped address for a public host, and a mapped literal in a URL is only an evasion spelling. When on, it overrides v6-ipv4-mapped-decode. TS blocks the whole /96; Python decodes instead. DIFFERENCES.md g3.",
+      "refs": ["RFC 4291 §2.5.5.2", "DIFFERENCES.md g3"],
+      "applies": {"python": false, "ts": true}
+    },
+    {
+      "id": "v6-ipv4-mapped-decode",
+      "family": "ipv6",
+      "effect": "decode",
+      "matcher": "ipv4-mapped",
+      "cidr": "::ffff:0:0/96",
+      "rationale": "IPv4-mapped, judged by the embedded IPv4 alone (low 32 bits) when v6-ipv4-mapped is off. In Python the guard unwraps mapped DNS answers to IPv4 before the check (_resolve_host_ips; pinning._checked_addresses), so through the guard the embedded address meets the whole IPv4 table. decode_excludes only matters for a mapped IPv6Address handed straight to _ip_is_blocked: the ipaddress.is_* properties this table replaced delegate to the embedded IPv4 (CPython 3.13+, and the 2024 backports to 3.10-3.12), but the CGNAT and WireServer checks were IPv4Address-only, so a raw ::ffff:100.64.0.1 was allowed. Kept for zero behaviour change (tests/test_parity_in_tree.py IP corpus); unreachable through the guard.",
+      "refs": ["RFC 4291 §2.5.5.2", "DIFFERENCES.md g3"],
+      "decode_excludes": {"python": ["v4-cgnat", "v4-azure-wireserver"], "ts": []},
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-ipv4-translated",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "::ffff:0:0:0/96",
+      "rationale": "IPv4-translated (SIIT): ::ffff:0:a.b.c.d reaches the embedded IPv4 through a translator. Python also blocks it through v6-reserved-0000.",
+      "refs": ["RFC 2765 §2.1", "RFC 6145"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-nat64-wkp",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "64:ff9b::/96",
+      "rationale": "NAT64 well-known prefix, blocked whole: a translator turns it into IPv4 connections. Costs IPv6-only DNS64 hosts every IPv4-only site (see DIFFERENCES.md, 'DNS64 / NAT64 compatibility trade-offs'). When on, it overrides v6-nat64-wkp-decode. Python blocks it whole (it sits in v6-reserved-0000); TS decodes. DIFFERENCES.md g4.",
+      "refs": ["RFC 6052 §2.1", "RFC 6147", "DIFFERENCES.md g4"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-nat64-wkp-decode",
+      "family": "ipv6",
+      "effect": "decode",
+      "matcher": "nat64-embedded",
+      "cidr": "64:ff9b::/96",
+      "rationale": "NAT64 well-known prefix, judged by the embedded IPv4 alone (the last 32 bits, RFC 6052 §2.1) when v6-nat64-wkp is off: DNS64 answers for public IPv4-only hosts stay reachable, private embeddings are blocked. The decode inherits the IPv4 table, gaps included (emb-nat64-test-net).",
+      "refs": ["RFC 6052 §2.1", "DIFFERENCES.md g4"],
+      "applies": {"python": false, "ts": true}
+    },
+    {
+      "id": "v6-nat64-local-use",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "64:ff9b:1::/48",
+      "rationale": "Local-use NAT64 prefix, blocked whole: not globally reachable, and the operator picks the embedding length, so the IPv4 cannot be located reliably.",
+      "refs": ["RFC 8215"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-reserved-0000",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "::/8",
+      "rationale": "IANA reserved (IPv4-compatible, mapped and translated space, NAT64 prefixes). Also covers what TS lets through: 64:ff9b::/32 outside the /96 and /48 (g5) and the odd ::/8 shapes ::1:ffff:0:0, ::ffff:0:0:7f00:1, ::1:7f00:1 (g12).",
+      "refs": ["RFC 4291", "IANA IPv6 Address Space", "DIFFERENCES.md g5", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-0100",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "100::/8",
+      "rationale": "IANA reserved (holds the discard-only 100::/64). DIFFERENCES.md g10.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g10"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-discard",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "100::/64",
+      "rationale": "Discard-only prefix (remote-triggered black hole); not globally reachable. Inside v6-reserved-0100. DIFFERENCES.md g10.",
+      "refs": ["RFC 6666", "DIFFERENCES.md g10"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-0200",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "200::/7",
+      "rationale": "IANA reserved (formerly OSI NSAP). DIFFERENCES.md g12.",
+      "refs": ["RFC 4048", "IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-0400",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "400::/6",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-0800",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "800::/5",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-1000",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "1000::/4",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-ietf-2001-23",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "2001::/23",
+      "rationale": "IETF protocol assignments (benchmarking 2001:2::/48, deprecated ORCHID 2001:10::/28, SRP anycast 2001:1::3, ...), minus the IANA globally-reachable exemptions below. TS blocks only Teredo inside it. DIFFERENCES.md g8.",
+      "refs": ["RFC 2928", "RFC 5180", "RFC 4843", "RFC 9665", "DIFFERENCES.md g8"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-teredo",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "2001::/32",
+      "rationale": "Teredo, blocked whole: the client IPv4 is obfuscated and the server IPv4 is whatever the attacker picks, so no embedded check holds. Python also blocks it through v6-ietf-2001-23.",
+      "refs": ["RFC 4380"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-pcp-anycast",
+      "family": "ipv6",
+      "effect": "exempt",
+      "cidr": "2001:1::1/128",
+      "rationale": "PCP anycast, IANA globally reachable. Allowed by both languages (TS blocks the IPv4 twin 192.0.0.9, see DIFFERENCES.md 'Both languages allow').",
+      "refs": ["RFC 7723"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-turn-anycast",
+      "family": "ipv6",
+      "effect": "exempt",
+      "cidr": "2001:1::2/128",
+      "rationale": "TURN anycast, IANA globally reachable. Allowed by both languages.",
+      "refs": ["RFC 8155"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-amt",
+      "family": "ipv6",
+      "effect": "exempt",
+      "cidr": "2001:3::/32",
+      "rationale": "AMT (automatic multicast tunneling), IANA globally reachable.",
+      "refs": ["RFC 7450"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-as112",
+      "family": "ipv6",
+      "effect": "exempt",
+      "cidr": "2001:4:112::/48",
+      "rationale": "AS112-v6 (DNAME redirection sink), IANA globally reachable.",
+      "refs": ["RFC 7535"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-orchidv2",
+      "family": "ipv6",
+      "effect": "exempt",
+      "cidr": "2001:20::/28",
+      "rationale": "ORCHIDv2, IANA globally reachable.",
+      "refs": ["RFC 7343"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-drone-det",
+      "family": "ipv6",
+      "effect": "exempt",
+      "cidr": "2001:30::/28",
+      "rationale": "Drone remote ID protocol entity tags (DETs), IANA globally reachable.",
+      "refs": ["RFC 9374"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-documentation",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "2001:db8::/32",
+      "rationale": "Documentation: never routed. DIFFERENCES.md g9.",
+      "refs": ["RFC 3849", "DIFFERENCES.md g9"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-6to4",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "2002::/16",
+      "rationale": "6to4, blocked whole (public embeddings too): a host or relay with 6to4 tunnels to the IPv4 in bits 16-47; no agent tool needs 6to4, and decoding would inherit the IPv4 table.",
+      "refs": ["RFC 3056", "RFC 7526"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-documentation-3fff",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "3fff::/20",
+      "rationale": "Documentation: never routed. DIFFERENCES.md g9.",
+      "refs": ["RFC 9637", "DIFFERENCES.md g9"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-4000",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "4000::/3",
+      "rationale": "IANA reserved (includes the SRv6 SID block 5f00::/16, RFC 9602). DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "RFC 9602", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-6000",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "6000::/3",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-8000",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "8000::/3",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-a000",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "a000::/3",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-c000",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "c000::/3",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-e000",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "e000::/4",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-f000",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "f000::/5",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-reserved-f800",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "f800::/6",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-ula",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "fc00::/7",
+      "rationale": "Unique local addresses (the IPv6 RFC 1918), including AWS IMDS fd00:ec2::254.",
+      "refs": ["RFC 4193"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-reserved-fe00",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "fe00::/9",
+      "rationale": "IANA reserved. DIFFERENCES.md g12.",
+      "refs": ["IANA IPv6 Address Space", "DIFFERENCES.md g12"],
+      "applies": {"python": true, "ts": false}
+    },
+    {
+      "id": "v6-link-local",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "fe80::/10",
+      "rationale": "Link-local (zone IDs are ignored for the match).",
+      "refs": ["RFC 4291 §2.5.6"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-site-local",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "fec0::/10",
+      "rationale": "Site-local, deprecated but still routed inside some networks.",
+      "refs": ["RFC 3879"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "v6-multicast",
+      "family": "ipv6",
+      "effect": "block",
+      "cidr": "ff00::/8",
+      "rationale": "Multicast.",
+      "refs": ["RFC 4291 §2.7"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "name-localhost",
+      "family": "name",
+      "effect": "block",
+      "name": "localhost",
+      "rationale": "Refused by name before DNS (trailing dots ignored): stub resolvers answer it without asking DNS, and a lying resolver or /etc/hosts could answer anything.",
+      "refs": ["RFC 6761 §6.3", "plan gate G7"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "name-localhost-subdomains",
+      "family": "name",
+      "effect": "block",
+      "name_suffix": ".localhost",
+      "rationale": "Every name under .localhost is loopback; refused by name before DNS (trailing dots ignored).",
+      "refs": ["RFC 6761 §6.3", "plan gate G7"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "name-ip6-localhost",
+      "family": "name",
+      "effect": "block",
+      "name": "ip6-localhost",
+      "rationale": "Debian /etc/hosts alias of ::1.",
+      "refs": ["Debian /etc/hosts"],
+      "applies": {"python": true, "ts": true}
+    },
+    {
+      "id": "name-ip6-loopback",
+      "family": "name",
+      "effect": "block",
+      "name": "ip6-loopback",
+      "rationale": "Debian /etc/hosts alias of ::1.",
+      "refs": ["Debian /etc/hosts"],
+      "applies": {"python": true, "ts": true}
+    }
+  ]
+}

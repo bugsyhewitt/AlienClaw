@@ -1,0 +1,28 @@
+{
+  "gate_pass": true,
+  "training_seed": "/home/xil/dev/necromancer/projects/mangle/tests/fixtures/clean.h265",
+  "held_out_seed": "/home/xil/dev/necromancer/projects/mangle/tests/fixtures/clean.h265",
+  "eval_iterations": 150,
+  "eval_seed_rng": 0,
+  "pop_size": 16,
+  "generations": 10,
+  "baselines": {
+    "uniform_training": 0.3333333333333333,
+    "adaptive_training": 0.38,
+    "uniform_held_out": 0.28,
+    "adaptive_held_out": 0.38666666666666666
+  },
+  "evolved": {
+    "genome": "MGL00001G1MangleGA01qkQGVPmITauVHkcFuyotJjtgT6QbuxTrGnY0iOpf0UrFKV06DXUAn7liXYhXoXxbaRaNZIBBbeT5ksvqtvXOhHoqtawZRezun5bUdqFj7DnKo69h2ZuXg1dbZOMy21xB7Dnw1Q6GDeLBV26zCMjpuAfx3fqLFbRATPZVJMpFY0jK3kUR6sf2yP42jkAjM0tOcXuc7eEhmOTygbMUzGAriyv427k4pYiB00reCVeG3wgJ",
+    "config": {
+      "strategy": "adaptive",
+      "alpha": 0.6,
+      "beta": 2.8,
+      "exploration_floor": 0.008,
+      "concurrency": 3,
+      "timeout": 21.9
+    },
+    "fitness_training": 0.56,
+    "fitness_held_out": 0.5666666666666667
+  }
+}

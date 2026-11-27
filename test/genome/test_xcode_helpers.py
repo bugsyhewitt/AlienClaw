@@ -39,6 +39,26 @@ class TestEncodeXcode:
         with pytest.raises(ValueError):
             encode_xcode(XCODE_MAX + 1)
 
+    # Non-integers get the documented out-of-range ValueError (GENOME_SPEC.md error
+    # taxonomy), matching TS encodeXcode. Before the fix 1.5 raised a bare TypeError
+    # from string indexing, True encoded silently as "01", and the TS mirror returned
+    # "0undefined" for 1.5 and NaN for NaN.
+    @pytest.mark.parametrize(
+        "value",
+        [1.5, 0.5, 3842.5, 2.0, float("nan"), float("inf"), float("-inf"),
+         True, False, "5", None],
+        ids=repr,
+    )
+    def test_non_integer_raises_out_of_range(self, value: object) -> None:
+        with pytest.raises(ValueError, match=r"xcode value out of range \[0,3843\]"):
+            encode_xcode(value)  # type: ignore[arg-type]
+
+    def test_integral_non_int_type_is_accepted(self) -> None:
+        """numbers.Integral values (e.g. numpy integers) encode like the equal int."""
+        np = pytest.importorskip("numpy")
+        assert encode_xcode(np.int64(62)) == encode_xcode(62) == "10"
+        assert encode_xcode(np.int32(XCODE_MAX)) == "zz"
+
 
 class TestDecodeXcode:
     def test_slot_0_xcode_0_reads_bytes_1_2(self) -> None:

@@ -1,0 +1,32 @@
+{
+  "name": "@v3x/hardened-fetch",
+  "version": "0.0.0-dev",
+  "private": true,
+  "description": "SSRF-hardened fetch for Node: protocol allowlist, IP-literal and post-DNS block list, re-validated redirects, size and time caps. Staged from AlienClaw.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./hardened-fetch": {
+      "types": "./dist/hardened-fetch.d.ts",
+      "default": "./dist/hardened-fetch.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

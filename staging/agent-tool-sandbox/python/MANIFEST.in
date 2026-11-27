@@ -1,0 +1,6 @@
+# The sdist ships the package, README and metadata only. setuptools adds tests/test*.py by
+# default, but without conftest.py they would reach the network, and the parity tests import
+# the source repository's modules. PROVENANCE.json is not included by default; the exclude
+# keeps it out if a file finder (setuptools-scm adds every git-tracked file) is installed.
+prune tests
+exclude PROVENANCE.json

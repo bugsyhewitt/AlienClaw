@@ -1,0 +1,516 @@
+# Proposed CI for the standalone agent-tool-sandbox repository (gate G9).
+#
+# NOT ACTIVE. This directory is deliberately not named .github, so nothing runs this file
+# where it is. At import it becomes .github/workflows/ci.yml (see ../README.md, step 5).
+#
+# Pins: every `uses:` is a full 40-character commit SHA. The SHA placeholder (SHA between
+# double angle brackets) stands for the SHA of the release named in the trailing comment;
+# resolve each one at import time and keep the comment, so Dependabot can bump the pin. The
+# actionlint image is pinned by digest the same way. Every placeholder in the repository
+# (an upper-case NAME between double angle brackets) must be resolved before the first
+# push: the workflow-lint job fails while one remains.
+#
+# Network: every test is network-free. Python's conftest.py swaps in a fake resolver and
+# refuses every connect; the TS suites mock node:dns and stub the transport; the few tests
+# that need a server listen on 127.0.0.1. On Linux the suites also run inside
+# tools/offline.sh (a loopback-only network namespace) with OFFLINE_REQUIRED=1, so a test
+# that quietly needs the internet fails instead of passing. Installing the pinned dev
+# dependencies is the only step that downloads anything.
+#
+# Order: stage 1 (workflow-lint, wall-check, codegen-drift) installs nothing and runs first;
+# every other job needs all three. Make every job a required check: a job skipped because
+# stage 1 failed is then still blocked by the stage 1 failure itself.
+#
+# No secrets, no write permissions, no pull_request_target.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_INPUT: "1"
+  NPM_CONFIG_AUDIT: "false"
+  NPM_CONFIG_FUND: "false"
+  NPM_CONFIG_UPDATE_NOTIFIER: "false"
+  # The staged import name. It changes only if the package-name decision renames it.
+  PY_IMPORT_NAME: agent_tool_sandbox
+
+jobs:
+  # ---------------------------------------------------------------------------------------
+  # Stage 1: static gates. Nothing is installed; each finishes in well under a minute.
+  # ---------------------------------------------------------------------------------------
+
+  workflow-lint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: No tab characters in workflow files
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+          files = sorted(pathlib.Path(".github").rglob("*.y*ml"))
+          bad = [str(p) for p in files if b"\t" in p.read_bytes()]
+          if bad:
+              sys.exit("tab characters in: " + ", ".join(bad))
+          print(f"no tabs in {len(files)} workflow/config file(s)")
+          PY
+      - name: No unresolved placeholders anywhere in the tree
+        run: |
+          if git grep -nE '<<[A-Z][A-Z_]*(:[^>]*)?>>'; then
+            echo "::error::resolve the placeholders above before merging"
+            exit 1
+          fi
+      - name: actionlint (bundles shellcheck for run blocks)
+        uses: docker://rhysd/actionlint@sha256:<<SHA>>  # rhysd/actionlint:<<VERSION>>
+        with:
+          args: -color
+
+  wall-check:
+    name: wall-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@<<SHA>>  # actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Package files and tests (tools/wall_check.py)
+        run: python3 tools/wall_check.py --tests
+      - name: Every other tracked file, same terms
+        # wall_check.py scans python/ and ts/ only; the corpora, policy, docs and workflow
+        # files ship too. The tool itself is skipped because it lists the terms.
+        run: |
+          python3 - <<'PY'
+          import re, subprocess, sys
+          sys.path.insert(0, "tools")
+          from wall_check import TERMS
+          pattern = re.compile("|".join(map(re.escape, TERMS)), re.IGNORECASE)
+          listed = subprocess.run(["git", "ls-files", "-z"], check=True,
+                                  capture_output=True).stdout.decode().split("\0")
+          hits = 0
+          for name in filter(None, listed):
+              if name == "tools/wall_check.py":
+                  continue
+              try:
+                  text = open(name, encoding="utf-8").read()
+              except (UnicodeDecodeError, OSError):
+                  continue
+              for number, line in enumerate(text.splitlines(), 1):
+                  if pattern.search(line):
+                      hits += 1
+                      print(f"{name}:{number}: {line.strip()[:160]}")
+          print(f"wall-check (whole tree): {hits} matching line(s)")
+          sys.exit(1 if hits else 0)
+          PY
+
+  codegen-drift:
+    name: codegen-drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@<<SHA>>  # actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@<<SHA>>  # actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Python table equals policy/blocklist.v1.json
+        run: python3 policy/gen_python.py --check
+      - name: TS table equals policy/blocklist.v1.json
+        run: node policy/gen-ts.mjs --check
+      - name: docs/parity.md equals a fresh render
+        run: python3 tools/render_parity.py --check
+      - name: Package license copies equal the root ones
+        # PEP 639 license-files cannot leave python/, and npm packs a LICENSE only from ts/,
+        # so each package carries a copy of every root LICENSE*/NOTICE file.
+        run: |
+          shopt -s nullglob
+          found=0
+          for file in LICENSE* NOTICE*; do
+            found=1
+            for package in python ts; do
+              cmp "$file" "$package/$file" || { echo "::error::$package/$file differs or is missing"; exit 1; }
+            done
+          done
+          [ "$found" = 1 ] || { echo "::error::no LICENSE file at the repository root (G11)"; exit 1; }
+      - name: Nothing above wrote to the tree
+        run: |
+          git diff --exit-code
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+  # ---------------------------------------------------------------------------------------
+  # Stage 2: lint, type checks, tests, the shared corpus, packaging.
+  # ---------------------------------------------------------------------------------------
+
+  py-lint:
+    name: py-lint (ruff, mypy --strict)
+    needs: [workflow-lint, wall-check, codegen-drift]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@<<SHA>>  # actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: python/requirements-dev.txt
+      - name: Install pinned dev dependencies
+        run: python -m pip install --require-hashes -r python/requirements-dev.txt
+      - name: ruff (package; config in python/pyproject.toml)
+        run: ruff check python
+      - name: ruff (generators and tools; same settings)
+        run: ruff check --line-length 100 --select E,F,W,I,N policy vectors tools
+      - name: mypy --strict, checked as the oldest supported Python
+        run: mypy --strict --python-version 3.11 "python/src/$PY_IMPORT_NAME"
+
+  py-test:
+    name: py-test (${{ matrix.os }}, Python ${{ matrix.python }})
+    needs: [workflow-lint, wall-check, codegen-drift]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.11", "3.12", "3.13", "3.14"]
+        experimental: [false]
+        include:
+          # Not required: becomes a required row once pyproject lists it as supported.
+          - os: ubuntu-latest
+            python: "3.15"
+            experimental: true
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@<<SHA>>  # actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          allow-prereleases: ${{ matrix.experimental }}
+          cache: pip
+          cache-dependency-path: python/requirements-dev.txt
+      - name: Install pinned dev dependencies
+        run: python -m pip install --require-hashes -r python/requirements-dev.txt
+      - name: Allow unprivileged user namespaces (Ubuntu's AppArmor default refuses them)
+        if: runner.os == 'Linux'
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+      - name: pytest + hypothesis, loopback-only network namespace
+        if: runner.os == 'Linux'
+        working-directory: python
+        env:
+          OFFLINE_REQUIRED: "1"
+        run: bash ../tools/offline.sh python -m pytest -q -p no:cacheprovider
+      - name: pytest + hypothesis (no namespaces on macOS; the fake resolver still applies)
+        if: runner.os != 'Linux'
+        working-directory: python
+        run: python -m pytest -q -p no:cacheprovider
+
+  ts-lint:
+    name: ts-lint (tsc --strict, biome)
+    needs: [workflow-lint, wall-check, codegen-drift]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ts
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@<<SHA>>  # actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - name: Install locked dev dependencies (no install scripts)
+        run: npm ci --ignore-scripts
+      - name: tsc --strict (sources and tests)
+        run: ./node_modules/.bin/tsc -p tsconfig.json --strict
+      - name: tsc, build configuration, no emit
+        run: ./node_modules/.bin/tsc -p tsconfig.build.json --noEmit
+      - name: biome (lint and format check)
+        run: ./node_modules/.bin/biome ci .
+
+  ts-test:
+    name: ts-test (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: [workflow-lint, wall-check, codegen-drift]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: ["22", "24"]
+        experimental: [false]
+        include:
+          # Not required: becomes a required row once engines and the README list it.
+          - os: ubuntu-latest
+            node: "26"
+            experimental: true
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@<<SHA>>  # actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - name: Install locked dev dependencies (no install scripts)
+        working-directory: ts
+        run: npm ci --ignore-scripts
+      - name: Allow unprivileged user namespaces (Ubuntu's AppArmor default refuses them)
+        if: runner.os == 'Linux'
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+      - name: vitest + fast-check, loopback-only network namespace
+        if: runner.os == 'Linux'
+        working-directory: ts
+        env:
+          OFFLINE_REQUIRED: "1"
+        run: bash ../tools/offline.sh ./node_modules/.bin/vitest run
+      - name: vitest + fast-check (no namespaces on macOS; DNS and transport are stubbed)
+        if: runner.os != 'Linux'
+        working-directory: ts
+        run: ./node_modules/.bin/vitest run
+
+  vectors:
+    name: vectors (both languages, one corpus commit)
+    needs: [workflow-lint, wall-check, codegen-drift]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@<<SHA>>  # actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: python/requirements-dev.txt
+      - uses: actions/setup-node@<<SHA>>  # actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - name: Install pinned and locked dev dependencies
+        run: |
+          python -m pip install --require-hashes -r python/requirements-dev.txt
+          (cd ts && npm ci --ignore-scripts)
+      - name: The corpus and policy trees both languages run against
+        run: |
+          echo "commit  $(git rev-parse HEAD)"
+          echo "vectors $(git rev-parse HEAD:vectors)"
+          echo "policy  $(git rev-parse HEAD:policy)"
+      - name: Allow unprivileged user namespaces (Ubuntu's AppArmor default refuses them)
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+      - name: Python asserts its recorded verdicts (SSRF, redirect, filesystem corpora)
+        working-directory: python
+        env:
+          OFFLINE_REQUIRED: "1"
+        run: >-
+          bash ../tools/offline.sh python -m pytest -q -p no:cacheprovider
+          tests/test_shared_vectors.py
+          tests/test_shared_redirect_vectors.py
+          tests/test_shared_fs_vectors.py
+      - name: TS asserts its recorded verdicts on the same checkout
+        working-directory: ts
+        env:
+          OFFLINE_REQUIRED: "1"
+        run: >-
+          bash ../tools/offline.sh ./node_modules/.bin/vitest run
+          test/shared-vectors.test.ts
+          test/shared-redirect-vectors.test.ts
+          test/shared-fs-vectors.test.ts
+      - name: Both implementations still produce the committed SSRF verdicts
+        # generate.py in check mode runs both languages and exits 1 on any changed verdict.
+        env:
+          OFFLINE_REQUIRED: "1"
+        run: |
+          TSX="$GITHUB_WORKSPACE/ts/node_modules/.bin/tsx" \
+            bash tools/offline.sh python vectors/generate.py
+      - name: The corpus was not modified during the job
+        run: |
+          git diff --exit-code -- vectors policy
+          test -z "$(git status --porcelain --untracked-files=all -- vectors policy)"
+
+  package-smoke-python:
+    name: package-smoke (wheel, Python ${{ matrix.python }})
+    needs: [workflow-lint, wall-check, codegen-drift]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@<<SHA>>  # actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: python/requirements-dev.txt
+      - name: Install pinned build dependencies
+        run: python -m pip install --require-hashes -r python/requirements-dev.txt
+      - name: Build the sdist and wheel (no build isolation, so no download)
+        working-directory: python
+        run: python -m build --no-isolation --outdir "$RUNNER_TEMP/dist" .
+      - name: Review the file lists (no tests, no provenance, only the package)
+        run: |
+          python3 - "$RUNNER_TEMP/dist" <<'PY'
+          import os, pathlib, sys, tarfile, zipfile
+          dist = pathlib.Path(sys.argv[1])
+          package = os.environ["PY_IMPORT_NAME"]
+          (wheel,) = dist.glob("*.whl")
+          (sdist,) = dist.glob("*.tar.gz")
+          wheel_names = zipfile.ZipFile(wheel).namelist()
+          with tarfile.open(sdist) as archive:
+              sdist_names = archive.getnames()
+          for label, names in (("wheel", wheel_names), ("sdist", sdist_names)):
+              print(f"{label} {len(names)} files:")
+              for name in names:
+                  print("  " + name)
+              bad = [n for n in names
+                     if "/tests/" in n or n.startswith("tests/") or "PROVENANCE" in n]
+              if bad:
+                  sys.exit(f"{label} ships files it must not: {bad}")
+          stray = [n for n in wheel_names if n.endswith(".py")
+                   and not n.startswith(package + "/")]
+          if stray:
+              sys.exit(f"wheel has modules outside {package}/: {stray}")
+          # PEP 639: setuptools >= 77 puts license-files under .dist-info/licenses/ (G11).
+          if not any(".dist-info/licenses/" in n for n in wheel_names):
+              sys.exit("wheel carries no license file: set license-files in pyproject.toml")
+          PY
+      - name: Install the wheel into a clean venv, offline, and import it from elsewhere
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --no-index --no-deps "$RUNNER_TEMP"/dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/venv/bin/python" -I - <<'PY'
+          import importlib, os
+          module = importlib.import_module(os.environ["PY_IMPORT_NAME"])
+          assert "site-packages" in (module.__file__ or ""), module.__file__
+          for name in ("assert_safe_fetch_url", "resolve_and_validate", "pinned_urlopen",
+                       "assert_inside_boundary", "assert_no_symlink", "SsrfBlockedError",
+                       "DeadlineExceededError"):
+              assert hasattr(module, name), name
+          print("imported", module.__name__, "from", module.__file__)
+          PY
+
+  package-smoke-ts:
+    name: package-smoke (npm pack, Node ${{ matrix.node }})
+    needs: [workflow-lint, wall-check, codegen-drift]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "24"]
+    steps:
+      - uses: actions/checkout@<<SHA>>  # actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@<<SHA>>  # actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - name: Install locked dev dependencies (no install scripts)
+        working-directory: ts
+        run: npm ci --ignore-scripts
+      - name: Build dist/ and pack the tarball
+        working-directory: ts
+        run: |
+          ./node_modules/.bin/tsc -p tsconfig.build.json
+          npm pack --pack-destination "$RUNNER_TEMP"
+      - name: Review the file list (package.json, README, LICENSE, dist only)
+        run: |
+          python3 - "$RUNNER_TEMP" <<'PY'
+          import pathlib, re, sys, tarfile
+          (tarball,) = pathlib.Path(sys.argv[1]).glob("*.tgz")
+          with tarfile.open(tarball) as archive:
+              names = archive.getnames()
+          for name in names:
+              print("  " + name)
+          allowed = re.compile(r"package/(package\.json|README\.md|LICENSE[^/]*|NOTICE"
+                               r"|dist/[^/]+\.(js|d\.ts))$")
+          bad = [n for n in names if not allowed.match(n)]
+          if bad:
+              sys.exit(f"tarball ships files it must not: {bad}")
+          if not any(n.startswith("package/LICENSE") for n in names):
+              sys.exit("tarball carries no LICENSE file (G11)")
+          PY
+      - name: Install the tarball into a clean project, offline, and import it by name
+        run: |
+          PKG_NAME=$(node -p "require(process.argv[1]).name" "$GITHUB_WORKSPACE/ts/package.json")
+          export PKG_NAME
+          echo "PKG_NAME=$PKG_NAME" >> "$GITHUB_ENV"
+          mkdir "$RUNNER_TEMP/consumer"
+          cd "$RUNNER_TEMP/consumer"
+          npm init -y > /dev/null
+          npm install --offline --ignore-scripts "$RUNNER_TEMP"/*.tgz
+          node --input-type=module -e '
+            const name = process.env.PKG_NAME;
+            const main = await import(name);
+            const sub = await import(name + "/hardened-fetch");
+            for (const fn of ["hardenedFetch", "isBlockedHost", "validateResolvedAddresses",
+                              "assertInsideBoundary", "assertNoSymlink", "readFileJailed",
+                              "writeFileJailed"]) {
+              if (typeof main[fn] !== "function") throw new Error(`${name}: ${fn} missing`);
+            }
+            if (typeof sub.hardenedFetch !== "function") throw new Error("subpath export");
+            if (main.isBlockedHost("127.0.0.1") !== true) throw new Error("classifier");
+            console.log("imported", name);
+          '
+      - name: Typecheck a consumer against the published .d.ts
+        run: |
+          cd "$RUNNER_TEMP/consumer"
+          {
+            printf 'import { hardenedFetch, type FetchPolicy } from "%s";\n' "$PKG_NAME"
+            printf 'const p: FetchPolicy = { timeoutMs: 1000, maxBytes: 1024 };\n'
+            printf 'export const f: Promise<string> = hardenedFetch("https://example.com/", p);\n'
+          } > consumer.mts
+          "$GITHUB_WORKSPACE/ts/node_modules/.bin/tsc" --noEmit --strict --skipLibCheck \
+            --module nodenext --moduleResolution nodenext --target es2022 \
+            --typeRoots "$GITHUB_WORKSPACE/ts/node_modules/@types" --types node consumer.mts

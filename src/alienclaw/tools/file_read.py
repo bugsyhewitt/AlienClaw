@@ -1,10 +1,46 @@
+import io
 import math
 import os
+import stat
+from pathlib import Path
 from typing import Any
-from .types import RunResult
-from ._boundary import assert_inside_boundary, workspace_root
 
+from ._boundary import assert_inside_boundary, assert_no_symlink, workspace_root
 from .limits import MAX_TOOL_IO_BYTES as _MAX_BYTES
+from .types import RunResult
+
+# The checks in run() inspect paths, so the file can be swapped before the open:
+# - O_NOFOLLOW: a final-component symlink swapped in fails (ELOOP) instead of being
+#   followed;
+# - O_NONBLOCK: a FIFO swapped in opens at once instead of blocking for a writer that
+#   never comes; the fstat() below then refuses it (no effect on regular files);
+# - where dir_fd works, every directory below the root is opened with
+#   O_NOFOLLOW | O_DIRECTORY relative to the previous one (O_PATH on Linux, so it needs
+#   only search permission, like a path lookup), so an ancestor swapped for a symlink
+#   fails (ENOTDIR/ELOOP) too. Without dir_fd (e.g. Windows) the path itself is opened
+#   and an ancestor swapped after the checks remains a known limitation.
+_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+_FILE_FLAGS = os.O_RDONLY | _NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
+_DIR_FLAGS = getattr(os, "O_PATH", os.O_RDONLY) | _NOFOLLOW | getattr(os, "O_DIRECTORY", 0)
+_DIR_FD_WALK = (
+    hasattr(os, "O_NOFOLLOW") and hasattr(os, "O_DIRECTORY") and os.open in os.supports_dir_fd
+)
+
+
+def _open_below_root(path: Path, root: Path) -> int:
+    """Open resolved ``path`` (inside realpath'd ``root``) without following any symlink."""
+    parts = path.relative_to(root).parts if _DIR_FD_WALK else ()
+    if not parts:
+        return os.open(path, _FILE_FLAGS)
+    dir_fd = os.open(root, _DIR_FLAGS)
+    try:
+        for name in parts[:-1]:
+            next_fd = os.open(name, _DIR_FLAGS, dir_fd=dir_fd)
+            os.close(dir_fd)
+            dir_fd = next_fd
+        return os.open(parts[-1], _FILE_FLAGS, dir_fd=dir_fd)
+    finally:
+        os.close(dir_fd)
 
 
 def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
@@ -12,20 +48,50 @@ def run(inputs: dict[str, Any], params: dict[str, Any] = {}) -> RunResult:
     if not path_str:
         return RunResult(ok=False, error="Missing 'path' field", correctness=0.0)
     try:
-        path = assert_inside_boundary(path_str, workspace_root())
+        read_root = workspace_root()
+        # Symlink guard inspects the UNRESOLVED path, but only the entries inside the
+        # root (same as file_write): a symlinked prefix above the root is fine, and a
+        # path outside the root is not probed, so it gets the boundary's one refusal.
+        assert_no_symlink(read_root / path_str, operation="read", root=read_root)
+        path = assert_inside_boundary(path_str, read_root)
     except ValueError as exc:
         return RunResult(ok=False, error=str(exc), correctness=0.0)
     if not path.exists():
         return RunResult(ok=False, error=f"File not found: {path_str}", correctness=0.0)
     if not path.is_file():
         return RunResult(ok=False, error=f"Not a file: {path_str}", correctness=0.0)
-    size = os.path.getsize(path)
-    if size > _MAX_BYTES:
-        return RunResult(ok=False, error=f"File exceeds 10 MiB ({size} bytes)", correctness=0.0)
     try:
-        raw = path.read_text(encoding="utf-8", errors="replace")
+        fd = _open_below_root(path, Path(os.path.realpath(read_root)))
     except OSError as exc:
         return RunResult(ok=False, error=f"Read error: {exc}", correctness=0.0)
+    error = None
+    try:
+        # What was opened is what counts: type and size come from the fd, not the path
+        # (the size from fstat() is a fast first refusal; the bounded read below decides)
+        st = os.fstat(fd)
+        size = st.st_size
+        if not stat.S_ISREG(st.st_mode):
+            error = f"Not a file: {path_str}"
+        elif size > _MAX_BYTES:
+            error = f"File exceeds 10 MiB ({size} bytes)"
+        else:
+            # Read at most cap + 1 bytes: a file that grew after the fstat() (an outside
+            # appender) is refused, not read in full (2026-11-26 security review, F3).
+            with open(fd, "rb", closefd=False) as fh:
+                data = fh.read(_MAX_BYTES + 1)
+            size = len(data)
+            if size > _MAX_BYTES:
+                error = f"File exceeds 10 MiB (grew past {_MAX_BYTES} bytes while being read)"
+            else:
+                # Same decoding as Path.read_text(): UTF-8, universal newlines
+                with io.TextIOWrapper(io.BytesIO(data), encoding="utf-8", errors="replace") as tf:
+                    raw = tf.read()
+    except OSError as exc:
+        error = f"Read error: {exc}"
+    finally:
+        os.close(fd)
+    if error is not None:
+        return RunResult(ok=False, error=error, correctness=0.0)
 
     all_lines = raw.splitlines(keepends=True)
     total_lines = len(all_lines)

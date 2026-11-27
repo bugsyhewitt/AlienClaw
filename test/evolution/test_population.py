@@ -1,9 +1,11 @@
 import random
+import uuid
 
 import pytest
 
-from alienclaw.evolution.population import Population
+from alienclaw.evolution.population import Population, _id_tag_for
 from alienclaw.evolution.types import EvolutionConfig
+from alienclaw.genome.operators import random_genome
 
 
 @pytest.fixture(autouse=True)
@@ -220,3 +222,135 @@ class TestPopulationLoad:
         assert len(loaded.all()) == config.population_size
         # All recovered entries come from generation 0 (the only ones on disk)
         assert all(e.generation == 0 for e in loaded.all())
+
+
+# ---------------------------------------------------------------------------
+# PKT-1313 — _id_tag_for() must honor its "8-char Base62" contract for EVERY
+# martian_type, including ones containing Unicode alphanumerics.
+#
+# Python's str.isalnum() is Unicode-aware, so an unguarded filter lets
+# non-Base62 characters into the id_tag. The id_tag is pinned into the
+# IDENTITY section of every seeded genome, so the genome assembler then
+# raises ValueError("IDENTITY section contains non-Base62 characters") and
+# Population.create() can NEVER complete for such a martian_type — the
+# bridge turns that into a permanent INTERNAL error for that martian.
+# ---------------------------------------------------------------------------
+
+BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+
+def _is_base62(s: str) -> bool:
+    """True iff every character of s is in the Base62 alphabet."""
+    return all(c in BASE62 for c in s)
+
+
+# Inputs whose Unicode alphanumerics would survive an ASCII-only filter.
+UNICODE_ID_TAG_INPUTS = [
+    "名前",
+    "ñó",
+    "ÉTÉ",
+    "①②③",
+    "名前_compute",
+    "élite",
+    "áá",
+    "compute_名前",
+    "١٢٣",
+    "Ωmega",
+]
+
+# Inputs whose first six alphanumerics are ASCII — regression controls that
+# must map to exactly the tag they always mapped to.
+ASCII_ID_TAG_INPUTS = [
+    ("compute", "COMPUT01"),
+    ("compute_alone", "COMPUT01"),
+    ("web_search", "WEBSEA01"),
+    ("file_read", "FILERE01"),
+    ("http_get", "HTTPGE01"),
+    ("extract_json", "EXTRAC01"),
+    ("", "00000001"),
+    ("   ", "00000001"),
+    ("a", "A0000001"),
+]
+
+
+class TestIdTagForCharset:
+    """PKT-1313: _id_tag_for() must produce 8-char Base62 output for any input."""
+
+    def test_id_tag_for_is_always_8_base62_chars(self):
+        for mt in UNICODE_ID_TAG_INPUTS + [m for m, _ in ASCII_ID_TAG_INPUTS]:
+            tag = _id_tag_for(mt)
+            assert len(tag) == 8, f"tag must be 8 chars; got {len(tag)} for {mt!r}"
+            assert _is_base62(tag), f"tag must be Base62; got {tag!r} for {mt!r}"
+
+    def test_id_tag_for_ascii_inputs_are_unchanged(self):
+        """ASCII martian_types keep exactly the tag they always had.
+
+        This is the distinctness anchor for the ASCII corpus — the fix must
+        not perturb any existing seed martian_type's tag.
+        """
+        for mt, expected in ASCII_ID_TAG_INPUTS:
+            assert _id_tag_for(mt) == expected, (
+                f"ASCII tag changed for {mt!r}: "
+                f"expected {expected!r}, got {_id_tag_for(mt)!r}"
+            )
+
+    def test_id_tag_for_transliterates_when_ascii_base_exists(self):
+        """Unicode characters with an ASCII base keep their distinguishing letters.
+
+        Without transliteration these collapse onto each other (or onto a
+        padded-zero tag), destroying the tag's ability to identify the martian.
+        """
+        assert _id_tag_for("ñó") == "NO000001"
+        assert _id_tag_for("ÉTÉ") == "ETE00001"
+        assert _id_tag_for("élite") == "ELITE001"
+
+    def test_id_tag_for_drops_characters_with_no_ascii_base(self):
+        """Characters with no ASCII base are dropped rather than emitted raw."""
+        # '名' and '前' have no ASCII decomposition; '①' decomposes to '1'.
+        assert _id_tag_for("名前") == "00000001"
+        assert _id_tag_for("①②③") == "12300001"
+
+    def test_random_genome_accepts_id_tag_for_every_unicode_input(self):
+        """End-to-end: the tag must be usable as a genome IDENTITY prefix.
+
+        This is the production hot path — Population.create() calls
+        random_genome(rng, _id_tag_for(martian_type)) — so a non-Base62 tag
+        makes the population impossible to create.
+        """
+        for mt in UNICODE_ID_TAG_INPUTS + [m for m, _ in ASCII_ID_TAG_INPUTS]:
+            tag = _id_tag_for(mt)
+            genome = random_genome(random.Random(42), tag)
+            assert len(genome) == 256, f"genome must be 256 chars for {mt!r}"
+            assert _is_base62(genome), f"genome from tag {tag!r} ({mt!r}) is not Base62"
+
+    def test_population_create_succeeds_for_unicode_martian_type(self):
+        """Population.create() must complete for a Unicode martian_type.
+
+        This is the exact production failure: the bridge calls
+        Population.load_or_create() and the create path raised, making the
+        martian permanently unusable.
+        """
+        mt = f"名前_{uuid.uuid4().hex[:8]}"
+        config = EvolutionConfig(martian_type=mt, population_size=2)
+        pop = Population.create(config)
+        assert len(pop.all()) == 2
+        for entry in pop.all():
+            assert _is_base62(entry.genome)
+
+    def test_id_tag_collisions_are_explicitly_pinned(self):
+        """The 6-char truncation collision class is pre-existing and pinned here.
+
+        The id_tag is a display label only — never a lookup key, never grouped
+        by (leaderboard uniqueness is by SHA-256 genome_id). The collision class
+        already existed on unfixed HEAD: 'compute', 'compute_alone' and
+        'compute_then_write' all map to 'COMPUT01'. The fix does not widen it
+        for ASCII inputs, so it is pinned rather than left unasserted.
+        """
+        assert _id_tag_for("compute") == _id_tag_for("compute_alone") == "COMPUT01"
+        assert _id_tag_for("compute_then_write") == "COMPUT01"
+        assert (
+            _id_tag_for("fetch_then_parse")
+            == _id_tag_for("fetch_then_extract")
+            == "FETCHT01"
+        )
+        assert _id_tag_for("search_then_fetch") == "SEARCH01"

@@ -1,0 +1,39 @@
+{
+  "package": "tooltime-bounds (proposal)",
+  "source_commit": "04d5a79873633c7375b4fb0f3e50736082a18e40",
+  "files": [
+    {
+      "staged": "staging/tooltime-bounds/examples/gobuster.tool.yaml",
+      "source": "pho3nix_tuner/tooltime_bounds.py",
+      "source_blob": "a463d588292afcd4b10270a3083fb3c4373b1c47",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/tooltime-bounds/examples/nmap.tool.yaml",
+      "source": "pho3nix_tuner/tooltime_bounds.py",
+      "source_blob": "a463d588292afcd4b10270a3083fb3c4373b1c47",
+      "relation": "adapted"
+    },
+    {
+      "staged": "staging/tooltime-bounds/examples/sqlmap.tool.yaml",
+      "source": "pho3nix_tuner/tooltime_bounds.py",
+      "source_blob": "a463d588292afcd4b10270a3083fb3c4373b1c47",
+      "relation": "adapted"
+    }
+  ],
+  "divergences": [
+    "staging/tooltime-bounds/examples/{gobuster,nmap,nuclei,sqlmap}.tool.yaml: the YAML body of each example is the real ToolTime emitted file, which lives outside this repo and is untracked there (agents/*/tools/ is gitignored), so it cannot carry a git blob. Read 2026-11-26 from ~/dev/tooltime agents/agent-01/tools/nmap (sha256 1d325937be8cec5fd02e5a90e329cbcba17ba4c7842ac81be78297780f3fb512), agents/agent-17/tools/gobuster (e0be96fefc429f5a97750154e86d488e92d386100a9e1e640385ae49ad40c764), agents/agent-09/tools/nuclei (c7160da242adee135c95832e7cfc7b6bb69d2ba430d60f52f3bcbab0e4242eda), agents/agent-19/tools/sqlmap (174f97edf1c6bec46469792cddb9b5199bf78847579bab148ba1374416a65fc8), each .../pho3nix_config/tool.yaml; only the blocks marked NEW plus the leading PROPOSAL comment were added.",
+    "examples/*: tooltime_bounds.py direction vocabulary translated: maximize -> increases_aggressiveness, minimize -> decreases_aggressiveness; context resolved from Pho3nix optimization_profiles ordering: nmap timing_t -> increases_aggressiveness, gobuster timeout_sec -> decreases_aggressiveness.",
+    "examples/*: tuner gene names mapped to catalog param names that match Pho3nix rebuild_command_with_params keys: gobuster delay_ms -> delay, gobuster timeout_sec -> timeout, nmap timing_t -> timing. min/max are unchanged; the unit moved into bounds.unit and the rendering into bounds.value_template ('{value}ms', '{value}s', '-T{value}').",
+    "examples/*: tooltime_bounds.py in_rebuild/in_profiles collapse to bounds.evolvable = in_rebuild AND in_profiles; the tuner-side note field became bounds.rationale (reworded, profile values kept).",
+    "examples/gobuster.tool.yaml: delay renders as exact milliseconds ('{value}ms'), whereas pho3nix_tuner/genome_schema.py (blob f494c959c50140e42c0c687e16b5989ae817e6ed) renders f'{ms/1000:.1f}s'; default written as '0ms' (gobuster's own default spelling is '0s').",
+    "examples/sqlmap.tool.yaml: params threads and delay are new; maximum: 10 on threads comes from /opt/sqlmap/lib/core/settings.py MAX_NUMBER_OF_THREADS, not from tooltime_bounds.py; delay is typed number (sqlmap accepts fractional seconds) with integer bounds 0..5 from tooltime_bounds.py.",
+    "examples/nuclei.tool.yaml: not listed in files[]; it has no in-repo source. rate_limit/concurrency/timeout flags and defaults come from /usr/share/doc/nuclei/README.md (Arch nuclei 2:v3.11.1.r579.gdf57ae6-1, RATE-LIMIT and OPTIMIZATIONS sections); all three are evolvable: false (catalog metadata only).",
+    "New files with no in-tree source: staging/tooltime-bounds/validate_bounds.py, staging/tooltime-bounds/schema/tool-param-bounds.schema.json, staging/tooltime-bounds/README.md, staging/tooltime-bounds/tests/conftest.py, staging/tooltime-bounds/tests/test_validator.py, staging/tooltime-bounds/tests/test_examples.py, staging/tooltime-bounds/tests/test_schema.py, staging/tooltime-bounds/tests/test_tuner_agreement.py, staging/tooltime-bounds/tests/test_tooltime_compat.py."
+  ],
+  "new_files": [
+    "validate_bounds.py",
+    "schema/*.json",
+    "tests/*.py"
+  ]
+}

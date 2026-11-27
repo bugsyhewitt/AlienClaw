@@ -1,0 +1,30 @@
+AlienClaw teardown pass 2 — dry run
+started:  2026-11-26 20:31:03 EST
+finished: 2026-11-26 20:32:38 EST
+worktree: /home/xil/dev/alienclaw/.claude/worktrees/pass2-dryrun3 @ 401f4099508567b4664f4b9551187cea4ccbb041
+delete-list: removed=400 already-absent=1; patches applied: decoupling.patch, ci-pass2.patch
+guard: PASS   heavy.sh rc=0
+
+ts    PASS           Typecheck                                                                    1s  
+ts    PASS           Cross-language genome spec compliance (TypeScript side)                      1s  Test Files  1 passed (1) | Tests  134 passed (134)
+ts    PASS           KEEP TypeScript tests with coverage (run: block from ci.yml)                 1s  Test Files  12 passed (12) | Tests  442 passed (442) | v8: Statements 93.57%; Branches 86.68%; Lines 96.06%; 
+ts    PASS           API surface tests (DB-less: coverage REPORTED, thresholds NOT enforced)     12s  Test Files  24 passed (24) | Tests  382 passed | 32 skipped (414) | v8: Statements 83.95%; Branches 77.84%; Lines 85.75%; 
+unit  FAIL(rc=1)     Run tests                                                                   18s  Test Files  1 failed | 62 passed | 1 skipped (64) | Tests  1 failed | 1194 passed | 40 skipped (1235)
+py    PASS           Validate fixture file                                                        0s  
+py    PASS           Lint Python files                                                            0s  
+py    PASS           Test genome module with coverage                                            37s  340 passed in 34.41s | coverage 99%
+py    PASS           Lint evolution module                                                        0s  
+py    PASS           Run evolution tests with coverage                                            3s  210 passed in 1.33s | coverage 99%
+py    PASS           Verify no leak directories                                                   0s  
+py    PASS           Run diagnostics tests with coverage                                          6s  309 passed, 7 warnings in 4.11s | coverage 99%
+py    PASS           Web search backend test                                                      4s  19 passed in 1.91s
+kit   PASS           Conformance + fitness tests (not in CI)                                      3s  170 passed in 0.62s | coverage 100%
+
+NOT RUN here (need MySQL / other tooling): 'Run migrations' + API coverage thresholds
+(lines 75 / branches 63) in TypeScript typecheck; 'Run migrations' in Unit tests (DB suites
+self-skip without ALIENCLAW_TEST_DB_URL); actionlint; shellcheck; non-required jobs.
+floors enforced (from patched ci.yml): genome=98 evolution=98 diagnostics=98
+KEEP TS thresholds (from patched ci.yml): lines=95 branches=85 
+'kit' rows are the kit's own checks, not CI steps.
+logs: /home/xil/dev/alienclaw/.claude/worktrees/overnight-2026-11-26/staging/teardown-pass2/last-run
+RESULT: RED (failed steps=1 guard=0 heavy_rc=0)

@@ -14,6 +14,8 @@ The shared fixture (test/fixtures/genome-spec-fixtures.json) locks this.
 
 from __future__ import annotations
 
+import numbers
+
 from .alphabet import (
     ALPHABET_SET,
     GENOME_LENGTH,
@@ -147,9 +149,24 @@ def decode_xcode(genome: str, slot_index: int, xcode_index: int) -> int:
 
 
 def encode_xcode(value: int) -> str:
-    """Encode an int in [0, XCODE_MAX] as 2 Base62 chars."""
-    if not (0 <= value <= XCODE_MAX):
+    """Encode an int in [0, XCODE_MAX] as 2 Base62 chars.
+
+    Mirrors TypeScript encodeXcode() in genome-codec.ts.
+
+    Raises:
+        ValueError: ``xcode value out of range [0,3843]: <value>`` if value is
+            not an integer in [0, XCODE_MAX]. A non-integer (1.5, NaN, +/-inf,
+            any float, a bool, a str, None) gets this same error rather than a
+            TypeError or a silent encoding; any numbers.Integral (e.g. a numpy
+            integer) is accepted.
+    """
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, numbers.Integral)
+        or not (0 <= value <= XCODE_MAX)
+    ):
         raise ValueError(f"xcode value out of range [0,{XCODE_MAX}]: {value}")
+    value = int(value)
     return _XCODE_ALPHABET[value // 62] + _XCODE_ALPHABET[value % 62]
 
 

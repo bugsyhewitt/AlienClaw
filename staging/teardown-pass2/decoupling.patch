@@ -1,0 +1,1632 @@
+diff --git a/package.json b/package.json
+index 6f17a6de..6595eaea 100644
+--- a/package.json
++++ b/package.json
+@@ -6,13 +6,12 @@
+   "packageManager": "pnpm@11.15.1",
+   "type": "module",
+   "scripts": {
+-    "setup": "bash install.sh",
+     "typecheck": "tsc --noEmit",
+     "build-info": "bash scripts/gen-build-info.sh",
+     "prestart": "bash scripts/gen-build-info.sh",
+     "start": "tsx src/alienclaw/api/main.ts",
+     "migrate": "tsx src/alienclaw/api/migrate-cli.ts",
+-    "test": "pnpm exec vitest run && PYTHONPATH=src pytest && bash scripts/check-testvectors.sh && bash scripts/check-seed-drift.sh"
++    "test": "pnpm exec vitest run && PYTHONPATH=src pytest && bash scripts/check-testvectors.sh"
+   },
+   "devDependencies": {
+     "@mariozechner/pi-ai": "0.73.0",
+@@ -30,13 +29,9 @@
+     "VISION.md",
+     "SECURITY.md",
+     "CONTRIBUTING.md",
+-    "AGENTS.md",
+     "LICENSE",
+     "docs.acp.md",
+     "ALIENCLAW_VERSION",
+-    "install.sh",
+-    "installer/",
+-    "seed/",
+     "src/",
+     "test/",
+     "assets/",
+diff --git a/pyproject.toml b/pyproject.toml
+index 381214f6..d947b7c2 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -7,9 +7,7 @@ select = ["E", "F", "W", "I", "N"]
+ 
+ [tool.coverage.run]
+ omit = [
+-    "src/alienclaw/brains/decoder.py",
+     "src/alienclaw/evolution/__main__.py",
+-    "src/alienclaw/diagnostics/scaling_experiment.py",
+     "src/alienclaw/diagnostics/__main__.py",
+     "src/alienclaw/diagnostics/per_genome_capture.py",
+ ]
+diff --git a/src/alienclaw/diagnostics/__main__.py b/src/alienclaw/diagnostics/__main__.py
+index 01e454f2..f0f135b6 100644
+--- a/src/alienclaw/diagnostics/__main__.py
++++ b/src/alienclaw/diagnostics/__main__.py
+@@ -1,4 +1,9 @@
+-"""CLI: python3 -m alienclaw.diagnostics audit [--seed N] [--output file.json]"""
++"""CLI: python3 -m alienclaw.diagnostics {report,diff}
++
++Renders and diffs sensitivity-audit JSON saved by earlier runs. The
++bridge-backed `audit` and `audit-martians` commands that produced that JSON
++were removed with the bridge layer (teardown pass 2).
++"""
+ from __future__ import annotations
+ 
+ import argparse
+@@ -6,64 +11,32 @@ import json
+ import sys
+ from pathlib import Path
+ 
+-from .sensitivity_audit import run_audit
+-from .reporting import format_report
++from .audit_types import AuditResults
++from .reporting import diff_audits, format_report
+ 
+ 
+ def main() -> int:
+     parser = argparse.ArgumentParser(prog="python3 -m alienclaw.diagnostics")
+     sub = parser.add_subparsers(dest="cmd", required=True)
+-    a = sub.add_parser("audit")
+-    a.add_argument("--seed", type=int, default=42)
+-    a.add_argument("--output", type=Path, default=None, help="Write raw JSON results")
+-    a.add_argument("--report", type=Path, default=None, help="Write markdown report")
+-
+-    am = sub.add_parser("audit-martians",
+-                        help="Composition-Martian sensitivity audit (Packet 19)")
+-    am.add_argument("--seed", type=int, default=42)
+-    am.add_argument("--pairs", type=int, default=20)
+-    am.add_argument("--output", type=Path, default=None,
+-                    help="Write raw JSON results")
++    r = sub.add_parser("report", help="Render a saved audit JSON as a markdown report")
++    r.add_argument("input", type=Path, help="Raw JSON written by an earlier audit run")
++    r.add_argument("--report", type=Path, default=None, help="Write markdown report to file")
++    d = sub.add_parser("diff", help="Markdown fitness-sensitivity delta between two audit JSONs")
++    d.add_argument("pre", type=Path)
++    d.add_argument("post", type=Path)
+ 
+     args = parser.parse_args()
+ 
+-    if args.cmd == "audit":
+-        print(f"Running sensitivity audit (seed={args.seed})...", file=sys.stderr)
+-        results = run_audit(seed=args.seed)
+-
+-        blind = sum(1 for s in results.sensitivities if s.classification == "BLIND")
+-        print(f"Done. {len(results.runners_audited)} runners, "
+-              f"{blind} BLIND / {len(results.runners_audited) - blind} with signal.",
+-              file=sys.stderr)
+-
+-        raw = results.to_dict()
+-        if args.output:
+-            args.output.write_text(json.dumps(raw, indent=2))
+-            print(f"Raw data → {args.output}", file=sys.stderr)
+-        else:
+-            print(json.dumps(raw, indent=2))
+-
++    if args.cmd == "report":
++        results = AuditResults.from_dict(json.loads(args.input.read_text()))
+         report = format_report(results)
+         if args.report:
+             args.report.write_text(report)
+             print(f"Report → {args.report}", file=sys.stderr)
+         else:
+-            print(report, file=sys.stderr)
+-
+-    elif args.cmd == "audit-martians":
+-        from .sensitivity_audit import run_martian_audit
+-        print(f"Running composition Martian audit (seed={args.seed}, "
+-              f"pairs={args.pairs})...", file=sys.stderr)
+-        results = run_martian_audit(seed=args.seed, pairs_per_martian=args.pairs)
+-        blind = sum(1 for s in results.sensitivities if s.classification == "BLIND")
+-        print(f"Done. {len(results.martians_audited)} composition Martians, "
+-              f"{blind} BLIND.", file=sys.stderr)
+-        raw = results.to_dict()
+-        if args.output:
+-            args.output.write_text(json.dumps(raw, indent=2))
+-            print(f"Raw data → {args.output}", file=sys.stderr)
+-        else:
+-            print(json.dumps(raw, indent=2))
++            print(report)
++    elif args.cmd == "diff":
++        print(diff_audits(str(args.pre), str(args.post)))
+ 
+     return 0
+ 
+diff --git a/src/alienclaw/diagnostics/fitness_formula_candidates.py b/src/alienclaw/diagnostics/fitness_formula_candidates.py
+index 28abc0a9..a4edfb28 100644
+--- a/src/alienclaw/diagnostics/fitness_formula_candidates.py
++++ b/src/alienclaw/diagnostics/fitness_formula_candidates.py
+@@ -22,11 +22,9 @@ Option D: fitness = max(0, correctness - β × max(0, tool_calls - slot_count) /
+ """
+ from __future__ import annotations
+ 
+-import json
+ import math
+-import uuid
+ from dataclasses import dataclass
+-from typing import Any, Callable
++from typing import Callable
+ 
+ from alienclaw.fitness.function import clamp01
+ 
+@@ -150,72 +148,6 @@ def option_d(
+     )
+ 
+ 
+-def make_formula_bridge_runner(
+-    martian_type: str,
+-    inputs: dict[str, Any],
+-    formula_fn: Callable[..., FitnessFormulaResult],
+-    slot_count: int,
+-    **formula_kwargs: Any,
+-) -> Callable:
+-    """Create a bridge runner that applies a custom fitness formula post-evaluation.
+-
+-    The bridge runs normally; correctness and tool_calls are extracted from
+-    run_metadata and passed to formula_fn.
+-
+-    Args:
+-        martian_type: Martian type to run
+-        inputs: campaign inputs forwarded to the Martian
+-        formula_fn: one of option_b, option_c_prime, option_d, option_current
+-        slot_count: number of slots in the Martian (k)
+-        **formula_kwargs: extra args forwarded to formula_fn (e.g. alpha=0.5)
+-
+-    Returns:
+-        RunMartianCallback compatible function that returns FitnessReport with
+-        candidate formula's fitness.
+-    """
+-    from alienclaw.bridge.server import handle
+-    from alienclaw.evolution.generation import FitnessReport
+-
+-    _inputs = dict(inputs)
+-
+-    def run(mtype: str, genome: str) -> "FitnessReport":
+-        req_bytes = json.dumps({
+-            "bridge_version": "1.0",
+-            "request_id": str(uuid.uuid4()),
+-            "request": {
+-                "kind": "summon",
+-                "genome": genome,
+-                "martian_type": mtype,
+-                "inputs": _inputs,
+-                "timeout_ms": 30_000,
+-            },
+-        }).encode()
+-
+-        resp_dict = handle(req_bytes)
+-        resp = resp_dict["response"]
+-        meta = resp.get("run_metadata", {})
+-
+-        # Extract aggregated per-execution correctness and tool_calls from bridge
+-        raw_correctness = meta.get("correctness", 0.0 if not resp.get("ok") else 1.0)
+-        raw_tool_calls = meta.get("tool_calls", slot_count)
+-
+-        formula_result = formula_fn(raw_correctness, raw_tool_calls, slot_count, **formula_kwargs)
+-
+-        return FitnessReport(
+-            fitness=formula_result.fitness,
+-            run_metadata={
+-                "tool_calls": raw_tool_calls,
+-                "wall_clock_ms": meta.get("wall_clock_ms", 0),
+-                "ok": resp.get("ok", False),
+-                "correctness": raw_correctness,
+-                "formula_name": formula_result.formula_name,
+-                "slot_count": slot_count,
+-            },
+-        )
+-
+-    return run
+-
+-
+ def landscape_grid(
+     slot_count: int,
+     correctness_values: list[float] | None = None,
+diff --git a/src/alienclaw/diagnostics/reporting.py b/src/alienclaw/diagnostics/reporting.py
+index 01ce2c22..87c9e67b 100644
+--- a/src/alienclaw/diagnostics/reporting.py
++++ b/src/alienclaw/diagnostics/reporting.py
+@@ -3,7 +3,7 @@ from __future__ import annotations
+ 
+ import json
+ from datetime import datetime, timezone
+-from .sensitivity_audit import AuditResults, RunnerSensitivity
++from .audit_types import AuditResults, RunnerSensitivity
+ 
+ 
+ def format_report(results: AuditResults) -> str:
+diff --git a/src/alienclaw/evolution/__main__.py b/src/alienclaw/evolution/__main__.py
+index e41026f2..8b4ad10f 100644
+--- a/src/alienclaw/evolution/__main__.py
++++ b/src/alienclaw/evolution/__main__.py
+@@ -1,44 +1,19 @@
+ """CLI entry: python3 -m alienclaw.evolution
+ 
+ Commands:
+-  run-experiment  Run N generations of evolution for a Martian type.
+-
+-Requires Phase 6 bridge wiring (alienclaw.evolution.bridge_runner) for
+-production use. Without it, the CLI fails with an informative error.
++  migrate-pre-packet-16  Rename pre-Packet-16 per-tool population dirs to the
++                         per-Martian (<tool>_alone) layout.
++
++The bridge-backed `run-experiment` and `run-scale-experiment` commands were
++removed with the bridge layer (teardown pass 2). Library callers (e.g. the
++mangle/ouija/pho3nix tuners) drive evolution directly through
++alienclaw.evolution.generation.evaluate_and_evolve with their own fitness
++callback.
+ """
+ from __future__ import annotations
+ 
+ import argparse
+-import json
+ import sys
+-from pathlib import Path
+-
+-
+-def _parse_seeds_csv(value: str) -> list[int]:
+-    """argparse type= validator for the comma-separated --seeds flag.
+-
+-    Raises argparse.ArgumentTypeError for malformed entries so the user sees
+-    a clean CLI error and exit 2 instead of a raw ValueError traceback.
+-    """
+-    if not value.strip():
+-        raise argparse.ArgumentTypeError(
+-            f"--seeds must contain at least one integer (got {value!r})"
+-        )
+-    result: list[int] = []
+-    for entry in value.split(","):
+-        stripped = entry.strip()
+-        if not stripped:
+-            raise argparse.ArgumentTypeError(
+-                f"empty entry in --seeds CSV (got {value!r})"
+-            )
+-        try:
+-            result.append(int(stripped))
+-        except ValueError:
+-            raise argparse.ArgumentTypeError(
+-                f"invalid seeds entry {stripped!r} in CSV (got {value!r}); "
+-                f"expected comma-separated integers like '42,43,44'."
+-            ) from None
+-    return result
+ 
+ 
+ def main() -> int:
+@@ -50,98 +25,8 @@ def main() -> int:
+         help="Migrate pre-Packet-16 per-tool populations to per-Martian (<tool>_alone) layout",
+     )
+ 
+-    scale = sub.add_parser(
+-        "run-scale-experiment", help="Run scale evolution experiment (multi-seed)"
+-    )
+-    scale.add_argument("--martian-type", required=True, help="Martian type to evolve")
+-    scale.add_argument("--generations", type=int, default=500, help="Number of generations")
+-    scale.add_argument("--population-size", type=int, default=100, help="Genome population size")
+-    scale.add_argument(
+-        "--seeds", type=_parse_seeds_csv, default=[42, 43, 44, 45, 46],
+-        help="Comma-separated RNG seeds (default: 42,43,44,45,46)",
+-    )
+-    scale.add_argument(
+-        "--output-dir", type=Path, required=True,
+-        help="Output directory for per-seed JSONs",
+-    )
+-    scale.add_argument(
+-        "--inputs", type=json.loads, default={},
+-        help="JSON inputs forwarded to the Martian (e.g. '{\"input\": \"2+2\"}')",
+-    )
+-
+-    run = sub.add_parser("run-experiment", help="Run an evolution experiment")
+-    run.add_argument("--martian-type", required=True, help="Martian type to evolve")
+-    run.add_argument("--generations", type=int, default=20, help="Number of generations")
+-    run.add_argument("--population-size", type=int, default=32, help="Genome population size")
+-    run.add_argument("--seed", type=int, default=None, help="RNG seed for reproducibility")
+-    run.add_argument("--output", type=Path, default=None, help="Write JSON results to file")
+-    run.add_argument(
+-        "--inputs", type=json.loads, default={},
+-        help="JSON inputs forwarded to the Martian (e.g. '{\"input\": \"2+2\"}')",
+-    )
+-    run.add_argument(
+-        "--selection",
+-        choices=["tournament", "roulette_wheel", "truncation"],
+-        default="tournament",
+-        help="Selection strategy (default: tournament)",
+-    )
+-    run.add_argument(
+-        "--tournament-k", type=int, default=3,
+-        help="Tournament size for tournament selection (default: 3)",
+-    )
+-    run.add_argument(
+-        "--top-fraction", type=float, default=0.5,
+-        help="Top fraction to keep for truncation selection (default: 0.5)",
+-    )
+-    run.add_argument(
+-        "--mutation-rate", type=float, default=None,
+-        help="Per-character mutation probability [0, 1] (default: 1/256≈0.0039)",
+-    )
+-    run.add_argument(
+-        "--crossover-rate", type=float, default=None,
+-        help="Fraction of children produced by crossover [0, 1] (default: 0.5)",
+-    )
+-    run.add_argument(
+-        "--elitism", type=int, default=None,
+-        help="Number of elite genomes preserved per generation (default: 2)",
+-    )
+-    run.add_argument(
+-        "--target-fitness", type=float, default=None,
+-        help="Halt evolution once max_fitness >= TARGET (must be in (0, 1]; optional)",
+-    )
+-
+     args = parser.parse_args()
+ 
+-    if args.cmd == "run-scale-experiment":
+-        try:
+-            from alienclaw.evolution.bridge_runner import make_bridge_runner
+-        except ImportError as exc:
+-            print(f"ERROR: bridge_runner not available — {exc}", file=sys.stderr)
+-            return 1
+-
+-        from alienclaw.evolution.scale_experiment import run_scale_experiment
+-        from alienclaw.evolution.types import EvolutionConfig
+-
+-        seeds = args.seeds
+-        config_base = EvolutionConfig(
+-            martian_type=args.martian_type,
+-            population_size=args.population_size,
+-        )
+-        run_martian = make_bridge_runner(args.martian_type, args.inputs)
+-
+-        print(f"Scale experiment: {args.martian_type}, pop={args.population_size}, "
+-              f"gens={args.generations}, seeds={seeds}", file=sys.stderr)
+-        run_scale_experiment(
+-            martian_type=args.martian_type,
+-            config_base=config_base,
+-            run_martian_fn=run_martian,
+-            generations=args.generations,
+-            seeds=seeds,
+-            output_dir=args.output_dir,
+-        )
+-        print(f"Done. Results in {args.output_dir}/", file=sys.stderr)
+-        return 0
+-
+     if args.cmd == "migrate-pre-packet-16":
+         from alienclaw.evolution.migrations.migrate_pre_packet_16 import migrate
+         renamed = migrate()
+@@ -153,94 +38,6 @@ def main() -> int:
+             print("Nothing to migrate (no pre-16 population directories found).")
+         return 0
+ 
+-    if args.cmd == "run-experiment":
+-        if args.target_fitness is not None and not (0 < args.target_fitness <= 1):
+-            print(
+-                f"ERROR: --target-fitness must be in (0, 1]; got {args.target_fitness}",
+-                file=sys.stderr,
+-            )
+-            return 2
+-
+-        try:
+-            from alienclaw.evolution.bridge_runner import make_bridge_runner
+-        except ImportError as exc:
+-            print(f"ERROR: bridge_runner not available — {exc}", file=sys.stderr)
+-            print("Ensure Phase 6 bridge wiring is complete.", file=sys.stderr)
+-            return 1
+-
+-        from alienclaw.evolution.experiment import run_experiment
+-        from alienclaw.evolution.types import EvolutionConfig
+-
+-        config_kwargs: dict = dict(
+-            martian_type=args.martian_type,
+-            population_size=args.population_size,
+-            seed=args.seed,
+-            selection_strategy=args.selection,
+-            tournament_k=args.tournament_k,
+-            truncation_top_fraction=args.top_fraction,
+-        )
+-        if args.mutation_rate is not None:
+-            config_kwargs['mutation_rate'] = args.mutation_rate
+-        if args.crossover_rate is not None:
+-            config_kwargs['crossover_rate'] = args.crossover_rate
+-        if args.elitism is not None:
+-            config_kwargs['elitism_count'] = args.elitism
+-        config = EvolutionConfig(**config_kwargs)
+-
+-        run_martian = make_bridge_runner(args.martian_type, args.inputs)
+-        results: list[dict] = []
+-
+-        def on_gen(i: int, result: dict) -> None:
+-            s = result["stats"]
+-            row = {
+-                "generation": result["generation"],
+-                "next_generation": result["next_generation"],
+-                "mean_fitness": round(s.mean_fitness, 4),
+-                "max_fitness": round(s.max_fitness, 4),
+-                "min_fitness": round(s.min_fitness, 4),
+-                "stddev_fitness": round(s.stddev_fitness, 4),
+-                "distinct_genomes": s.distinct_genomes,
+-                "children_minted": result["children_minted"],
+-            }
+-            results.append(row)
+-            print(json.dumps(row))
+-
+-        pop, all_stats = run_experiment(
+-            config=config,
+-            run_martian=run_martian,
+-            generations=args.generations,
+-            on_generation=on_gen,
+-            target_fitness=args.target_fitness,
+-        )
+-        snap = pop.snapshot()
+-        print(f"\nFinal: generation={snap['generation']}, "
+-              f"top_fitness={snap['top_fitness']:.4f}, "
+-              f"mean_fitness={snap['mean_fitness']:.4f}", file=sys.stderr)
+-
+-        if (args.target_fitness is not None and len(all_stats) > 1
+-                and all_stats[-1].max_fitness >= args.target_fitness):
+-            print(json.dumps({
+-                "type": "target_reached",
+-                "generation": results[-1]["generation"],
+-                "fitness": all_stats[-1].max_fitness,
+-            }))
+-
+-        if args.output:
+-            args.output.write_text(json.dumps(results, indent=2))
+-            print(f"Results written to {args.output}", file=sys.stderr)
+-
+-        from alienclaw.evolution.diagnostics.plateau_detector import detect_plateaus
+-        curve = [row["max_fitness"] for row in results]
+-        plateaus = detect_plateaus(curve)
+-        print(json.dumps({
+-            "type": "plateau_summary",
+-            "total_generations": args.generations,
+-            "plateaus": [
+-                {"start_generation": p.start_generation, "length": p.length}
+-                for p in plateaus
+-            ],
+-        }))
+-
+     return 0
+ 
+ 
+diff --git a/src/alienclaw/evolution/types.py b/src/alienclaw/evolution/types.py
+index 00d7ad7c..63ea9b2b 100644
+--- a/src/alienclaw/evolution/types.py
++++ b/src/alienclaw/evolution/types.py
+@@ -1,10 +1,7 @@
+ from __future__ import annotations
+ 
+ from dataclasses import dataclass
+-from typing import TYPE_CHECKING, Any
+-
+-if TYPE_CHECKING:
+-    from alienclaw.brains.types import BrainSpec
++from typing import Any
+ 
+ 
+ @dataclass(frozen=True)
+@@ -57,6 +54,9 @@ class EvolutionConfig:
+     crossover_rate: float = 0.5
+     elitism_count: int = 2
+     seed: int | None = None
+-    brain: "BrainSpec | None" = None
++    # Duck-typed: any object whose `parameter_schema` is a sequence of fields with
++    # xcode_index / range_min / range_max / direction (see genome.operators.mutate_directed).
++    # Was alienclaw.brains.types.BrainSpec before the brains layer was removed.
++    brain: Any | None = None
+     selection_strategy: str = "tournament"
+     truncation_top_fraction: float = 0.5
+diff --git a/src/alienclaw/fitness/conformance.py b/src/alienclaw/fitness/conformance.py
+index ed8dd029..03ee6756 100644
+--- a/src/alienclaw/fitness/conformance.py
++++ b/src/alienclaw/fitness/conformance.py
+@@ -3,17 +3,20 @@
+ The fitness `correctness` input was binary (1.0 = ran, 0.0 = errored), which gave
+ selection no gradient on output quality — evolution optimized tool-call efficiency
+ alone (the 2026-07-16 SIGNAL_PARTIAL finding). This grades a *successful* tool
+-output by how completely it matches its MSB OUTPUT CONTRACT: the fraction of
+-contract fields present and type-valid, in [0, 1].
++output by how completely it matches its OUTPUT CONTRACT: the fraction of contract
++fields present and type-valid, in [0, 1].
+ 
+ "Quality" here means output completeness / well-formedness, NOT answer-accuracy —
+ these deterministic tools compute their own ground truth, and there is no labeled
+ task set to compare against.
+ 
+-Contracts are read from each brain's OUTPUT CONTRACT block in `seed/msb/*.msb`, so
+-the `.msb` files are the single source of truth (no hand-maintained duplicate that
+-can drift). Tools whose contract cannot be loaded fall through to their existing
+-binary correctness (`conformance_for` returns None).
++Contracts are an explicit input; this module has no built-in contract source. A
++caller builds them once with `load_contracts(source)` — from a mapping, a JSON
++file, or a directory of spec files that each carry an `OUTPUT CONTRACT:` block —
++and passes the result to `conformance_for`. That keeps the scorer a per-domain
++adapter plug: each domain brings its own contracts. Tools absent from the loaded
++contracts fall through to their existing binary correctness (`conformance_for`
++returns None).
+ 
+ The gradient only exists where the genome actually varies output completeness —
+ e.g. compute's `output_format` (1-5), and `field_count` (1-5) in url_fetch /
+@@ -23,43 +26,44 @@ is genome-independent score a constant conformance, which is correct and expecte
+ from __future__ import annotations
+ 
+ import json
++import os
+ import re
++from collections.abc import Mapping
+ from pathlib import Path
+-from typing import Any, Optional
++from typing import Any, Optional, Union
+ 
+ # OUTPUT CONTRACT block: everything up to the next ALL-CAPS section header or EOF.
+ _CONTRACT_RE = re.compile(
+     r"^OUTPUT CONTRACT:\s*\n(.*?)(?=\n[A-Z][A-Z ]+:|\Z)", re.S | re.M
+ )
+ 
+-# Fallback contract for compute, used only if seed/msb/ cannot be read (e.g. an
+-# installed package without the seed tree). Mirrors seed/msb/compute.msb.
+-_COMPUTE_FALLBACK: dict[str, Any] = {
+-    "input": "any",
+-    "operation": "string",
+-    "result": "any",
+-    "resultType": "string",
+-    "precision": "string",
+-    "steps": ["string"],
+-}
++# What `load_contracts` accepts: a mapping of tool name -> contract, or a path.
++ContractSource = Union[Mapping[str, Any], str, os.PathLike]
+ 
+-# Lazily-populated cache: tool name -> contract field map (or None once loaded empty).
+-_CONTRACTS: Optional[dict[str, dict[str, Any]]] = None
+ 
++def _flatten_contract(parsed: dict[str, Any]) -> dict[str, Any]:
++    """Reduce a contract object to a `field name -> type decl` map.
+ 
+-def _seed_msb_dir() -> Path:
+-    """Locate seed/msb/ relative to this package, independent of CWD."""
+-    # src/alienclaw/fitness/conformance.py -> parents[3] is the repo root.
+-    return Path(__file__).resolve().parents[3] / "seed" / "msb"
++    Handles both contract shapes:
++      * JSON Schema — {"type": "object", "properties": {...}, "required": [...]}
++        — the `properties` map is flattened to its declared types.
++      * Flat type map — {"field": "string", "other": ["string"]} — returned as is.
++    """
++    if parsed.get("type") == "object" and isinstance(parsed.get("properties"), dict):
++        fields: dict[str, Any] = {}
++        for name, decl in parsed["properties"].items():
++            if isinstance(decl, dict) and "type" in decl:
++                fields[name] = decl["type"]
++            else:
++                fields[name] = "any"
++        return fields
++    return parsed
+ 
+ 
+ def _parse_contract(text: str) -> Optional[dict[str, Any]]:
+-    """Parse an OUTPUT CONTRACT block into a `field name -> type decl` map.
++    """Parse a contract's JSON text into a `field name -> type decl` map.
+ 
+-    Handles both shapes present in seed/msb/:
+-      * JSON Schema — {"type": "object", "properties": {...}, "required": [...]}
+-        (url_fetch) — the `properties` map is flattened to its declared types.
+-      * Flat type map — {"field": "string", "other": ["string"]} (the other 7).
++    Returns None when the text is not JSON or not a JSON object.
+     """
+     try:
+         parsed = json.loads(text)
+@@ -67,50 +71,59 @@ def _parse_contract(text: str) -> Optional[dict[str, Any]]:
+         return None
+     if not isinstance(parsed, dict):
+         return None
++    return _flatten_contract(parsed)
+ 
+-    # JSON Schema form: lift `properties`, reducing each to its declared type.
+-    if parsed.get("type") == "object" and isinstance(parsed.get("properties"), dict):
+-        fields: dict[str, Any] = {}
+-        for name, decl in parsed["properties"].items():
+-            if isinstance(decl, dict) and "type" in decl:
+-                fields[name] = decl["type"]
+-            else:
+-                fields[name] = "any"
+-        return fields
+ 
+-    return parsed
++def _spec_contract_text(text: str) -> Optional[str]:
++    """The JSON text of a spec file's `OUTPUT CONTRACT:` block, or None if absent."""
++    match = _CONTRACT_RE.search(text)
++    return match.group(1).strip() if match else None
+ 
+ 
+-def _load_contracts() -> dict[str, dict[str, Any]]:
+-    """Read and cache every brain's OUTPUT CONTRACT from seed/msb/."""
+-    global _CONTRACTS
+-    if _CONTRACTS is not None:
+-        return _CONTRACTS
++def load_contracts(
++    source: ContractSource, *, pattern: str = "*.msb"
++) -> dict[str, dict[str, Any]]:
++    """Build the `tool name -> contract field map` that `conformance_for` reads.
+ 
+-    contracts: dict[str, dict[str, Any]] = {}
+-    msb_dir = _seed_msb_dir()
+-    try:
+-        paths = sorted(msb_dir.glob("*.msb"))
+-    except OSError:
+-        paths = []
+-
+-    for path in paths:
+-        try:
+-            match = _CONTRACT_RE.search(path.read_text(encoding="utf-8"))
+-        except OSError:
+-            continue
+-        if not match:
+-            continue
+-        fields = _parse_contract(match.group(1).strip())
+-        if fields:
+-            contracts[path.stem] = fields
++    `source` is one of:
++      * a mapping of tool name -> contract, each a dict (flat type map or JSON
++        Schema object) or its JSON text;
++      * a path to a JSON file holding such a mapping;
++      * a path to a directory of spec files, each carrying an `OUTPUT CONTRACT:`
++        block; the file stem is the tool name and `pattern` selects the files.
+ 
+-    if not contracts:
+-        # Seed tree unavailable — keep compute graded rather than regressing it.
+-        contracts = {"compute": _COMPUTE_FALLBACK}
++    Entries whose contract does not parse, or is empty, are skipped, so those tools
++    fall through to binary correctness. A path that is neither a file nor a
++    directory raises FileNotFoundError: a named source that is missing is a caller
++    error, not something to paper over with a fallback.
++    """
++    if isinstance(source, Mapping):
++        entries: Mapping[str, Any] = source
++    else:
++        path = Path(source)
++        if path.is_dir():
++            entries = {
++                spec.stem: _spec_contract_text(spec.read_text(encoding="utf-8"))
++                for spec in sorted(path.glob(pattern))
++            }
++        elif path.is_file():
++            entries = json.loads(path.read_text(encoding="utf-8"))
++            if not isinstance(entries, dict):
++                raise ValueError(f"{path}: expected a JSON object of tool -> contract")
++        else:
++            raise FileNotFoundError(f"contract source not found: {path}")
+ 
+-    _CONTRACTS = contracts
+-    return _CONTRACTS
++    contracts: dict[str, dict[str, Any]] = {}
++    for name, decl in entries.items():
++        if isinstance(decl, str):
++            fields = _parse_contract(decl)
++        elif isinstance(decl, dict):
++            fields = _flatten_contract(decl)
++        else:
++            fields = None
++        if fields:
++            contracts[name] = fields
++    return contracts
+ 
+ 
+ def _field_valid(value: Any, decl: Any) -> bool:
+@@ -184,13 +197,18 @@ def conformance_score(contract: dict[str, Any], output: dict[str, Any]) -> float
+     return hits / len(contract)
+ 
+ 
+-def conformance_for(tool_name: str, output: dict[str, Any]) -> Optional[float]:
++def conformance_for(
++    tool_name: str,
++    output: dict[str, Any],
++    contracts: Mapping[str, dict[str, Any]],
++) -> Optional[float]:
+     """Graded correctness for a successful tool output.
+ 
+-    Returns the conformance score for a tool whose OUTPUT CONTRACT could be read
+-    from seed/msb/, or None if it could not (caller keeps its binary correctness).
++    `contracts` is what `load_contracts` returned. Returns the conformance score
++    for a tool that has a contract there, or None if it has none (the caller keeps
++    its binary correctness).
+     """
+-    contract = _load_contracts().get(tool_name)
++    contract = contracts.get(tool_name)
+     if contract is None:
+         return None
+     return conformance_score(contract, output)
+diff --git a/src/alienclaw/index.ts b/src/alienclaw/index.ts
+index c123283a..190be725 100644
+--- a/src/alienclaw/index.ts
++++ b/src/alienclaw/index.ts
+@@ -1,32 +1,16 @@
+ /**
+  * src/alienclaw/index.ts
+- * Main barrel for the AlienClaw agent hierarchy.
++ * Main barrel for the AlienClaw GA engine (TypeScript side).
++ *
++ * Teardown pass 2 removed the agent-hierarchy exports (agents, config,
++ * governance, comms, wiring, Martian registry, msb). What remains is the
++ * shared constants and the genome codec.
+  */
+ 
+ // Core
+ export * from './constants.js';
+-export * from './types.js';
+ 
+-// Agents
+-export { bossBot }         from './agents/bossbot.js';
+-export { advisorBot }      from './agents/advisorbot.js';
+-export { creatorBot }      from './agents/creatorbot.js';
+-export { agentRegistry }   from './agents/agent-registry.js';
+-
+-// Config
+-export { alienClawConfig } from './config/alienclaw-config.js';
+-
+-// Governance (Phase 2B)
+-export { GovernanceLoop }    from './governance/common/governance-loop.js';
+-export { GoalManager }       from './governance/common/goal-manager.js';
+-export { TaskManager }       from './governance/common/task-manager.js';
+-export { EscalationHandler } from './governance/common/escalation-handler.js';
+-export { CompletionHandler } from './governance/common/completion-handler.js';
+-export { UserChannel }       from './comms/user-channel.js';
+-export { AgentChannel, agentChannel } from './comms/agent-channel.js';
+-export { bootstrap }         from './wiring/hierarchy-bootstrap.js';
+-
+-// Registry (Phase 3)
++// Genome codec
+ // Selective exports to avoid name clashes with constants.ts
+ export {
+   validateGenome,
+@@ -37,12 +21,3 @@ export {
+   SECTION,
+ } from './registry/genome-codec.js';
+ export type { GenomeSections, GenomeValidationResult, SectionIndex } from './registry/genome-codec.js';
+-export type { MartianSpec, MartianStatus, GraveyardEntry,
+-              MartianExecutionInput, MartianExecutionResult, MartianOutcome } from './registry/ms-types.js';
+-export { loadMsFile, loadMsDirectory, MsParseError }       from './registry/ms-loader.js';
+-export { MartianRegistry, RegistryError }                  from './registry/martian-registry.js';
+-export { installSeeds }                                     from './registry/seed-installer.js';
+-export { getRegistry }                                      from './registry/registry.js';
+-
+-// MartianBrain / executor (Phase 3)
+-export * from './msb/index.js';
+diff --git a/test/diagnostics/test_instrumentation.py b/test/diagnostics/test_instrumentation.py
+index 5297c323..6ef9d1a2 100644
+--- a/test/diagnostics/test_instrumentation.py
++++ b/test/diagnostics/test_instrumentation.py
+@@ -1,50 +1,36 @@
+-import json
+-import os
+-import pytest
++"""Tests for diagnostics/instrumentation.py.
++
++Teardown pass 2 removes alienclaw.bridge, which these tests used to drive the
++recorders through (bridge.server.handle). The bridge-free tests (TestIsEnabled,
++test_record_functions_no_op_when_disabled) are unchanged; the bridge-driven ones
++now call the record_* producers directly, in the order bridge/server.py did.
++Two bridge-only tests are gone: test_production_response_identical_when_off and
++test_decoded_params_reach_runner (both assert bridge response / runner behavior,
++not instrumentation behavior).
++"""
++import random
++
+ from alienclaw.diagnostics.instrumentation import (
+-    CaptureHook, CaptureTrace, is_enabled,
+-    record_genome, record_runner_result, record_fitness,
++    CaptureHook,
++    is_enabled,
++    record_fitness,
++    record_genome,
++    record_runner_call,
++    record_runner_result,
+ )
+-from alienclaw.bridge.server import handle
+ from alienclaw.genome.operators import random_genome
+-from alienclaw.genome.codec import encode_xcode, param_value_to_xcode
+-from alienclaw.genome.checksum import compute_checksum
+-import random
+ 
+ 
+ def _valid_genome(seed: int = 1) -> str:
+-    """Genome where compute decodes to max_attempts=1 and validation_count=1.
++    return random_genome(random.Random(seed), "COMPUT01")
+ 
+-    This mirrors the prior behavior expected by the diagnostics test
+-    (tool_calls == 1) under the new Xcode encoding (Packet 15).
+-    """
+-    g = random_genome(random.Random(seed), "COMPUT01")
+-    chars = list(g[:192])
+-    # compute: xcode_index 0 = max_attempts [1,5]; xcode_index 4 = validation_count [1,3]
+-    for xidx, (vmin, vmax, target) in (
+-        (0, (1, 5, 1)),
+-        (4, (1, 3, 1)),
+-    ):
+-        v = param_value_to_xcode(target, vmin, vmax)
+-        e = encode_xcode(v)
+-        base = 64 + 1 + xidx * 2
+-        chars[base], chars[base + 1] = e[0], e[1]
+-    body = "".join(chars)
+-    return body + compute_checksum(body)
+ 
+-
+-def _compute_req(genome: str) -> bytes:
+-    return json.dumps({
+-        "bridge_version": "1.0",
+-        "request_id": "550e8400-e29b-41d4-a716-000000000001",
+-        "request": {
+-            "kind": "summon",
+-            "genome": genome,
+-            "martian_type": "compute",
+-            "inputs": {"input": "2 + 2"},
+-            "timeout_ms": 5000,
+-        },
+-    }).encode()
++def _simulate_producer(genome: str) -> None:
++    """Stand-in for the call sequence the removed bridge/server.py made."""
++    record_genome(genome, "compute", {"input": "2 + 2"})
++    record_runner_call(genome_passed=True)
++    record_runner_result({"result": 4}, None, 0.75, 1)
++    record_fitness(0.75)
+ 
+ 
+ class TestIsEnabled:
+@@ -67,40 +53,33 @@ class TestCaptureHook:
+         monkeypatch.setenv("ALIENCLAW_DIAGNOSTICS", "1")
+         genome = _valid_genome(1)
+         with CaptureHook() as hook:
+-            resp = handle(_compute_req(genome))
++            _simulate_producer(genome)
+         trace = hook.trace()
+         assert trace.genome == genome
+         assert trace.martian_type == "compute"
+-        # Correctness is graded by output-contract conformance now.
+-        assert 0.0 < trace.correctness <= 1.0
++        assert trace.inputs == {"input": "2 + 2"}
++        assert trace.runner_output == {"result": 4}
++        assert trace.runner_error is None
++        assert trace.correctness == 0.75
+         assert trace.tool_calls == 1
+-        # Single slot, no excess calls → efficiency=1.0 → fitness == correctness.
+-        assert trace.fitness == pytest.approx(trace.correctness)
+-        assert trace.genome_passed_to_runner is True  # Packet 8.6: genome decoded and reaches runner
++        assert trace.fitness == 0.75
++        assert trace.genome_passed_to_runner is True
+ 
+     def test_trace_empty_when_disabled(self, monkeypatch):
+         monkeypatch.delenv("ALIENCLAW_DIAGNOSTICS", raising=False)
+         genome = _valid_genome(2)
+         with CaptureHook() as hook:
+-            resp = handle(_compute_req(genome))
++            _simulate_producer(genome)
+         trace = hook.trace()
+         assert trace.genome == ""  # not populated when off
++        assert trace.genome_passed_to_runner is False
+ 
+-    def test_production_response_identical_when_off(self, monkeypatch):
+-        """Production path is byte-identical whether diagnostics are on or off."""
+-        monkeypatch.delenv("ALIENCLAW_DIAGNOSTICS", raising=False)
+-        genome = _valid_genome(3)
+-        req = _compute_req(genome)
+-        resp_off = handle(req)
+-
++    def test_capture_deactivated_after_block(self, monkeypatch):
+         monkeypatch.setenv("ALIENCLAW_DIAGNOSTICS", "1")
+-        with CaptureHook():
+-            resp_on = handle(req)
+-
+-        # Response content is identical regardless of diagnostics flag
+-        assert resp_off["response"]["ok"] == resp_on["response"]["ok"]
+-        assert resp_off["response"]["fitness"] == resp_on["response"]["fitness"]
+-        assert resp_off["response"]["output"] == resp_on["response"]["output"]
++        with CaptureHook() as hook:
++            pass
++        _simulate_producer(_valid_genome(3))  # outside the block: must not land in trace
++        assert hook.trace().genome == ""
+ 
+     def test_record_functions_no_op_when_disabled(self, monkeypatch):
+         monkeypatch.delenv("ALIENCLAW_DIAGNOSTICS", raising=False)
+@@ -108,11 +87,3 @@ class TestCaptureHook:
+         record_genome("abc", "compute", {})
+         record_runner_result({}, None, 0.5, 1)
+         record_fitness(0.5)
+-
+-    def test_decoded_params_reach_runner(self, monkeypatch):
+-        """Packet 8.6: genome is decoded and params reach the runner (MUST FIX #1 resolved)."""
+-        monkeypatch.setenv("ALIENCLAW_DIAGNOSTICS", "1")
+-        genome = _valid_genome(4)
+-        with CaptureHook() as hook:
+-            handle(_compute_req(genome))
+-        assert hook.trace().genome_passed_to_runner is True
+diff --git a/test/diagnostics/test_reporting.py b/test/diagnostics/test_reporting.py
+index dc66c9ad..0da108cd 100644
+--- a/test/diagnostics/test_reporting.py
++++ b/test/diagnostics/test_reporting.py
+@@ -21,7 +21,7 @@ Coverage baseline (origin/main @ fb85aa9c):
+                function, which had ZERO direct tests).
+ 
+ These tests use the dataclass instances from
+-`alienclaw.diagnostics.sensitivity_audit` directly (PairTrace,
++`alienclaw.diagnostics.audit_types` directly (PairTrace,
+ RunnerSensitivity, AuditResults) — no LLM, no DB, no subprocess, no
+ file-system coupling beyond tmp-file roundtrip for diff_audits.
+ 
+@@ -41,7 +41,7 @@ from pathlib import Path
+ import pytest
+ 
+ from alienclaw.diagnostics.reporting import format_report, diff_audits
+-from alienclaw.diagnostics.sensitivity_audit import (
++from alienclaw.diagnostics.audit_types import (
+     AuditResults,
+     PairTrace,
+     RunnerSensitivity,
+diff --git a/test/evolution/test_generation.py b/test/evolution/test_generation.py
+index 7921fbb4..b885deba 100644
+--- a/test/evolution/test_generation.py
++++ b/test/evolution/test_generation.py
+@@ -1,13 +1,33 @@
+ import random
++from dataclasses import dataclass
+ 
+ import pytest
+ 
+-from alienclaw.brains.types import BrainSpec, GenomeSectionDocs, ParameterSchemaField
+ from alienclaw.evolution.generation import FitnessReport, RunMartianCallback, evaluate_and_evolve
+ from alienclaw.evolution.population import Population
+ from alienclaw.evolution.types import EvolutionConfig
+ 
+ 
++# Minimal stand-ins for the removed alienclaw.brains.types dataclasses. mutate_directed
++# (reached via EvolutionConfig.brain) only reads `brain.parameter_schema` and each field's
++# xcode_index / range_min / range_max / direction, so nothing else from the old BrainSpec
++# is needed.
++@dataclass(frozen=True)
++class ParameterSchemaField:
++    name: str
++    description: str
++    xcode_index: int
++    range_min: int
++    range_max: int
++    default: int
++    direction: str  # "lower" | "higher" | "none"
++
++
++@dataclass(frozen=True)
++class BrainSpec:
++    parameter_schema: tuple[ParameterSchemaField, ...] = ()
++
++
+ @pytest.fixture(autouse=True)
+ def isolate_populations(tmp_path, monkeypatch):
+     monkeypatch.setenv("ALIENCLAW_POPULATIONS_ROOT", str(tmp_path / "populations"))
+@@ -119,20 +139,8 @@ class TestEvaluateAndEvolve:
+ 
+ 
+ def _minimal_brain() -> BrainSpec:
+-    """Minimal BrainSpec with one EXECUTION-slot parameter for directed mutation."""
++    """Minimal BrainSpec stand-in with one EXECUTION-slot parameter for directed mutation."""
+     return BrainSpec(
+-        tool="test_tool",
+-        version="1.0",
+-        capabilities="test",
+-        limitations="test",
+-        failure_modes="test",
+-        best_practices="test",
+-        execution_order=("step one",),
+-        output_contract="{}",
+-        genome_sections=GenomeSectionDocs(
+-            identity="id", execution="exec", behavior="behav", checksum="cs"
+-        ),
+-        variables={},
+         parameter_schema=(
+             ParameterSchemaField(
+                 name="max_attempts",
+diff --git a/test/fitness/test_conformance.py b/test/fitness/test_conformance.py
+index b1b707c6..77dffe27 100644
+--- a/test/fitness/test_conformance.py
++++ b/test/fitness/test_conformance.py
+@@ -1,7 +1,24 @@
+-"""Unit tests for output-contract conformance scoring (graded correctness)."""
++"""Unit tests for output-contract conformance scoring (graded correctness).
++
++The contracts come from `fixtures/output_contracts.json`: the OUTPUT CONTRACT blocks
++of the eight retired `seed/msb/*.msb` brains, copied verbatim (as parsed JSON) from
++origin/main 401f4099 so these tests own their data. The scorer has no built-in
++contract source; every call names one.
++"""
++import inspect
++import json
++from pathlib import Path
++
+ import pytest
+ 
+-from alienclaw.fitness.conformance import conformance_for, conformance_score
++from alienclaw.fitness.conformance import (
++    conformance_for,
++    conformance_score,
++    load_contracts,
++)
++
++FIXTURE = Path(__file__).parent / "fixtures" / "output_contracts.json"
++CONTRACTS = load_contracts(FIXTURE)
+ 
+ # The compute OUTPUT CONTRACT, mirroring compute.py's output_format 1-5 emission.
+ FULL_COMPUTE_OUTPUT = {
+@@ -15,12 +32,12 @@ FULL_COMPUTE_OUTPUT = {
+ 
+ 
+ def test_full_conformance_scores_one():
+-    assert conformance_for("compute", FULL_COMPUTE_OUTPUT) == pytest.approx(1.0)
++    assert conformance_for("compute", FULL_COMPUTE_OUTPUT, CONTRACTS) == pytest.approx(1.0)
+ 
+ 
+ def test_result_only_scores_one_sixth():
+     # output_format=1 emits {result} only → 1 of 6 contract fields.
+-    assert conformance_for("compute", {"result": 4}) == pytest.approx(1 / 6)
++    assert conformance_for("compute", {"result": 4}, CONTRACTS) == pytest.approx(1 / 6)
+ 
+ 
+ @pytest.mark.parametrize(
+@@ -35,7 +52,7 @@ def test_result_only_scores_one_sixth():
+     ],
+ )
+ def test_gradient_across_output_formats(output, expected):
+-    assert conformance_for("compute", output) == pytest.approx(expected)
++    assert conformance_for("compute", output, CONTRACTS) == pytest.approx(expected)
+ 
+ 
+ def test_type_invalid_fields_do_not_count():
+@@ -49,16 +66,16 @@ def test_type_invalid_fields_do_not_count():
+         "steps": "not-a-list",         # not a list → invalid
+     }
+     # 4 valid of 6 (result, input, operation, precision).
+-    assert conformance_for("compute", bad) == pytest.approx(4 / 6)
++    assert conformance_for("compute", bad, CONTRACTS) == pytest.approx(4 / 6)
+ 
+ 
+ def test_empty_output_scores_zero():
+-    assert conformance_for("compute", {}) == pytest.approx(0.0)
++    assert conformance_for("compute", {}, CONTRACTS) == pytest.approx(0.0)
+ 
+ 
+ def test_tool_with_no_contract_returns_none():
+-    # A tool with no OUTPUT CONTRACT in seed/msb/ falls through to binary correctness.
+-    assert conformance_for("no_such_tool", {"content": "x"}) is None
++    # A tool with no contract in the loaded set falls through to binary correctness.
++    assert conformance_for("no_such_tool", {"content": "x"}, CONTRACTS) is None
+ 
+ 
+ def test_empty_contract_scores_one():
+@@ -68,14 +85,16 @@ def test_empty_contract_scores_one():
+ # ── Generic contract loading (all 8 brains, not just compute) ─────────────────
+ 
+ 
+-def test_all_seed_brains_have_loadable_contracts():
+-    # Every brain in seed/msb/ must yield a usable contract; a parse regression
+-    # would silently drop that tool back to binary correctness.
++def test_all_fixture_contracts_are_loadable():
++    # Every contract in the fixture must yield a usable field map; a parse
++    # regression would silently drop that tool back to binary correctness.
+     for tool in [
+         "compute", "extract_json", "file_read", "file_write",
+         "http_get", "search_text", "url_fetch", "web_search",
+     ]:
+-        assert conformance_for(tool, {}) is not None, f"{tool} contract failed to load"
++        assert conformance_for(tool, {}, CONTRACTS) is not None, (
++            f"{tool} contract failed to load"
++        )
+ 
+ 
+ @pytest.mark.parametrize(
+@@ -91,13 +110,13 @@ def test_all_seed_brains_have_loadable_contracts():
+ def test_url_fetch_gradient_from_json_schema_contract(output, expected):
+     # url_fetch's contract is JSON Schema shaped (not a flat type map); its
+     # genome-controlled field_count must still produce a conformance gradient.
+-    assert conformance_for("url_fetch", output) == pytest.approx(expected)
++    assert conformance_for("url_fetch", output, CONTRACTS) == pytest.approx(expected)
+ 
+ 
+ def test_integer_and_boolean_types_are_enforced():
+     # http_get declares statusCode/bytesReturned as integer and truncated as boolean.
+-    ok = conformance_for("http_get", {"statusCode": 200, "truncated": False})
+-    bad = conformance_for("http_get", {"statusCode": "200", "truncated": "no"})
++    ok = conformance_for("http_get", {"statusCode": 200, "truncated": False}, CONTRACTS)
++    bad = conformance_for("http_get", {"statusCode": "200", "truncated": "no"}, CONTRACTS)
+     assert ok > bad
+ 
+ 
+@@ -107,3 +126,78 @@ def test_bool_does_not_satisfy_integer():
+     assert _field_valid(True, "boolean") is True
+     assert _field_valid(True, "integer") is False
+     assert _field_valid(1, "integer") is True
++
++
++# ── Contract sources: an explicit input with no built-in default ──────────────
++
++
++def test_contract_source_is_a_required_input():
++    # Decoupled from seed/msb/: neither the loader nor the scorer has a default
++    # source to fall back on.
++    source = inspect.signature(load_contracts).parameters["source"]
++    contracts = inspect.signature(conformance_for).parameters["contracts"]
++    assert source.default is inspect.Parameter.empty
++    assert contracts.default is inspect.Parameter.empty
++
++
++def test_mapping_source_matches_json_file_source():
++    data = json.loads(FIXTURE.read_text(encoding="utf-8"))
++    assert load_contracts(data) == CONTRACTS
++    assert load_contracts(str(FIXTURE)) == CONTRACTS
++
++
++def test_mapping_source_takes_json_text_and_skips_unusable_entries():
++    compute_text = json.dumps(json.loads(FIXTURE.read_text(encoding="utf-8"))["compute"])
++    contracts = load_contracts({
++        "compute": compute_text,
++        "broken": "{not json",
++        "not_a_map": ["string"],
++        "empty": {},
++    })
++    assert contracts == {"compute": CONTRACTS["compute"]}
++
++
++def test_json_schema_contract_is_flattened():
++    assert CONTRACTS["url_fetch"] == {
++        "url": "string",
++        "statusCode": "integer",
++        "content": "string",
++        "contentType": "string",
++    }
++
++
++def test_directory_source_reads_output_contract_blocks(tmp_path):
++    # Spec files carrying an OUTPUT CONTRACT block, which ends at the next ALL-CAPS
++    # header or at EOF; the file stem is the tool name.
++    (tmp_path / "compute.msb").write_text(
++        "NAME: compute\n\nOUTPUT CONTRACT:\n"
++        + json.dumps({"result": "any", "steps": ["string"]})
++        + "\n\nPARAMETER SCHEMA:\nprecision_digits|2|1|10|6|none\n",
++        encoding="utf-8",
++    )
++    (tmp_path / "url_fetch.msb").write_text(
++        "OUTPUT CONTRACT:\n"
++        + json.dumps({"type": "object", "properties": {"url": {"type": "string"}}}),
++        encoding="utf-8",
++    )
++    (tmp_path / "no_block.msb").write_text("NAME: no_block\n", encoding="utf-8")
++    (tmp_path / "bad_json.msb").write_text("OUTPUT CONTRACT:\n{nope\n", encoding="utf-8")
++    (tmp_path / "other.txt").write_text('OUTPUT CONTRACT:\n{"x": "string"}\n', encoding="utf-8")
++
++    assert load_contracts(tmp_path) == {
++        "compute": {"result": "any", "steps": ["string"]},
++        "url_fetch": {"url": "string"},
++    }
++    assert load_contracts(tmp_path, pattern="*.txt") == {"other": {"x": "string"}}
++
++
++def test_missing_path_source_raises(tmp_path):
++    with pytest.raises(FileNotFoundError):
++        load_contracts(tmp_path / "nowhere")
++
++
++def test_json_file_that_is_not_an_object_raises(tmp_path):
++    bad = tmp_path / "contracts.json"
++    bad.write_text("[1, 2]", encoding="utf-8")
++    with pytest.raises(ValueError):
++        load_contracts(bad)
+diff --git a/test/genome/test_step_mutation.py b/test/genome/test_step_mutation.py
+index bb291b27..0ccafe5c 100644
+--- a/test/genome/test_step_mutation.py
++++ b/test/genome/test_step_mutation.py
+@@ -3,10 +3,10 @@
+ from __future__ import annotations
+ 
+ import random
++from dataclasses import dataclass
+ 
+ import pytest
+ 
+-from alienclaw.brains.types import BrainSpec, GenomeSectionDocs, ParameterSchemaField
+ from alienclaw.genome.checksum import compute_checksum
+ from alienclaw.genome.codec import (
+     decode_xcode,
+@@ -21,22 +21,28 @@ from alienclaw.genome.operators import (
+ from alienclaw.genome.validation import validate
+ 
+ 
+-def make_brain(params: list[ParameterSchemaField], tool: str = "test_tool") -> BrainSpec:
+-    """Minimal BrainSpec for testing mutate_directed."""
+-    return BrainSpec(
+-        tool=tool,
+-        version="1.0",
+-        capabilities="",
+-        limitations="",
+-        failure_modes="",
+-        best_practices="",
+-        execution_order=(),
+-        output_contract="",
+-        genome_sections=GenomeSectionDocs(identity="", execution="", behavior="", checksum=""),
+-        variables={},
+-        parameter_schema=tuple(params),
+-        source_path="",
+-    )
++# Minimal stand-ins for the removed alienclaw.brains.types dataclasses. mutate_directed
++# only reads `brain.parameter_schema` and each field's xcode_index / range_min /
++# range_max / direction, so the test needs nothing else from the old BrainSpec.
++@dataclass(frozen=True)
++class ParameterSchemaField:
++    name: str
++    description: str
++    xcode_index: int
++    range_min: int
++    range_max: int
++    default: int
++    direction: str  # "lower" | "higher" | "none"
++
++
++@dataclass(frozen=True)
++class BrainSpec:
++    parameter_schema: tuple[ParameterSchemaField, ...] = ()
++
++
++def make_brain(params: list[ParameterSchemaField]) -> BrainSpec:
++    """Minimal BrainSpec stand-in for testing mutate_directed."""
++    return BrainSpec(parameter_schema=tuple(params))
+ 
+ 
+ def _set_xcode(genome: str, slot_index: int, xcode_index: int, value: int) -> str:
+diff --git a/test/telemetry/online-fitness-streaming-cap-probe.test.ts b/test/telemetry/online-fitness-streaming-cap-probe.test.ts
+index fea2e363..e927cbd0 100644
+--- a/test/telemetry/online-fitness-streaming-cap-probe.test.ts
++++ b/test/telemetry/online-fitness-streaming-cap-probe.test.ts
+@@ -12,13 +12,8 @@
+  *   R-013: aggregateOnlineFitness MUST stream (RSS growth ≤ 30 MiB on a 30 MiB fixture).
+  *          Pre-fix observes ~115 MiB delta (entire 30 MiB file + UTF-8 string overhead).
+  *          Post-fix expects < 30 MiB delta (stream + readline buffers only).
+- *   R-014: OnlineFitnessLog.read() returns all entries (the streaming property is intrinsic
+- *          to the read-loop — RSS test would be confounded by the parsed-array contract).
+- *          Pre-fix post-condition: 200_000 entries returned.
+- *          Post-fix post-condition: 200_000 entries returned (identical).
+- *   R-015: status.runStatus() MUST stream online_fitness.jsonl (RSS growth ≤ 30 MiB on a
+- *          30 MiB fixture). Pre-fix observes ~40 MiB delta (entire 30 MiB file materialized).
+- *          Post-fix expects < 30 MiB delta (stream + readline buffers only).
++ *   (R-014 OnlineFitnessLog.read() and R-015 status.runStatus() were removed with the
++ *          governance and cli layers in teardown pass 2.)
+  *   R-016: streaming reads MUST preserve observable behavior on small fixtures
+  *          (existing R-002 invariant — count + mean identical).
+  *
+@@ -78,20 +73,6 @@ async function loadAggregator(): Promise<{
+   return { aggregateOnlineFitness: mod.aggregateOnlineFitness };
+ }
+ 
+-async function loadOnlineFitnessLog(): Promise<{
+-  OnlineFitnessLog: typeof import('../../src/alienclaw/governance/common/online-fitness-log.js')['OnlineFitnessLog'];
+-}> {
+-  const mod = await import('../../src/alienclaw/governance/common/online-fitness-log.js');
+-  return { OnlineFitnessLog: mod.OnlineFitnessLog };
+-}
+-
+-async function loadRunStatus(): Promise<{
+-  runStatus: typeof import('../../src/alienclaw/cli/status.js')['runStatus'];
+-}> {
+-  const mod = await import('../../src/alienclaw/cli/status.js');
+-  return { runStatus: mod.runStatus };
+-}
+-
+ describe('PKT-1294 unbounded-read cap (online_fitness.jsonl streaming)', () => {
+   it('R-013 — aggregateOnlineFitness streams (RSS growth ≤ 30 MiB on a 30 MiB fixture)', async () => {
+     const lines = buildLargeFixture(200_000);
+@@ -113,42 +94,6 @@ describe('PKT-1294 unbounded-read cap (online_fitness.jsonl streaming)', () => {
+     expect(result.count).toBe(40_000);  // i % 5 → mt1 every 5th entry
+   }, 60_000);
+ 
+-  it('R-014 — OnlineFitnessLog.read() returns all entries from a 30 MiB fixture (regression)', async () => {
+-    // The streaming-read is intrinsic to the for-await loop; the RSS test would be
+-    // confounded by the caller's array-return contract. Instead we assert that the
+-    // read-loop terminates and produces the expected count.
+-    const lines = buildLargeFixture(200_000);
+-    const logPath = join(homeDir, 'online_fitness.jsonl');
+-    writeFileSync(logPath, lines.join('\n') + '\n');
+-
+-    const { OnlineFitnessLog } = await loadOnlineFitnessLog();
+-    const log = new OnlineFitnessLog(logPath);
+-    const entries = log.read();
+-
+-    expect(entries.length).toBe(200_000);
+-  }, 60_000);
+-
+-  it('R-015 — status.runStatus() streams online_fitness.jsonl (RSS growth ≤ 30 MiB on a 30 MiB fixture)', async () => {
+-    const lines = buildLargeFixture(200_000);
+-    const logPath = join(homeDir, 'online_fitness.jsonl');
+-    writeFileSync(logPath, lines.join('\n') + '\n');
+-    // Also drop a tiny summary file so runStatus() reaches the online_log path
+-    writeFileSync(join(homeDir, 'live-fitness-summary.json'), JSON.stringify({ martians: [] }));
+-
+-    const { runStatus } = await loadRunStatus();
+-    forceGcBestEffort();
+-    const rssBefore = process.memoryUsage().rss;
+-    const code = await runStatus(homeDir);
+-    forceGcBestEffort();
+-    const rssAfter = process.memoryUsage().rss;
+-    const rssDeltaMiB = (rssAfter - rssBefore) / 1024 / 1024;
+-
+-    expect(code).toBe(0);
+-    // Pre-fix: rssDeltaMiB ≈ 40 MiB (entire 30 MiB file materialized into UTF-8 string).
+-    // Post-fix: rssDeltaMiB < 30 MiB (stream + readline buffers only).
+-    expect(rssDeltaMiB).toBeLessThan(30);
+-  }, 60_000);
+-
+   it('R-016 — streaming reads preserve observable behavior on small fixtures (regression guard)', async () => {
+     // Existing R-002 invariant: aggregateOnlineFitness returns {count:3, mean:0.8} on a
+     // 4-entry log with 3 compute + 1 http_get.
+diff --git a/test/tools/test_pkt087_extract_json_empty_extracted.py b/test/tools/test_pkt087_extract_json_empty_extracted.py
+index 515f49f3..d4058227 100644
+--- a/test/tools/test_pkt087_extract_json_empty_extracted.py
++++ b/test/tools/test_pkt087_extract_json_empty_extracted.py
+@@ -20,6 +20,20 @@ from alienclaw.tools import extract_json
+ 
+ JSON_IN = '{"a": 1}'
+ 
++# extract_json's OUTPUT CONTRACT, verbatim from the retired seed/msb/extract_json.msb
++# (origin/main 401f4099). The conformance scorer takes its contracts as an explicit
++# input, so this test carries its own.
++EXTRACT_JSON_CONTRACT = {
++    "extracted": {
++        "<path>": {
++            "value": "any",
++            "type": "string",
++            "found": "boolean",
++        }
++    },
++    "inputKeys": ["string"],
++}
++
+ 
+ def _run(path: str | None, **params):
+     """Call extract_json.run. Genome params (result_format, extraction_passes)
+@@ -61,16 +75,16 @@ class TestParityWithSiblingTools:
+     """The codebase already fixes this class; extract_json must match."""
+ 
+     def test_shape_matches_web_search_penalty(self):
+-        from alienclaw.fitness.conformance import _load_contracts, conformance_for
++        from alienclaw.fitness.conformance import conformance_for, load_contracts
+ 
+         empty = _run(path="")
+         full = _run(path="a", result_format=3)
+         default_fmt = _run(path="a")  # default result_format=2 -> no "found"
+-        contracts = _load_contracts()
++        contracts = load_contracts({"extract_json": EXTRACT_JSON_CONTRACT})
+ 
+-        empty_graded = conformance_for("extract_json", empty.output or {})
+-        full_graded = conformance_for("extract_json", full.output or {})
+-        default_graded = conformance_for("extract_json", default_fmt.output or {})
++        empty_graded = conformance_for("extract_json", empty.output or {}, contracts)
++        full_graded = conformance_for("extract_json", full.output or {}, contracts)
++        default_graded = conformance_for("extract_json", default_fmt.output or {}, contracts)
+ 
+         # The shared predicate is deliberately left alone per the verdict, and it
+         # genuinely cannot rank these cases: the wildcard branch passes an empty
+diff --git a/test/wall-check.test.ts b/test/wall-check.test.ts
+index 9f48314d..cd5650a3 100644
+--- a/test/wall-check.test.ts
++++ b/test/wall-check.test.ts
+@@ -83,27 +83,9 @@ interface AllowlistEntry {
+   reason: string;     // human-readable explanation
+ }
+ 
+-const ALLOWLIST: AllowlistEntry[] = [
+-  // test/registry/seed-installer.test.ts contains its own meta wall-clean check
+-  // that embeds the banned terms as a regex literal to grep the SOURCE file
+-  // (src/alienclaw/registry/seed-installer.ts). The terms appear only inside
+-  // that defensive regex, never as actual code/identifier usage.
+-  {
+-    file: 'test/registry/seed-installer.test.ts',
+-    ruleId: 'meeseeks-any-case',
+-    reason: 'meta: regex literal in a wall-clean assertion against the source file',
+-  },
+-  {
+-    file: 'test/registry/seed-installer.test.ts',
+-    ruleId: 'five-layer-any-case',
+-    reason: 'meta: regex literal in a wall-clean assertion against the source file',
+-  },
+-  {
+-    file: 'test/registry/seed-installer.test.ts',
+-    ruleId: 'specialist-capitalized',
+-    reason: 'meta: regex literal in a wall-clean assertion against the source file',
+-  },
+-];
++// The three test/registry/seed-installer.test.ts entries were dropped with that file
++// in teardown pass 2; the mechanism stays for future rule extensions.
++const ALLOWLIST: AllowlistEntry[] = [];
+ 
+ // ---------------------------------------------------------------------------
+ // File scanner
+diff --git a/src/alienclaw/diagnostics/audit_types.py b/src/alienclaw/diagnostics/audit_types.py
+new file mode 100644
+index 00000000..28656a2e
+--- /dev/null
++++ b/src/alienclaw/diagnostics/audit_types.py
+@@ -0,0 +1,76 @@
++"""Result dataclasses for the genome-sensitivity audit (Packet 19).
++
++Moved verbatim out of sensitivity_audit.py in teardown pass 2, when the
++bridge-backed audit runner was removed. reporting.py and the diagnostics CLI
++still render and diff audit JSON written by earlier runs.
++"""
++from __future__ import annotations
++
++from dataclasses import asdict, dataclass, field
++from typing import Any
++
++
++@dataclass
++class PairTrace:
++    genome_a: str
++    genome_b: str
++    inputs: dict[str, Any]
++    output_a: dict[str, Any]
++    output_b: dict[str, Any]
++    correctness_a: float
++    correctness_b: float
++    tool_calls_a: int
++    tool_calls_b: int
++    fitness_a: float
++    fitness_b: float
++    genome_passed_to_runner_a: bool
++    genome_passed_to_runner_b: bool
++    outputs_differ: bool
++    correctness_differs: bool
++    tool_calls_differ: bool
++    fitness_differs: bool
++
++
++@dataclass
++class RunnerSensitivity:
++    martian_type: str
++    pairs_tested: int
++    pairs_output_differ: int
++    pairs_correctness_differ: int
++    pairs_tool_calls_differ: int
++    pairs_fitness_differ: int
++    output_sensitivity: float       # = pairs_output_differ / pairs_tested
++    correctness_sensitivity: float
++    tool_calls_sensitivity: float
++    fitness_sensitivity: float
++    genome_ever_passed_to_runner: bool
++    classification: str             # BLIND | WEAK | OK
++    traces: list[PairTrace] = field(default_factory=list)
++
++
++@dataclass
++class AuditResults:
++    seed: int
++    runners_audited: list[str]
++    sensitivities: list[RunnerSensitivity]
++
++    def to_dict(self) -> dict:
++        def _convert(obj: Any) -> Any:
++            if isinstance(obj, list):
++                return [_convert(i) for i in obj]
++            if hasattr(obj, '__dataclass_fields__'):
++                return {k: _convert(v) for k, v in asdict(obj).items()}
++            return obj
++        return _convert(self)
++
++    @classmethod
++    def from_dict(cls, d: dict) -> "AuditResults":
++        sensitivities = []
++        for s in d["sensitivities"]:
++            traces = [PairTrace(**t) for t in s.pop("traces", [])]
++            sensitivities.append(RunnerSensitivity(**s, traces=traces))
++        return cls(
++            seed=d["seed"],
++            runners_audited=d["runners_audited"],
++            sensitivities=sensitivities,
++        )
+diff --git a/test/fitness/fixtures/output_contracts.json b/test/fitness/fixtures/output_contracts.json
+new file mode 100644
+index 00000000..3b8549e6
+--- /dev/null
++++ b/test/fitness/fixtures/output_contracts.json
+@@ -0,0 +1,99 @@
++{
++  "compute": {
++    "input": "any",
++    "operation": "string",
++    "result": "any",
++    "resultType": "string",
++    "precision": "string",
++    "steps": [
++      "string"
++    ]
++  },
++  "extract_json": {
++    "extracted": {
++      "<path>": {
++        "value": "any",
++        "type": "string",
++        "found": "boolean"
++      }
++    },
++    "inputKeys": [
++      "string"
++    ]
++  },
++  "file_read": {
++    "path": "string",
++    "content": "string",
++    "encoding": "string",
++    "sizeBytes": "number"
++  },
++  "file_write": {
++    "path": "string",
++    "bytesWritten": "number",
++    "encoding": "string"
++  },
++  "http_get": {
++    "url": "string",
++    "finalUrl": "string",
++    "statusCode": "integer",
++    "content": "string",
++    "contentType": "string",
++    "truncated": "boolean",
++    "bytesReturned": "integer"
++  },
++  "search_text": {
++    "pattern": "string",
++    "flavor": "string",
++    "caseSensitive": "boolean",
++    "totalMatches": "integer",
++    "truncated": "boolean",
++    "matches": [
++      {
++        "matchText": "string",
++        "lineNumber": "integer",
++        "startOffset": "integer",
++        "endOffset": "integer",
++        "contextBefore": [
++          "string"
++        ],
++        "contextAfter": [
++          "string"
++        ]
++      }
++    ]
++  },
++  "url_fetch": {
++    "type": "object",
++    "properties": {
++      "url": {
++        "type": "string"
++      },
++      "statusCode": {
++        "type": "integer"
++      },
++      "content": {
++        "type": "string"
++      },
++      "contentType": {
++        "type": "string"
++      }
++    },
++    "required": [
++      "url",
++      "statusCode",
++      "content"
++    ]
++  },
++  "web_search": {
++    "results": [
++      {
++        "title": "string",
++        "url": "string",
++        "excerpt": "string",
++        "rank": "number"
++      }
++    ],
++    "query": "string",
++    "totalResults": "number"
++  }
++}

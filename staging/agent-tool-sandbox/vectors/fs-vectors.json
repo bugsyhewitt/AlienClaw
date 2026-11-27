@@ -1,0 +1,2718 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-26",
+  "verified_with": {
+    "python": "3.14.9",
+    "node": "24.18.0",
+    "platform": "linux"
+  },
+  "description": "Shared filesystem-jail vectors for the Python (agent_tool_sandbox.boundary) and TS (src/fs-jail.ts) packages. Each vector builds a layout in a fresh temp directory ({base}), runs one operation and records each language's observed verdict. Harnesses: python/tests/test_shared_fs_vectors.py and ts/test/shared-fs-vectors.test.ts.",
+  "notes": [
+    "op 'boundary': assert_inside_boundary(input, root, deny_roots) / assertInsideBoundary(input, root, {denyRoots}). allow = the resolved path (base-relative).",
+    "op 'read': Python assert_no_symlink(root / input, operation='read', root=root), assert_inside_boundary, os.open(O_RDONLY | O_NOFOLLOW | O_NONBLOCK) and read; TS readFileJailed. allow = the bytes of the resolved file were returned.",
+    "op 'write': Python assert_no_symlink(root / input, root=root), assert_inside_boundary, mkdir(parents=True) and write_text; TS writeFileJailed(..., {createParents: true}). allow = the data landed at the resolved path. For every write vector nothing outside the root may change; for a deny nothing at all may change.",
+    "Since 2026-11-26 the symlink gate takes the root (Python root=, TS {root}; readFileJailed/writeFileJailed pass it): only entries looked up in a directory that resolves at or below realpath(root) are lstat'ed. A symlinked prefix (an ancestor of the root, or the root's own entry) is accepted, a symlink inside the root is still refused, and an outside path is not probed, so its only refusal is TRAVERSAL (categories 'prefix' and 'outside', layout 'prefix').",
+    "Python reasons are mapped from the ValueError message: 'Dotfile rejected' DOTFILE, 'Path traversal rejected' TRAVERSAL, 'Denied root' DENIED_ROOT, 'Symlink rejected on' SYMLINK, 'Symlink in path rejected on' SYMLINK_IN_PATH, 'Path not inspectable on' UNINSPECTABLE, 'embedded null' (os.lstat's NUL ValueError, worded per version) INVALID_PATH. Any other exception fails the test.",
+    "Placeholders: {base} is the temp directory (realpath'd), {root} is {base}/<root>. Layout paths, root and deny_roots are base-relative.",
+    "expected.python and expected.ts are observed behaviour. They must be equal unless the vector has a 'divergence' string, and must differ if it has one.",
+    "Not in this corpus: uninspectable paths (EACCES). chmod 000 gives EACCES only without CAP_DAC_OVERRIDE (not as root, not as uid 0 of the offline.sh user namespace), and CPython 3.13+ Path.is_symlink() returns False on EACCES, so Python's assert_no_symlink does not fail closed there (its test simulates 3.12 by patching). TS fails closed on every lstat error except ENOENT/ENOTDIR/ELOOP/EBADF; see ts/test/fs-jail.test.ts and ts/test/fs-jail-races.test.ts.",
+    "No layout entry may be named .env*; '.env' spellings are inputs only, refused before any open."
+  ],
+  "layouts": {
+    "tree": [
+      {
+        "path": "outside.txt",
+        "type": "file",
+        "content": "outside file\n"
+      },
+      {
+        "path": "secret.txt",
+        "type": "file",
+        "content": "outside secret\n"
+      },
+      {
+        "path": "ws-evil/x",
+        "type": "file",
+        "content": "sibling-prefix file\n"
+      },
+      {
+        "path": "ws/plain.txt",
+        "type": "file",
+        "content": "plain file\n"
+      },
+      {
+        "path": "ws/real/f.txt",
+        "type": "file",
+        "content": "real/f.txt\n"
+      },
+      {
+        "path": "ws/sub",
+        "type": "dir"
+      },
+      {
+        "path": "ws/.secret",
+        "type": "file",
+        "content": "FIXTURE_ONLY=1\n"
+      },
+      {
+        "path": "ws/sub/.secret",
+        "type": "file",
+        "content": "FIXTURE_ONLY=1\n"
+      },
+      {
+        "path": "ws/.hidden",
+        "type": "dir"
+      },
+      {
+        "path": "ws/escape",
+        "type": "symlink",
+        "target": "{base}/secret.txt"
+      },
+      {
+        "path": "ws/up",
+        "type": "symlink",
+        "target": "{base}"
+      },
+      {
+        "path": "ws/out",
+        "type": "symlink",
+        "target": ".."
+      },
+      {
+        "path": "ws/alias",
+        "type": "symlink",
+        "target": "{root}/real"
+      },
+      {
+        "path": "ws/rel",
+        "type": "symlink",
+        "target": "sub"
+      },
+      {
+        "path": "ws/alias.txt",
+        "type": "symlink",
+        "target": "plain.txt"
+      },
+      {
+        "path": "ws/innocent.txt",
+        "type": "symlink",
+        "target": ".secret"
+      },
+      {
+        "path": "ws/plain_dir",
+        "type": "symlink",
+        "target": ".hidden"
+      },
+      {
+        "path": "ws/loop1",
+        "type": "symlink",
+        "target": "loop2"
+      },
+      {
+        "path": "ws/loop2",
+        "type": "symlink",
+        "target": "loop1"
+      },
+      {
+        "path": "ws/dangle-in",
+        "type": "symlink",
+        "target": "missing.txt"
+      },
+      {
+        "path": "ws/dangle-out",
+        "type": "symlink",
+        "target": "{base}/created-by-attack.txt"
+      },
+      {
+        "path": "ws/c1",
+        "type": "symlink",
+        "target": "{root}/c2"
+      },
+      {
+        "path": "ws/c2",
+        "type": "symlink",
+        "target": "{base}/outside.txt"
+      },
+      {
+        "path": "ws/oc_link",
+        "type": "symlink",
+        "target": "{base}/home/.agentstate"
+      },
+      {
+        "path": "wslink",
+        "type": "symlink",
+        "target": "ws"
+      },
+      {
+        "path": "home/state/f.txt",
+        "type": "file",
+        "content": "state/f.txt\n"
+      },
+      {
+        "path": "home/.agentstate/agents/a/SOUL.md",
+        "type": "file",
+        "content": "agent soul\n"
+      },
+      {
+        "path": "home/.openclaw",
+        "type": "dir"
+      },
+      {
+        "path": "home/innocent",
+        "type": "symlink",
+        "target": "state"
+      },
+      {
+        "path": "home/statelink",
+        "type": "symlink",
+        "target": "state"
+      }
+    ],
+    "prefix": [
+      {
+        "path": "real/ws/notes.txt",
+        "type": "file",
+        "content": "inside the workspace\n"
+      },
+      {
+        "path": "real/ws/sub/f.txt",
+        "type": "file",
+        "content": "inside the workspace\n"
+      },
+      {
+        "path": "real/ws/alias.txt",
+        "type": "symlink",
+        "target": "notes.txt"
+      },
+      {
+        "path": "real/ws/sub_alias",
+        "type": "symlink",
+        "target": "sub"
+      },
+      {
+        "path": "real/ws/self",
+        "type": "symlink",
+        "target": "{base}/real/ws"
+      },
+      {
+        "path": "real/ws/up",
+        "type": "symlink",
+        "target": ".."
+      },
+      {
+        "path": "real/outside/secret.txt",
+        "type": "file",
+        "content": "outside secret\n"
+      },
+      {
+        "path": "link",
+        "type": "symlink",
+        "target": "{base}/real"
+      },
+      {
+        "path": "wslink",
+        "type": "symlink",
+        "target": "real/ws"
+      },
+      {
+        "path": "olink",
+        "type": "symlink",
+        "target": "real/outside"
+      }
+    ]
+  },
+  "vectors": [
+    {
+      "id": "trav-relative-new-file",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "data/result.json",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/data/result.json"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/data/result.json"
+        }
+      },
+      "rationale": "Control: a relative path is anchored at the root, and need not exist."
+    },
+    {
+      "id": "trav-dotdot",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "../etc/passwd",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "One '..' leaves the root."
+    },
+    {
+      "id": "trav-deep-dotdot",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "../../../../../../etc/shadow",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "'..' past '/' stays at '/', which is outside."
+    },
+    {
+      "id": "trav-abs-etc",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "/etc/passwd",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "An absolute path replaces the root and must still land inside it."
+    },
+    {
+      "id": "trav-abs-next-to-root",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "{base}/outside.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Absolute path to an existing file next to the root."
+    },
+    {
+      "id": "trav-root-itself",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "{root}",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws"
+        }
+      },
+      "rationale": "The root itself is accepted."
+    },
+    {
+      "id": "trav-root-trailing-slash",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "{root}/",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws"
+        }
+      },
+      "rationale": "The root with a trailing slash: the final component that names something is 'ws'."
+    },
+    {
+      "id": "trav-empty",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws"
+        }
+      },
+      "rationale": "The empty path is the root."
+    },
+    {
+      "id": "trav-sibling-prefix-rel",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "../ws-evil/x",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Sibling-prefix confusion: '<base>/ws-evil' starts with '<base>/ws' but not '<base>/ws/'."
+    },
+    {
+      "id": "trav-sibling-prefix-abs",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "{base}/ws-evil/x",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Sibling prefix, spelled absolute."
+    },
+    {
+      "id": "trav-abs-inside",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "{root}/plain.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        }
+      },
+      "rationale": "Absolute path inside the root."
+    },
+    {
+      "id": "trav-abs-nested-new",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "{root}/a/b/out.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/a/b/out.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/a/b/out.txt"
+        }
+      },
+      "rationale": "Absolute path to a file whose parents do not exist yet."
+    },
+    {
+      "id": "trav-double-slash",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "a//b///c.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/a/b/c.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/a/b/c.txt"
+        }
+      },
+      "rationale": "Empty components are skipped."
+    },
+    {
+      "id": "trav-dot-components",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "./a/./b.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/a/b.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/a/b.txt"
+        }
+      },
+      "rationale": "'.' components are skipped."
+    },
+    {
+      "id": "trav-dotdot-via-existing",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "sub/../../outside.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "'..' after an existing directory."
+    },
+    {
+      "id": "trav-dotdot-after-missing",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "missing/../../x",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "'..' after a missing component is lexical (non-strict realpath)."
+    },
+    {
+      "id": "trav-dotdot-after-missing-inside",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "missing/../x",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/x"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/x"
+        }
+      },
+      "rationale": "Control for the previous vector: one '..' after a missing component stays inside."
+    },
+    {
+      "id": "trav-abs-dotdot-escape",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "{root}/../outside.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Absolute path through the root and back out."
+    },
+    {
+      "id": "trav-nul",
+      "category": "traversal",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "a\u0000b.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "INVALID_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "INVALID_PATH"
+        }
+      },
+      "rationale": "A NUL byte. Python: os.lstat raises ValueError('embedded null ...') inside realpath; TS checks for it explicitly after the dotfile rule."
+    },
+    {
+      "id": "dot-plain-1",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": ".env",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Final component starts with '.', file does not exist (rejected before resolution)."
+    },
+    {
+      "id": "dot-plain-2",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": ".gitconfig",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Final component starts with '.', file does not exist (rejected before resolution)."
+    },
+    {
+      "id": "dot-plain-3",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "subdir/.secret",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Final component starts with '.', file does not exist (rejected before resolution)."
+    },
+    {
+      "id": "dot-existing",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": ".secret",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "An existing dotfile."
+    },
+    {
+      "id": "dot-trailing-1",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": ".env/",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Regression 2026-11-26: basename() is '' or '.', so the final component that names something is checked instead."
+    },
+    {
+      "id": "dot-trailing-2",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": ".env//",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Regression 2026-11-26: basename() is '' or '.', so the final component that names something is checked instead."
+    },
+    {
+      "id": "dot-trailing-3",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": ".env/./",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Regression 2026-11-26: basename() is '' or '.', so the final component that names something is checked instead."
+    },
+    {
+      "id": "dot-trailing-4",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "./.env/",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Regression 2026-11-26: basename() is '' or '.', so the final component that names something is checked instead."
+    },
+    {
+      "id": "dot-trailing-5",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "a/../.env/",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Regression 2026-11-26: basename() is '' or '.', so the final component that names something is checked instead."
+    },
+    {
+      "id": "dot-trailing-6",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "sub/.secret/",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Regression 2026-11-26: basename() is '' or '.', so the final component that names something is checked instead."
+    },
+    {
+      "id": "dot-trailing-7",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "sub/.secret//",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Regression 2026-11-26: basename() is '' or '.', so the final component that names something is checked instead."
+    },
+    {
+      "id": "dot-trailing-8",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "./sub/./.secret/./",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Regression 2026-11-26: basename() is '' or '.', so the final component that names something is checked instead."
+    },
+    {
+      "id": "dot-abs-trailing",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "{root}/.env/",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Absolute dotfile with a trailing slash."
+    },
+    {
+      "id": "dot-dot-component-1",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": ".",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "'.' and '..' as the final component are rejected by the dotfile rule."
+    },
+    {
+      "id": "dot-dot-component-2",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "a/.",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "'.' and '..' as the final component are rejected by the dotfile rule."
+    },
+    {
+      "id": "dot-dot-component-3",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "a/..",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "'.' and '..' as the final component are rejected by the dotfile rule."
+    },
+    {
+      "id": "dot-dot-component-4",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "..",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "'.' and '..' as the final component are rejected by the dotfile rule."
+    },
+    {
+      "id": "dot-dot-component-5",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "a/../",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "'.' and '..' as the final component are rejected by the dotfile rule."
+    },
+    {
+      "id": "dot-symlink-to-dotfile",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "innocent.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "A symlink whose target is a dotfile: the resolved final component is checked too."
+    },
+    {
+      "id": "dot-symlink-to-dot-dir",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "plain_dir/",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "A symlink whose target is a dot-directory."
+    },
+    {
+      "id": "dot-dir-in-middle",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": ".git/config",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/.git/config"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/.git/config"
+        }
+      },
+      "rationale": "Documented: dot-directories in the middle are allowed (use deny_roots)."
+    },
+    {
+      "id": "dot-dir-in-middle-2",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "sub/.d/x.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/sub/.d/x.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/sub/.d/x.txt"
+        }
+      },
+      "rationale": "Documented: dot-directories in the middle are allowed."
+    },
+    {
+      "id": "dot-dir-trailing-slash",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "sub/",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/sub"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/sub"
+        }
+      },
+      "rationale": "A plain directory, trailing slash."
+    },
+    {
+      "id": "dot-dir-double-trailing-slash",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "sub//",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/sub"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/sub"
+        }
+      },
+      "rationale": "A plain directory, two trailing slashes."
+    },
+    {
+      "id": "dot-with-nul",
+      "category": "dotfile",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": ".env\u0000",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "The dotfile rule runs before the NUL check in both languages."
+    },
+    {
+      "id": "sym-escape-file",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "escape",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Symlink to a file outside."
+    },
+    {
+      "id": "sym-parent-then-dotdot",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "up/ws/../secret.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "'..' applies after the symlink before it is followed (path.resolve would stay inside)."
+    },
+    {
+      "id": "sym-inside-abs",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "alias/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/real/f.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/real/f.txt"
+        }
+      },
+      "rationale": "An absolute symlink that stays inside is followed and accepted."
+    },
+    {
+      "id": "sym-inside-rel",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "rel/x.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/sub/x.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/sub/x.txt"
+        }
+      },
+      "rationale": "A relative symlink is resolved against its own directory."
+    },
+    {
+      "id": "sym-out-and-back",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "up/ws/plain.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        }
+      },
+      "rationale": "Out through a symlink and back in: containment alone accepts it (the read/write gate does not)."
+    },
+    {
+      "id": "sym-loop",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "loop1/x",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/loop1/x"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/loop1/x"
+        }
+      },
+      "rationale": "Symlink loop: non-strict realpath keeps the looping link's path."
+    },
+    {
+      "id": "sym-dangling-out",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "dangle-out",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "A dangling symlink is still followed to its (missing) target."
+    },
+    {
+      "id": "sym-dangling-in",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "dangle-in",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/missing.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/missing.txt"
+        }
+      },
+      "rationale": "A dangling symlink whose target would be inside."
+    },
+    {
+      "id": "sym-chain-out",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "c1",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "A chain of two symlinks ending outside."
+    },
+    {
+      "id": "sym-rel-parent",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "input": "out/escape.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "A relative '..' symlink to the root's parent."
+    },
+    {
+      "id": "sym-root-is-symlink",
+      "category": "symlink",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "wslink",
+      "input": "plain.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        }
+      },
+      "rationale": "The root itself is a symlink: containment compares against realpath(root)."
+    },
+    {
+      "id": "deny-symlink-to-outside-denied",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "ws",
+      "deny_roots": [
+        "home/.agentstate"
+      ],
+      "input": "oc_link/agents/a/SOUL.md",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "A symlink to a denied root outside the boundary: the traversal check fires first."
+    },
+    {
+      "id": "deny-inside",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "deny_roots": [
+        "home/.agentstate"
+      ],
+      "input": ".agentstate/agents/a/SOUL.md",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "A denied root inside the boundary (reached through a dot-directory)."
+    },
+    {
+      "id": "deny-inside-abs",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "deny_roots": [
+        "home/.agentstate"
+      ],
+      "input": "{base}/home/.agentstate/x/y",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "Same, absolute and missing."
+    },
+    {
+      "id": "deny-root-itself",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "deny_roots": [
+        "home/state"
+      ],
+      "input": "state",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "The denied root itself."
+    },
+    {
+      "id": "deny-via-symlink",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "deny_roots": [
+        "home/state"
+      ],
+      "input": "innocent/x",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "A symlink into a denied root inside the boundary."
+    },
+    {
+      "id": "deny-sibling-allowed",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "deny_roots": [
+        "home/state"
+      ],
+      "input": "state-public/x",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "home/state-public/x"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "home/state-public/x"
+        }
+      },
+      "rationale": "A sibling prefix of a denied root is allowed."
+    },
+    {
+      "id": "deny-none-by-default",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "input": ".openclaw/agents/x",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "home/.openclaw/agents/x"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "home/.openclaw/agents/x"
+        }
+      },
+      "rationale": "No deny roots unless the caller passes them."
+    },
+    {
+      "id": "deny-root-given-as-symlink",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "deny_roots": [
+        "home/statelink"
+      ],
+      "input": "state/x",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "Deny roots are resolved with realpath."
+    },
+    {
+      "id": "deny-equals-boundary",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "deny_roots": [
+        "home"
+      ],
+      "input": "x",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "A deny root equal to the boundary denies everything under it."
+    },
+    {
+      "id": "deny-equals-boundary-root-itself",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "deny_roots": [
+        "home"
+      ],
+      "input": "",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "...including the boundary itself."
+    },
+    {
+      "id": "deny-several",
+      "category": "deny-roots",
+      "layout": "tree",
+      "op": "boundary",
+      "root": "home",
+      "deny_roots": [
+        "home/state",
+        "home/.agentstate"
+      ],
+      "input": ".agentstate/x",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "Every deny root is checked."
+    },
+    {
+      "id": "read-plain",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "plain.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        }
+      },
+      "rationale": "Control: a regular file."
+    },
+    {
+      "id": "read-abs-nested",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "{root}/real/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/real/f.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/real/f.txt"
+        }
+      },
+      "rationale": "Absolute path to a nested regular file."
+    },
+    {
+      "id": "read-dotdot-inside",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "sub/../plain.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        }
+      },
+      "rationale": "'..' that stays inside, no symlinks."
+    },
+    {
+      "id": "read-symlink-file",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "alias.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Regression 2026-11-26: the read path is gated like the write path."
+    },
+    {
+      "id": "read-symlink-dir-ancestor",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "alias/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "A symlinked ancestor, even one that stays inside."
+    },
+    {
+      "id": "read-symlink-rel-ancestor",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "rel/x.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "A relative symlinked ancestor."
+    },
+    {
+      "id": "read-symlink-to-dotfile",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "innocent.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Gate order: the symlink check runs before the dotfile rule."
+    },
+    {
+      "id": "read-dotfile",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": ".env",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "A dotfile, rejected before any open."
+    },
+    {
+      "id": "read-dotfile-trailing",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "sub/.secret/",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "An existing dotfile with a trailing slash."
+    },
+    {
+      "id": "read-traversal",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "../outside.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Plain '..' traversal."
+    },
+    {
+      "id": "read-through-parent-link",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "up/outside.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "Symlink to the root's parent: the symlink gate fires before containment."
+    },
+    {
+      "id": "read-out-and-back",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "up/ws/plain.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "Accepted by containment alone (sym-out-and-back), refused by the gate."
+    },
+    {
+      "id": "read-loop",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "loop1/x",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "lstat on 'loop1/x' fails with ELOOP (not a symlink); the ancestor 'loop1' is one."
+    },
+    {
+      "id": "read-dangling",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "dangle-in",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "A dangling symlink."
+    },
+    {
+      "id": "read-escape",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "escape",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "A symlink to a file outside."
+    },
+    {
+      "id": "read-denied",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "home",
+      "deny_roots": [
+        "home/state"
+      ],
+      "input": "state/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "A regular file inside a denied root."
+    },
+    {
+      "id": "read-denied-via-symlink",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "home",
+      "deny_roots": [
+        "home/state"
+      ],
+      "input": "innocent/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "A symlink into a denied root: the symlink gate fires first."
+    },
+    {
+      "id": "read-root-is-symlink",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "wslink",
+      "input": "plain.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        }
+      },
+      "rationale": "The root itself is a symlink: its own entry is looked up outside the root, so the gate accepts it and containment compares against realpath(root) (before 2026-11-26 the gate walked to '/' and refused everything: SYMLINK_IN_PATH)."
+    },
+    {
+      "id": "read-nul",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "a\u0000b.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "INVALID_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "INVALID_PATH"
+        }
+      },
+      "rationale": "NUL byte. Python: assert_no_symlink passes it (is_symlink swallows ValueError) and assert_inside_boundary's realpath raises ValueError('embedded null ...'). TS: assertNoSymlink refuses it."
+    },
+    {
+      "id": "read-dotfile-with-nul",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": ".env\u0000",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "INVALID_PATH"
+        }
+      },
+      "divergence": "Both refuse. Python's assert_no_symlink lets a NUL path through (Path.is_symlink() returns False on ValueError), so the dotfile rule in assert_inside_boundary names the refusal; TS's assertNoSymlink fails closed on the NUL first. Only the reason differs.",
+      "rationale": "A dotfile spelled with a NUL byte, through the read gate."
+    },
+    {
+      "id": "read-abs-dotdot-escape",
+      "category": "read",
+      "layout": "tree",
+      "op": "read",
+      "root": "ws",
+      "input": "{root}/../outside.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Absolute path through the root and back out."
+    },
+    {
+      "id": "write-new",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "safe.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/safe.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/safe.txt"
+        }
+      },
+      "rationale": "Control: a new file."
+    },
+    {
+      "id": "write-nested-new",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "a/b/out.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/a/b/out.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/a/b/out.txt"
+        }
+      },
+      "rationale": "Missing parents are created after the gate."
+    },
+    {
+      "id": "write-overwrite",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "plain.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/plain.txt"
+        }
+      },
+      "rationale": "Replace an existing file."
+    },
+    {
+      "id": "write-abs-outside-no-mkdir",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "{base}/outside-dir/file.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Refused before any directory is created."
+    },
+    {
+      "id": "write-sibling-prefix",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "{base}/ws-evil/escape.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Sibling prefix: nothing is written to ws-evil."
+    },
+    {
+      "id": "write-symlink-file",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "alias.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "A symlinked target, even one inside, is refused."
+    },
+    {
+      "id": "write-symlink-ancestor",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "alias/out.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "A symlinked parent directory."
+    },
+    {
+      "id": "write-symlink-escape",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "out/escape.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "Symlink escape, refused before the boundary check."
+    },
+    {
+      "id": "write-dangling-out",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "dangle-out",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Writing through a dangling symlink would create a file outside."
+    },
+    {
+      "id": "write-dangling-in",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "dangle-in",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "A dangling symlink is refused even when its target is inside."
+    },
+    {
+      "id": "write-symlink-to-dotfile",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "innocent.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Gate order: the symlink check runs first."
+    },
+    {
+      "id": "write-dotfile",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": ".env",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "A dotfile is never created."
+    },
+    {
+      "id": "write-dotfile-trailing",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": ".env/",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DOTFILE"
+        }
+      },
+      "rationale": "Regression 2026-11-26: '.env/' used to be written to '<root>/.env'."
+    },
+    {
+      "id": "write-dot-dir-in-middle",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": ".git/hooks/pre-commit",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "ws/.git/hooks/pre-commit"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "ws/.git/hooks/pre-commit"
+        }
+      },
+      "rationale": "Documented risk: a write under a dot-directory is allowed (use deny_roots)."
+    },
+    {
+      "id": "write-denied",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "home",
+      "deny_roots": [
+        "home/state"
+      ],
+      "input": "state/x.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "DENIED_ROOT"
+        }
+      },
+      "rationale": "A new file inside a denied root."
+    },
+    {
+      "id": "write-abs-dotdot-escape",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "{root}/../outside.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Overwrite outside through '..': refused, outside.txt is unchanged."
+    },
+    {
+      "id": "write-dotdot",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "../escape.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Plain '..' traversal."
+    },
+    {
+      "id": "write-nul",
+      "category": "write",
+      "layout": "tree",
+      "op": "write",
+      "root": "ws",
+      "input": "a\u0000b",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "INVALID_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "INVALID_PATH"
+        }
+      },
+      "rationale": "NUL byte (see read-nul)."
+    },
+    {
+      "id": "prefix-read-abs-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/link/ws/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        }
+      },
+      "rationale": "Absolute path through a symlinked ancestor of the root (macOS /tmp -> /private/tmp): the prefix is not checked, the resolved path is inside."
+    },
+    {
+      "id": "prefix-read-abs-wslink",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/wslink/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        }
+      },
+      "rationale": "Absolute path through a symlink to the root itself: the root's own entry is looked up outside the root, so it is prefix."
+    },
+    {
+      "id": "prefix-read-rel-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "../../link/ws/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        }
+      },
+      "rationale": "Relative path that leaves the root and re-enters through the prefix link: '..' is never checked, the outside entries are not probed."
+    },
+    {
+      "id": "prefix-read-unresolved-root",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "link/ws",
+      "input": "notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/notes.txt"
+        }
+      },
+      "rationale": "The root itself is spelled through a symlinked ancestor (an unresolved deploy path); the gate compares against realpath(root)."
+    },
+    {
+      "id": "prefix-read-unresolved-root-abs",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "link/ws",
+      "input": "{root}/sub/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/sub/f.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/sub/f.txt"
+        }
+      },
+      "rationale": "Unresolved root, absolute input spelled the same way."
+    },
+    {
+      "id": "prefix-write-abs-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/link/ws/out.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/out.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/out.txt"
+        }
+      },
+      "rationale": "Write through a symlinked ancestor of the root lands inside the root; the prefix link is untouched."
+    },
+    {
+      "id": "prefix-write-abs-wslink",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/wslink/new/out.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/new/out.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/new/out.txt"
+        }
+      },
+      "rationale": "Write through a symlink to the root, creating a parent."
+    },
+    {
+      "id": "prefix-write-rel-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "../../link/ws/out.txt",
+      "expected": {
+        "python": {
+          "verdict": "allow",
+          "resolved": "real/ws/out.txt"
+        },
+        "ts": {
+          "verdict": "allow",
+          "resolved": "real/ws/out.txt"
+        }
+      },
+      "rationale": "Relative write that re-enters the root through the prefix link."
+    },
+    {
+      "id": "prefix-read-in-root-file-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/link/ws/alias.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Policy kept: a symlink inside the root is refused even when the path is spelled through a symlinked prefix."
+    },
+    {
+      "id": "prefix-read-in-root-dir-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/link/ws/sub_alias/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "Directory symlink inside the root, reached through the prefix link."
+    },
+    {
+      "id": "prefix-read-in-root-self-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "self/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "An in-root symlink that resolves to the root itself is still an in-root symlink."
+    },
+    {
+      "id": "prefix-read-in-root-up-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/wslink/up/ws/notes.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "An in-root symlink to an ancestor of the root ('..'), behind a symlink to the root: refused at 'up'."
+    },
+    {
+      "id": "prefix-read-unresolved-root-file-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "read",
+      "root": "wslink",
+      "input": "alias.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Root spelled as a symlink to it: the in-root file symlink is refused."
+    },
+    {
+      "id": "prefix-write-in-root-file-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/link/ws/alias.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK"
+        }
+      },
+      "rationale": "Write to an in-root symlink through the prefix link is refused; nothing changes."
+    },
+    {
+      "id": "prefix-write-unresolved-root-dir-link",
+      "category": "prefix",
+      "layout": "prefix",
+      "op": "write",
+      "root": "link/ws",
+      "input": "sub_alias/f.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "SYMLINK_IN_PATH"
+        }
+      },
+      "rationale": "Unresolved root, in-root directory symlink: refused."
+    },
+    {
+      "id": "outside-read-existing",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/real/outside/secret.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "An existing file outside the root: the one generic refusal."
+    },
+    {
+      "id": "outside-read-nonexistent",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/nope/missing.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "A missing path outside the root: same refusal as an existing one."
+    },
+    {
+      "id": "outside-read-symlinked-dir",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/olink/secret.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "A symlink outside the root is not probed, so the refusal does not say it is a symlink (before 2026-11-26: SYMLINK_IN_PATH)."
+    },
+    {
+      "id": "outside-read-symlink-itself",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/olink",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "The outside symlink itself: generic refusal (before: SYMLINK)."
+    },
+    {
+      "id": "outside-read-rel-via-outside-link",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "../../olink/secret.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Relative path to an outside symlink."
+    },
+    {
+      "id": "outside-read-via-prefix-link",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "read",
+      "root": "real/ws",
+      "input": "{base}/link/outside/secret.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Through the prefix link to a sibling of the root: not probed, generic refusal (before: SYMLINK_IN_PATH)."
+    },
+    {
+      "id": "outside-write-symlinked-dir",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/olink/x.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Write below an outside symlink: generic refusal, nothing created."
+    },
+    {
+      "id": "outside-write-symlink-itself",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/olink",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Write to an outside symlink: generic refusal, link untouched."
+    },
+    {
+      "id": "outside-write-dotdot-from-prefix",
+      "category": "outside",
+      "layout": "prefix",
+      "op": "write",
+      "root": "real/ws",
+      "input": "{base}/link/ws/../outside/x.txt",
+      "expected": {
+        "python": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        },
+        "ts": {
+          "verdict": "deny",
+          "reason": "TRAVERSAL"
+        }
+      },
+      "rationale": "Enters the root through the prefix link and leaves it with '..': generic refusal, nothing created."
+    }
+  ]
+}
