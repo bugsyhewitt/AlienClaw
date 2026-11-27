@@ -2,7 +2,7 @@
 
 Puts ``<repo>/src`` on sys.path (or ``$AGENT_TOOL_SANDBOX_REFERENCE_SRC``), imports
 the reference guard and jail, and asserts identical decisions AND identical
-messages on a shared vector corpus. Four differences are declared, and each is
+messages on a shared vector corpus. Six differences are declared, and each is
 asserted explicitly rather than tolerated:
 
 1. CGNAT (a DECISION difference): the staged guard blocks 100.64.0.0/10
@@ -19,6 +19,16 @@ asserted explicitly rather than tolerated:
    ``deny_roots`` from the caller. With ``deny_roots=[Path.home() / ".openclaw"]``
    every decision is identical; only the deny message text differs. With the
    default (no deny roots) exactly the deny-category vectors are accepted.
+5. Refusal message text (PR-03, staged only, 2026-11-26): a refusal that depends on the
+   DNS answer reads "Refusing hostname '<host>': not an allowed destination" whether the
+   name resolved internally or not at all; the reference message (which names the
+   resolved address) is kept on the staged exception as ``exc.detail``, so decisions and
+   reference messages are compared through ``detail``, and the generic text is asserted
+   on its own.
+6. Loopback names (G7, staged only, 2026-11-26): the staged guard refuses ``localhost``,
+   ``*.localhost`` (trailing dots too) and ip6-localhost/ip6-loopback by name, before DNS;
+   the reference refuses them only through the resolver's 127.0.0.1 answer. Same decision
+   here (the fake DNS answers loopback), different message.
 
 Network-free: DNS is the fake resolver from conftest.py (shared by both
 implementations, since both call ``socket.getaddrinfo`` at call time).
@@ -30,6 +40,7 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import re
 import socket
 import sys
 from pathlib import Path
@@ -161,6 +172,11 @@ WIRESERVER_DIVERGENT_URLS = frozenset({
 PORT_ZERO_DIVERGENT_URLS = frozenset({
     "http://public.example:0/", "https://public.example:00/", "http://[2606:4700:4700::1111]:0/",
 })
+# Both block; staged by name before DNS (RFC 6761), the reference through the 127.0.0.1 answer.
+LOOPBACK_NAME_URLS = frozenset({
+    "http://localhost/", "http://LOCALHOST/", "http://localhost./", "http://localhost:22/",
+    "http://ｌｏｃａｌｈｏｓｔ/", "http://ⓛⓞⓒⓐⓛⓗⓞⓢⓣ/",
+})
 
 NON_STRING_INPUTS = [None, b"http://public.example/", 123, ["http://public.example/"]]
 
@@ -181,12 +197,21 @@ def _corpus_dns(fake_dns):
 
 
 def _url_outcome(mod, url):
+    """Decision plus the full reason: the staged ``detail`` (PR-03) is the reference text."""
     try:
         return ("allow", mod.assert_safe_fetch_url(url))
     except mod.SsrfBlockedError as exc:
-        return ("block", str(exc))
+        return ("block", getattr(exc, "detail", str(exc)))
     except Exception as exc:  # any other escape is a decision too, and must match
         return ("raise", type(exc).__name__, str(exc))
+
+
+def _staged_refusal(url):
+    try:
+        staged_ssrf.assert_safe_fetch_url(url)
+    except staged_ssrf.SsrfBlockedError as exc:
+        return exc
+    return None
 
 
 def test_corpus_has_no_duplicates() -> None:
@@ -194,6 +219,7 @@ def test_corpus_has_no_duplicates() -> None:
     assert CGNAT_DIVERGENT_URLS <= set(URL_CORPUS)
     assert WIRESERVER_DIVERGENT_URLS <= set(URL_CORPUS)
     assert PORT_ZERO_DIVERGENT_URLS <= set(URL_CORPUS)
+    assert LOOPBACK_NAME_URLS <= set(URL_CORPUS)
 
 
 @pytest.mark.parametrize("url", URL_CORPUS)
@@ -218,8 +244,40 @@ def test_url_decision_parity(url: str) -> None:
             f"reference now refuses {url!r} ({ref!r}): drop the port-0 divergence "
             "from PROVENANCE.json and this test"
         )
+    elif url in LOOPBACK_NAME_URLS:
+        assert staged[0] == "block" and staged[1].endswith(
+            ": reserved loopback name (RFC 6761)"), staged
+        assert ref[0] == "block" and ref[1].startswith("Refusing blocked IP 127.0.0.1 "), ref
     else:
         assert staged == ref
+
+
+_GENERIC = re.compile(r"Refusing hostname '(?P<host>.*)': not an allowed destination")
+
+
+@pytest.mark.parametrize("url", URL_CORPUS)
+def test_refusal_message_divergence(url: str) -> None:
+    """PR-03: wherever the reference names a resolved address (or says "unresolvable" after
+    DNS), the staged str(exc) is the generic text and never names the address."""
+    exc = _staged_refusal(url)
+    if exc is None or url in LOOPBACK_NAME_URLS:
+        return
+    ref = _url_outcome(ref_ssrf, url)
+    if exc.detail == str(exc):  # nothing withheld: the reference message, verbatim
+        if url not in PORT_ZERO_DIVERGENT_URLS:
+            assert ref == ("block", str(exc))
+        assert exc.blocked_address is None
+        return
+    match = _GENERIC.fullmatch(str(exc))
+    assert match and match["host"] == exc.hostname, str(exc)
+    assert exc.detail.startswith(("Refusing blocked IP ", "Refusing unresolvable hostname "))
+    if exc.blocked_address is not None:
+        assert str(exc.blocked_address) not in str(exc).replace(repr(exc.hostname), "")
+    if url in CGNAT_DIVERGENT_URLS or url in WIRESERVER_DIVERGENT_URLS:
+        assert ref[0] == "allow"
+    else:
+        assert ref == ("block", exc.detail), "the reference still carries the old text"
+        assert ref[1] != str(exc)
 
 
 @pytest.mark.parametrize("value", NON_STRING_INPUTS, ids=repr)

@@ -2,7 +2,7 @@
 
 > **This is input to the owner's decision, not a decision.** The corpus RECORDS current behaviour. Apart from the clear-cut gaps closed on 2026-11-26 (see [Resolved](#resolved)), neither implementation was changed for this list. Plan `docs/salvage/OSS-LIB-EXTRACTION-PLAN.md` §3.4 (gate G3) proposes a strictest-wins default. The *Strictest wins* column below is what that rule produces for each vector, nothing more.
 
-Generated from `ssrf-vectors.json` (generated_at 2026-11-26, CPython 3.14.9, Node 24.18.0). Of 296 vectors, **51 differ**. The corpus was first frozen with 68; the 17 that the 2026-11-26 gap fixes resolved are listed under [Resolved](#resolved), with the two both-allow vectors those fixes also closed. Inputs are shown JSON-escaped, and `→` shows the mocked DNS answer of a `url` vector. Level `ip` is the post-DNS address classifier, and level `url` is the full guard. See README.md for the harness.
+Generated from `ssrf-vectors.json` (generated_at 2026-11-26, CPython 3.14.9, Node 24.18.0). Of 296 vectors, **50 differ**. The corpus was first frozen with 68; the 17 that the 2026-11-26 gap fixes resolved are listed under [Resolved](#resolved), with the two both-allow vectors those fixes also closed. Inputs are shown JSON-escaped, and `→` shows the mocked DNS answer of a `url` vector. Level `ip` is the post-DNS address classifier, and level `url` is the full guard. See README.md for the harness.
 
 State of the code when the verdicts were frozen: the TS package already had its connection-pinning transport (`ts/src/pinned-request.ts`, which also fixed SR-09 by stripping IPv6-literal brackets). The Python package had `pinning.py`, which runs the same checks as `assert_safe_fetch_url`. Both packages were still being edited by other agents. Run `python3 generate.py` (check mode) once those edits land to see any verdict that has moved.
 
@@ -21,7 +21,7 @@ Later on 2026-11-26 the clear-cut gaps were closed in both staged packages and t
 | [g9](#g9) | IPv6 documentation `2001:db8::/32`, `3fff::/20` | 3 | block | allow | block |
 | [g10](#g10) | Discard-only `100::/64` and the rest of `100::/8` | 2 | block | allow | block |
 | [g12](#g12) | Other IPv6 space outside `2000::/3` | 6 | block | allow | block (rule: allow only inside 2000::/3, minus the rows above) |
-| [g13](#g13) | Pre-DNS hostname rule (`localhost`) | 1 | allow | block | block pre-DNS |
+| [g13](#g13) | Pre-DNS hostname rule (`localhost`) | 0 (resolved) | block | block | block pre-DNS |
 | [g14](#g14) | Raw-URL spellings Python refuses and WHATWG normalises | 15 | block | allow | reject (Python's rule); TS adds a raw-string pre-check before `new URL()` |
 | [g15](#g15) | URL spellings WHATWG refuses and Python accepts | 3 | allow | block | reject |
 
@@ -160,7 +160,7 @@ TS refuses `localhost`, `ip6-localhost` and `ip6-loopback` by name, before DNS. 
 
 | Vector | Level | Input | Python | TS | Strictest wins |
 |---|---|---|---|---|---|
-| `loc-localhost-lying-resolver` | url | `http://localhost/` → 93.184.216.34 | allow | block | block pre-DNS |
+| `loc-localhost-lying-resolver` | url | `http://localhost/` → 93.184.216.34 | block | block | resolved: Python blocks `localhost`/`*.localhost` pre-DNS since the G7 change (2026-11-26) |
 
 <a id="g14"></a>
 ### g14: Raw-URL spellings Python refuses and WHATWG normalises

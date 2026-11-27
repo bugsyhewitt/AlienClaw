@@ -23,19 +23,43 @@ Requires Python 3.10 or later and has no runtime dependencies.
 
 ```python
 from agent_tool_sandbox import (
-    SsrfBlockedError,          # subclass of ValueError
+    SsrfBlockedError,          # subclass of ValueError; .detail, .blocked_address, .hostname
+    DeadlineExceededError,     # subclass of TimeoutError AND urllib.error.URLError; .phase
     assert_safe_fetch_url,     # (raw_url: str) -> str
     build_no_redirect_opener,  # () -> urllib.request.OpenerDirector
     resolve_and_validate,      # (url: str) -> PinnedTarget
     PinnedTarget,              # frozen dataclass: scheme, host, port, canonical_url, addresses
-    build_pinned_opener,       # (target, *, context=None) -> urllib.request.OpenerDirector
+    build_pinned_opener,       # (target, *, context=None, deadline=None) -> OpenerDirector
     pinned_urlopen,            # (url, data=None, *, timeout=30.0, headers=None, method=None,
-                               #  context=None) -> http.client.HTTPResponse
+                               #  context=None, follow_redirects=0) -> http.client.HTTPResponse
     assert_inside_boundary,    # (path_str, boundary: Path, *, deny_roots=()) -> Path
     assert_no_symlink,         # (path: Path, *, operation="write") -> None
 )
 from agent_tool_sandbox.pinning import PinnedHTTPConnection, PinnedHTTPSConnection
 ```
+
+### Refusal messages (`SsrfBlockedError`)
+
+`str(exc)` is written to be handed back to an agent, whose context a prompt-injected page
+may control. So it never names an address the guard learned from DNS. A name that resolves
+to an internal address and a name that does not resolve both read
+`Refusing hostname 'db.corp': not an allowed destination`, so the message cannot be used
+to map internal DNS (PR-03). Refusals decided from the input alone (scheme, userinfo,
+port, parser differentials, loopback names) still say what was wrong. Any URL quoted in
+a message has its userinfo, query and fragment replaced by `REDACTED`
+(`http://REDACTED@host/cb?REDACTED#REDACTED`). That covers a redirect `Location`, the
+"opener is pinned to ..." message, and urllib/http.client parse errors.
+
+For logs, the exception carries the rest. **Do not return these attributes to the model:**
+
+| Attribute | Value |
+|---|---|
+| `detail` | the full reason, for example `Refusing blocked IP 10.0.0.1 (resolved from 'db.corp')` or `Refusing unresolvable hostname 'x'`; equal to `str(exc)` when nothing was withheld |
+| `blocked_address` | the `IPv4Address`/`IPv6Address` that was refused, or `None` |
+| `hostname` | the host that was checked, or `None` |
+
+The type is unchanged (`SsrfBlockedError(ValueError)`), and `SsrfBlockedError("text")` still
+works (`detail == "text"`). Before 2026-11-26, `str(exc)` was what `detail` is now.
 
 ### `assert_safe_fetch_url(raw_url) -> str`
 
@@ -61,6 +85,13 @@ URL when:
   as a `(host, port)` pair) differs from the checked one, for `raw_url` and again for the
   canonical URL;
 - after IDNA the host name uses a character outside `[a-z0-9._-]`;
+- after IDNA, and **before any resolution**, the host is `localhost`, any name under
+  `.localhost`, or one of the Debian aliases `ip6-localhost` / `ip6-loopback`, with or
+  without trailing dots (`localhost.`, `foo.localhost.`, fullwidth `ｌｏｃａｌｈｏｓｔ`).
+  RFC 6761 §6.3 makes these loopback, and stub resolvers such as systemd-resolved answer
+  them without asking DNS, so a hosts file or resolver that maps them elsewhere is not
+  trusted. `localhost.example.com` and `mylocalhost` are ordinary names. The message is
+  `Refusing hostname '<host>': reserved loopback name (RFC 6761)`;
 - the hostname cannot be resolved (including IDNA encoding errors);
 - **any** address the hostname resolves to is loopback, private (RFC 1918, ULA and the
   rest of the stdlib's private list), link-local (which covers `169.254.169.254`
@@ -115,7 +146,12 @@ the answer is blocked. The result is a frozen dataclass:
   `http/1.1`, built directly, so a process-wide
   `ssl._create_default_https_context = ssl._create_unverified_context` does not switch
   verification off. `context=` replaces it;
-- raises `SsrfBlockedError` on 301/302/303/307/308, like `build_no_redirect_opener`;
+- raises `SsrfBlockedError` on 301/302/303/307/308, like `build_no_redirect_opener`
+  (to follow redirects safely, use `pinned_urlopen(..., follow_redirects=N)`);
+- with `deadline=` (a `time.monotonic()` value; default none), bounds every request made
+  through it in total, exactly as `pinned_urlopen` does below, and `open(..., timeout=)`
+  still caps each socket operation. Without `deadline=`, `timeout` is per operation, as in
+  stock urllib;
 - uses **no proxy**. `build_opener()` installs a `ProxyHandler` that reads `http_proxy`,
   `https_proxy` and `all_proxy` (upper or lower case), and a proxy resolves the name
   itself, past every IP check. This opener is assembled by hand without one. If you add a
@@ -128,18 +164,64 @@ The target is re-checked when the opener is built (addresses against the IP bloc
 filled from your own resolver, gets the same policy. A target can be reused for several
 requests and never resolves again.
 
-**`pinned_urlopen(url, data=None, *, timeout=30.0, headers=None, method=None, context=None)`**
+**`pinned_urlopen(url, data=None, *, timeout=30.0, headers=None, method=None, context=None, follow_redirects=0)`**
 is `resolve_and_validate` plus `build_pinned_opener` plus one request for
-`target.canonical_url`. `timeout` is passed to every socket operation (each connect
-attempt, each read); it is not a deadline for the whole request. It raises
-`SsrfBlockedError` (guard refusal, redirect, foreign `Host`), `urllib.error.HTTPError`
-(other 3xx, 4xx and 5xx), or `urllib.error.URLError` (no pinned address accepted the
-connection, TLS failure).
+`target.canonical_url`. It raises `SsrfBlockedError` (guard refusal, refused redirect,
+foreign `Host`), `urllib.error.HTTPError` (other 3xx, 4xx and 5xx), `urllib.error.URLError`
+(no pinned address accepted the connection, TLS failure), or `DeadlineExceededError`.
+
+**`timeout` is the total budget** (PR-02, gate G4; changed 2026-11-26, previously per
+operation). One `time.monotonic()` deadline covers, in order:
+
+| Phase (`DeadlineExceededError.phase`) | How it is bounded |
+|---|---|
+| `resolving the host name` | the one `getaddrinfo` call runs in a worker thread; the caller stops waiting at the deadline (see below) |
+| `waiting for a resolver thread` | no worker slot freed up before the deadline |
+| `connecting` | each attempt's socket timeout is what is **left**, so 12 blackholed A records cost one budget, not twelve |
+| `in the TLS handshake` | the socket timeout set from what is left bounds the whole handshake (CPython 3.5+) |
+| `sending the request` | re-armed from what is left before each 16 KiB, so a server that reads slowly cannot stretch it |
+| `reading the response` | the head and **every read of the returned response** re-arm the socket timeout from what is left, and any read after the deadline is refused, buffered bytes included. A one-byte-per-second drip ends at the deadline |
+
+So the deadline keeps running after `pinned_urlopen` returns: read the body within it.
+`DeadlineExceededError` is both a `TimeoutError` and a `urllib.error.URLError`, so code
+written for the old behaviour (`URLError` from a connect timeout, `TimeoutError` from a
+read timeout) still catches it. `timeout=None` means no deadline and blocking sockets, as
+before; anything else must be a positive, finite number (`ValueError`, or `TypeError` for
+a non-number).
+
+*Why a worker thread for DNS.* `getaddrinfo` cannot be interrupted, and the system resolver
+applies its own retries (`resolv.conf` timeout x attempts x servers, 30 s or more by
+default), so documenting the limit would have left the one unbounded phase in a call that
+promises a bound. The TypeScript twin races `dns.lookup` against its deadline the same way.
+The cost is a thread per call that cannot be stopped: an abandoned lookup finishes when
+the system resolver gives up, and its answer is thrown away. At most 16 lookups run at
+once, abandoned ones included. Past that a call fails closed with `DeadlineExceededError`
+instead of starting more threads, so a stream of hanging names cannot exhaust threads.
+With `timeout=None` the resolution runs inline, as before.
+
+**`follow_redirects`** (gate G5; default `0`, which keeps refusing every
+301/302/303/307/308 with `Redirect to '<Location>' blocked`). With `N` from 1 to 20:
+
+- each hop goes through `resolve_and_validate` again (its own single resolution, every
+  check, loopback names, port 0 and the rest) and a new opener pinned to that answer. A
+  `Location` that names an internal address, rebinds to one, or uses another scheme is
+  refused before any socket to it exists;
+- `https` to `http` is refused (`Refusing redirect to ...: https to http downgrade`);
+  `http` to `https` is allowed;
+- on a hop to another origin (scheme, host or port differs), `Authorization`, `Cookie`,
+  `Proxy-Authorization` and a caller-set `Host` are dropped; same-origin hops keep them;
+- 307 and 308 repeat the method and body (the body must be `bytes`); 301, 302 and 303
+  become a `GET` without a body, and the `Content-*` and `Transfer-Encoding` headers are
+  dropped (a `HEAD` stays a `HEAD`, as in urllib);
+- a redirect body is never read, and a 3xx without `Location` is an `HTTPError`;
+- hop N+1 raises `Redirect to '<Location>' blocked: more than N redirects`;
+- every hop spends the same deadline; `resp.url` is the final canonical URL.
 
 **`PinnedHTTPConnection` / `PinnedHTTPSConnection`** (in `agent_tool_sandbox.pinning`) are
 the `http.client` classes underneath, for callers that use http.client directly:
 `PinnedHTTPSConnection(target.host, target.port, addresses=target.addresses, timeout=10)`.
 They re-check `addresses` (IP objects or strings) on construction and refuse `set_tunnel`.
+Both take a keyword `deadline=None` (a `time.monotonic()` value) with the meaning above.
 
 Why this design: the classes override `connect()` itself rather than the private
 `HTTPConnection._create_connection` hook. If a future CPython renamed that hook, an override
@@ -180,10 +262,14 @@ from agent_tool_sandbox import SsrfBlockedError, pinned_urlopen
 
 def fetch(url: str) -> bytes:
     try:
-        with pinned_urlopen(url, timeout=10) as resp:   # guard + one resolution + pinned dial
+        # guard + one resolution + pinned dial; 10 s in total, body read included
+        with pinned_urlopen(url, timeout=10, follow_redirects=3) as resp:
             return resp.read(1_000_000)
-    except SsrfBlockedError as exc:                     # refused URL, redirect, foreign Host
-        return f"refused: {exc}".encode()
+    except SsrfBlockedError as exc:                     # refused URL or hop, foreign Host
+        log.info("refused %s", exc.detail)              # the detail may name an address
+        return f"refused: {exc}".encode()               # str(exc) is safe for the agent
+    except TimeoutError:                                # DeadlineExceededError included
+        return b"timed out"
 ```
 
 The older, unpinned composition still works and is unchanged. It is exposed to DNS
@@ -238,6 +324,16 @@ def write_tool(path_str: str, text: str) -> None:
   without a second lookup. A resolver that answers public-then-private cannot move the
   connection. `Host` and TLS SNI/verification still use the name. Environment proxies are
   not used.
+- **Slow and stalling servers, with `pinned_urlopen` (or `deadline=`):** one total
+  deadline bounds DNS, every connect attempt, TLS, sending, the head and the body, so a
+  name with many blackholed A records, a slow-drip head or body, or a slow-reading server
+  cannot hold a worker past `timeout`.
+- **Redirects, with `pinned_urlopen(follow_redirects=N)`:** every hop is checked and
+  pinned afresh, with no https-to-http downgrade, and credentials stay on their origin.
+- **Loopback names** (`localhost`, `*.localhost`, trailing dots) are refused by name,
+  whatever the resolver answers.
+- **Error text as an oracle:** refusal messages do not name resolved addresses, read the
+  same for "internal" and "does not resolve", and redact userinfo, query and fragment.
 - **Filesystem:** `..` traversal, absolute paths outside the boundary, sibling-prefix
   confusion, symlinks that escape (followed by `realpath` before the comparison), denied
   sub-trees, dotfiles as the final component however spelled (`.env/`, `.env/./`), a
@@ -258,20 +354,33 @@ def write_tool(path_str: str, text: str) -> None:
   protect callers that fetch either string, but only the returned canonical URL is
   checked against the clients' parsers. Fetch the return value. (`pinned_urlopen` always
   does.)
-- **Clients that follow redirects.** Redirects are refused only by
-  `build_no_redirect_opener()` and the pinning API. `requests` and aiohttp follow redirects
-  by default without re-validating, so a 302 to an internal address gets through. To follow
-  a redirect deliberately, call `pinned_urlopen` again on the `Location` URL, which checks
-  and pins it afresh; nothing here does that for you.
+- **Clients that follow redirects.** Redirects are refused by
+  `build_no_redirect_opener()` and the pinning API, and followed safely only by
+  `pinned_urlopen(..., follow_redirects=N)`. `requests` and aiohttp follow redirects by
+  default without re-validating, so a 302 to an internal address gets through.
+- **Limits of `follow_redirects`.** There is no cookie jar (a `Set-Cookie` on a redirect is
+  not replayed). The `Location` fragment is not inherited (fragments are never sent).
+  Headers other than `Authorization`, `Cookie`, `Proxy-Authorization` and `Host` are kept
+  across origins, so a custom credential header (`X-Api-Key`) follows a cross-origin hop
+  unless you leave redirects off. A 307/308 replays only a `bytes` body.
 - **Proxies.** `build_no_redirect_opener()` uses `build_opener`, which installs a
   `ProxyHandler` if `http_proxy`, `https_proxy` or `all_proxy` is set. The guard checks the
   target, and the proxy then resolves the name itself. The pinning API uses no proxy, so a
   deployment that *must* egress through a proxy cannot use it as is.
 - **Limits of pinning.** It pins the TCP destination, nothing more:
-  - The one resolution is a plain `getaddrinfo` call with no timeout of its own (the
-    system resolver's settings apply), and `timeout=` applies per socket operation and per
-    connect attempt, so a dual-stack host whose first address hangs costs one `timeout`
-    per address. There is no Happy Eyeballs.
+  - The total deadline belongs to `pinned_urlopen` and to openers built with `deadline=`.
+    `build_pinned_opener(target)` without it, and the connection classes without it, keep
+    urllib's per-operation `timeout`: each connect attempt and each read gets the full
+    `timeout`, so N blackholed addresses cost N timeouts and a slow drip is unbounded.
+    Code that builds its own opener should pass `deadline=time.monotonic() + budget`.
+  - An abandoned DNS lookup keeps its worker thread until the system resolver gives up
+    (up to 16 such threads; then calls fail closed until one ends). A resolver hook that
+    never returns holds its slot for good.
+  - Within the deadline, addresses are tried in resolver order and the first one that
+    hangs can spend the whole budget. There is no Happy Eyeballs and no per-family cap,
+    so a reachable second address may never be tried.
+  - The deadline is checked between operations. A read can block for at most what was
+    left when it started, so the overshoot is bounded by scheduling, not by the server.
   - A pinned address is trusted for as long as you keep the `PinnedTarget`; DNS TTLs are
     ignored. That is safe, but a long-lived target can go stale.
   - A public address that forwards traffic (an open proxy, a cloud load balancer that
@@ -283,7 +392,20 @@ def write_tool(path_str: str, text: str) -> None:
   - The pinned opener answers one request per connection (`Connection: close`, as urllib
     always does) and cannot be pointed at a second host; build one per target.
 - **No port policy beyond refusing port 0, no host allowlist, no HTTPS requirement.**
-  `http://public-host:25/` passes. Response size, timeouts and content type are also the caller's job.
+  `http://public-host:25/` passes. Response size and content type are also the caller's
+  job, and so are timeouts outside `pinned_urlopen` / `deadline=`.
+- **What the messages still reveal.** `str(exc)` no longer names resolved addresses, but:
+  - the time a refusal takes still differs between a fast NXDOMAIN, a slow resolver and
+    a cached answer;
+  - a refused URL (internal name) and an accepted one that then fails to connect are still
+    told apart by the exception type;
+  - `exc.detail` and `exc.blocked_address` hold the address on purpose: log them, do not
+    return them to the model;
+  - redaction covers userinfo, query and fragment only, so a secret in the path
+    (`/reset/<token>`) is quoted as is.
+- **The TypeScript twin decides names its own way.** It refuses `localhost`,
+  `ip6-localhost` and `ip6-loopback` by name too; see `../vectors/DIFFERENCES.md` for any
+  vector on which the two languages still differ.
 - **The address tables belong to the interpreter.** The classification comes from
   `ipaddress` (`is_private`, `is_reserved` and so on), and those tables changed in
   CPython 3.12.4 and 3.13, for example in the `192.0.0.0/24` sub-ranges, `2002::/16`, and
@@ -344,8 +466,27 @@ python/TS differences listed there, 17 are resolved (groups g6 6to4, g7 Teredo a
 site-local), all by the TS package now blocking what this package already blocked, so no
 Python verdict changed for them. The two vectors both languages used to allow,
 `meta-azure-wireserver` and `port-zero`, now block in both: those are the only Python
-verdicts that changed. 51 differences remain, for the owner's strictest-wins decision.
+verdicts that changed then. 51 differences remained; item 9 below resolves one more
+(`loc-localhost-lying-resolver`, group g13), so 50 remain for the owner's strictest-wins
+decision.
 Regression tests: `tests/test_wireserver_port_zero.py`.
+
+7. **Total deadline** (staged only, 2026-11-26, PR-02 / G4). `pinned_urlopen`'s
+   `timeout` is a total budget, `DeadlineExceededError` is new, and `build_pinned_opener`
+   and the connection classes take `deadline=`. Tests: `tests/test_deadline.py`.
+8. **Refusal messages** (staged only, 2026-11-26, PR-03). A refusal decided by the DNS
+   answer reads `Refusing hostname '<host>': not an allowed destination`. The reference
+   message moved to `exc.detail`, which the parity corpus compares; the generic text is
+   asserted on its own (`test_refusal_message_divergence`). Tests:
+   `tests/test_refusal_disclosure.py`.
+9. **Loopback names and redaction** (staged only, 2026-11-26, G7). Loopback names are
+   refused before DNS; the reference refuses them only through a loopback answer (same
+   decision in the parity corpus, different message: `LOOPBACK_NAME_URLS`). URLs in
+   messages are redacted. One corpus verdict changed: `loc-localhost-lying-resolver`,
+   python allow to block, which now equals the TS verdict. Tests:
+   `tests/test_localhost_and_redaction.py`.
+10. **Opt-in redirects** (staged only, 2026-11-26, G5). `pinned_urlopen(follow_redirects=N)`;
+    the default 0 is unchanged. Tests: `tests/test_redirects.py`.
 
 The 2026-11-26 fixes (the dotfile rule, the read-path symlink gate, and the checked-host
 vs connected-host refusals with the canonical return value) were applied to both sides
@@ -373,6 +514,12 @@ every later call. The pinned fetch must connect to `93.184.216.34` with exactly 
 resolver call. A control test runs the unpinned `build_no_redirect_opener` composition
 under the same resolver and shows that it lands on `127.0.0.1`, which proves the harness
 would catch a client that resolves again.
+
+`tests/test_deadline.py` uses a fake socket for blackholed connects (12 A records) and for a
+slow-reading server, a resolver that hangs, and a **real listener on 127.0.0.1** for the
+slow-drip head and body. Those few tests allow loopback for themselves only. Run the suite
+under `../../tools/offline.sh`, which leaves only loopback reachable. `tests/test_redirects.py`
+serves a canned response per connection and records every hop's target and request.
 
 `tests/test_parity_in_tree.py` adds the reference repository's `src/` to the path,
 four directory levels up or at `$AGENT_TOOL_SANDBOX_REFERENCE_SRC`. It then checks that

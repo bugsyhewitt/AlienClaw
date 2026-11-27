@@ -7,6 +7,10 @@ Scope:
     RFC 6598 CGNAT, IPv6 ULA / site-local, IPv4-mapped IPv6, and every
     obfuscated / short-form IPv4 literal the platform resolver accepts),
     applied to EVERY address the hostname resolves to.
+  - ``localhost``, ``*.localhost`` (trailing dots included) and the ip6-localhost /
+    ip6-loopback aliases refused by name, before DNS (RFC 6761 §6.3).
+  - Refusal messages that do not disclose what a name resolved to (the detail is on
+    the exception's attributes) and that redact userinfo, query and fragment of URLs.
   - Redirect disable (raises on 3xx — Python equiv of fetch redirect:'error').
   - Checked host == connected host: HTTP clients do not reuse urlparse().
     urllib/http.client keep userinfo, percent-decode the host and split the port at
@@ -106,7 +110,111 @@ def _ip_is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
 
 
 class SsrfBlockedError(ValueError):
-    """Raised when the URL is rejected by the SSRF core guard."""
+    """Raised when the URL is rejected by the SSRF core guard.
+
+    ``str(exc)`` is safe to hand back to an agent: it never names an address the guard
+    learned from DNS (a name that resolves internally and a name that does not resolve
+    read the same), and any URL in it has its userinfo, query and fragment redacted.
+    For logs, the exception also carries:
+
+    - ``detail``: the full reason, which may name the resolved address
+      (``Refusing blocked IP 10.0.0.1 (resolved from 'db.corp')``); the same as
+      ``str(exc)`` when nothing was withheld;
+    - ``blocked_address``: the ``IPv4Address``/``IPv6Address`` that was refused, or ``None``;
+    - ``hostname``: the host that was checked, or ``None``.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        detail: str | None = None,
+        blocked_address: ipaddress.IPv4Address | ipaddress.IPv6Address | None = None,
+        hostname: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.detail = message if detail is None else detail
+        self.blocked_address = blocked_address
+        self.hostname = hostname
+
+
+_REDACTED: Final = "REDACTED"
+# An authority ("//" after an optional scheme) up to the first "/"; "\\" is NOT a stop, so
+# "a\\@host" redacts as userinfo (WHATWG parsers end the authority there, urllib does not).
+_AUTHORITY: Final = re.compile(r"^((?:[A-Za-z][A-Za-z0-9+.\-]*:)?//)([^/]*)")
+
+
+def _redact_url(url: str | None) -> str | None:
+    """``url`` with its userinfo, query and fragment replaced by ``REDACTED``.
+
+    Used for every URL that goes into an error message: a redirect ``Location`` or a
+    request URL can carry credentials (``user:pw@``) or tokens (``?code=``, ``#access_token=``).
+    Non-strings (a missing ``Location``) are returned unchanged.
+    """
+    if not isinstance(url, str):
+        return url
+    cuts = [i for i in (url.find("?"), url.find("#")) if i >= 0]
+    cut = min(cuts) if cuts else len(url)
+    head, tail = url[:cut], url[cut:]
+    match = _AUTHORITY.match(head)
+    if match and "@" in match.group(2):
+        host = match.group(2).rpartition("@")[2]
+        head = f"{match.group(1)}{_REDACTED}@{host}{head[match.end():]}"
+    if tail.startswith("?"):
+        tail = f"?{_REDACTED}" + (f"#{_REDACTED}" if "#" in tail else "")
+    elif tail:
+        tail = f"#{_REDACTED}"
+    return head + tail
+
+
+def _secret_parts(url: str) -> list[str]:
+    """What ``_redact_url`` hides: the userinfo (and each half), the query, the fragment."""
+    parts: list[str] = []
+    fragment_at = url.find("#")
+    if fragment_at >= 0:
+        parts.append(url[fragment_at + 1:])
+        url = url[:fragment_at]
+    query_at = url.find("?")
+    if query_at >= 0:
+        parts.append(url[query_at + 1:])
+        url = url[:query_at]
+    match = _AUTHORITY.match(url)
+    if match and "@" in match.group(2):
+        userinfo = match.group(2).rpartition("@")[0]
+        parts += [userinfo, *userinfo.split(":")]
+    return [part for part in parts if part]
+
+
+def _scrub(text: str, url: object) -> str:
+    """``text`` (an exception message about ``url``) made safe to quote.
+
+    Copies of the whole URL are replaced by its redacted form. If any secret part still
+    shows (http.client quotes fragments, e.g. "nonnumeric port: 'pw@host'"), the text is
+    withheld in favour of the redacted URL.
+    """
+    if not isinstance(url, str) or not url:
+        return text
+    redacted = str(_redact_url(url))
+    text = text.replace(repr(url), repr(redacted)).replace(url, redacted)
+    if any(part in text for part in _secret_parts(url)):
+        return f"{redacted!r} (details withheld: they would quote credentials or a query)"
+    return text
+
+
+def _refused(host: str) -> str:
+    """The one message for a post-DNS refusal: blocked address and no address read the same."""
+    return f"Refusing hostname {host!r}: not an allowed destination"
+
+
+# RFC 6761 §6.3: "localhost" and every name under ".localhost" are loopback, and stub
+# resolvers (systemd-resolved, browsers) answer them without asking DNS. The two Debian
+# /etc/hosts aliases are refused too, as the TypeScript twin does.
+_LOOPBACK_NAMES: Final[frozenset[str]] = frozenset({"localhost", "ip6-localhost", "ip6-loopback"})
+
+
+def _is_loopback_name(ascii_host: str) -> bool:
+    name = ascii_host.rstrip(".")
+    return name in _LOOPBACK_NAMES or name.endswith(".localhost")
 
 
 def _assert_unambiguous_chars(raw_url: str) -> None:
@@ -182,7 +290,7 @@ def _connect_target(url: str) -> tuple[str, int]:
         probe = _HttpsPortProbe if req.type == "https" else http.client.HTTPConnection
         conn = probe(req.host)
     except (ValueError, http.client.HTTPException) as exc:
-        raise SsrfBlockedError(f"Refusing malformed URL: {exc}")
+        raise SsrfBlockedError(f"Refusing malformed URL: {_scrub(str(exc), url)}")
     return conn.host.lower(), conn.port
 
 
@@ -258,14 +366,27 @@ def _validate_fetch_url(raw_url: str) -> _ValidatedUrl:
     effective_port = port if port is not None else _DEFAULT_PORTS[parsed.scheme]
     _assert_connects_to(raw_url, host, effective_port)
     ascii_host = _ascii_host(host)
+    if _is_loopback_name(ascii_host):  # before DNS: a resolver may answer anything for it
+        raise SsrfBlockedError(
+            f"Refusing hostname {host!r}: reserved loopback name (RFC 6761)", hostname=host
+        )
 
+    # From here on the verdict depends on what DNS answered, so str(exc) is the same for
+    # every outcome and only ``detail`` / ``blocked_address`` say which (PR-03).
     ips = _resolve_host_ips(host)
     if not ips:
-        raise SsrfBlockedError(f"Refusing unresolvable hostname {host!r}")
+        raise SsrfBlockedError(
+            _refused(host), detail=f"Refusing unresolvable hostname {host!r}", hostname=host
+        )
 
     for ip in ips:
         if _ip_is_blocked(ip):
-            raise SsrfBlockedError(f"Refusing blocked IP {ip} (resolved from {host!r})")
+            raise SsrfBlockedError(
+                _refused(host),
+                detail=f"Refusing blocked IP {ip} (resolved from {host!r})",
+                blocked_address=ip,
+                hostname=host,
+            )
 
     canonical = _canonical_url(parsed, ascii_host, port)
     _assert_connects_to(canonical, ascii_host, effective_port)
@@ -276,7 +397,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
     """Block all 3xx redirects — equiv of fetch redirect:'error'."""
 
     def http_error_302(self, req, fp, code, msg, headers):  # noqa: N802
-        raise SsrfBlockedError(f"Redirect to {headers.get('Location')!r} blocked")
+        raise SsrfBlockedError(f"Redirect to {_redact_url(headers.get('Location'))!r} blocked")
 
     http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
 

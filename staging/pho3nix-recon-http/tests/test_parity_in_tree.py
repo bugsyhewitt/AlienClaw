@@ -12,6 +12,11 @@ purpose if the in-tree side starts behaving like the staged one:
 
 - CGNAT: the staged guard (agent_tool_sandbox) blocks RFC 6598 100.64.0.0/10 and the
   in-tree guard does not (see agent_tool_sandbox's PROVENANCE.json).
+- Refusal text (agent_tool_sandbox PR-03 and G7): where the verdict depends on the DNS
+  answer, the staged error is "Refusing hostname '<host>': not an allowed destination",
+  never the resolved address, and it reads the same for "resolves internally" and "does
+  not resolve"; localhost names are refused by name before DNS ("reserved loopback name
+  (RFC 6761)"). The in-tree error names the address. Same verdicts, different text.
 - DNS pinning (http_get, url_fetch): the staged tools resolve once and dial only the
   vetted addresses; the in-tree tools resolve again at connect time (rebinding).
 - Env proxies: the staged pinned opener uses none; the in-tree opener honors them.
@@ -34,6 +39,7 @@ import dataclasses
 import inspect
 import json
 import os
+import re
 import socket
 import sys
 import threading
@@ -42,6 +48,7 @@ import urllib.request
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -191,6 +198,31 @@ CGNAT_URLS = [
     "http://100.64.0.1/", "http://100.127.255.254/x", "http://cgnat.example/",
     "http://mapped-cgnat.example/", "http://[::ffff:100.64.0.1]/",
 ]
+# Declared divergence (refusal text, PR-03): both sides refuse after DNS; the staged error is
+# generic, the in-tree one names the resolved address (or says "unresolvable").
+GENERIC_REFUSAL_URLS = [
+    "http://127.0.0.1/", "http://127.1/", "http://0x7f.0.0.1/", "http://2130706433/",
+    "http://0/", "http://[::1]/", "http://[::ffff:127.0.0.1]/", "http://[fe80::1]/",
+    "http://[fc00::1]/", "http://169.254.169.254/latest/meta-data/",
+    "http://metadata.google.internal/", "http://mixed.example/",
+    "http://mapped-metadata.example/", "http://ula.example/", "http://nxdomain.example/",
+]
+# Declared divergence (G7): staged refuses the name before DNS; in-tree via its 127.0.0.1 answer.
+LOOPBACK_NAME_URLS = ["http://localhost/"]
+MESSAGE_DIVERGENT_URLS = GENERIC_REFUSAL_URLS + LOOPBACK_NAME_URLS  # a list: URLS has lists
+_IP_TEXT = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b|[0-9a-f]*:[0-9a-f]*:[0-9a-f:.]*", re.I)
+_OLD_REFUSAL = re.compile(
+    r"Refusing blocked IP \S+ \(resolved from '.*'\)|Refusing unresolvable hostname '.*'"
+)
+
+
+def _generic_refusal(url: str) -> str:
+    return f"Refusing hostname {urlsplit(url).hostname!r}: not an allowed destination"
+
+
+def _names_no_address(error: str, url: str) -> bool:
+    """No IP in ``error`` apart from the URL's own host (a literal the caller supplied)."""
+    return not _IP_TEXT.search(error.replace(repr(urlsplit(url).hostname), ""))
 
 URLS = [
     # fetched (after canonicalisation)
@@ -247,7 +279,7 @@ def _fetch_both(name, inputs, params, responder="json"):
 def test_fetch_tools_agree_on_url_corpus(name) -> None:
     mismatches = []
     for url in URLS:
-        if url in CGNAT_URLS:
+        if url in CGNAT_URLS or url in MESSAGE_DIVERGENT_URLS:
             continue
         (staged, staged_reqs), (ref, ref_reqs) = _fetch_both(name, {"url": url}, {})
         if (staged, staged_reqs) != (ref, ref_reqs):
@@ -261,10 +293,33 @@ def test_cgnat_is_the_declared_divergence(name, url) -> None:
     (staged, staged_reqs), (ref, ref_reqs) = _fetch_both(name, {"url": url}, {})
     staged_result, ref_result = staged[3], ref[3]
     assert staged_result["ok"] is False
-    assert staged_result["error"].startswith("Refusing blocked IP 100.")
+    assert staged_result["error"] == _generic_refusal(url)  # PR-03: no address in the text
+    assert _names_no_address(staged_result["error"], url)
     assert staged_reqs == []
     assert ref_result["ok"] is True, "in-tree now blocks CGNAT: drop this divergence"
     assert len(ref_reqs) == 1
+
+
+@pytest.mark.parametrize("name", sorted(FETCH))
+@pytest.mark.parametrize("url", MESSAGE_DIVERGENT_URLS)
+def test_refusal_text_is_the_declared_divergence(name, url) -> None:
+    (staged, staged_reqs), (ref, ref_reqs) = _fetch_both(name, {"url": url}, {})
+    staged_result, ref_result = dict(staged[3]), dict(ref[3])
+    staged_error, ref_error = staged_result.pop("error"), ref_result.pop("error")
+    # Same verdict and every other field the same; nothing reached either transport.
+    assert staged[:3] == ref[:3] and staged_result == ref_result
+    assert staged_result["ok"] is False and staged_reqs == ref_reqs == []
+    if url in LOOPBACK_NAME_URLS:
+        host = urlsplit(url).hostname
+        assert staged_error == f"Refusing hostname {host!r}: reserved loopback name (RFC 6761)"
+        assert ref_error.startswith("Refusing blocked IP 127.0.0.1 "), ref_error
+    else:
+        assert staged_error == _generic_refusal(url)
+        assert _OLD_REFUSAL.fullmatch(ref_error), (
+            f"in-tree no longer names the address ({ref_error!r}): drop this divergence"
+        )
+    assert _names_no_address(staged_error, url), staged_error
+    assert staged_error != ref_error
 
 
 @pytest.mark.parametrize("name", sorted(FETCH))

@@ -211,9 +211,12 @@ def test_fetch_resolves_exactly_once_with_the_default_resolver(fake_dns, wire) -
 )
 def test_any_blocked_address_in_the_answer_refuses(answers, fake_dns, wire) -> None:
     fake_dns.raw["mixed-answer.example"] = [_entry(a, None) for a in answers]
-    with pytest.raises(SsrfBlockedError, match="Refusing blocked IP"):
+    # PR-03: the message is generic; which address was refused is on the exception.
+    refused = "Refusing hostname 'mixed-answer.example': not an allowed destination"
+    with pytest.raises(SsrfBlockedError, match=f"^{refused}$") as excinfo:
         resolve_and_validate("http://mixed-answer.example/")
-    with pytest.raises(SsrfBlockedError, match="Refusing blocked IP"):
+    assert excinfo.value.detail.startswith("Refusing blocked IP ")
+    with pytest.raises(SsrfBlockedError, match=f"^{refused}$"):
         pinned_urlopen("http://mixed-answer.example/", timeout=5)
     assert wire.sockets == []
 
@@ -363,17 +366,23 @@ def test_all_pinned_addresses_refusing_is_a_urlerror(wire, fake_dns) -> None:
     assert fake_dns.calls == ["dual.example"]
 
 
-@pytest.mark.parametrize("timeout", [7.5, None])
-def test_timeout_reaches_the_socket(timeout, wire) -> None:
-    with pinned_urlopen("http://public.example/", timeout=timeout) as resp:
+def test_timeout_reaches_the_socket(wire) -> None:
+    # PR-02: timeout is now a total budget, so each socket operation gets what is left.
+    with pinned_urlopen("http://public.example/", timeout=7.5) as resp:
         resp.read()
-    assert wire.sockets[0].timeout == timeout
+    assert 7.0 < wire.sockets[0].timeout <= 7.5
+
+
+def test_no_timeout_means_blocking_sockets(wire) -> None:
+    with pinned_urlopen("http://public.example/", timeout=None) as resp:
+        resp.read()
+    assert wire.sockets[0].timeout is None
 
 
 def test_default_timeout_is_bounded(wire) -> None:
     with pinned_urlopen("http://public.example/") as resp:
         resp.read()
-    assert wire.sockets[0].timeout == 30.0
+    assert 29.0 < wire.sockets[0].timeout <= 30.0
 
 
 def test_post_body_and_method(wire) -> None:

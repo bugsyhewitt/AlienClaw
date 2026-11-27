@@ -2127,7 +2127,7 @@
         "93.184.216.34"
       ],
       "expected": {
-        "python": "allow",
+        "python": "block",
         "ts": "block"
       },
       "rationale": "localhost with a resolver that answers a public address: only a pre-DNS name rule blocks it.",

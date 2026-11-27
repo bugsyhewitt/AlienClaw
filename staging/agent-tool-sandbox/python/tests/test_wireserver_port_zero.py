@@ -52,8 +52,11 @@ def _records(fake_dns):
     "http://dual-wireserver.example/",                # one bad answer poisons the set
 ])
 def test_guard_blocks_azure_wireserver(url: str) -> None:
-    with pytest.raises(SsrfBlockedError, match=r"^Refusing blocked IP 168\.63\.129\.16 "):
+    # PR-03: str(exc) no longer names the address; the detail and the address are kept.
+    with pytest.raises(SsrfBlockedError) as excinfo:
         assert_safe_fetch_url(url)
+    assert excinfo.value.detail.startswith("Refusing blocked IP 168.63.129.16 ")
+    assert excinfo.value.blocked_address == ipaddress.IPv4Address(WIRESERVER)
 
 
 @pytest.mark.parametrize(("ip", "blocked"), [
@@ -72,8 +75,9 @@ def test_wireserver_neighbours_are_public(url: str) -> None:
 
 
 def test_pinning_refuses_wireserver() -> None:
-    with pytest.raises(SsrfBlockedError, match="168.63.129.16"):
+    with pytest.raises(SsrfBlockedError) as excinfo:
         resolve_and_validate("http://wireserver.example/")
+    assert "168.63.129.16" in excinfo.value.detail and "168.63" not in str(excinfo.value)
     with pytest.raises(SsrfBlockedError, match=r"Refusing blocked IP 168\.63\.129\.16 \(pinned"):
         PinnedHTTPConnection("public.example", addresses=["93.184.216.34", WIRESERVER])
 
@@ -128,5 +132,7 @@ def test_ports_1_to_65535_still_pass(url: str, canonical: str) -> None:
     "http://[64:ff9b::a83f:8110]/",                         # NAT64 embedding WireServer
 ])
 def test_transition_prefixes_and_site_local_stay_blocked(url: str) -> None:
-    with pytest.raises(SsrfBlockedError, match="^Refusing blocked IP "):
+    with pytest.raises(SsrfBlockedError) as excinfo:
         assert_safe_fetch_url(url)
+    assert excinfo.value.detail.startswith("Refusing blocked IP ")
+    assert excinfo.value.blocked_address is not None
