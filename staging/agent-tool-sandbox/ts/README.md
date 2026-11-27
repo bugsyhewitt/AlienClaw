@@ -362,6 +362,29 @@ anything but loopback, and uses the global `fetch` against the same listener as 
 `test/parity-in-tree.test.ts` imports the in-tree module by relative path. Delete it, or point it at a pinned copy,
 when the package leaves the repo.
 
+**Property-based tests** (`fast-check`, a fixed seed on every `fc.assert`, about 3 s together) check invariants over
+generated inputs rather than listed examples:
+
+- `test/property-classifier.test.ts`: `isBlockedHost` and `validateResolvedAddresses` agree with
+  `test/reference-blocklist.ts`, an independent classifier that reads `../policy/blocklist.v1.json` itself (its own
+  parsing and BigInt CIDR arithmetic, the matching rules and profiles of `../policy/README.md`, no code shared with
+  `src/` or the generator). Addresses are biased to every range's first and last address and their neighbours, drawn
+  inside each range, embedded (IPv4-compatible, -mapped, -translated, NAT64, 6to4, Teredo and near misses) or uniform.
+  Every textual spelling of an IPv6 address (compressed anywhere, expanded, zero-padded, dotted tail, mixed case, zone
+  ID) gets one verdict, and so does every spelling of a host that WHATWG URL normalises to one host (case, full-width
+  forms, ideographic dots, soft hyphens, percent-encoding, IDNA labels, hex/octal/short IPv4, trailing dots).
+- `test/property-fetch.test.ts`: for generated multi-answer `resolve` results, `hardenedFetch` refuses before any
+  socket connect, or the socket is offered exactly the validated answer and Node dials from it; `resolve` runs once
+  per hop, across generated redirect chains too (the `test/pinning.test.ts` connect instruments, copied). Generated
+  `FetchPolicy` objects: a bad field is a `TypeError` naming the first bad field before any I/O, a valid one is
+  accepted and enforced, and each field is read once.
+- `test/property-strictest-wins.test.ts`: the same reference check with `src/blocklist-data.ts` replaced (through
+  `vi.mock`, nothing on disk) by the table `../policy/gen-ts.mjs` resolves for `strictest-wins`, the profile gate G3
+  may switch to.
+
+The reference-based suites skip when `../policy/` is not next to the package. A failing property prints its
+counterexample, seed and path; add the counterexample to that assertion's `examples` as a regression case.
+
 ## Packaging
 
 `package.json` describes the published shape: `exports` (`.` and `./hardened-fetch`, each with a `types` condition)
