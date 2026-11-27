@@ -566,3 +566,33 @@ both implementations reach the same decision, with the same message, for a corpu
 resolver answers, IPs (explicit vectors plus a Hypothesis property) and filesystem paths
 (traversal, absolute paths, and symlinks in a temporary tree). When the reference sources
 cannot be imported, the whole module **skips**, so the package can be lifted out as is.
+
+`tests/test_property_*.py` are Hypothesis properties over generated inputs (skipped without
+`hypothesis`). They are deterministic in CI: `derandomize=True`, no example database, and no
+per-example deadline (the example counts bound the runtime, about 4,000 examples in 11 s).
+`ATS_PROPERTY_SCALE=N` multiplies every `max_examples` for a deeper local run.
+
+- `test_property_url_guard.py`: URLs with mixed-case and foreign schemes, IDNA and unicode
+  hosts, IP literals in every spelling, userinfo, edge ports, `%`, `\`, extra `:`, brackets,
+  whitespace and control characters, and non-ASCII paths, under a resolver that answers
+  every name with a public address. An accepted URL's canonical form must agree with the
+  validated scheme, host and port under `urllib.request.Request`, under the `(host, port)` a
+  stock urllib opener passes to `socket.create_connection`, and under `urlsplit`. The
+  resolver must have been asked for that host, and the canonical URL must validate to
+  itself. A refusal is always `SsrfBlockedError`. A clean population must be accepted in
+  an independently written canonical form.
+- `test_property_blocklist.py`: rebuilds the block list from `../policy/blocklist.v1.json`
+  with `ipaddress.ip_network` and the rules in `../policy/README.md`, then compares it with
+  `_ip_is_blocked`, with the guard (DNS answer and URL literal) and with
+  `_is_loopback_name`. Inputs are random addresses, each CIDR's first and last address
+  and their neighbours, and every IPv4 edge embedded as mapped, NAT64, compatible,
+  translated, local-use NAT64, 6to4 and Teredo (the edge set is also checked exhaustively).
+- `test_property_pinning.py`: multi-answer DNS (public and blocked IPv4/IPv6, mapped,
+  duplicates), refused connects, and 1 to 3 redirect hops, on the `tests/test_pinning.py`
+  socket seam. If any answer is blocked, `pinned_urlopen` must refuse before a socket
+  exists. Otherwise it must dial only the vetted addresses, in resolver order, and resolve
+  each hop exactly once.
+- `test_property_boundary.py`: paths over a tree of hostile symlinks (escapes, loops, a
+  sibling with the root's name as a prefix, links to dotfiles). The result must equal
+  `os.path.realpath`, lie inside the root by `os.path.commonpath`, and break no dotfile
+  or deny-root rule. A rejection must be a `ValueError`.

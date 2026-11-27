@@ -42,7 +42,7 @@ import re
 import socket
 import urllib.request
 from typing import Final, NamedTuple
-from urllib.parse import ParseResult, quote, urlparse, urlunparse
+from urllib.parse import quote, urlparse, urlsplit, urlunsplit
 
 from . import _blocklist_data as _blocklist
 
@@ -335,14 +335,18 @@ def _assert_connects_to(url: str, host: str, port: int) -> None:
         )
 
 
-def _canonical_url(parsed: ParseResult, ascii_host: str, port: int | None) -> str:
-    """Rebuild the URL from validated parts: no userinfo, IDNA host, the given port."""
+def _canonical_url(url: str, ascii_host: str, port: int | None) -> str:
+    """Rebuild the URL from validated parts: no userinfo, IDNA host, the given port.
+
+    The path is urlsplit()'s: urlparse() splits ';params' off the last segment and
+    urlunparse() then drops an EMPTY one, so '/a;' came back as '/a', another resource
+    (fixed 2026-11-26). An empty '?' query or '#' fragment is still dropped.
+    """
+    split = urlsplit(url)
     netloc = f"[{ascii_host}]" if ":" in ascii_host else ascii_host
     if port is not None:
         netloc = f"{netloc}:{port}"
-    return urlunparse(
-        (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
-    )
+    return urlunsplit((split.scheme, netloc, split.path, split.query, split.fragment))
 
 
 class _ValidatedUrl(NamedTuple):
@@ -423,7 +427,7 @@ def _validate_fetch_url(raw_url: str) -> _ValidatedUrl:
                 hostname=host,
             )
 
-    canonical = _canonical_url(parsed, ascii_host, port)
+    canonical = _canonical_url(raw_url, ascii_host, port)
     _assert_connects_to(canonical, ascii_host, effective_port)
     return _ValidatedUrl(parsed.scheme, ascii_host, effective_port, canonical, ips)
 
